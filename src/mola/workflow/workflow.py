@@ -272,7 +272,7 @@ class Workflow(object):
         self.define_families()
         self.split_and_distribute()
         self.process_overset()
-        self.compute_reference_values()
+        self.compute_flow_and_turbulence()
         self.set_motion()
         self.set_boundary_conditions()
         self.set_cfd_parameters()  # model, numerics, others...
@@ -328,7 +328,7 @@ class Workflow(object):
         else:
             return fg
         
-    def compute_reference_values(self):
+    def compute_flow_and_turbulence(self):
         # mola-generic set of parameters
         FlowGen = self._FlowGenerator(self)
         FlowGen.generate()
@@ -381,4 +381,25 @@ class Workflow(object):
             command = self.RunManagement['LauncherCommand']
         user = self.RunManagement.get('User')
         SV.submit_command(command, self.RunManagement['Machine'], user=user)
+
+    def merge(self, other_workflow):
+        # merge trees
+        self.tree.merge(other_workflow.tree)
+
+        # update BCs or GCs at the interface
+        for bc in self.BoundaryConditions + other_workflow.BoundaryConditions:
+            if bc['type'] == 'WorkflowInterface':
+                bc['type'] = bc.pop['final_type']
+        
+        # merge attributes
+        self.RawMeshComponents += other_workflow.RawMeshComponents
+        # Handle ApplicationContext ?
+        self.BoundaryConditions += other_workflow.BoundaryConditions
+        self.BodyForceModeling += other_workflow.BodyForceModeling
+        self.Extractions += other_workflow.Extractions
+        self.ConvergenceCriteria += other_workflow.ConvergenceCriteria
+        self.Monitoring += other_workflow.Monitoring
+
+        # set again boundary conditions because it may have changed
+        self.set_boundary_conditions()
 

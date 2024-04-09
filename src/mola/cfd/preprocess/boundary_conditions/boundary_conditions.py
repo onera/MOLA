@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
+import copy
 from treelab import cgns
 from mola import misc
 from mola.logging import mola_logger, MolaException, mute_stdout
@@ -42,6 +43,9 @@ BoundaryConditionsNames.update(
     )
 )
 
+permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'OutflowPressure', 'OutflowMassFlow', 'OutflowRadialEquilibrium']
+turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface']
+
 
 def apply(workflow):
     '''
@@ -58,7 +62,10 @@ def apply(workflow):
     for bc in workflow.BoundaryConditions:
         
         bcName = bc['type']
-        mola_logger.info(f'  > {bcName} on family {bc["Family"]}')
+        try:
+            mola_logger.info(f'  > {bcName} on family {bc["Family"]}')
+        except:
+            mola_logger.info(f'  > {bcName} between families {bc["left"]} and {bc["right"]}')
         
         if bcName in BoundaryConditionsNames:
             # Define in the main MOLA preprocess, lower in this file
@@ -241,3 +248,21 @@ def getPrimitiveTurbulentFieldForInjection(workflow, bc):
             turbDict[name] = bc.get(name, value)
             
         return turbDict
+
+def OutflowRadialEquilibrium(workflow, bc):
+    # kwargs = dict(
+    #     valve_type = bc.get('valve_type', 0),
+    #     valve_ref_pres = bc.get('valve_ref_pres'),
+    #     valve_ref_mflow = bc.get('valve_ref_pres'), 
+    #     valve_relax = bc.get('valve_relax', 0.1), 
+    #     indpiv = bc.get('indpiv', 1),
+    # )
+    kwargs = copy.deepcopy(bc)
+    kwargs.pop('Family')
+    kwargs.pop('type')
+    return [bc['Family']], kwargs
+
+
+def MixingPlane(workflow, bc):
+    return [bc['left'], bc['right']], dict() 
+

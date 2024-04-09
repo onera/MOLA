@@ -32,8 +32,6 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
             for meshInfo in self.RawMeshComponents:
                 meshInfo.setdefault('mesher', 'Autogrid')
 
-            self.TurboConfiguration = dict()
-
             self.Extractions.append(
                 dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
                 dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),

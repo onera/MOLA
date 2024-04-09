@@ -36,8 +36,15 @@ def get_surface_of_inflow(workflow):
         raise MolaException( 'Please provide a reference surface as "Surface" in ReferenceValues or provide a unique inflow BC in BoundaryConditions')
     
     InflowFamily = InflowBCs[0]['Family']
+    Surface = get_surface_of_family(workflow.tree, InflowFamily)
+    try:
+        Surface *= workflow.ApplicationContext['NormalizationCoefficient'][InflowFamily]['FluxCoef']
+    except:
+        pass
+
+    mola_logger.info(f'Reference surface = {Surface} m^2 (computed from inflow family {InflowFamily})')
     
-    return get_surface_of_family(workflow.tree, InflowFamily)
+    return Surface
 
 def get_surface_of_family(tree, Family):
     import Converter.PyTree as C
@@ -47,6 +54,6 @@ def get_surface_of_family(tree, Family):
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = P.integ(SurfaceTree, var='ones')[0]        # Compute normalization coefficient
-    mola_logger.info(f'Reference surface = {Surface} m^2 (computed from family {Family})')
+    mola_logger.debug(f'Surface of family {Family} = {Surface} m^2')
 
     return Surface

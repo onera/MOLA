@@ -20,7 +20,8 @@ import copy
 
 from treelab import cgns
 from mola.workflow import Workflow
-from mola.logging import mola_logger, MolaAssertionError
+from mola.logging import mola_logger, MolaException, MolaAssertionError
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
 
 
 class WorkflowRotatingComponent(Workflow):
@@ -65,10 +66,10 @@ class WorkflowRotatingComponent(Workflow):
             self.ApplicationContext.setdefault('ShaftAxis', np.array([1.,0,0]))
             self.Flow['Direction'] = self.ApplicationContext['ShaftAxis']
 
-    
     def define_families(self):
         super().define_families()
         self.set_default_parameters_for_rows()
+        self.compute_fluxcoef_by_row() 
 
     def set_default_parameters_for_rows(self):
 
@@ -85,7 +86,6 @@ class WorkflowRotatingComponent(Workflow):
 
             rowParams.setdefault('NumberOfBladesSimulated', 1)
             rowParams.setdefault('NumberOfBladesInInitialMesh', self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades']))
-
 
     def duplicate(self):
         jns_paths = PT.predicates_to_paths(dist_tree, 'CGNSBase_t/Zone_t/ZoneGridConnectivity_t/GridConnectivity_t')
@@ -118,9 +118,7 @@ class WorkflowRotatingComponent(Workflow):
         self.set_blade_boundary_conditions()
         self.set_hub_boundary_conditions()
 
-        super().set_boundary_conditions()
-
-        self.compute_fluxcoef_by_row()   
+        super().set_boundary_conditions()  
 
     def set_shroud_boundary_conditions(self, families=['shroud', 'carter']):
         for shroud_family in self._extendListOfFamilies(families):
@@ -142,9 +140,12 @@ class WorkflowRotatingComponent(Workflow):
                 
                 row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
 
-                self.BoundaryConditions.append(
-                    dict(Family=FamilyBoundary, type='Wall', Motion=self.Motion[row_family])
-                    )
+                try:
+                    self.BoundaryConditions.append(
+                        dict(Family=FamilyBoundary, type='Wall', Motion=self.Motion[row_family])
+                        )
+                except KeyError:
+                    self.BoundaryConditions.append(dict(Family=FamilyBoundary, type='Wall'))
     
     def set_hub_boundary_conditions(self, families=['hub', 'moyeu']):
         for hub_family in self._extendListOfFamilies(families):
@@ -157,9 +158,12 @@ class WorkflowRotatingComponent(Workflow):
                     # Assume that hub rotates at the same speed that the zone family
                     mola_logger.warning(f'Assume that motion is uniform on Family {FamilyBoundary}.')
                     row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
-                    self.BoundaryConditions.append(
-                        dict(Family=FamilyBoundary, type='Wall', Motion=self.Motion[row_family])
-                        )
+                    try:
+                        self.BoundaryConditions.append(
+                            dict(Family=FamilyBoundary, type='Wall', Motion=self.Motion[row_family])
+                            )
+                    except KeyError:
+                        self.BoundaryConditions.append(dict(Family=FamilyBoundary, type='Wall'))
                 else:
                     self.BoundaryConditions.append(
                         dict(Family=FamilyBoundary, type='Wall', Motion=dict(RotationSpeed=self._get_hub_rotation_function()))
@@ -179,7 +183,11 @@ class WorkflowRotatingComponent(Workflow):
         return ExtendedFamilyNames
 
     def _is_boundary_already_defined(self, FamilyBoundary):
-        return any([bc['Family'] == FamilyBoundary for bc in self.BoundaryConditions])
+        for bc in self.BoundaryConditions:
+            for key in ['Family', 'left', 'right']:
+                if key in bc and bc[key] == FamilyBoundary:
+                    return True
+        return False
     
     @staticmethod
     def _is_boundary_to_skeep(FamilyBoundary):
@@ -211,7 +219,6 @@ class WorkflowRotatingComponent(Workflow):
             hub_rotation_function = self.ApplicationContext['HubRotationSpeed']
 
         return hub_rotation_function     
-
 
     def get_number_of_blades_in_mesh_from_family(self, FamilyName, NumberOfBlades):
         '''
@@ -285,7 +292,6 @@ class WorkflowRotatingComponent(Workflow):
         deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
         return deltaTheta
 
-    
     def compute_fluxcoef_by_row(self):
         '''
         Compute the parameter **FluxCoef** for boundary conditions (except wall BC)
@@ -299,27 +305,24 @@ class WorkflowRotatingComponent(Workflow):
         for <FamilyName> in the list of BC families, except families of type 'BCWall*'.
 
         '''
-        for zone in self.tree.zones():
+        self.ApplicationContext.setdefault('NormalizationCoefficient', dict())
+
+        for bc in self.BoundaryConditions:
+
+            if bc['type'] not in permeable_boundaries+turbomachinery_interfaces:
+                continue
+            
+            Families = [value for key, value in bc.items() if key in ['Family', 'left', 'right']]
+            for Family in Families:
+                row = self._get_row_from_BC_Family(self.tree, Family)
         
-            row = zone.get(Type='FamilyName', Depth=1).value()
-            try:
-                rowParams = self.ApplicationContext['Rows'][row]
-                fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
-            except KeyError:
-                # since a FamilyNode does not necessarily belong to a row
-                fluxcoeff = 1.
-
-            for bc in zone.group(Type='BC', Depth=2) + zone.group(Type='GridConnectivity', Depth=2):
-                FamilyName = bc.get(Type='FamilyName').value()
-
-                FamilyNode = self.tree.get(Name=FamilyName, Type='Family', Depth=2)
-                FamilyBCNode = FamilyNode.get(Type='FamilyBC', Depth=1)
-                if not FamilyBCNode:
-                    continue
-                BCType = FamilyBCNode.value()
-                if 'BCWall' in BCType:
-                    continue
-
-                self.ApplicationContext.setdefault('NormalizationCoefficient', dict())
-                self.ApplicationContext['NormalizationCoefficient'][FamilyName] = dict(FluxCoef=fluxcoeff)
-
+                try:
+                    rowParams = self.ApplicationContext['Rows'][row]
+                    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+                except KeyError:
+                    # since a FamilyNode does not necessarily belong to a row
+                    fluxcoeff = 1.
+                
+                mola_logger.debug(f'fluxcoeff on Family {Family} is {fluxcoeff}')
+                self.ApplicationContext['NormalizationCoefficient'][Family] = dict(FluxCoef=fluxcoeff)
+            

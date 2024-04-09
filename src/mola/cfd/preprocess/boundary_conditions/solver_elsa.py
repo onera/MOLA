@@ -21,6 +21,7 @@ import Converter.PyTree as C
 import Converter.Internal as I
 
 from treelab import cgns
+from mola.logging import mola_logger, MolaException, mute_stdout
 from mola.cfd.preprocess.solver_specific_tools import solver_elsa
 from mola.cfd.preprocess.motion import motion
 from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa
@@ -497,4 +498,186 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
             BCType = I.getValue( BCnode )
             if BCType != 'FamilySpecified': return BCType
             break
+
+@mute_stdout
+def outradeq(workflow, FamilyName, valve_type=0, valve_ref_pres=None,
+    valve_ref_mflow=None, valve_relax=0.1, indpiv=1):
+    '''
+    Set an outflow boundary condition of type ``outradeq``.
+
+    .. important : This function has a dependency to the ETC module.
+
+    Parameters
+    ----------
+
+        workflow : Workflow
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        valve_type : int
+            Valve law type. See `elsA documentation about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_.
+            If 0, not valve law is used. In that case, **valve_ref_pres** corresponds
+            to the prescribed static pressure at the pivot index, and **valve_ref_mflow**
+            and **valve_relax** are not used.
+
+        valve_ref_pres : :py:class:`float` or :py:obj:`None`
+            Reference static pressure at the pivot index.
+            If :py:obj:`None`, the value ``ReferenceValues['Pressure']`` is taken.
+
+        valve_ref_mflow : :py:class:`float` or :py:obj:`None`
+            Reference mass flow rate.
+            If :py:obj:`None`, the value ``ReferenceValues['MassFlow']`` is taken
+            and normalized using information in **TurboConfiguration** to get
+            the corresponding mass flow rate on the section of **FamilyName**
+            actually simulated.
+
+        valve_relax : float
+            'Relaxation' parameter of the valve law. The default value is 0.1.
+            Be careful:
+
+            * for laws 1, 2 and 5, it is a real Relaxation coefficient without
+              dimension.
+
+            * for law 3, it is a value homogeneous with a pressure divided
+              by a mass flow.
+
+            * for law 4, it is a value homogeneous with a pressure.
+        
+        indpiv : int
+            Index of the cell where the pivot value is imposed.
+
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`computeReferenceValues`
+
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`getTurboConfiguration`
+
+        method : optional, str
+            Method used to compute the globborder. The default value is
+            ``'globborder_dict'``, it corresponds to the ETC topological
+            algorithm.
+            Another possible value is ``'poswin'`` to use the geometrical
+            algorithm in *turbo* (in this case, *turbo* environment must be
+            sourced).
+
+    '''
+
+    import etc.transform as trf
+    t = workflow.tree
+
+    if valve_ref_pres is None:
+        try:
+            valve_ref_pres = workflow.Flow['Pressure']
+        except:
+            raise MolaException('valve_ref_pres or ReferenceValues must be not None')
+    if valve_type != 0 and valve_ref_mflow is None:
+        try:
+            bc = C.getFamilyBCs(t, FamilyName)[0]
+            zone = I.getParentFromType(t, bc, 'Zone_t')
+            row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+            rowParams = workflow.ApplicationContext['Rows'][row]
+            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+            valve_ref_mflow = workflow.Flow['MassFlow'] / fluxcoeff
+        except:
+            raise MolaException('Either valve_ref_mflow or both ReferenceValues and TurboConfiguration must be not None')
+
+    # Delete previous BC if it exists
+    for bc in C.getFamilyBCs(t, FamilyName):
+        I._rmNodesByName(bc, '.Solver#BC')
+    # Create Family BC
+    family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
+    I._rmNodesByName(family_node, '.Solver#BC')
+    I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
+
+    from etc.globborder.globborder_dict import globborder_dict
+    gbd = globborder_dict(t, FamilyName, config="axial")
+
+    for bcn in C.getFamilyBCs(t, FamilyName):
+        bcpath = I.getPath(t, bcn)
+        bc = trf.BCOutRadEq(t, bcn)
+        bc.indpiv = indpiv
+        bc.dirorder = -1
+        # Valve laws:
+        # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
+        # valvelaws = [(1, 'SlopePsQ'),     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -p(it)) # relax = sans dim. # isoPs/Q
+        #              (2, 'QTarget'),      # p(it+1) = p(it) + relax*pref * (Q(it)/Qref-1)         # relax = sans dim. # debit cible
+        #              (3, 'QLinear'),      # p(it+1) = pref + relax*(Q(it)-Qref)                  # relax = Pascal    # lin en debit
+        #              (4, 'QHyperbolic'),  # p(it+1) = pref + relax*(Q(it)/Qref)**2               # relax = Pascal    # comp. exp.
+        #              (5, 'SlopePiQ')]     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -pi(it)) # relax = sans dim. # isoPi/Q
+        # for law 5, pref = reference total pressure
+        if valve_type == 0:
+            bc.prespiv = valve_ref_pres
+        else:
+            valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
+                              3: 'QLinear', 4: 'QHyperbolic'}
+            bc.valve_law(valve_law_dict[valve_type], valve_ref_pres,
+                         valve_ref_mflow, valve_relax=valve_relax, valve_file=f'prespiv_{FamilyName}.log')
+        globborder = bc.glob_border(current=FamilyName)
+        globborder.i_poswin = gbd[bcpath]['i_poswin']
+        globborder.j_poswin = gbd[bcpath]['j_poswin']
+        globborder.glob_dir_i = gbd[bcpath]['glob_dir_i']
+        globborder.glob_dir_j = gbd[bcpath]['glob_dir_j']
+        globborder.azi_orientation = gbd[bcpath]['azi_orientation']
+        globborder.h_orientation = gbd[bcpath]['h_orientation']
+        bc.create()
+
+    workflow.tree = cgns.castNode(t)
+
+@mute_stdout
+def stage_mxpl(workflow, left, right):
+    '''
+    Set a mixing plane condition between families **left** and **right**.
+
+    .. important : This function has a dependency to the ETC module.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        left : str
+            Name of the family on the left side.
+
+        right : str
+            Name of the family on the right side.
+    '''
+
+    import etc.transform as trf
+
+    # HACK: must change the type of all FamilyName to array
+    def change_FamilyName_to_array():
+        for bc in workflow.tree.group(Type='BC'):
+            FamilyName = bc.get(Type='FamilyName')
+            FamilyName.setValue(np.array(FamilyName.value()))
+    def change_back_FamilyName_to_str():
+        for FamilyName in workflow.tree.group(Type='FamilyName'):
+            fam = FamilyName.value()
+            if isinstance(fam, np.ndarray):
+                FamilyName.setValue(FamilyName.value()[0])
+
+    change_FamilyName_to_array()
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, left)
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, right)
+    change_back_FamilyName_to_str()
+    workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, left, right)
+
+    stage.jtype = 'nomatch_rad_line'
+    stage.create()
+
+    workflow.tree = cgns.castNode(workflow.tree)
+
+    set_turbomachinery_interface_FamilyBC(workflow.tree, left, right)
+
+
+def set_turbomachinery_interface_FamilyBC(t, left, right):
+    for gc in t.group(Type='GridConnectivity'):
+        for FamilyBC in gc.group(Type='FamilyBC'):
+            FamilyBC.remove()
+    
+    leftFamily = t.get(Name=left, Type='Family', Depth=2)
+    rightFamily = t.get(Name=right, Type='Family', Depth=2)
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCOutflow', Parent=leftFamily)
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCInflow', Parent=rightFamily)
 
