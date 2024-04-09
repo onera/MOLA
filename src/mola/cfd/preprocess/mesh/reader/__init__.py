@@ -14,3 +14,15 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+from mola.logging import MolaException
+from . import default, autogrid 
+
+def apply(component):
+    if 'mesher' not in component:
+        return default.reader(component)
+    elif component['mesher'].lower() == 'autogrid':
+        return autogrid.reader(component)
+    else:
+        raise MolaException(f"unknown mesher: {component['mesher']}")
+    

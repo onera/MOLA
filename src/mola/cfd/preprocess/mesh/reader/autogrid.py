@@ -15,30 +15,27 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-def prepare_mesh(self):
-    self.tree = PRE.mesh.read_mesh(mesher='Autogrid')
+from treelab import cgns
+from mola.logging import mola_logger, MolaException
 
-    self.InputMeshes = generate_input_meshes_from_autogrid(t,
-        scale=scale, rotation=rotation, tol=tol, PeriodicTranslation=PeriodicTranslation)
 
-    t = clean_mesh_from_autogrid(t, basename=InputMeshes[0]['baseName'], zonesToRename=zonesToRename)
+SCALE_DICT = dict(
+    mm = 0.001,
+    cm = 0.01,
+    dm = 0.1,
+    m  = 1.
+)
 
-def reader_autogrid(base, 
-                    unit='m',
-                    Tolerance=1e-8, 
-                    InitialFrame=dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0])
-                    ):
-    
-    # CAREFUL : Update Positioning, Connection, etc. rather than write over them
+def reader(component):
 
-    ScaleDict = dict(
-        mm = 0.001,
-        cm = 0.01,
-        dm = 0.1,
-        m  = 1.
-    )
+    name = component['Name'] if 'Name' in component else ''
+    mola_logger.info(f'Read component {name} with Autogrid reader')
+        
+    component.setdefault('Tolerance', 1e-8)
+    unit = component.get('unit', 'm')
+    InitialFrame = component.get('InitialFrame', dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]))
 
-    Positioning=[
+    DefaultPositioning = [
         dict(
             Type='TranslationAndRotation',
             InitialFrame=InitialFrame,
@@ -50,29 +47,45 @@ def reader_autogrid(base,
             ),
         dict(
             Type  = 'scale',
-            Scale = ScaleDict[unit],
+            Scale = SCALE_DICT[unit],
             ),
     ]
 
+    component.setdefault('Positioning', DefaultPositioning)
+    component.setdefault('Connection', [])
+
+    mesh = cgns.load(component['Source'])
+    clean_mesh_from_autogrid(mesh)
+
+    nb_of_bases = len(mesh.bases())
+    if nb_of_bases != 1:
+        raise MolaException(f"component {component['Name']} must have exactly 1 base (got {nb_of_bases})")
+
+    base = mesh.bases()[0]
+    try:
+        base.setName(component['Name'])
+    except KeyError:
+        pass
+
     # Only if grid connectivities are not already in the mesh
     # TODO: Test on the presence of GC
-    Connection = [
-        dict(Type='Match', Tolerance=Tolerance),
-    ]
+    component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
 
     # Set automatic periodic connections
     angles = set()
     for node in base.group(Name='BladeNumber'):
         angles.add(360./float(node.value()))
     for angle in angles:
-        print('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
-        Connection.append(
-            dict(type='PeriodicMatch', Tolerance=Tolerance, rotationAngle=[angle,0.,0.])
+        mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
+        component['Connection'].append(
+            dict(Type='PeriodicMatch', Tolerance=component['Tolerance'], RotationAngle=[angle,0.,0.])
             )
 
-    return component
+    return base
 
-def clean_mesh_from_autogrid(t, basename='Base#1', zonesToRename={}):
+
+
+def clean_mesh_from_autogrid(t): #, basename='Base#1', zonesToRename={}):
     '''
     Clean a CGNS mesh from Autogrid 5.
     The sequence of operations performed are the following:
@@ -104,30 +117,41 @@ def clean_mesh_from_autogrid(t, basename='Base#1', zonesToRename={}):
             modified mesh tree
 
     '''
+    clean_autogrid_log_bases(t)
+    clean_family_properties(t)
+    # rename_zones(t, zonesToRename=dict())
+    clean_grid_connectivities(t)
 
-    t.findAndRemoveNodes(Name='Numeca*')
-    t.findAndRemoveNodes(Name='blockName')
-    t.findAndRemoveNodes(Name='meridional_base')
-    t.findAndRemoveNodes(Name='tools_base')
+    # # Clean RS interfaces
+    # t.findAndRemoveNodes(Type='InterfaceType')
+    # t.findAndRemoveNodes(Type='DonorFamily')
 
+    # # Join HUB and SHROUD families
+    # J.joinFamilies(t, 'HUB')
+    # J.joinFamilies(t, 'SHROUD')
+    return t
+
+def clean_autogrid_log_bases(t):
+    t.findAndRemoveNodes(Name='Numeca*', Type='CGNSBase', Depth=1)
+    t.findAndRemoveNodes(Name='blockName', Type='CGNSBase', Depth=1)
+    t.findAndRemoveNodes(Name='meridional_base', Type='CGNSBase', Depth=1)
+    t.findAndRemoveNodes(Name='tools_base', Type='CGNSBase', Depth=1)
+
+def clean_family_properties(t):
     # Clean Names
     # - Recover BladeNumber and Clean Families
     for fam in t.group(Type='Family'): 
-        t.findAndRemoveNodes(Name='RotatingCoordinates')
-        t.findAndRemoveNodes(Name='Periodicity')
-        t.findAndRemoveNodes(Name='DynamicData')
+        fam.findAndRemoveNodes(Name='RotatingCoordinates')
+        fam.findAndRemoveNodes(Name='Periodicity')
+        fam.findAndRemoveNodes(Name='DynamicData')
     t.findAndRemoveNodes(Name='FamilyProperty')
 
-    # - Rename base
-    base = t.get(Type='CGNSBase')
-    base.setName(basename)
-
-    # - Rename Zones
+def rename_zones(t, zonesToRename=dict()):
     for zone in t.zones():
         name = zone.name()
         if name in zonesToRename:
             newName = zonesToRename[name]
-            print("Zone {} is renamed: {}".format(name, newName))
+            mola_logger.info("Zone {} is renamed: {}".format(name, newName))
             I._renameNode(t, name, newName)
             continue
         # Delete some usual patterns in AG5
@@ -136,6 +160,7 @@ def clean_mesh_from_autogrid(t, basename='Base#1', zonesToRename={}):
             new_name = new_name.replace(pattern, '')
         I._renameNode(t, name, new_name)
 
+def clean_grid_connectivities(t):
     # Clean Joins & Periodic Joins
     # TODO: The objective should be to keep GC if there are already in the tree
     t.findAndRemoveNodes(Type='ZoneGridConnectivity_t')
@@ -144,17 +169,7 @@ def clean_mesh_from_autogrid(t, basename='Base#1', zonesToRename={}):
     for familyNode in periodicFamilies:
         for BC in t.group(Type='BC'):
             for FamilyName in BC.group(Type='*FamilyName'): # FamilyName or AdditionalFamilyName
-                if FamilyName.name() == familyNode.name():
+                if FamilyName.value() == familyNode.name():
                     BC.remove()
                     break
         familyNode.remove()
-
-    # Clean RS interfaces
-    t.findAndRemoveNodes(Type='InterfaceType')
-    t.findAndRemoveNodes(Type='DonorFamily')
-
-    # Join HUB and SHROUD families
-    J.joinFamilies(t, 'HUB')
-    J.joinFamilies(t, 'SHROUD')
-    return t
-

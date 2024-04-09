@@ -18,7 +18,8 @@
 import os
 from treelab import cgns
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
-from  mola.cfd.preprocess.mesh import (positioning,
+from  mola.cfd.preprocess.mesh import (reader,
+                                       positioning,
                                        connect,
                                        split,
                                        families)
@@ -284,7 +285,6 @@ class Workflow(object):
 
     def assemble(self):
         self.read_meshes()
-        self.clean_mesh()
         self.set_workflow_parameters_in_tree()
 
     def positioning(self):
@@ -299,22 +299,9 @@ class Workflow(object):
     def read_meshes(self):
         meshes = []
         for component in self.RawMeshComponents:
-            src = component['Source']
-            mesh = cgns.load(src)
-            nb_of_bases = len(mesh.bases())
-            if nb_of_bases != 1:
-                msg = f"component {component['Name']} must have exactly 1 base (got {nb_of_bases})"
-                raise ValueError(msg)
-
-            base = mesh.bases()[0]
-            base.setName( component['Name'] )
+            base = reader.apply(component)
             meshes += [base]
         self.tree = cgns.merge(meshes)
-
-
-    def clean_mesh(self):
-        ... # TODO include AutoGrid cleanining and other macros
-
 
     def split_and_distribute(self):
         split.apply(self)

@@ -28,12 +28,12 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         
         super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
 
-        if self.tree is not None:
+        if self.tree is None:
             for meshInfo in self.RawMeshComponents:
                 meshInfo.setdefault('mesher', 'Autogrid')
 
-            self.Extractions.append(
+            self.Extractions.extend([
                 dict(type='bc', BCType='BCWall*', fields=['Pressure', 'BoundaryLayer', 'yPlus']),
                 dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
                 dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),
-            )
+            ])
