@@ -76,10 +76,6 @@ def apply(workflow):
             base[2] = base_out[2]
 
     workflow.tree = cgns.castNode(workflow.tree)
-    # HACK see https://github.com/Luispain/treelab/issues/6
-    # Nodes DimensionalUnits are added by X.connectMatchPeriodic
-    workflow.tree.findAndRemoveNodes(Type='DimensionalUnits_t')
-
 
 def _check_connections(connections):
     '''

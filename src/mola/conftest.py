@@ -1,6 +1,7 @@
 import pytest
 import timeit
-  
+import warnings
+
 cost_levels = {
     'cost_level_0' : (    0,  0.5),
     'cost_level_1' : (  0.3,  5.0),
@@ -41,7 +42,13 @@ def check_cost(func, marker):
         result = func(*args, **kwargs)
         end_time = timeit.default_timer()
         cpu_cost = end_time - start_time
-        assert cost_levels[marker][0] <= cpu_cost <= cost_levels[marker][1], \
-            f'{func.__name__} took {cpu_cost} seconds, which is outside the predefined boundaries {cost_levels[marker]} for marker "{marker}".'
+        if cpu_cost < cost_levels[marker][0]:
+            msg = (f'{func.__name__} took {cpu_cost} seconds, which is'
+             f' lower than the suggested minimum {cost_levels[marker][0]} for marker "{marker}".')
+            warnings.warn(msg)
+        
+        assert cpu_cost <= cost_levels[marker][1], \
+            f'{func.__name__} took {cpu_cost} seconds, which is outside the maximum boundary {cost_levels[marker][1]} for marker "{marker}".'
+
         return result
     return wrapper

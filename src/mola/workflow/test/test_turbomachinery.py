@@ -87,4 +87,3 @@ def test_rotor37():
     if not os.path.exists(COMPLETED_PATH):
         raise MolaException('simulation did not ended as expected')
     w.remove_cfd_files()
-
