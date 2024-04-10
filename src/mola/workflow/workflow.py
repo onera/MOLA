@@ -138,7 +138,8 @@ class Workflow(object):
             self.RunManagement = RunManagement if RunManagement is not None else dict()
 
     def write_tree(self, filename='main.cgns'):
-        if not self.tree: self.tree = cgns.Tree()
+        if not self.tree: 
+            self.tree = cgns.Tree()
         with redirect_streams_to_logger(mola_logger):
             self.tree.save(filename)
 

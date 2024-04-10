@@ -55,6 +55,15 @@ def reader(component):
     component.setdefault('Connection', [])
 
     mesh = cgns.load(component['Source'])
+    clean_autogrid_log_bases(mesh)
+
+    # Only if grid connectivities are not already in the mesh
+    # TODO: Test on the presence of GC
+    component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
+
+    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['Tolerance'])
+    component['Connection'] += periodic_connections
+
     clean_mesh_from_autogrid(mesh)
 
     nb_of_bases = len(mesh.bases())
@@ -67,23 +76,21 @@ def reader(component):
     except KeyError:
         component['Name'] = base.name()
 
-    # Only if grid connectivities are not already in the mesh
-    # TODO: Test on the presence of GC
-    component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
+    return base
 
-    # Set automatic periodic connections
+def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance):
+    base = mesh.bases()[0]
     angles = set()
     for node in base.group(Name='BladeNumber'):
         angles.add(360./float(node.value()))
+    
+    Connections = []
     for angle in angles:
         mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
-        component['Connection'].append(
-            dict(Type='PeriodicMatch', Tolerance=component['Tolerance'], RotationAngle=[angle,0.,0.])
+        Connections.append(
+            dict(Type='PeriodicMatch', Tolerance=Tolerance, RotationAngle=[angle,0.,0.])
             )
-
-    return base
-
-
+    return Connections
 
 def clean_mesh_from_autogrid(t): #, basename='Base#1', zonesToRename={}):
     '''
@@ -117,7 +124,6 @@ def clean_mesh_from_autogrid(t): #, basename='Base#1', zonesToRename={}):
             modified mesh tree
 
     '''
-    clean_autogrid_log_bases(t)
     clean_family_properties(t)
     # rename_zones(t, zonesToRename=dict())
     clean_grid_connectivities(t)
@@ -133,9 +139,10 @@ def clean_mesh_from_autogrid(t): #, basename='Base#1', zonesToRename={}):
 
 def clean_autogrid_log_bases(t):
     t.findAndRemoveNodes(Name='Numeca*', Type='CGNSBase', Depth=1)
-    t.findAndRemoveNodes(Name='blockName', Type='CGNSBase', Depth=1)
     t.findAndRemoveNodes(Name='meridional_base', Type='CGNSBase', Depth=1)
     t.findAndRemoveNodes(Name='tools_base', Type='CGNSBase', Depth=1)
+
+    t.findAndRemoveNodes(Name='blockName', Type='UserDefinedData', Depth=3)
 
 def clean_family_properties(t):
     # Clean Names

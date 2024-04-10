@@ -40,7 +40,7 @@ def get_workflow_rotor37():
         ),
 
         Flow = dict(
-            MassFlow              = 20.5114/36,  # for the 360 degrees section, even it is simulated entirely
+            MassFlow              = 20.5114,  # for the 360 degrees section, even it is simulated entirely
             TemperatureStagnation = 288.15,
             PressureStagnation    = 101330.,
         ),
@@ -68,7 +68,7 @@ def get_workflow_rotor37():
 
         RunManagement=dict(
             JobName='rotor37',
-            RunDirectory=os.path.dirname(os.path.realpath(__file__)),
+            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_rotor37'),
             NumberOfProcessors=24,
             ),
 
