@@ -58,9 +58,9 @@ def apply(workflow):
                 rotationCenter = operation.get('RotationCenter', [0., 0., 0.])
                 rotationAngle = operation.get('RotationAngle', [0., 0., 0.])
                 translation = operation.get('Translation', [0., 0., 0.])
-                mola_logger.info(f'    RotationCenter = {rotationCenter}')
-                mola_logger.info(f'    RotationAngle = {rotationAngle}')
-                mola_logger.info(f'    Translation = {translation}')
+                mola_logger.debug(f'    RotationCenter = {rotationCenter}')
+                mola_logger.debug(f'    RotationAngle = {rotationAngle}')
+                mola_logger.debug(f'    Translation = {translation}')
 
                 base_out = X.connectMatchPeriodic(
                     base,

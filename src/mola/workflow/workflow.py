@@ -300,6 +300,7 @@ class Workflow(object):
         SV.submit_command(command, self.RunManagement['Machine'], user=user)
 
     def merge(self, other_workflow):
+        # TODO Still in development, not validated
         # merge trees
         self.tree.merge(other_workflow.tree)
 

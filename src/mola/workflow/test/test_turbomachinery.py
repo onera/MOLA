@@ -25,7 +25,7 @@ def get_workflow_rotor37():
     w = WorkflowTurbomachinery( 
         RawMeshComponents=[
             dict(
-                Source = '/stck/mola/data/mesh/rotor37/mesh.cgns',
+                Source = '/stck/mola/data/mesh/rotor37/rotor37.cgns',
                 ) 
         ],
 
@@ -59,7 +59,6 @@ def get_workflow_rotor37():
         BoundaryConditions = [
             dict(Family='R37_INFLOW', type='InflowStagnation'),
             dict(Family='R37_OUTFLOW', type='OutflowPressure', Pressure=0.9936*1e5),
-            #dict(Family='Outlet', type='OutflowRadialEquilibrium'),
         ],
 
         Extractions = [
@@ -68,8 +67,8 @@ def get_workflow_rotor37():
 
         RunManagement=dict(
             JobName='rotor37',
-            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_rotor37'),
-            NumberOfProcessors=24,
+            RunDirectory=os.path.dirname(os.path.realpath(__file__)),
+            NumberOfProcessors=4,
             ),
 
         )
@@ -88,5 +87,4 @@ def test_rotor37():
     if not os.path.exists(COMPLETED_PATH):
         raise MolaException('simulation did not ended as expected')
     w.remove_cfd_files()
-
 
