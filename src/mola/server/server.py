@@ -50,7 +50,7 @@ def get_network():
 
 def get_network_config():
     network = get_network()
-    return misc.load_source('config', os.path.join(__MOLA_PATH__, 'mola', 'env', network, 'config.py'))
+    return misc.load_source('config', os.path.join(__MOLA_PATH__, 'mola', 'env', network, 'network.py'))
 
 def get_scheduler_defaults(machine, mola_target_path=__MOLA_PATH__):
     network = get_network()
