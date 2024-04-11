@@ -1,3 +1,4 @@
+#! /bin/sh
 #    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
 #
 #    This file is part of MOLA.
@@ -16,6 +17,9 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source $SCRIPT_DIR/../network.sh
+export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
+export MOLAext=/stck/lbernard/MOLA/Dev/ext
+export MOLA_NETWORK=${SCRIPT_DIR##*/} # get only the last part of SCRIPT_DIR, so here 'onera'
 
-echo 'SoNICS env not implemented yet.'
+export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
+export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net

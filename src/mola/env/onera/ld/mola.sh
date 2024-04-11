@@ -16,8 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
-export MOLAext=/stck/lbernard/MOLA/Dev/ext
+source $SCRIPT_DIR/../network.sh
 export TREELABVERSION=v0.1.1
 
 source /etc/bashrc
@@ -26,8 +25,6 @@ unset PYTHONPATH
 shopt -s expand_aliases
 ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
-export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
-export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
 export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
