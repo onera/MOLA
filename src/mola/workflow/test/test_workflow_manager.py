@@ -10,6 +10,7 @@ from treelab import cgns
 from mola.workflow import Workflow
 import mola.workflow.workflow_manager as WM
 from mola.logging import check_error_message, MolaException
+from mola import server as SV
 
 def get_fake():
     @dataclass
@@ -219,46 +220,46 @@ def test_WorkflowParallelScheduler_sphere_local():
 
     shutil.rmtree(test_dir)
 
-# @pytest.mark.network_onera
-# @pytest.mark.integration
-# @pytest.mark.cost_level_4
-# def test_WorkflowParallelScheduler_sphere_remote_sator():
+@pytest.mark.network_onera
+@pytest.mark.integration
+@pytest.mark.cost_level_4
+def test_WorkflowParallelScheduler_sphere_remote_sator():
 
-#     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
-#     w = get_workflow_sphere_struct()
-#     w.RunManagement['mola_target_path'] = f'/tmp_user/sator/{os.getenv("USER")}/MOLA/mola_v2/src/'
-#     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
-#     w.RunManagement['TimeLimit'] = '00:30:00'
+    from mola.workflow.test.test_workflow import get_workflow_sphere_struct
+    w = get_workflow_sphere_struct()
+    scheduler_defaults = SV.get_scheduler_defaults('sator')
+    w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
+    w.RunManagement['TimeLimit'] = '00:30:00'
 
-#     dispatcher = WM.WorkflowDispatcher(w)
-#     for BCWall in ['WallViscous', 'WallInviscid']:
-#         dispatcher.new_job(BCWall)
-#         for velocity in [50., 20., 80.]:
-#             dispatcher.add_variations(
-#                 [
-#                     ('RunManagement|JobName', f'test_{BCWall}'),
-#                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
-#                     ('Flow|Velocity', velocity),
-#                     ('BoundaryConditions|Family=Wall|type', BCWall),
-#                 ], 
-#                 initialize_from_previous=False
-#                 )
+    dispatcher = WM.WorkflowDispatcher(w)
+    for BCWall in ['WallViscous', 'WallInviscid']:
+        dispatcher.new_job(BCWall)
+        for velocity in [50., 20., 80.]:
+            dispatcher.add_variations(
+                [
+                    ('RunManagement|JobName', f'test_{BCWall}'),
+                    ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
+                    ('Flow|Velocity', velocity),
+                    ('BoundaryConditions|Family=Wall|type', BCWall),
+                ], 
+                initialize_from_previous=False
+                )
     
-#     test_dir = f'/tmp_user/sator/{os.getenv("USER")}/.test/tmp_MOLA_test/'
-#     try:
-#         # remove this directory in case it exists already (e.g. because of a previous error)
-#         SV.remove_path(test_dir, machine='sator', file_only=False)
-#     except FileNotFoundError:
-#         pass
+    test_dir = f'/tmp_user/sator/{os.getenv("USER")}/.test/tmp_MOLA_test/'
+    try:
+        # remove this directory in case it exists already (e.g. because of a previous error)
+        SV.remove_path(test_dir, machine='sator', file_only=False)
+    except FileNotFoundError:
+        pass
         
-#     scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
-#     scheduler.prepare()
-#     scheduler.submit()
+    scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
+    scheduler.prepare()
+    scheduler.submit()
 
-#     for BCWall in ['WallViscous', 'WallInviscid']:
-#         for velocity in [50., 20., 80.]:
-#             COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', 'COMPLETED')
-#             SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
+    for BCWall in ['WallViscous', 'WallInviscid']:
+        for velocity in [50., 20., 80.]:
+            COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', 'COMPLETED')
+            SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
 
-#     SV.remove_path(test_dir, machine='sator', file_only=False)
+    SV.remove_path(test_dir, machine='sator', file_only=False)
 

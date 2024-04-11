@@ -97,7 +97,8 @@ def test_rotor37_sator():
     w = get_workflow_rotor37()
     w.RunManagement['NumberOfProcessors'] = 12
     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/test_rotor37_sator/'
-    w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+    scheduler_defaults = SV.get_scheduler_defaults('sator')
+    w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
     w.RunManagement['TimeLimit'] = '00:30:00'
 
     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)

@@ -321,7 +321,8 @@ def test_workflow_sphere_struct_local():
 def test_workflow_sphere_struct_remote_sator():
     w = get_workflow_sphere_struct()
     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/test_workflow_sphere_struct_remote_sator/'
-    w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+    scheduler_defaults = SV.get_scheduler_defaults('sator')
+    w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
     w.RunManagement['TimeLimit'] = '00:30:00'
 
     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
