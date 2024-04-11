@@ -2,7 +2,6 @@ import pytest
 
 import os
 import shutil
-import copy
 import numpy as np
 from dataclasses import dataclass
 
@@ -11,9 +10,6 @@ from treelab import cgns
 from mola.workflow import Workflow
 import mola.workflow.workflow_manager as WM
 from mola.logging import check_error_message, MolaException
-from mola import server as SV
-
-from mola.workflow.test.test_workflow import onera_only
 
 def get_fake():
     @dataclass
@@ -223,7 +219,7 @@ def test_WorkflowParallelScheduler_sphere_local():
 
     shutil.rmtree(test_dir)
 
-# @onera_only
+# @pytest.mark.network_onera
 # @pytest.mark.integration
 # @pytest.mark.cost_level_4
 # def test_WorkflowParallelScheduler_sphere_remote_sator():

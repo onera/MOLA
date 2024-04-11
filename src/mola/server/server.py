@@ -43,7 +43,10 @@ def submit_command(command, machine, input=None, user=None):
 
 def get_network():
     # FIXME Won't work on a remote machine, if a machine-specific env is sourced
-    return os.getenv('MOLA_NETWORK')
+    network = os.getenv('MOLA_NETWORK')
+    if network is None:
+        raise MolaAssertionError('The environment variable MOLA_NETWORK is undefined.')
+    return network
 
 def get_network_config():
     network = get_network()
@@ -110,7 +113,10 @@ def run_on_localhost(machine=None, run_directory='.'):
         False if not or if :py:fun:`guess_localhost` return an error.
     '''  
     if machine is None:
-        machine = guess_machine(path=run_directory)
+        try:
+            machine = guess_machine(path=run_directory)
+        except:
+            return True
         
     try:
         localhost = guess_localhost()

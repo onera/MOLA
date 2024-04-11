@@ -1,6 +1,11 @@
 import pytest
 import timeit
-  
+from mola import server as SV
+
+# useful example if we need to pass option to pytest:
+#   https://stackoverflow.com/questions/47559524/pytest-how-to-skip-tests-unless-you-declare-an-option-flag
+
+
 cost_levels = {
     'cost_level_0' : (    0,  0.5),
     'cost_level_1' : (  0.3,  5.0),
@@ -23,6 +28,9 @@ def pytest_configure(config):
     for cost_level, boundaries in cost_levels.items():
         config.addinivalue_line(
             "markers", f"{cost_level}: tests with expected cost {boundaries} sec")
+        
+    config.addinivalue_line(
+        "markers", "network_onera: test available on ONERA machines only")
 
 def get_cost_marker(marker_container):
     for marker in marker_container:
@@ -45,3 +53,10 @@ def check_cost(func, marker):
             f'{func.__name__} took {cpu_cost} seconds, which is outside the predefined boundaries {cost_levels[marker]} for marker "{marker}".'
         return result
     return wrapper
+
+def pytest_collection_modifyitems(config, items):
+
+    skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
+    for item in items:
+        if ("network_onera" in item.keywords) and (SV.server.get_network() != 'onera'):
+            item.add_marker(skip_onera)

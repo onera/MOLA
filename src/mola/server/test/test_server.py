@@ -23,9 +23,7 @@ from mola.server import server as SV
 from mola.server import files_operations as FOP
 from mola.logging import MolaException
 
-onera_only = pytest.mark.skipif(SV.get_network() != 'onera', reason="test on ONERA machines")
-
-@onera_only
+@pytest.mark.network_onera
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 @pytest.mark.parametrize('path_machine', [
@@ -61,7 +59,7 @@ def test_submit_command():
     SV.submit_command(f'touch {filename}', localhost)
     os.remove(filename)
 
-@onera_only
+@pytest.mark.network_onera
 @pytest.mark.unit
 @pytest.mark.cost_level_1
 def test_submit_command_sator():
@@ -92,7 +90,7 @@ with open('{filename}', 'w') as f:
     
     os.remove(filename)
 
-# @onera_only
+# @pytest.mark.network_onera
 # @pytest.mark.unit
 # @pytest.mark.cost_level_1
 # def test_submit_command_python_sator():

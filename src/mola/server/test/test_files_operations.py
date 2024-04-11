@@ -23,7 +23,6 @@ from mola.logging import check_error_message
 
 LOCAL_TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
-
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_is_existing_path_local_file():
@@ -41,6 +40,10 @@ def test_is_existing_path_local_file():
 @pytest.mark.cost_level_0
 def test_is_existing_path_local_directory():
     dirpath = os.path.join(LOCAL_TEST_DIR, 'test_is_existing_path_DIR')
+    try:
+        shutil.rmtree(dirpath)
+    except: 
+        pass
     os.makedirs(dirpath)
     assert FOP.is_existing_path(dirpath)
     assert not FOP.is_file(dirpath)

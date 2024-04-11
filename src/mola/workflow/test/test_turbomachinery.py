@@ -22,8 +22,6 @@ from mola.logging import MolaException
 from mola.workflow import WorkflowTurbomachinery
 from mola import server as SV
 
-onera_only = pytest.mark.skipif(SV.get_network() != 'onera', reason="test on ONERA machines")
-
 def get_workflow_rotor37():
     w = WorkflowTurbomachinery( 
         RawMeshComponents=[
@@ -92,7 +90,7 @@ def test_rotor37_local():
     w.remove_cfd_files()
 
 
-@onera_only
+@pytest.mark.network_onera
 @pytest.mark.user_case
 @pytest.mark.cost_level_4
 def test_rotor37_sator():

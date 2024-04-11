@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
+
 import os
 import numpy as np
 
@@ -23,10 +25,6 @@ import treelab.cgns as cgns
 from mola.workflow import Workflow
 from mola.logging import mola_logger, MolaException, mute_stdout
 from mola import server as SV
-
-import pytest
-onera_only = pytest.mark.skipif(SV.get_network() != 'onera', reason="test on ONERA machines")
-
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -299,7 +297,7 @@ def test_workflow_sphere_struct_local():
     w.remove_cfd_files()
 
 # This test does not end for some reason... but the simulation is COMPLETED on spiro
-# @onera_only
+# @pytest.mark.network_onera
 # @pytest.mark.integration
 # @pytest.mark.cost_level_3
 # def test_workflow_sphere_struct_remote_spiro():
@@ -317,7 +315,7 @@ def test_workflow_sphere_struct_local():
 #     SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='spiro', timeout=30)
 #     SV.remove_path(w.RunManagement['RunDirectory'], machine='spiro', file_only=False)
 
-@onera_only
+@pytest.mark.network_onera
 @pytest.mark.integration
 @pytest.mark.cost_level_4
 def test_workflow_sphere_struct_remote_sator():
