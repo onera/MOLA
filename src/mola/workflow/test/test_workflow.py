@@ -322,8 +322,7 @@ def test_workflow_sphere_struct_local():
 @pytest.mark.cost_level_4
 def test_workflow_sphere_struct_remote_sator():
     w = get_workflow_sphere_struct()
-    w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
-    w.RunManagement['mola_target_path'] = f'/tmp_user/sator/$USER/MOLA/mola_v2/src/'
+    w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/test_workflow_sphere_struct_remote_sator/'
     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
     w.RunManagement['TimeLimit'] = '00:30:00'
 

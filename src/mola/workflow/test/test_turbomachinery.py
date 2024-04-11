@@ -98,8 +98,7 @@ def test_rotor37_local():
 def test_rotor37_sator():
     w = get_workflow_rotor37()
     w.RunManagement['NumberOfProcessors'] = 12
-    w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/tmp_MOLA_rotor37/'
-    w.RunManagement['mola_target_path'] = f'/tmp_user/sator/$USER/MOLA/mola_v2/src/'
+    w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/test_rotor37_sator/'
     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
     w.RunManagement['TimeLimit'] = '00:30:00'
 
