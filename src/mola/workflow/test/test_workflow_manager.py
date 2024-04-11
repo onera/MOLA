@@ -186,7 +186,7 @@ def test_WorkflowParallelScheduler_prepare():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
-def test_WorkflowParallelScheduler_sphere():
+def test_WorkflowParallelScheduler_sphere_local():
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
     w = get_workflow_sphere_struct()
@@ -224,12 +224,15 @@ def test_WorkflowParallelScheduler_sphere():
     shutil.rmtree(test_dir)
 
 # @onera_only
+# @pytest.mark.integration
+# @pytest.mark.cost_level_4
 # def test_WorkflowParallelScheduler_sphere_remote_sator():
 
 #     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
 #     w = get_workflow_sphere_struct()
-#     w.RunManagement['mola_target_path'] = '/tmp_user/sator/$USER/MOLA/mola_v2/src/'
+#     w.RunManagement['mola_target_path'] = f'/tmp_user/sator/{os.getenv("USER")}/MOLA/mola_v2/src/'
 #     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+#     w.RunManagement['TimeLimit'] = '00:30:00'
 
 #     dispatcher = WM.WorkflowDispatcher(w)
 #     for BCWall in ['WallViscous', 'WallInviscid']:
@@ -245,7 +248,7 @@ def test_WorkflowParallelScheduler_sphere():
 #                 initialize_from_previous=False
 #                 )
     
-#     test_dir = '/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
+#     test_dir = f'/tmp_user/sator/{os.getenv("USER")}/.test/tmp_MOLA_test/'
 #     try:
 #         # remove this directory in case it exists already (e.g. because of a previous error)
 #         SV.remove_path(test_dir, machine='sator', file_only=False)
@@ -259,8 +262,7 @@ def test_WorkflowParallelScheduler_sphere():
 #     for BCWall in ['WallViscous', 'WallInviscid']:
 #         for velocity in [50., 20., 80.]:
 #             COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', 'COMPLETED')
-#             if not SV.is_existing_path(COMPLETED_PATH, machine='sator'):
-#                 raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
+#             SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
 
 #     SV.remove_path(test_dir, machine='sator', file_only=False)
 

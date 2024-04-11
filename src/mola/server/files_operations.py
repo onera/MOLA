@@ -20,7 +20,6 @@ import os
 import subprocess
 
 from mola.logging import mola_logger, MolaException
-from mola import __MOLA_PATH__
 from . import server as SV
 
 def save_file(filename, text, directory='.'):

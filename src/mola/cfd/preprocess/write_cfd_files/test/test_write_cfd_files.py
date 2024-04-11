@@ -20,15 +20,13 @@ import os
 from mola import __MOLA_PATH__
 from mola.logging import check_error_message
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
-from mola import misc
+from mola.server import server as SV
 
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_set_default():
-    Network = os.environ.get('MOLA_NETWORK')
-    config_path = os.path.join(__MOLA_PATH__,'mola','env',Network,'config.py')
-    config = misc.load_source('config', config_path)
+    config = SV.get_network_config()
 
     RunManagement = dict(
         Machine = 'auto',

@@ -102,8 +102,8 @@ export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
 export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
 # maia 
-module use --append /scratchm/sonics/usr/modules/
-module load maia/$MAIAVERSION-dsi-cfd5
+# module use --append /scratchm/sonics/usr/modules/
+# module load maia/$MAIAVERSION-dsi-cfd5
 
 # external python packages
 export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH

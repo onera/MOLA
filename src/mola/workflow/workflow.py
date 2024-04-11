@@ -294,6 +294,7 @@ class Workflow(object):
         return False
     
     def submit(self, command=None):
+        mola_logger.info(f"Submit job on machine {self.RunManagement['Machine']}")
         if command is None:
             command = self.RunManagement['LauncherCommand']
         user = self.RunManagement.get('User')

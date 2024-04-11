@@ -288,7 +288,7 @@ def test_prepare_workflow2():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
-def test_workflow_sphere_struct():
+def test_workflow_sphere_struct_local():
     w = get_workflow_sphere_struct()
     w.prepare()
     w.write_cfd_files()
@@ -298,22 +298,41 @@ def test_workflow_sphere_struct():
         raise MolaException('simulation did not ended as expected')
     w.remove_cfd_files()
 
+# This test does not end for some reason... but the simulation is COMPLETED on spiro
 # @onera_only
 # @pytest.mark.integration
 # @pytest.mark.cost_level_3
-# def test_workflow_sphere_struct_remote_sator():
+# def test_workflow_sphere_struct_remote_spiro():
 #     w = get_workflow_sphere_struct()
-#     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
-#     w.RunManagement['mola_target_path'] = f'/tmp_user/sator/$USER/MOLA/mola_v2/src/'
-#     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+#     w.RunManagement['RunDirectory'] = f'/scratchm/$USER/.test/tmp_MOLA_test/'
 #     w.RunManagement['TimeLimit'] = '00:30:00'
 
-#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+#     SV.remove_path(w.RunManagement['RunDirectory'], machine='spiro', file_only=False)
 
 #     w.prepare()
 #     w.write_cfd_files()
 #     w.submit()
 
 #     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-#     SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
-#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+#     SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='spiro', timeout=30)
+#     SV.remove_path(w.RunManagement['RunDirectory'], machine='spiro', file_only=False)
+
+@onera_only
+@pytest.mark.integration
+@pytest.mark.cost_level_4
+def test_workflow_sphere_struct_remote_sator():
+    w = get_workflow_sphere_struct()
+    w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
+    w.RunManagement['mola_target_path'] = f'/tmp_user/sator/$USER/MOLA/mola_v2/src/'
+    w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+    w.RunManagement['TimeLimit'] = '00:30:00'
+
+    SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+
+    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
+    SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)

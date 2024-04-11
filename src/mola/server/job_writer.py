@@ -19,7 +19,6 @@ import os
 
 from . import server as SV 
 from mola import misc
-from mola import __MOLA_PATH__
 
 MolaToScheduler = dict(
     SLURM = dict(
@@ -73,10 +72,11 @@ def build_job_scheduler_header(RunManagement):
 
 def get_scheduler_and_options(RunManagement):
     # Get default options from the machine scheduler_defaults.py
-    try:
-        network = SV.get_network()
-        path = os.path.join(__MOLA_PATH__, 'mola', 'env', network, RunManagement['Machine'], 'scheduler_defaults.py')
-        scheduler_defaults = misc.load_source('scheduler_defaults', path)
+    scheduler_defaults = SV.get_scheduler_defaults(RunManagement['Machine'], mola_target_path=RunManagement['mola_target_path'])
+    if scheduler_defaults is None:
+        scheduler = None
+        scheduler_options = dict()
+    else:
         try:
             scheduler = scheduler_defaults.JOB_SCHEDULER
         except AttributeError:
@@ -91,10 +91,6 @@ def get_scheduler_and_options(RunManagement):
             MolaToScheduler[scheduler].update(scheduler_defaults.MOLA_TO_SCHEDULER)
         except AttributeError:
             pass
-
-    except FileNotFoundError:
-        scheduler = None
-        scheduler_options = dict()
 
     # update with default options from the scheduler, regardless the machine
     try:

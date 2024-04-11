@@ -18,7 +18,6 @@
 import pytest
 import os
 import shutil
-from mola import __MOLA_PATH__
 from mola.server import files_operations as FOP
 from mola.logging import check_error_message
 

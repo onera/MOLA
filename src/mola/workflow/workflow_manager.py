@@ -19,7 +19,6 @@ import os
 from typing import List
 import copy
 from fnmatch import fnmatch
-import shutil
 
 from mola import __MOLA_PATH__
 from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, ENDC
@@ -35,7 +34,7 @@ class WorkflowDispatcher():
         self.table_of_workflows = []
         self.workflows_in_current_job = None
         self.root_directories = []
-    
+
     def new_job(self, directory):
         self.workflows_in_current_job = []
         self.table_of_workflows.append(self.workflows_in_current_job)
@@ -197,7 +196,6 @@ class WorkflowSequentialScheduler():
         self._check_and_set_local_paths()
         self._check_all_workflows_have_different_working_directories()
         self._set_machine()
-        self.scheduler = None
         self._sequential_job_filename = 'job_sequence.sh'
 
     def _check_structure_of_workflows(self):
@@ -225,10 +223,13 @@ class WorkflowSequentialScheduler():
                 self.cases_local_paths.append(path.replace(self.root_directory, ''))
 
     def _set_machine(self):
-        first_workflow = self.workflows[0]      
-        write_cfd_files.set_default(first_workflow.RunManagement)
-        self.machine = first_workflow.RunManagement['Machine']
-        self.run_on_localhost = SV.run_on_localhost(self.machine, first_workflow.RunManagement['RunDirectory'])
+        first_workflow = self.workflows[0] 
+        RunManagement = copy.deepcopy(first_workflow.RunManagement)
+        write_cfd_files.set_default(RunManagement)
+        self.machine = RunManagement['Machine']
+        self.scheduler, _ = SV.get_scheduler_and_options(RunManagement)
+        self.run_on_localhost = SV.run_on_localhost(self.machine, RunManagement['RunDirectory'])
+        self.job_text = SV.get_job_text(RunManagement, first_workflow.Solver)
 
     def prepare(self):
         SV.makedirs_remote(self.root_directory, machine=self.machine)
@@ -263,16 +264,9 @@ class WorkflowSequentialScheduler():
                 )
     
     def write_sequence_job(self):
-        first_workflow = self.workflows[0]      
-        write_cfd_files.set_default(first_workflow.RunManagement)
-        job_text = SV.get_job_text(first_workflow.RunManagement, first_workflow.Solver)
-        self.scheduler, _ = SV.get_scheduler_and_options(first_workflow.RunManagement)
-
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
         loop_on_cases = build_loop_on_cases(paths_in_bash, self._sequential_job_filename)
-        job_text += loop_on_cases
-
-        SV.save_file_maybe_remote(self._sequential_job_filename, job_text, self.root_directory, machine=self.machine)
+        SV.save_file_maybe_remote(self._sequential_job_filename, self.job_text + loop_on_cases, self.root_directory, machine=self.machine)
 
     def submit(self):
         mola_logger.info(f'  > submission of job sequence in {self.root_directory}')

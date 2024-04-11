@@ -29,22 +29,38 @@ def submit_command(command, machine, input=None, user=None):
 
     ssh_host = get_ssh_host_command(machine=machine, user=user)
     if ssh_host != '':
-        command = f'{ssh_host} "{command}"'
+        assert input is None
+        input = '\n'.join(command.split(';'))
+        command = f'{ssh_host}'
 
     if input is None:
         mola_logger.debug(f'run command: {command}')
     else:
-        mola_logger.debug(f'run command: {command} with input {input}')
+        mola_logger.debug(f'run command: {command} with input:\n{input}')
     
-    subprocess.run([command], input=input, shell=True, check=True, env=os.environ.copy(), encoding='UTF-8')
-
+    output = subprocess.run([command], input=input, shell=True, check=True, capture_output=True, env=os.environ.copy(), encoding='UTF-8')
+    mola_logger.debug(output.stdout)
 
 def get_network():
+    # FIXME Won't work on a remote machine, if a machine-specific env is sourced
     return os.getenv('MOLA_NETWORK')
 
 def get_network_config():
     network = get_network()
     return misc.load_source('config', os.path.join(__MOLA_PATH__, 'mola', 'env', network, 'config.py'))
+
+def get_scheduler_defaults(machine, mola_target_path=__MOLA_PATH__):
+    network = get_network()
+    for path in [
+        os.path.join(mola_target_path, 'mola', 'env', network, machine, 'scheduler_defaults.py'),
+        os.path.join(__MOLA_PATH__, 'mola', 'env', network, machine, 'scheduler_defaults.py')
+        ]:
+        try:
+            return misc.load_source('scheduler_defaults', path)
+        except FileNotFoundError:
+            pass
+
+    return None
 
 def guess_localhost():
     HostName = socket.gethostname()
@@ -114,14 +130,8 @@ def get_ssh_host_command(machine=None, user=None, path='.'):
     
 def get_mola_installation_path(machine):
     try:
-        network = get_network()
-        path = os.path.join(__MOLA_PATH__, 'mola', 'env', network, machine, 'scheduler_defaults.py')
-        scheduler_defaults = misc.load_source('scheduler_defaults', path)
-        try:
-            return scheduler_defaults.MOLA_PATH
-        except AttributeError:
-            raise
-            
+        scheduler_defaults = get_scheduler_defaults(machine)
+        return scheduler_defaults.MOLA_PATH
     except:
         # By default, return the current installation path, assuming it will be accessible from the specified machine
         return __MOLA_PATH__

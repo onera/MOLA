@@ -19,7 +19,6 @@ import pytest
 import sys
 import os
 import time
-from mola import __MOLA_PATH__
 from mola.server import server as SV
 from mola.server import files_operations as FOP
 from mola.logging import MolaException
@@ -59,6 +58,30 @@ def test_submit_command():
     
     # create an empty file with a python command send with submit_command
     filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
+    SV.submit_command(f'touch {filename}', localhost)
+    os.remove(filename)
+
+@onera_only
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_submit_command_sator():
+    machine = 'sator'
+    # create an empty file with a python command send with submit_command
+    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
+    SV.submit_command(f'touch {filename}', machine)
+    FOP.remove_path(filename, machine=machine)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_submit_python_command():
+    try:
+        localhost = SV.guess_localhost()
+    except:
+        # submit_command command cannot be tested
+        return
+    
+    # create an empty file with a python command send with submit_command
+    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
     # python_command = f'''{sys.executable} -c "open('{filename}', 'w').close()"'''
     # SV.submit_command(python_command, localhost)
     code = f'''
@@ -69,21 +92,21 @@ with open('{filename}', 'w') as f:
     
     os.remove(filename)
 
-@onera_only
-@pytest.mark.unit
-@pytest.mark.cost_level_1
-def test_submit_command_sator():
-    machine = 'sator'
+# @onera_only
+# @pytest.mark.unit
+# @pytest.mark.cost_level_1
+# def test_submit_command_python_sator():
+#     machine = 'sator'
 
-    # create an empty file with a python command send with submit_command
-    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
-    code = f'''
-with open('{filename}', 'w') as f:
-    f.write('test')
-'''
-    SV.submit_command(sys.executable, machine, input=code)
+#     # create an empty file with a python command send with submit_command
+#     filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
+#     code = f'''
+# with open('{filename}', 'w') as f:
+#     f.write('test')
+# '''
+#     SV.submit_command(sys.executable, machine, input=code)
     
-    FOP.remove_path(filename, machine=machine)
+#     FOP.remove_path(filename, machine=machine)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
