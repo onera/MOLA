@@ -18,6 +18,9 @@
 import numpy as np
 import scipy.optimize
 from .external_flow import ExternalFlowGenerator 
+from ..mesh import tools as mesh_tools
+from mola.logging import mola_logger, MolaException
+
 
 class InternalFlowGenerator(ExternalFlowGenerator):
 
@@ -28,8 +31,7 @@ class InternalFlowGenerator(ExternalFlowGenerator):
         try:
             self.Surface = workflow.ApplicationContext['Surface']
         except KeyError:
-            from..mesh.tools import get_surface_of_inflow
-            self.Surface = get_surface_of_inflow(workflow)
+            self.Surface = self.get_surface_of_inflow(workflow)
 
     def set_flow_properties(self):
         self.compute_external_quantities_from_internal_quantities()        
@@ -156,3 +158,21 @@ class InternalFlowGenerator(ExternalFlowGenerator):
             # Search for the corresponding Mach Number between 0 and 1
             Mx = scipy.optimize.brentq(g, 0, 1)
             return Mx
+
+    @staticmethod
+    def get_surface_of_inflow(workflow):
+        try:
+            InflowBC = mesh_tools.get_bc_from_bc_type(workflow, ['Inflow*', 'inj*'])
+            InflowFamily = InflowBC['Family']
+        except MolaException:
+            raise MolaException('Please provide a reference surface as "Surface" in ReferenceValues or provide a unique inflow BC in BoundaryConditions')
+        
+        Surface = mesh_tools.get_surface_of_family(workflow.tree, InflowFamily)
+        try:
+            Surface *= workflow.ApplicationContext['NormalizationCoefficient'][InflowFamily]['FluxCoef']
+        except:
+            pass
+
+        mola_logger.info(f'Reference surface = {Surface} m^2 (computed from inflow family {InflowFamily})')
+        
+        return Surface
