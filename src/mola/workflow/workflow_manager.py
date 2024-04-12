@@ -105,7 +105,7 @@ class WorkflowDispatcher():
 
 class WorkflowParallelScheduler():
 
-    def __init__(self, dispatcher, root_directory='.', data_directory='SHARED_DATA'):
+    def __init__(self, dispatcher, root_directory='.', data_directory='SHARED_DATA', skip_if_exists=False):
 
         # table_of_workflows = [[A1, B1, ...], [A2, B2, ...], ...]
         #   several jobs in parallel: 
@@ -115,6 +115,7 @@ class WorkflowParallelScheduler():
         #
         # Warning: if A1 == A2 (same Python object, without copy), then it will bug without raising an error
 
+        self.skip_if_exists = skip_if_exists
         self.machine = None
         self.root_directory = root_directory
         self.data_directory = data_directory
@@ -127,7 +128,7 @@ class WorkflowParallelScheduler():
         self.table_of_workflows = []
         for i, sequence in enumerate(table_of_workflows):
             root_directory = os.path.join(self.root_directory, self.sequences_directories[i])
-            sequential_scheduler = WorkflowSequentialScheduler(sequence, root_directory)
+            sequential_scheduler = WorkflowSequentialScheduler(sequence, root_directory, skip_if_exists=self.skip_if_exists)
             self.table_of_workflows.append(sequential_scheduler)
 
         self.machine = sequential_scheduler.machine
@@ -188,7 +189,7 @@ class WorkflowParallelScheduler():
     
 class WorkflowSequentialScheduler():
 
-    def __init__(self, workflows: List[Workflow], root_directory):
+    def __init__(self, workflows: List[Workflow], root_directory, skip_if_exists=False):
 
         self.root_directory = root_directory
         self.workflows = workflows
@@ -197,6 +198,7 @@ class WorkflowSequentialScheduler():
         self._check_all_workflows_have_different_working_directories()
         self._set_machine()
         self._sequential_job_filename = 'job_sequence.sh'
+        self.skip_if_exists = skip_if_exists
 
     def _check_structure_of_workflows(self):
         assert isinstance(self.workflows, list)
@@ -235,6 +237,9 @@ class WorkflowSequentialScheduler():
         SV.makedirs_remote(self.root_directory, machine=self.machine)
         for workflow in self.workflows:
             mola_logger.info(f"\n{CYAN}  > preparing {workflow.RunManagement['RunDirectory']}...{ENDC}")
+            if self.skip_if_exists and SV.is_directory(workflow.RunManagement['RunDirectory'], self.machine):
+                mola_logger.warning(f"Skip directory {workflow.RunManagement['RunDirectory']} that already exists")
+                continue
             SV.makedirs_remote(workflow.RunManagement['RunDirectory'], machine=self.machine)
             self.write_workflow_without_prepare(workflow)
 
@@ -246,20 +251,17 @@ class WorkflowSequentialScheduler():
         workflow.write_cfd_files()
 
     def write_workflow_without_prepare(self, workflow):
-        RunDirectory = copy.deepcopy(workflow.RunManagement['RunDirectory'])
-        if not RunDirectory.endswith('/'):
-            RunDirectory += '/'
+        destination = os.path.join(workflow.RunManagement['RunDirectory'], 'workflow.cgns')
         workflow.RunManagement['RunDirectory'] = '.'
         workflow.set_workflow_parameters_in_tree()
 
-        SV.makedirs_remote(RunDirectory, machine=self.machine)
         if self.run_on_localhost:            
-            workflow.write_tree(filename=os.path.join(RunDirectory, 'workflow.cgns'))
+            workflow.write_tree(filename=destination)
         else:
             workflow.write_tree(filename='workflow.cgns')
             SV.copy_remote(
                 source_path='workflow.cgns', 
-                destination_path=RunDirectory, 
+                destination_path=destination, 
                 destination_machine=self.machine,
                 )
     
