@@ -459,6 +459,8 @@ def computeRowLoadRadialDistribution(surface, row, torque_center= None):
     distribution = np.linspace(0,1,50)
 
     blade_surf = searchBladeInTree(row)
+    print('blade_surf')
+    I.printTree(blade_surf)
     
     if torque_center == None:
         if 'TorqueCenter' in TurboConfiguration['Rows'][row].keys():

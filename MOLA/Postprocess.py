@@ -1258,7 +1258,6 @@ def computeCp(surface, distribution, slicing_options=dict(slicing_method='SpanBa
                 dmin = C.getMinValue(surface, slicing_var+customVarContainerTag)
                 dmax = C.getMaxValue(surface, slicing_var+customVarContainerTag)
 
-
     BladeSlices = I.newCGNSBase('Slices', cellDim=1, physDim=3, parent=None)
     for d in distribution:
         if slicing_options['slicing_method'] == 'SpanBased':
