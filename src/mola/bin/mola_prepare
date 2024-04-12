@@ -3,7 +3,11 @@
 # Read a file with workflow parameters and apply methods prepare() and write_cfd_files()
 
 import sys
-from mola.workflow import Workflow
+
+from treelab import cgns
+
+from mola import __MOLA_PATH__
+from mola import misc
 from mola.logging import MolaException
 
 err1 = 'must specify an input file name, e.g.: "mola_prepare workflow.cgns"'
@@ -11,9 +15,16 @@ if len(sys.argv) != 2: raise AttributeError(err1)
 filename = str(sys.argv[1])
 
 try:
-    w = Workflow(filename)
+    # Get the right class of Workflow
+    t = cgns.load(filename)
+    workflow_name = t.get(Name='WorkflowParameters').get(Name='Name', Depth=1).value()
+    workflows = misc.load_source('workflows', f'{__MOLA_PATH__}/mola/workflow/__init__.py')
+    PreviouslyUsedWorkflow = getattr(workflows, workflow_name)
+
+    w = PreviouslyUsedWorkflow(tree=filename)
     w.prepare()  
     w.write_cfd_files()
+
 except Exception as exception:
     with open('ERROR_PREPARING_WORKFLOW','w') as f: 
         f.write(str(exception))
