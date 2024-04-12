@@ -43,6 +43,7 @@ def save_file_maybe_remote(filename, txt, directory='.', machine=None):
             destination_path=directory, 
             destination_machine=machine,
             )
+        remove_path(filename, machine='localhost')
 
 def is_existing_path(path, machine=None, user=None, file_only=False):
     '''

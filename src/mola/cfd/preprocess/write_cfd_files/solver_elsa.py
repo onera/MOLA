@@ -129,6 +129,8 @@ def write_data_files(workflow):
             destination_path=os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'), 
             destination_machine=workflow.RunManagement['Machine'],
             )
+        SV.remove_path('main.cgns', machine='localhost')
+        SV.remove_path('OUTPUT', machine='localhost', file_only=False)
 
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)

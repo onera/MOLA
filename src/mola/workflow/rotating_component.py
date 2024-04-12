@@ -58,13 +58,22 @@ class WorkflowRotatingComponent(Workflow):
         super().__init__(**kwargs)
 
         if self.tree is None:
-            if not 'ShaftRotationSpeed' in self.ApplicationContext:
-                assert 'RPM' in self.ApplicationContext
-                self.ApplicationContext['ShaftRotationSpeed'] = self.ApplicationContext['RPM'] * np.pi / 30
+            self.set_rotation_speed()
 
             # Axis of the engine
             self.ApplicationContext.setdefault('ShaftAxis', np.array([1.,0,0]))
             self.Flow['Direction'] = self.ApplicationContext['ShaftAxis']
+
+    def set_rotation_speed(self):
+        if not 'ShaftRotationSpeed' in self.ApplicationContext \
+            and not 'RPM' in self.ApplicationContext:
+            raise MolaAssertionError('ShaftRotationSpeed (in rad/s) or RPM (in rpm) must be provided in ApplicationContext.')
+        elif 'RPM' in self.ApplicationContext:
+            self.ApplicationContext['ShaftRotationSpeed'] = self.ApplicationContext['RPM'] * np.pi / 30
+        elif 'ShaftRotationSpeed' in self.ApplicationContext: 
+            self.ApplicationContext['RPM'] = self.ApplicationContext['ShaftRotationSpeed'] * 30 / np.pi
+        else:
+            raise MolaAssertionError('Cannot provide both ShaftRotationSpeed and RPM.')
 
     def define_families(self):
         super().define_families()

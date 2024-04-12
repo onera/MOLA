@@ -112,6 +112,9 @@ def run_on_localhost(machine=None, run_directory='.'):
         True if the machine is given or can be guessed, and that is compared to localhost with success.
         False if not or if :py:fun:`guess_localhost` return an error.
     '''  
+    if machine == 'localhost':
+        return True
+    
     if machine is None:
         try:
             machine = guess_machine(path=run_directory)

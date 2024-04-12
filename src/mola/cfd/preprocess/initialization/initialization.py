@@ -35,7 +35,6 @@ def apply(workflow):
 
     try:
         initialize_flow_with_given_method = initialization_functions[workflow.Initialization['method']]
-        initialize_flow_with_given_method(workflow)
     except KeyError:
         if 'method' not in workflow.Initialization:
             raise MolaException('The key "method" is mandotory in the dictionary workflow.Initialization.')
@@ -43,6 +42,7 @@ def apply(workflow):
             init_method = workflow.Initialization['method']
             raise MolaException(f'The initialization method "{init_method}" is unknown. Available methods are: {list(initialization_functions)}')
 
+    initialize_flow_with_given_method(workflow)
     check_initial_flow_is_in_all_zones(workflow)
     
     apply_to_solver(workflow)

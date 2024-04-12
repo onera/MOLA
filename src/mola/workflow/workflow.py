@@ -105,7 +105,6 @@ class Workflow(object):
 
         if self.tree is not None:
             self.get_workflow_parameters_from_tree()
-            self._FlowGenerator=self.get_flow_generator(self.FlowGenerator)
 
         else:
             # if isinstance(_defaults, str):
@@ -169,6 +168,23 @@ class Workflow(object):
         
         for parameter in workflow_parameters:
             setattr(self, parameter, workflow_parameters[parameter])
+
+        self._FlowGenerator = self.get_flow_generator(self.FlowGenerator)
+        if self.RawMeshComponents is None: self.RawMeshComponents = []
+        if self.ApplicationContext is None: self.ApplicationContext = dict()
+        if self.Fluid is None: self.Fluid = dict()
+        if self.Flow is None: self.Flow = dict()
+        if self.Turbulence is None: self.Turbulence = dict()
+        if self.BoundaryConditions is None: self.BoundaryConditions = []
+        if self.SplittingAndDistribution is None: self.SplittingAndDistribution = dict()
+        if self.Numerics is None: self.Numerics = dict()
+        if self.BodyForceModeling is None: self.BodyForceModeling = []
+        if self.Motion is None: self.Motion = dict()
+        if self.Initialization is None: self.Initialization = dict(method='uniform')
+        if self.Extractions is None: self.Extractions = []
+        if self.ConvergenceCriteria is None: self.ConvergenceCriteria = []
+        if self.Monitoring is None: self.Monitoring = dict()
+        if self.RunManagement is None: self.RunManagement = dict()
 
 
     def set_workflow_parameters_in_tree(self):

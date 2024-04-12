@@ -44,7 +44,7 @@ class WorkflowDispatcher():
         self._check_new_job_is_declared()
         new_workflow = copy.deepcopy(self.base_workflow)
 
-        if initialize_from_previous:
+        if initialize_from_previous and len(self.workflows_in_current_job) > 0:
             self._add_variations_to_initialize_from_previous(variations)
 
         for request, value in variations:
@@ -71,7 +71,7 @@ class WorkflowDispatcher():
             previous_case_path = previous_workflow.RunManagement['RunDirectory']
             init_variations = [
                 ('Initialization|method', 'copy'),
-                ('Initialization|filename', f'../{previous_case_path}/OUTPUT/fields.cgns'),
+                ('Initialization|source', f'../{previous_case_path}/OUTPUT/fields.cgns'),
             ]
             variations += init_variations
         except IndexError:
@@ -264,6 +264,7 @@ class WorkflowSequentialScheduler():
                 destination_path=destination, 
                 destination_machine=self.machine,
                 )
+        SV.remove_path('workflow.cgns', machine='localhost')
     
     def write_sequence_job(self):
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
