@@ -3109,8 +3109,8 @@ def hasProbes():
 
 def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
     '''
-    Parameter
-    ---------
+    Parameters
+    ----------
 
         t : PyTree
 
@@ -3169,8 +3169,8 @@ def appendProbes2Arrays(t, arrays):
     '''
     Append probes with picked data in **arrays**.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
 
         t : PyTree
 
@@ -3568,6 +3568,7 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
         ini = _getDictofNodesFieldsPerZone(t, 'FlowSolution#Init')
     for zone_name in tot:
         for field_name in tot[zone_name]:
+            if field_name in ['cellN','indicm']: continue
             avg_old = old[zone_name][field_name] # BEWARE this is a CGNS node
             avg_tot = tot[zone_name][field_name] # BEWARE this is a CGNS node
             
@@ -3604,6 +3605,7 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
     for zone_name in tot:
         for bcfamily_name in tot[zone_name]:
             for field_name in tot[zone_name][bcfamily_name]:
+                if field_name in ['cellN','indicm']: continue
                 try:
                     avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
                 except KeyError:

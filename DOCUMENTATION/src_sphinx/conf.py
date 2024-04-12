@@ -82,6 +82,8 @@ html_context = {
     "default_mode": "light",
     'versions_dropdown': {
         'Dev': 'development',
+        'v1.17': 'v1.17',
+        'v1.16': 'v1.16',
         'v1.15': 'v1.15',
         'v1.14': 'v1.14',
         'v1.13': 'v1.13'

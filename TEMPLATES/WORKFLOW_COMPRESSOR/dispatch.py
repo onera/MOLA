@@ -38,6 +38,11 @@ for case in config.JobsQueues:
         if key not in ['ID', 'CASE_LABEL', 'NewJob', 'JobName']:
             WorkflowParams[key] = case[key]
 
+    WorkflowParams.setdefault('templates', dict())
+    if not 'otherWorkflowFiles' in WorkflowParams['templates']: 
+        WorkflowParams['templates']['otherWorkflowFiles'] = []
+    WorkflowParams['templates']['otherWorkflowFiles'].extend(['preprocess.py', 'postprocess.py'])
+
     caseDir = os.path.join(config.DIRECTORY_WORK, case['JobName'], case['CASE_LABEL'])
     os.makedirs(caseDir, exist_ok=True)
     os.chdir(caseDir)

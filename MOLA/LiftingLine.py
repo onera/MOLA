@@ -413,8 +413,6 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
             f *= dr * NBlades / (Nj-1) / vol_tot_val * weight_val / weight_tot_val
-            # LB TODO write more clearly:
-            # f *= (dr * NBlades / ((Nj-1) * vol_tot_val)) * (weight_val / weight_tot_val)
 
     else:
         for corrVar in CorrVars: C.node2Center__(Stacked, corrVar)
@@ -429,8 +427,7 @@ def buildBodyForceDisk(Propeller, PolarsInterpolatorsDict, NPtsAzimut,
         fieldsCorrVars_CC = J.getVars(Stacked,CorrVars,Container='FlowSolution#Centers')
         for f in fieldsCorrVars_CC:
             f *= dr * NBlades / (Nj-1) / vol_tot_val
-            # LB TODO write more clearly:
-            # f *= (dr * NBlades / ((Nj-1) * vol_tot_val))
+
 
     AzimutalLoads = dict()
     for ll in LLs:
@@ -996,27 +993,28 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
             Determines if the Lifting Line is symmetrised. A symmetrical extention is added to the
             build Lifting Line.
 
-        Twist : :py:class:`dict`
+        Twist : dict
             Gives the distribution of twist (in degree) with the according interpolation law.
             For example:
+
             ::
+
                 Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
                                     Twist = [30.,  6.0, -7.0],
                              InterpolationLaw = 'akima')
 
-        Sweep : :py:class:`dict`
+
+        Sweep : dict
             Gives the distribution of sweep (in degree) with the according interpolation law.
 
-        Dihedral : :py:class:`dict`
+        Dihedral : dict
             Gives the distribution of dihedral (in degree) with the according interpolation law.
-
 
     Returns
     -------
 
-        Frame : :py:class:`dict`
-            Containes the positions and vectors of the sections
-
+        Frame : dict
+            Contains the positions and vectors of the sections
     '''
     
     Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)
@@ -4370,95 +4368,98 @@ def convertHOSTPolarFile2Dict(filename):
     with open(filename,'r') as f:
         lines = f.readlines()
 
-        Data = {'Cl':{}, 'Cd':{},'Cm':{},}
+    Data = {'Cl':{}, 'Cd':{},'Cm':{},}
 
-        AllowedVars = Data.keys()
+    Aliases = {"cl": "Cl", "cd": "Cd", "cm": "Cm", "cz": "Cl", "cx": "Cd"}
+    AllowedVars = [
+        k.lower() for k in {*Data.keys(), *Aliases.keys(), *Aliases.values()}
+    ]
 
-        LinesQty = len(lines)
+    LinesQty = len(lines)
 
-        Data['Title']='_'.join(lines[0].split()[1:])
+    Data['Title']='_'.join(lines[0].split()[1:])
 
-        # Read Allowed Variables:
+    # Read Allowed Variables:
 
-        for i in range(LinesQty):
-            lS = lines[i].split()
-            if (len(lS) >= 2) and (lS[1] in AllowedVars):
-                Var = lS[1]
+    for i in range(LinesQty):
+        lS = lines[i].split()
+        if (len(lS) >= 2) and (lS[1].lower() in AllowedVars):
+            Var = Aliases[lS[1].lower()]
 
-                AoAQty, MachQty = scan(lines[i+1],int)
+            AoAQty, MachQty = scan(lines[i+1],int)
 
-                # Get Angles of Attack
-                AoA = []
-                j = i+1
-                while len(AoA) < AoAQty:
+            # Get Angles of Attack
+            AoA = []
+            j = i+1
+            while len(AoA) < AoAQty:
+                j += 1
+                AoA += scan(lines[j],float)
+            Data[Var]['AoA'] = np.array(AoA,order='F')
+
+            # Get Mach numbers
+            Mach = []
+            while len(Mach) < MachQty:
+                j += 1
+                Mach += scan(lines[j],float)
+            Data[Var]['Mach'] = np.array(Mach,order='F')
+
+            # Get Variable
+            VarNumpy = np.empty((AoAQty,MachQty),order='F')
+            VarNumpy[:] = 1
+            for a in range(AoAQty):
+                VarLine = []
+                while len(VarLine) < MachQty:
                     j += 1
-                    AoA += scan(lines[j],float)
-                Data[Var]['AoA'] = np.array(AoA,order='F')
+                    VarLine += scan(lines[j],float)
+                VarNumpy[a,:] = np.array(VarLine,order='F')
+            Data[Var]['Array'] = VarNumpy
 
-                # Get Mach numbers
-                Mach = []
-                while len(Mach) < MachQty:
+            # Read big angles
+            j+=1
+            NextTag = lines[j].split()
+            SetOfBigAoA = []
+            SetOfBigAoAValues = []
+            while len(NextTag) == 1:
+                BigAoA, BigAoAValues = [], []
+                BigAoAQty = int(NextTag[0])
+                while len(BigAoA) < BigAoAQty:
                     j += 1
-                    Mach += scan(lines[j],float)
-                Data[Var]['Mach'] = np.array(Mach,order='F')
-
-                # Get Variable
-                VarNumpy = np.empty((AoAQty,MachQty),order='F')
-                VarNumpy[:] = 1
-                for a in range(AoAQty):
-                    VarLine = []
-                    while len(VarLine) < MachQty:
-                        j += 1
-                        VarLine += scan(lines[j],float)
-                    VarNumpy[a,:] = np.array(VarLine,order='F')
-                Data[Var]['Array'] = VarNumpy
-
-                # Read big angles
+                    BigAoA += scan(lines[j],float)
+                while len(BigAoAValues) < BigAoAQty:
+                    j += 1
+                    BigAoAValues += scan(lines[j],float)
+                SetOfBigAoA += BigAoA
+                SetOfBigAoAValues += BigAoAValues
                 j+=1
-                NextTag = lines[j].split()
-                SetOfBigAoA = []
-                SetOfBigAoAValues = []
-                while len(NextTag) == 1:
-                    BigAoA, BigAoAValues = [], []
-                    BigAoAQty = int(NextTag[0])
-                    while len(BigAoA) < BigAoAQty:
-                        j += 1
-                        BigAoA += scan(lines[j],float)
-                    while len(BigAoAValues) < BigAoAQty:
-                        j += 1
-                        BigAoAValues += scan(lines[j],float)
-                    SetOfBigAoA += BigAoA
-                    SetOfBigAoAValues += BigAoAValues
-                    j+=1
-                    try:
-                        NextTag = lines[j].split()
-                    except IndexError:
-                        break
+                try:
+                    NextTag = lines[j].split()
+                except IndexError:
+                    break
 
 
-                SortInd = np.argsort(SetOfBigAoA)
-                SetOfBigAoA= np.array([SetOfBigAoA[i] for i in SortInd], order='F')
-                SetOfBigAoAValues= np.array([SetOfBigAoAValues[i] for i in SortInd], order='F')
+            SortInd = np.argsort(SetOfBigAoA)
+            SetOfBigAoA= np.array([SetOfBigAoA[i] for i in SortInd], order='F')
+            SetOfBigAoAValues= np.array([SetOfBigAoAValues[i] for i in SortInd], order='F')
 
-                Data[Var]['BigAoA'] = SetOfBigAoA
-                Data[Var]['BigAoAValues'] = SetOfBigAoAValues
-            elif '(C*L/NU)I0' in lines[i]:
-                j=i
-                ReynoldsOverMach = scan(lines[j],float)
-                Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
-                Data['Cl']['Reynolds'] = Data['ReynoldsOverMach']*Data['Cl']['Mach']
-            elif (len(lS) == 2) and (lS[1] == 'Reynolds'):
-                # Get Reynolds
-                j = i+1
-                ReynoldsQty = scan(lines[j],int)[0]
-                if ReynoldsQty != MachQty:
-                    raise ValueError('ReynoldsQty (%g) is not equal to MachQty (%g). Check your HOST file.'%(ReynoldsQty,MachQty))
-                Reynolds = []
-                while len(Reynolds) < ReynoldsQty:
-                    j += 1
-                    Reynolds += scan(lines[j],float)
-                for Var in AllowedVars:
-                    Data[Var]['Reynolds'] = np.array(Reynolds,order='F')
+            Data[Var]['BigAoA'] = SetOfBigAoA
+            Data[Var]['BigAoAValues'] = SetOfBigAoAValues
+        elif '(C*L/NU)I0' in lines[i]:
+            j=i
+            ReynoldsOverMach = scan(lines[j],float)
+            Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
+            Data['Cl']['Reynolds'] = Data['ReynoldsOverMach']*Data['Cl']['Mach']
+        elif (len(lS) == 2) and (lS[1] == 'Reynolds'):
+            # Get Reynolds
+            j = i+1
+            ReynoldsQty = scan(lines[j],int)[0]
+            if ReynoldsQty != MachQty:
+                raise ValueError('ReynoldsQty (%g) is not equal to MachQty (%g). Check your HOST file.'%(ReynoldsQty,MachQty))
+            Reynolds = []
+            while len(Reynolds) < ReynoldsQty:
+                j += 1
+                Reynolds += scan(lines[j],float)
+            for Var in AllowedVars:
+                Data[Var]['Reynolds'] = np.array(Reynolds,order='F')
     Data['PyZonePolarKind'] = 'Struct_AoA_Mach'
 
     return Data
@@ -5197,12 +5198,16 @@ def addPitch(LiftingLine, pitch=0.0):
             `PitchRelativeCenter`, previously defined in :py:func:`buildLiftingLine`
     '''
     for LL in getLiftingLines(LiftingLine):
+        Kin_n = I.getNodeFromName(LL,'.Kinematics')
+        rc = I.getValue(I.getNodeFromName1(Kin_n,'RotationCenter'))
+
         PitchCtr = J.getVars(LL,
                         ['PitchRelativeCenterX','PitchRelativeCenterY','PitchRelativeCenterZ'])
 
+
         PitchAxis = J.getVars(LL, ['PitchAxisX','PitchAxisY','PitchAxisZ'])
 
-        PitchCtr_pt = (PitchCtr[0][0]*1.0, PitchCtr[1][0]*1.0, PitchCtr[2][0]*1.0)
+        PitchCtr_pt = (PitchCtr[0][0]+rc[0], PitchCtr[1][0]+rc[1], PitchCtr[2][0]+rc[2])
         PitchAxis_vec = (PitchAxis[0][0], PitchAxis[1][0], PitchAxis[2][0])
         T._rotate(LL, PitchCtr_pt, PitchAxis_vec, pitch, 
                 vectors=NamesOfChordSpanThickwiseFrameNoTangential)

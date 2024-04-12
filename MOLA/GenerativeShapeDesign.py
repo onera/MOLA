@@ -1486,7 +1486,7 @@ def scanBlade(BladeSurface, SpanwiseInput, RotationCenter,
 
     BladeDirection = getUnitVector(BladeDirection)
 
-    if PitchAxis is None: PitchAxis = BladeDirection
+    
 
 
     AdvanceDirection = np.cross(RotationAxis, BladeDirection)
@@ -1580,6 +1580,7 @@ def scanBlade(BladeSurface, SpanwiseInput, RotationCenter,
         Span = C.getMeanValue(SliceResult,'Span')
         print('Span = %g'%Span)
 
+
         Structs = []
         for s in SliceResult:
             s = C.convertBAR2Struct(s)
@@ -1602,10 +1603,14 @@ def scanBlade(BladeSurface, SpanwiseInput, RotationCenter,
 
         LeadingEdge        = AirfoilProperties['LeadingEdge']
         ChordDirection     = AirfoilProperties['ChordDirection']
+        ThickwiseDirection = AirfoilProperties['NormalDirection']
         Chord              = AirfoilProperties['Chord']
 
+
         if RightHandRuleRotation is None: # first section
-            if ChordDirection.dot(RotationAxis) < 0:
+            if PitchAxis is None: PitchAxis = SpanwiseVector 
+            Dir=np.sign(BladeDirection.dot(np.cross(ThickwiseDirection,ChordDirection)))
+            if Dir > 0:
                 RightHandRuleRotation = True
                 Dir = 1
                 print(J.CYAN+'Twist will be computed according to detected RightHandRuleRotation'+J.ENDC)
@@ -1616,9 +1621,17 @@ def scanBlade(BladeSurface, SpanwiseInput, RotationCenter,
 
         # project vector ChordDirection into plane defined by SpanwiseVector
         ChordwiseProjected = ChordDirection - ChordDirection.dot(SpanwiseVector)*SpanwiseVector
-        Twist = np.rad2deg(np.arccos(-ChordwiseProjected.dot(AdvanceDirection)))
-        sign = np.sign(ChordDirection.dot(RotationAxis))
-        Twist*= -Dir*sign
+        if Dir < 0:
+            a = -ChordwiseProjected
+            b = AdvanceDirection
+        else:
+            a = AdvanceDirection
+            b = -ChordwiseProjected
+        Twist = np.arctan2(np.cross(a,b).dot(PitchAxis),a.dot(b))
+        if Twist > np.pi: angle -= 2 * np.pi
+        elif Twist <= -np.pi: angle += 2 * np.pi
+
+        Twist = np.rad2deg(Twist)
         print(f'Twist = {Twist}')
 
         ControlPointAirfoil = (LeadingEdge +
@@ -1660,10 +1673,12 @@ def scanBlade(BladeSurface, SpanwiseInput, RotationCenter,
             if prop in BladeLineFields:
                 BladeLineFields[prop][i] = AirfoilProperties[prop]
 
+    ThrustAxis = Dir * RotationAxis
+    print(f"detected ThrustAxis = {ThrustAxis}, with Dir={Dir}")
     J.set(BladeLine,'ScanInformation', RotationCenter=RotationCenter,
             RightHandRuleRotation=RightHandRuleRotation,
             PitchAxis=PitchAxis,
-            RotationAxis=RotationAxis)
+            RotationAxis= RotationAxis)
 
     CamberSurface = G.stack(Cambers)
     CamberSurface[0] = 'CamberSurface'

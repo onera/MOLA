@@ -3,7 +3,9 @@
 Examples
 ========
 
-This page summarizes all examples that can be found on ``EXAMPLES`` directory.
+This page summarizes the main examples that can be found on ``EXAMPLES`` directory.
+Please explore ``$MOLA/EXAMPLES`` and ``$MOLA/EXAMPLES_RESTRICTED`` for full details
+and find all available examples.
 
 BEMT
 ----
@@ -87,7 +89,7 @@ Generation of a O-H mesh surface
 
 **Short description:** create a O-H surface grid with arbitrary orientation
 
-.. figure:: ../../EXAMPLES/MESHING/PERIODIC_O-H/mesh3D.png
+.. figure:: ../../EXAMPLES/MESHING/PERIODIC_O-H/FRAMES/frame0039.png
     :width: 80%
     :align: center
 
@@ -150,7 +152,31 @@ Rotor 37 - iso-speed line
 This case is identical to :ref:`Rotor37`, except that several operating points
 are simulated for the design rotational speed, by varying the outflow condition.
 
+.. _Rotor37_uniform_Giles:
 
+Rotor 37 - uniform Giles conditions
+***********************************
+
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_Giles_uniform/
+
+**Short description**:
+
+This case is based on the case :ref:`Rotor37`, except that inflow and outflow conditions
+are set as Giles boundary conditions.
+
+Rotor 37 - non-uniform Giles conditions
+***************************************
+
+.. code-block:: bash
+
+    $MOLA/EXAMPLES/WORKFLOW_COMPRESSOR/rotor37_Giles_non-uniform/
+
+**Short description**:
+
+This case is based on the case :ref:`Rotor37_uniform_Giles`, except that the inflow is set 
+with a non-uniform map read from a file.
 
 LMFA linear cascade
 *******************
@@ -464,9 +490,9 @@ Several VPM examples of wings, rotors and propellers are available here:
 
 .. code-block:: bash
 
-    $MOLA/EXAMPLES/VPM/LIFTING_LINE
+    $MOLA/EXAMPLES/VPM
 
-.. figure:: ../../EXAMPLES/VPM/LIFTING_LINE/ROTORS/KDE_QuadRotor/flow_kde_quad.png
+.. figure:: ../../EXAMPLES/VPM/QUADROTOR_KDE/flow_kde_quad.png
     :width: 80%
     :align: center
 

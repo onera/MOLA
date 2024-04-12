@@ -695,7 +695,7 @@ Extension of an existing polar
 ------------------------------
 
 In some cases, you may have computed a polar for a given range of angles-of-attack
-and Mach numbers (using for example :download:`PolarLauncherStruct_BASIC.py <../../TEMPLATES/WORKFLOW_AIRFOIL/PolarLauncherStruct_BASIC.py>`)
+and Mach numbers (using for example :download:`PolarLauncherStruct_BASIC.py <../../EXAMPLES/WORKFLOW_AIRFOIL/LIGHT_POLAR/PolarLauncherStruct_BASIC.py>`)
 and then you realize that you forgot to include some angles-of-attack and/or Mach 
 numbers, or you simply realize that you need to extend your range once the Polar 
 is computed.
