@@ -121,62 +121,24 @@ class WorkflowParallelScheduler():
         self.data_directory = data_directory
         self.sequences_directories = dispatcher.root_directories
         self._set_table_of_workflows(dispatcher.table_of_workflows)
-        self._update_filenames()
 
     def _set_table_of_workflows(self, table_of_workflows):
         assert isinstance(table_of_workflows, list)
         self.table_of_workflows = []
         for i, sequence in enumerate(table_of_workflows):
-            root_directory = os.path.join(self.root_directory, self.sequences_directories[i])
-            sequential_scheduler = WorkflowSequentialScheduler(sequence, root_directory, skip_if_exists=self.skip_if_exists)
+            root_absolute_directory = os.path.join(self.root_directory, self.sequences_directories[i])
+            data_absolute_directory = os.path.join(self.root_directory, self.data_directory)
+
+            sequential_scheduler = WorkflowSequentialScheduler(
+                sequence, 
+                root_directory=root_absolute_directory, 
+                data_directory=data_absolute_directory, 
+                skip_if_exists=self.skip_if_exists
+                )
             self.table_of_workflows.append(sequential_scheduler)
 
         self.machine = sequential_scheduler.machine
         
-    def _update_filenames(self):
-        # need to grab all workflow parameters that are filenames, and update their paths 
-        # following the attributes of the Scheduler
-        workflows_list_flatten = [w for scheduler in self.table_of_workflows for w in scheduler.workflows] 
-        for workflow in workflows_list_flatten:
-            # files2copy = get_values_in_collection_from_pattern(workflow, ['*.cgns'], [])
-
-            # TODO for now, the solution is working but it paths in the workflows are hardcoded.
-            # It would be better to have a function to do:
-            # for path in paths:
-            #     leaf = get_leaf(workflow, path)
-            #     adapt(leaf)
-            #
-            # path = ['RawMeshComponents', 'Source']
-            # leaf = get_value_on_leaf(workflow, path)
-            # if leaf.endswith('.cgns'):
-            #     self.copy_file_to_data_directory(leaf)
-            #     set_value_on_leaf(workflow, path, self.get_adapted_path(leaf))
-
-            for Component in workflow.RawMeshComponents:
-                try:
-                    if Component['Source'].endswith('.cgns'):
-                        self.copy_file_to_data_directory(Component['Source'])
-                        Component['Source'] = self.get_adapted_path(Component['Source'])
-                except AttributeError:
-                    pass
-
-    def copy_file_to_data_directory(self, path):
-        filename = path.split(os.path.sep)[-1]
-        data_dir = os.path.join(self.root_directory, self.data_directory)
-        new_filename = os.path.join(data_dir, filename)
-        if not SV.is_existing_path(new_filename, machine=self.machine):
-            mola_logger.info(f'copy {path} to {data_dir}')
-            SV.makedirs_remote(data_dir, machine=self.machine)
-            SV.copy_remote(
-                source_path=path,
-                destination_path=new_filename,
-                destination_machine=self.machine
-            )
-    
-    def get_adapted_path(self, path):
-        filename = path.split(os.path.sep)[-1]
-        return os.path.join('..', '..', self.data_directory, filename)
-
     def prepare(self):
         SV.makedirs_remote(self.root_directory, machine=self.machine)
         for sequence_of_workflows in self.table_of_workflows:
@@ -189,7 +151,7 @@ class WorkflowParallelScheduler():
     
 class WorkflowSequentialScheduler():
 
-    def __init__(self, workflows: List[Workflow], root_directory, skip_if_exists=False):
+    def __init__(self, workflows: List[Workflow], root_directory, data_directory, skip_if_exists=False):
 
         self.root_directory = root_directory
         self.workflows = workflows
@@ -199,6 +161,7 @@ class WorkflowSequentialScheduler():
         self._set_machine()
         self._sequential_job_filename = 'job_sequence.sh'
         self.skip_if_exists = skip_if_exists
+        self.data_directory = data_directory
 
     def _check_structure_of_workflows(self):
         assert isinstance(self.workflows, list)
@@ -240,32 +203,15 @@ class WorkflowSequentialScheduler():
             if self.skip_if_exists and SV.is_directory(workflow.RunManagement['RunDirectory'], self.machine):
                 mola_logger.warning(f"Skip directory {workflow.RunManagement['RunDirectory']} that already exists")
                 continue
-            SV.makedirs_remote(workflow.RunManagement['RunDirectory'], machine=self.machine)
-            self.write_workflow_without_prepare(workflow)
+            workflow.write_tree_remote(data_directory=self.data_directory)
 
         self.write_sequence_job()
     
-    @staticmethod
-    def prepare_workflow(workflow):
-        workflow.prepare()
-        workflow.write_cfd_files()
+    # @staticmethod
+    # def prepare_workflow(workflow):
+    #     workflow.prepare()
+    #     workflow.write_cfd_files()
 
-    def write_workflow_without_prepare(self, workflow):
-        destination = os.path.join(workflow.RunManagement['RunDirectory'], 'workflow.cgns')
-        workflow.RunManagement['RunDirectory'] = '.'
-        workflow.set_workflow_parameters_in_tree()
-
-        if self.run_on_localhost:            
-            workflow.write_tree(filename=destination)
-        else:
-            workflow.write_tree(filename='workflow.cgns')
-            SV.copy_remote(
-                source_path='workflow.cgns', 
-                destination_path=destination, 
-                destination_machine=self.machine,
-                )
-        SV.remove_path('workflow.cgns', machine='localhost')
-    
     def write_sequence_job(self):
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
         loop_on_cases = build_loop_on_cases(paths_in_bash, self._sequential_job_filename)
@@ -279,6 +225,95 @@ class WorkflowSequentialScheduler():
             command = f"cd {self.root_directory}; ./{self._sequential_job_filename}"
 
         SV.submit_command(command, self.machine)
+
+
+class WorkflowSender():
+
+    def __init__(self, workflow, data_directory=None):
+        self.workflow = copy.deepcopy(workflow)
+        self.run_directory = copy.deepcopy(self.workflow.RunManagement['RunDirectory'])
+        if data_directory is None:
+            self.data_directory = self.run_directory
+        else:
+            self.data_directory = data_directory
+        
+        write_cfd_files.set_default_machine(self.workflow.RunManagement)
+        self.machine = self.workflow.RunManagement['Machine']
+        
+    def apply(self):
+        
+        destination = os.path.join(self.run_directory, 'workflow.cgns')
+        self.workflow.RunManagement['RunDirectory'] = '.'
+        
+        run_on_localhost = SV.run_on_localhost(self.machine, self.run_directory)
+        if run_on_localhost:    
+            self.workflow.set_workflow_parameters_in_tree()    
+            SV.makedirs_remote(self.run_directory, machine='localhost')    
+            self.workflow.write_tree(filename=destination)
+            
+        else:
+            self._copy_files_and_update_paths_in_workflow()
+
+            self.workflow.set_workflow_parameters_in_tree()
+            self.workflow.write_tree(filename='workflow.cgns')
+            SV.copy_remote(
+                source_path='workflow.cgns', 
+                destination_path=destination, 
+                destination_machine=self.machine,
+                )
+            SV.remove_path('workflow.cgns', machine='localhost')
+
+    def _copy_files_and_update_paths_in_workflow(self):
+        # files2copy = get_values_in_collection_from_pattern(workflow, ['*.cgns'], [])
+
+        # TODO for now, the solution is working but it paths in the workflows are hardcoded.
+        # It would be better to have a function to do:
+        # for path in paths:
+        #     leaf = get_leaf(workflow, path)
+        #     adapt(leaf)
+        #
+        # path = ['RawMeshComponents', 'Source']
+        # leaf = get_value_on_leaf(workflow, path)
+        # if leaf.endswith('.cgns'):
+        #     self.copy_file_to_data_directory(leaf)
+        #     set_value_on_leaf(workflow, path, self.get_adapted_path(leaf))
+
+        # for Component in workflow.RawMeshComponents:
+        #     try:
+        #         if Component['Source'].endswith('.cgns'):
+        #             self.copy_file_to_data_directory(Component['Source'])
+        #             Component['Source'] = self.get_adapted_path(Component['Source'])
+        #     except AttributeError:
+        #         pass
+        
+        for Component in self.workflow.RawMeshComponents:
+            try:
+                if Component['Source'].endswith('.cgns'):
+                    self._copy_file_to_data_directory(Component['Source'])
+                    Component['Source'] = self._get_adapted_path(Component['Source'])
+            except AttributeError:
+                pass
+
+    def _copy_file_to_data_directory(self, path):
+        machine = self.machine
+        filename = path.split(os.path.sep)[-1]
+        new_filename = os.path.join(self.data_directory, filename)
+
+        if not SV.is_existing_path(new_filename, machine=machine):
+            mola_logger.info(f'copy {path} to {self.data_directory}')
+            SV.makedirs_remote(self.data_directory, machine=machine)
+            SV.copy_remote(
+                source_path=path,
+                destination_path=new_filename,
+                destination_machine=machine
+            )
+    
+    def _get_adapted_path(self, path):
+        filename = path.split(os.path.sep)[-1]
+        dir_path = os.path.relpath(self.data_directory, start=self.run_directory)
+        return os.path.join(dir_path, filename)
+    
+
 
 
 def build_loop_on_cases(sequence_of_paths, sequential_job_filename):

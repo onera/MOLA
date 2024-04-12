@@ -32,7 +32,7 @@ from  mola.cfd.preprocess import (flow_generators,
                                   write_cfd_files)
 from mola import server as SV 
 from mola.cfd.postprocess import remove_cfd_files
-from  mola.cfd.compute import compute
+from mola.cfd.compute import compute
 
 def deep_update(d, u):
     for k, v in u.items():
@@ -315,6 +315,11 @@ class Workflow(object):
             command = self.RunManagement['LauncherCommand']
         user = self.RunManagement.get('User')
         SV.submit_command(command, self.RunManagement['Machine'], user=user)
+
+    def write_tree_remote(self, data_directory=None):
+        from . import workflow_manager as WM
+        sender = WM.WorkflowSender(self, data_directory=data_directory)
+        sender.apply()
 
     def merge(self, other_workflow):
         # TODO Still in development, not validated

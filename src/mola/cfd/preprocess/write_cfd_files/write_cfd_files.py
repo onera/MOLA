@@ -42,8 +42,7 @@ def set_default(RunManagement):
     if not isinstance(RunManagement['NumberOfProcessors'], int):
         raise MolaException(f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer')
 
-    if ('Machine' not in RunManagement) or (RunManagement['Machine'] == 'auto'):
-        RunManagement['Machine'] = SV.guess_machine(RunManagement['RunDirectory'])
+    set_default_machine(RunManagement)
     
     RunManagement.setdefault('mola_target_path', SV.get_mola_installation_path(RunManagement['Machine']))
         
@@ -52,3 +51,8 @@ def set_default(RunManagement):
                          f"    on path {RunManagement['RunDirectory']}\n"
                          f"    sourcing {RunManagement['mola_target_path']}"
                          )
+
+def set_default_machine(RunManagement):
+    if ('Machine' not in RunManagement) or (RunManagement['Machine'] == 'auto'):
+        RunManagement['Machine'] = SV.guess_machine(RunManagement['RunDirectory'])
+
