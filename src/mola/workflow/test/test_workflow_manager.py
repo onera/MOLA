@@ -65,6 +65,38 @@ def test_get_value_on_leaf():
     value = WM.get_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'])
     assert value == 10
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_find_matching_leaves():
+    @dataclass
+    class Fake(Workflow):
+
+        RawMeshComponents = [
+            dict(
+                Name = 'test',
+                Source = 'source.cgns',
+            )
+        ]
+
+        BoundaryConditions = [
+            dict(Family='INFLOW', filename='inflow_map.cgns'),
+            dict(Family='OUTFLOW', type='OutflowPressure', Pressure=10),
+        ]
+
+        Initialization = dict(
+            method = 'copy',
+            filename = 'init.cgns',
+        )
+
+    def add_preffix(name):
+        return 'new_'+name
+
+    workflow = Fake()
+    filenames = WM.find_matching_leaves(workflow, ['*.cgns'], operation=add_preffix)
+    assert set(filenames) == {'source.cgns', 'inflow_map.cgns', 'init.cgns'}
+    assert workflow.RawMeshComponents[0]['Source'] == 'new_source.cgns'
+    assert workflow.BoundaryConditions[0]['filename'] == 'new_inflow_map.cgns'
+    assert workflow.Initialization['filename'] == 'new_init.cgns'
 
 def get_fake_workflow():
     x, y, z = np.meshgrid( np.linspace(0,1,21),
