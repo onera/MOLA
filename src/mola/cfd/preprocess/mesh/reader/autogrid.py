@@ -17,6 +17,7 @@
 
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
+from ..families import join_families
 
 
 SCALE_DICT = dict(
@@ -132,9 +133,9 @@ def clean_mesh_from_autogrid(t): #, basename='Base#1', zonesToRename={}):
     # t.findAndRemoveNodes(Type='InterfaceType')
     # t.findAndRemoveNodes(Type='DonorFamily')
 
-    # # Join HUB and SHROUD families
-    # J.joinFamilies(t, 'HUB')
-    # J.joinFamilies(t, 'SHROUD')
+    # Join HUB and SHROUD families
+    join_families(t, 'HUB')
+    join_families(t, 'SHROUD')
     return t
 
 def clean_autogrid_log_bases(t):

@@ -165,7 +165,7 @@ class InternalFlowGenerator(ExternalFlowGenerator):
             InflowBC = mesh_tools.get_bc_from_bc_type(workflow, ['Inflow*', 'inj*'])
             InflowFamily = InflowBC['Family']
         except MolaException:
-            raise MolaException('Please provide a reference surface as "Surface" in ReferenceValues or provide a unique inflow BC in BoundaryConditions')
+            raise MolaException('Please provide a reference surface as "Surface" in ApplicationContext or provide a unique inflow BC in BoundaryConditions')
         
         Surface = mesh_tools.get_surface_of_family(workflow.tree, InflowFamily)
         try:
