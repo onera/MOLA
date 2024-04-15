@@ -52,23 +52,13 @@ class ExternalFlowGenerator(object):
         self.Turbulence.setdefault('Viscosity_EddyMolecularRatio', 0.1)
 
     def generate(self):
-        # Compute flow and turbulence properties
         self.set_fluid_properties()
         self.set_flow_properties()
         self.set_turbulence_properties()
         self.Flow['ReferenceState'] = dict(**self.Flow['Conservatives'], **self.Turbulence['Conservatives'])
-
-        # TODO Move these values ?
-        # If yes, Surface can be removed from the attributes of this class
-        # self.Flow.update(dict(
-        #     Length          = Length,
-        #     Surface         = Surface,
-        #     FluxCoef        = 1./(self.Flow['PressureDynamic'] * Surface),
-        #     TorqueCoef      = 1./(self.Flow['PressureDynamic'] * Surface * Length),
-        # ))
     
     def set_fluid_properties(self):
-        defaults = dict(
+        air_defaults = dict(
             Gamma=1.4,
             IdealGasConstant=287.053,
             Prandtl=0.72,
@@ -77,7 +67,7 @@ class ExternalFlowGenerator(object):
             SutherlandViscosity=1.78938e-05,
             SutherlandTemperature=288.15
             )
-        self.Fluid.update(defaults)
+        self.Fluid.update(air_defaults)
         self.Fluid['cv'] = self.Fluid['IdealGasConstant'] / (self.Fluid['Gamma']-1.0)
         self.Fluid['cp'] = self.Fluid['Gamma'] * self.Fluid['cv']
 
@@ -239,16 +229,4 @@ class ExternalFlowGenerator(object):
 
         else:
             raise AttributeError(f'Turbulence model {self.Turbulence["Model"]} not implemented in workflow. Must be in: {AvailableTurbulenceModels}')
-
-        # if self.Turbulence['TransitionMode'] is not None:
-        #     self.Turbulence['TransitionZones'] = dict(
-        #         TopOrigin                   = 0.002,
-        #         BottomOrigin                = 0.010,
-        #         TopLaminarImposedUpTo       = 0.001,
-        #         TopLaminarIfFailureUpTo     = 0.2,
-        #         TopTurbulentImposedFrom     = 0.995,
-        #         BottomLaminarImposedUpTo    = 0.001,
-        #         BottomLaminarIfFailureUpTo  = 0.2,
-        #         BottomTurbulentImposedFrom  = 0.995,
-        #     )
             

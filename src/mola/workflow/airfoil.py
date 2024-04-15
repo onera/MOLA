@@ -30,6 +30,10 @@ class WorkflowAirfoil(Workflow):
         self.ApplicationContext.setdefault('AngleOfSlipDeg', 0.0) 
         self.ApplicationContext.setdefault('YawAxis', [0.,0.,1.]) 
         self.ApplicationContext.setdefault('PitchAxis', [0.,-1.,0.]) 
+        self.set_flow_directions()
+
+        self.ApplicationContext.setdefault('Chord', 1.)
+        self.ApplicationContext.setdefault('Surface', 1.)
 
         super(WorkflowAirfoil, self).__init__(**UserParameters)
 
@@ -155,3 +159,24 @@ class WorkflowAirfoil(Workflow):
 
         return DragDirection, SideDirection, LiftDirection
 
+    def compute_flow_and_turbulence(self):
+        super().compute_flow_and_turbulence()
+        self.set_reference_values()
+
+    def set_reference_values(self):
+        self.ApplicationContext['FluxCoef'] = 1./ (self.Flow['PressureDynamic'] * self.ApplicationContext['Surface'])
+        self.ApplicationContext['TorqueCoef'] = self.ApplicationContext['FluxCoef'] / self.ApplicationContext['Chord']
+        self.Flow['Reynolds'] = self.Flow['Density'] * self.Flow['VelocityUsedForScalingAndTurbulence'] * self.ApplicationContext['Chord'] / self.Flow['ViscosityMolecular']
+
+    def set_TransitionZones(self):
+        if self.Turbulence['TransitionMode'] is not None:
+            self.Turbulence['TransitionZones'] = dict(
+                TopOrigin                   = 0.002,
+                BottomOrigin                = 0.010,
+                TopLaminarImposedUpTo       = 0.001,
+                TopLaminarIfFailureUpTo     = 0.2,
+                TopTurbulentImposedFrom     = 0.995,
+                BottomLaminarImposedUpTo    = 0.001,
+                BottomLaminarIfFailureUpTo  = 0.2,
+                BottomTurbulentImposedFrom  = 0.995,
+            )
