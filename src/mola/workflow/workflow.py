@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import copy
 from treelab import cgns
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from  mola.cfd.preprocess.mesh import (reader,
@@ -323,13 +324,11 @@ class Workflow(object):
 
     def merge(self, other_workflow):
         # TODO Still in development, not validated
-        # merge trees
-        self.tree.merge(other_workflow.tree)
+        mola_logger.warning(f'Merge workflows')
 
-        # update BCs or GCs at the interface
-        for bc in self.BoundaryConditions + other_workflow.BoundaryConditions:
-            if bc['type'] == 'WorkflowInterface':
-                bc['type'] = bc.pop['final_type']
+        self._merge_trees(other_workflow)
+
+        self._update_interfaces_between_workflows(other_workflow)
         
         # merge attributes
         self.RawMeshComponents += other_workflow.RawMeshComponents
@@ -338,8 +337,51 @@ class Workflow(object):
         self.BodyForceModeling += other_workflow.BodyForceModeling
         self.Extractions += other_workflow.Extractions
         self.ConvergenceCriteria += other_workflow.ConvergenceCriteria
-        self.Monitoring += other_workflow.Monitoring
 
-        # set again boundary conditions because it may have changed
-        self.set_boundary_conditions()
+    def _merge_trees(self, other_workflow):
+        other_tree = other_workflow.tree
+        other_tree.findAndRemoveNode(Name=self._workflow_parameters_container_, Depth=1)
+        main_base = self.tree.get(Type='CGNSBase', Depth=1)
+        secondary_basename = other_tree.get(Type='CGNSBase', Depth=1).name()
+
+        self.tree.merge(other_tree)
+
+        # Move children of secondary base to the main base if they don't already exists in main base
+        secondary_base = self.tree.get(Name=secondary_basename, Type='CGNSBase', Depth=1)
+        children_to_move = copy.copy(secondary_base.children())
+        for child in children_to_move:
+            if not main_base.get(Name=child.name(), Type=child.type(), Depth=1):
+                child.moveTo(main_base)
+        secondary_base.remove()
+
+    def _update_interfaces_between_workflows(self, other_workflow):
+        updated_boundary_conditions = []
+        for bc in self.BoundaryConditions + other_workflow.BoundaryConditions:
+            if bc['type'] != 'InterfaceBetweenWorkflows':
+                continue
+
+            if not 'interface_type' in bc:
+                raise MolaException(
+                    f"The boundary condition on Family {bc['Family']} is of type {bc['type']},"
+                    "and for this type the key 'interface_type' must be defined."
+                    )
+            
+            elif isinstance(bc['interface_type'], str):
+                assert bc['interface_type'] in ['Match']
+                raise NotImplementedError
+
+            elif isinstance(bc['interface_type'], dict):
+                bc.update(bc['interface_type'])
+                bc.pop('interface_type')
+                if bc['type'] in boundary_conditions.turbomachinery_interfaces:
+                    bc.pop('Family')
+                updated_boundary_conditions.append(bc)
+
+            else:
+                raise MolaException(
+                    f"For BC on Family {bc['Family']}, the value of 'interface_type' must be of type str or dict."
+                    )
+        
+        # set again boundary conditions because it have changed
+        boundary_conditions.apply(self, updated_boundary_conditions)
 

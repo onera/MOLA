@@ -47,7 +47,7 @@ permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'Outfl
 turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface']
 
 
-def apply(workflow):
+def apply(workflow, selected_boundaries_conditions=None):
     '''
     Set all boundary conditions for **workflow**.
     It transforms the tree attribute of the **workflow**.
@@ -55,13 +55,23 @@ def apply(workflow):
     Parameters
     ----------
     workflow : Workflow object
+
+    selected_boundaries_conditions : :py:class:`list` of :py:class:`dict`, optional
+        Boudaries to apply. 
+        If not given, the attribute `BoundaryConditions` of the **workflow** is used.
+        Otherwise, it is possible to give a filtered list.
     '''
-    if len(workflow.BoundaryConditions) != 0:
+    if selected_boundaries_conditions is None:
+        selected_boundaries_conditions = workflow.BoundaryConditions
+
+    if len(selected_boundaries_conditions) != 0:
         mola_logger.info(f'Set boundary conditions:')
 
-    for bc in workflow.BoundaryConditions:
+    for bc in selected_boundaries_conditions:
         
         bcName = bc['type']
+        if bcName == 'InterfaceBetweenWorkflows':
+            continue
         try:
             mola_logger.info(f'  > {bcName} on family {bc["Family"]}')
         except:
