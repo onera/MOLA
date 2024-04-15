@@ -20,9 +20,9 @@ from typing import List
 import copy
 from fnmatch import fnmatch
 
+from . import Workflow
 from mola import __MOLA_PATH__
 from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, ENDC
-from mola.workflow import Workflow
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 from mola import server as SV
 

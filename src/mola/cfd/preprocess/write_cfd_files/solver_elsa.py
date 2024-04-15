@@ -138,9 +138,12 @@ def write_run_scripts(workflow):
     write_job_launcher(workflow.RunManagement)
 
 def write_compute(RunManagement):
+    # FIXME Here it is not necessarily Workflow that should be imported
+    # but the Workflow* that serves to preprocess the case.
+    # See how it is done in bin/mola_prepare
 
     txt = '''
-from mola.workflow.workflow import Workflow
+from mola.workflow import Workflow
 
 workflow = Workflow('main.cgns')
 workflow.print()

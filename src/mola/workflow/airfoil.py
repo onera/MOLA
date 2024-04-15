@@ -18,8 +18,7 @@
 import numpy as np
 
 from treelab import cgns
-from mola.workflow.workflow import Workflow
-import mola.cfd.preprocess as PRE
+from . import Workflow
 
 
 class WorkflowAirfoil(Workflow):

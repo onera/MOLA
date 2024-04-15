@@ -22,7 +22,7 @@ import subprocess
 import time
 
 from mola import misc
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola import __MOLA_PATH__
 
 def submit_command(command, machine, input=None, user=None):
@@ -42,10 +42,13 @@ def submit_command(command, machine, input=None, user=None):
     mola_logger.debug(output.stdout)
 
 def get_network():
-    # FIXME Won't work on a remote machine, if a machine-specific env is sourced
     network = os.getenv('MOLA_NETWORK')
     if network is None:
-        raise MolaAssertionError('The environment variable MOLA_NETWORK is undefined.')
+        raise MolaAssertionError(
+            'The environment variable MOLA_NETWORK is undefined. '
+            'It is probably because it is not defined in the environment that was sourced. '
+            'See documentation to know how to install properly MOLA.'
+            )
     return network
 
 def get_network_config():

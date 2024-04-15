@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mola.workflow.workflow import Workflow, deep_update
+from . import Workflow
 
 
 class WorkflowLinearCascade(Workflow):

@@ -19,7 +19,7 @@ import numpy as np
 import copy
 
 from treelab import cgns
-from mola.workflow import Workflow
+from . import Workflow
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
 

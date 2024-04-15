@@ -36,7 +36,7 @@ remove_logs() {
     # remove core files in case of bugs
     rm -f bk00* core* 
     # remove MOLA status files
-    rm -f COMPLETED FAILED NEWJOB_REQUIRED
+    rm -f COMPLETED FAILED NEWJOB_REQUIRED ERROR_PREPARING_WORKFLOW
 }
 
 while [[ "$#" -gt 0 ]]; do
