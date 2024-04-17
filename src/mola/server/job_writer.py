@@ -17,8 +17,7 @@
 
 import os
 
-from . import server as SV 
-from mola import misc
+from . import remote 
 
 MolaToScheduler = dict(
     SLURM = dict(
@@ -40,7 +39,7 @@ SchedulerDefaults = dict(
 
 def get_job_text(RunManagement, solver):
 
-    network = SV.get_network()
+    network = remote.get_network()
 
     header = build_job_scheduler_header(RunManagement)
 
@@ -72,7 +71,7 @@ def build_job_scheduler_header(RunManagement):
 
 def get_scheduler_and_options(RunManagement):
     # Get default options from the machine scheduler_defaults.py
-    scheduler_defaults = SV.get_scheduler_defaults(RunManagement['Machine'], mola_target_path=RunManagement['mola_target_path'])
+    scheduler_defaults = remote.get_scheduler_defaults(RunManagement['Machine'], mola_target_path=RunManagement['mola_target_path'])
     if scheduler_defaults is None:
         scheduler = None
         scheduler_options = dict()

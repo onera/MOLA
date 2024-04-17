@@ -20,7 +20,7 @@ import os
 import subprocess
 
 from mola.logging import mola_logger, MolaException
-from . import server as SV
+from . import remote
 
 def save_file(filename, text, directory='.'):
     os.makedirs(directory, exist_ok=True)
@@ -33,7 +33,7 @@ def save_file_maybe_remote(filename, txt, directory='.', machine=None):
     if not directory.endswith(os.path.sep):
         directory += os.path.sep
 
-    if SV.run_on_localhost(machine, directory):
+    if remote.run_on_localhost(machine, directory):
         save_file(filename, txt, directory)
         
     else:
@@ -63,7 +63,7 @@ def is_existing_path(path, machine=None, user=None, file_only=False):
     -------
     bool
     '''
-    ssh_host = SV.get_ssh_host_command(machine, user, path)
+    ssh_host = remote.get_ssh_host_command(machine, user, path)
 
     if file_only:
         option = '-f'
@@ -71,7 +71,7 @@ def is_existing_path(path, machine=None, user=None, file_only=False):
         option = '-e'
 
     # mola_target_path = RunManagement['mola_target_path']
-    # network = SV.get_network()
+    # network = remote.get_network()
     # env = os.path.join(mola_target_path, 'mola', 'env', network, 'env.sh')
     # python_command = f"{sys.executable} -c 'import os; os.path.exits({path})'"
     # source_env = f"source {env}"
@@ -92,7 +92,7 @@ def is_directory(path, machine=None, user=None):
 
 def remove_path(path, machine=None, user=None, file_only=True):
 
-    ssh_host = SV.get_ssh_host_command(machine, user, path)
+    ssh_host = remote.get_ssh_host_command(machine, user, path)
 
     if file_only:
         recursive_option = ''
@@ -106,7 +106,7 @@ def remove_path(path, machine=None, user=None, file_only=True):
         raise MolaException(f'Cannot remove {path}{precision_if_needed}.')
     
 def makedirs_remote(path, machine=None, user=None):
-    ssh_host = SV.get_ssh_host_command(machine, user, path)
+    ssh_host = remote.get_ssh_host_command(machine, user, path)
     subprocess.run([f'{ssh_host} mkdir -p {path}'], shell=True)
 
 def scp(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, timeout=60):
@@ -131,7 +131,7 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
             )
     
     def get_path_with_machine(path, machine=None, user=None):
-        if not SV.run_on_localhost(machine, path):
+        if not remote.run_on_localhost(machine, path):
             if user is None:
                 return f'{machine}:{path}'
             else:
@@ -186,13 +186,13 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
 
     if source_machine is None:
         try:
-            source_machine = SV.guess_machine_from_path(source_path) 
+            source_machine = remote.guess_machine_from_path(source_path) 
         except:
             pass
     
     if destination_machine is None:
         try:
-            destination_machine = SV.guess_machine_from_path(destination_path) 
+            destination_machine = remote.guess_machine_from_path(destination_path) 
         except:
             pass
 

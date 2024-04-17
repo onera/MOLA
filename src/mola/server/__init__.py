@@ -17,4 +17,4 @@
 
 from .files_operations import *
 from .job_writer import get_job_text, get_scheduler_and_options
-from .server import *
+from .remote import *

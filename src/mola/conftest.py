@@ -58,5 +58,5 @@ def pytest_collection_modifyitems(config, items):
 
     skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
     for item in items:
-        if ("network_onera" in item.keywords) and (SV.server.get_network() != 'onera'):
+        if ("network_onera" in item.keywords) and (SV.get_network() != 'onera'):
             item.add_marker(skip_onera)

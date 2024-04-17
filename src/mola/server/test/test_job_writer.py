@@ -19,7 +19,6 @@ import pytest
 import os
 from mola import __MOLA_PATH__
 from mola.server import job_writer
-from mola.server import server
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
