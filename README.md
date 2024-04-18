@@ -1,33 +1,41 @@
-# MOLA ![logo](DOCUMENTATION/src_sphinx/FIGURES/favicon.ico)
+# MOLA
 
 MOLA is an ONERA Python code that implements user-level workflows and tools for aerodynamic analysis. 
 
 ## Source MOLA for ONERA users
 
-Please use one of the latests **stable versions** of MOLA : `source /stck/lbernard/MOLA/vX.Y/src/env/onera.env.sh`
+Please use one of the latest **stable versions** of MOLA: 
+
+`source /stck/mola/vX.Y/src/mola/env/onera/env.sh <SOLVER>`
+
+The argument `<SOLVER>` is the name (lowercase) of the solver you want to use. 
+For instance, to use MOLA for elsA, use the command: 
+
+`source /stck/mola/vX.Y/src/mola/env/onera/env.sh elsa`
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install MOLA.
+If MOLA is not already install on your network, 
+use the package manager [pip](https://pip.pypa.io/en/stable/) to install MOLA.
 
 ```bash
 pip install mola-workflow
 ```
 
+Then, write environments files for each machine and each solver you want to use, 
+in `src/mola/env/`. See the template `src/mola/env/template` to build the environment
+on your network.
+
+
 ## Usage
 
 ```python
-from mola.workflow import Workflow
+from mola.workflow import Workflow  # choose a suitable Workflow for your application
 
-# set workflow parameters
-params = dict(...)  # see the doc section
-
-# create the workflow
-workflow = Workflow(Solver='elsa', **params)  # user parameters don't change with the solver
+workflow = Workflow(...)  # user parameters don't change with the solver
 workflow.prepare()
-
-# run the simulation
-workflow.run_simulation()
+workflow.write_cfd_files()
+workflow.submit()
 ```
 
 ## Documentation
