@@ -25,13 +25,6 @@ unset PYTHONPATH
 shopt -s expand_aliases
 ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
-
-export FORT_BUFFERED=true
-export MPI_GROUP_MAX=8192
-export MPI_COMM_MAX=8192
-export PYTHONUNBUFFERED=true # cf ticket 9685
-
-
 module load python/3.10.8-gnu831
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font

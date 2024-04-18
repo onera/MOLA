@@ -23,3 +23,20 @@ export MOLA_NETWORK=${SCRIPT_DIR##*/} # get only the last part of SCRIPT_DIR, so
 
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
+
+export FORT_BUFFERED=true
+export MPI_GROUP_MAX=8192
+export MPI_COMM_MAX=8192
+export PYTHONUNBUFFERED=true # cf ticket 9685
+
+export TREELABVERSION=v0.1.1
+export VPMVERSION=Dev
+export PUMAVERSION=v2.0.3
+export TURBOVERSION=v1.3
+export ERSTAZVERSION=v1.6.3
+
+export ELSAVERSION=v5.2.03
+export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
+export ELSA_MPI_LOG_FILES=OFF
+export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
+export ELSA_NOLOG=ON

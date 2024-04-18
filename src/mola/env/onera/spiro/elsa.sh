@@ -18,25 +18,6 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-
-export FORT_BUFFERED=true
-export MPI_GROUP_MAX=8192
-export MPI_COMM_MAX=8192
-export PYTHONUNBUFFERED=true # cf ticket 9685
-
-export ELSAVERSION=v5.2.03
-export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
-export ELSA_MPI_LOG_FILES=OFF
-export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
-export ELSA_NOLOG=ON
-
-export TREELABVERSION=v0.1.1
-export VPMVERSION=Dev
-export PUMAVERSION=v2.0.3
-export TURBOVERSION=v1.3
-export ERSTAZVERSION=v1.6.3
-export MAIAVERSION=1.2
-
 # architecture
 if lscpu | grep -q 'avx512' ; then
     export ARCH='avx512'
@@ -97,10 +78,6 @@ export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAV
 # ErstaZ
 export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
 export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-# maia 
-# module use --append /scratchm/sonics/usr/modules/
-# module load maia/$MAIAVERSION-dsi-cfd5
 
 # external python packages
 export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH

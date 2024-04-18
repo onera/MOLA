@@ -17,30 +17,10 @@
 
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
-export TREELABVERSION=v0.1.1
 
-source /etc/bashrc
-module purge &>/dev/null
-unset PYTHONPATH
-shopt -s expand_aliases
-ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
-
-unset I_MPI_PMI_LIBRARY
-
-# Treelab
-# NOTE installation hint:
-# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
-export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
-
-export PYTHONPATH=$MOLAext/sator/lib/python3.7/site-packages/:$PYTHONPATH
-export PATH=$MOLAext/sator/bin:$PATH
-export LD_LIBRARY_PATH=$MOLAext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
-
-
-
+source /tmp_user/sator/sonics/usr/sonics/2024-03-05/dsi-cfd6/source.sh
+export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
+ 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH
 
