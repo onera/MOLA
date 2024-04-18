@@ -518,9 +518,11 @@ def set_value_on_leaf(tree, path: str, value)-> None:
     current_path = path[0]
 
     if isinstance(tree, Workflow):
-        assert len(path) > 1
-        attr = getattr(tree, current_path)
-        set_value_on_leaf(attr, path[1:], value)
+        if len(path) == 1:
+            setattr(tree, current_path, value)
+        else:
+            attr = getattr(tree, current_path)
+            set_value_on_leaf(attr, path[1:], value)
 
     elif isinstance(tree, dict):
         if len(path) == 1:
