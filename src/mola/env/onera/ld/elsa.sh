@@ -18,6 +18,8 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+export MAIAVERSION=1.2
+
 # architecture
 if lscpu | grep -q 'avx512' ; then
     export ARCH='avx512'
@@ -59,6 +61,10 @@ export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
+
+# maia
+module use --append /home/sonics/LD8/modules/
+module load maia/$MAIAVERSION-dsi-ompi405
 
 # PUMA
 export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8
