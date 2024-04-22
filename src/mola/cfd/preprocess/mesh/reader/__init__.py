@@ -19,7 +19,7 @@ from mola.logging import MolaException
 from . import default, autogrid 
 
 def apply(component):
-    if 'mesher' not in component:
+    if 'mesher' not in component or component['mesher'] == 'default':
         return default.reader(component)
     elif component['mesher'].lower() == 'autogrid':
         return autogrid.reader(component)

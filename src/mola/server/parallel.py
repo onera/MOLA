@@ -93,7 +93,7 @@ class MaiaParallel():
         return tree
     
     def get_tree(self, *args):
-        if isinstance(args[0], cgns.Tree):
+        if isinstance(args[0], cgns.Node):
             tree = args[0] 
         else:
             # args[0] is assumed to be a Workflow
