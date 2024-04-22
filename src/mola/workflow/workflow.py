@@ -224,8 +224,8 @@ class Workflow(object):
         self.set_motion()
         self.set_boundary_conditions()
         self.set_cfd_parameters()  # model, numerics, others...
-        self.set_extractions()
         self.initialize_flow()  # eventually + distance to wall
+        self.set_extractions()
         # self.check_preprocess() # empty BCs... maybe solver-specific
         self.set_workflow_parameters_in_tree()
         # self.set_workflow_parameters_in_file()
