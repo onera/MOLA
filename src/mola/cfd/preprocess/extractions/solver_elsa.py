@@ -36,8 +36,8 @@ def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():
         workflow.Extractions.append(
             dict(
-                type      = '3D', 
-                fields    = workflow.Flow['Conservatives'], 
+                Type      = '3D', 
+                Fields    = workflow.Flow['Conservatives'], 
                 Container = 'FlowSolution#EndOfRun#Relative', 
                 Frame     = 'relative'
             )
@@ -65,7 +65,7 @@ def process_extractions_3d(workflow):
 
     for zone in workflow.tree.zones():
         for Extraction in workflow.Extractions:
-            if Extraction['type'] == '3D' and is_zone_in_extraction_family(zone, Extraction):
+            if Extraction['Type'] == '3D' and is_zone_in_extraction_family(zone, Extraction):
                 add_3d_extraction_to_zone(zone, Extraction)
 
 def is_zone_in_extraction_family(zone, Extraction):
@@ -85,16 +85,16 @@ def add_3d_extraction_to_zone(zone, Extraction):
     Container = Extraction.get('Container', 'FlowSolution#EndOfRun')
     GridLocation = Extraction.get('GridLocation', 'CellCenter')
     Frame = Extraction.get('Frame', 'relative')
-    Fields2Extract = Extraction['fields']
-    options = Extraction.get('options', dict())
+    Fields2Extract = Extraction['Fields']
+    OtherOptions = Extraction.get('OtherOptions', dict())
 
     EoRnode = zone.get(Name=Container, Type='FlowSolution', Depth=1) 
     if not EoRnode:
-        create_new_container_for_3d_extraction(zone, Fields2Extract, Container, GridLocation, Frame, options)
+        create_new_container_for_3d_extraction(zone, Fields2Extract, Container, GridLocation, Frame, OtherOptions)
     else:
         add_3d_extraction_to_existing_container(EoRnode, Fields2Extract, GridLocation, Frame)
 
-def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name, GridLocation, frame, options):
+def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name, GridLocation, frame, OtherOptions):
     EoRnode = zone.setParameters(container_name, 
                                 ContainerType='FlowSolution', 
                                 **dict((field, None) for field in Fields2Extract)
@@ -104,7 +104,7 @@ def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name,
                             period=1,
                             writingmode=2,
                             writingframe=frame,
-                            **options)
+                            **OtherOptions)
     
 def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocation, frame):
     try:
@@ -134,17 +134,17 @@ def process_extractions_2d(workflow):
     # Among all extractions, get all the BCType that are asked
     AllBCExtractions = []
     for Extraction in workflow.Extractions:
-        if Extraction['type'] == 'bc':
-            AllBCExtractions.append(Extraction['BCType'])
+        if Extraction['Type'] == 'BC' and Extraction['Source'].startswith('BC'):
+            AllBCExtractions.append(Extraction['Source'])
 
     for Extraction in workflow.Extractions:
 
-        if Extraction['type'] != 'bc':
+        if Extraction['Type'] != 'BC':
             # extraction not handled with that function
             continue
 
         # TODO : manage the case with no BCType given but a Family instead
-        ExtractBCTypeRequired = Extraction['BCType'] # It may contain *
+        ExtractBCTypeRequired = Extraction['Source'] # It may contain *
 
         for FamilyNode in FamilyNodes:
             FamilyBCNode = FamilyNode.get(Type='FamilyBC', Value=ExtractBCTypeRequired, Depth=1)
@@ -192,7 +192,7 @@ def get_default_parameters_for_2d_extractions(SolverParameters, pinf):
     return default_bc_parameters, default_bc_wall_parameters
 
 def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
-    ExtractVariablesList = copy.deepcopy(Extraction['fields'])
+    ExtractVariablesList = copy.deepcopy(Extraction['Fields'])
 
     if not workflow.tree.isStructured():
         if 'BoundaryLayer' in ExtractVariablesList:
@@ -209,15 +209,16 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
                 pass
     else:
 
-        if workflow.Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
-            extraVariables = ['intermittency', 'clim', 'how', 'origin',
-                              'lambda2', 'turb_level', 'n_tot_ag', 'n_crit_ag',
-                              'r_tcrit_ahd', 'r_theta_t1', 'line_status', 'crit_indicator']
-            ExtractVariablesList.extend(extraVariables)
+        if 'TransitionMode' in workflow.Turbulence:
+            if workflow.Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
+                extraVariables = ['intermittency', 'clim', 'how', 'origin',
+                                'lambda2', 'turb_level', 'n_tot_ag', 'n_crit_ag',
+                                'r_tcrit_ahd', 'r_theta_t1', 'line_status', 'crit_indicator']
+                ExtractVariablesList.extend(extraVariables)
 
-        elif workflow.Turbulence['TransitionMode'] == 'Imposed':
-            extraVariables = ['intermittency', 'clim']
-            ExtractVariablesList.extend(extraVariables)
+            elif workflow.Turbulence['TransitionMode'] == 'Imposed':
+                extraVariables = ['intermittency', 'clim']
+                ExtractVariablesList.extend(extraVariables)
     
     return ExtractVariablesList
 

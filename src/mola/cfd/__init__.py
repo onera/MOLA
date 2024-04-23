@@ -16,8 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os 
-from mola import misc
-from mola.logging import mola_logger, MolaException
+from .. import misc
+from ..logging import mola_logger, MolaException
 
 def get_path_back_in_traceback(step=3):
     import traceback

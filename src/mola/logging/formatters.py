@@ -56,7 +56,7 @@ def format_message_according_level(msg, level):
     log_level = logging._checkLevel(level)
     log_format = CustomFormatter.FORMATS[log_level]
     msg_with_format = log_format.replace('%(message)s', msg).replace('%(levelname)s', level)
-    return msg_with_format
+    return "\n"+msg_with_format
 
 def compare_with_expected_message_at_level(msg, expected_msg, level):
     return msg == format_message_according_level(expected_msg, level)

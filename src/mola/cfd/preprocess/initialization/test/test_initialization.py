@@ -49,8 +49,8 @@ def test_initialization_uniform():
     mesh = get_debug_mesh()
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        SplittingAndDistribution = 'PyPart',
-        Flow = dict(Velocity=10),
+        Flow = dict(Velocity=10.0),
+        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SA'),
     )
     apply_all_previous_stages(workflow)
@@ -75,10 +75,10 @@ def test_initialization_copy_not_existing_file():
     mesh = get_debug_mesh()
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        SplittingAndDistribution = 'PyPart',
-        Flow = dict(Velocity=10),
+        Flow = dict(Velocity=10.0),
+        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SA'),
-        Initialization=dict(method='copy', source='not_existing_file.cgns'),
+        Initialization=dict(Method='copy', Source='not_existing_file.cgns'),
     )
     apply_all_previous_stages(workflow)
     
@@ -112,10 +112,10 @@ def test_initialization_copy():
 
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        SplittingAndDistribution = 'PyPart',
-        Flow = dict(Velocity=10),
+        Flow = dict(Velocity=10.0),
+        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SA'),
-        Initialization=dict(method='copy', source=source),
+        Initialization=dict(Method='copy', Source=source),
     )
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)

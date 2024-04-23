@@ -33,14 +33,14 @@ def process_extractions_3d(workflow):
     '''
 
     # TODO Check the name 
-    workflow.Extractions.append(dict(type='3D', fields=workflow.Flow['ReferenceState']))
+    ...
 
 
 def process_extractions_2d(workflow):
     for Extraction in workflow.Extractions:
-        if Extraction['type'] == 'bc':
-            Extraction.setdefault('fields', [])
-            if isinstance(Extraction['fields'], str):
-                Extraction['fields'] = [Extraction['fields']]
+        if Extraction['Type'] == 'BC':
+            Extraction.setdefault('Fields', [])
+            if isinstance(Extraction['Fields'], str):
+                Extraction['Fields'] = [Extraction['Fields']]
     
 

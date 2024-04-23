@@ -29,7 +29,7 @@ def get_surface_of_inflow(workflow):
     '''
     # Get inflow BCs
     InflowBCs = [bc for bc in workflow.BoundaryConditions \
-        if bc['type'].startswith('Inflow') or bc['type'].startswith('inj')]
+        if bc['Type'].startswith('Inflow') or bc['Type'].startswith('inj')]
 
     # Check unicity
     if len(InflowBCs) != 1:

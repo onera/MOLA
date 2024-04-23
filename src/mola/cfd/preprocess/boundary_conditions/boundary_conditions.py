@@ -61,10 +61,11 @@ def apply(workflow):
 
     for bc in workflow.BoundaryConditions:
         
-        bcName = bc['type']
+        bcName = bc['Type']
         try:
             mola_logger.info(f'  > {bcName} on family {bc["Family"]}')
         except:
+            # TODO : change this by using Family and LinkedFamily
             mola_logger.info(f'  > {bcName} between families {bc["left"]} and {bc["right"]}')
         
         if bcName in BoundaryConditionsNames:

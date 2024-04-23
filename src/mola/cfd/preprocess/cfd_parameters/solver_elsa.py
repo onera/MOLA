@@ -253,6 +253,7 @@ def get_turbulent_setup(Turbulence):
 
 def get_transition_setup(Turbulence):
     TransitionModeSetup = dict()
+    if not 'TransitionMode' in Turbulence: return TransitionModeSetup
     if Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
 
         if 'LM2009' in Turbulence['Model']:
