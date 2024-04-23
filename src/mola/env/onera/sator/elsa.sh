@@ -16,29 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-export MOLA=${SCRIPT_DIR%/mola/env/*}  # retain the part before /mola/env/*
-export MOLAext=/stck/lbernard/MOLA/Dev/ext
-
-export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
-export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
-
-export FORT_BUFFERED=true
-export MPI_GROUP_MAX=8192
-export MPI_COMM_MAX=8192
-export PYTHONUNBUFFERED=true # cf ticket 9685
-
-export ELSAVERSION=v5.2.03
-export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
-export ELSA_MPI_LOG_FILES=OFF
-export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
-export ELSA_NOLOG=ON
-
-export TREELABVERSION=v0.1.1
-export VPMVERSION=Dev
-export PUMAVERSION=v2.0.3
-export TURBOVERSION=v1.3
-export ERSTAZVERSION=v1.6.3
-# export MAIAVERSION=1.2
+source $SCRIPT_DIR/../network.sh
 
 # architecture
 if lscpu | grep -q 'avx512' ; then
@@ -78,11 +56,6 @@ export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
 export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
 export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
-
-# # maia
-# module use --append /tmp_user/sator/sonics/usr/modules/
-# module load maia/$MAIAVERSION-dsi-cfd5_idx32
 
 # VPM
 export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH

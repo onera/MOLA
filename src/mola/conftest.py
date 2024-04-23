@@ -1,6 +1,11 @@
 import pytest
 import timeit
 import warnings
+from . import server as SV
+
+# useful example if we need to pass option to pytest:
+#   https://stackoverflow.com/questions/47559524/pytest-how-to-skip-tests-unless-you-declare-an-option-flag
+
 
 cost_levels = {
     'cost_level_0' : (    0,  0.5),
@@ -11,6 +16,12 @@ cost_levels = {
 }
 
 def pytest_configure(config):
+
+    config.addinivalue_line(
+        "markers", "elsa: test is relevant only for the solver elsa")
+    
+    config.addinivalue_line(
+        "markers", "sonics: test is relevant only for the solver sonics")
 
     config.addinivalue_line(
         "markers", "unit: unit test of an isolated operation, usually fast")
@@ -24,6 +35,9 @@ def pytest_configure(config):
     for cost_level, boundaries in cost_levels.items():
         config.addinivalue_line(
             "markers", f"{cost_level}: tests with expected cost {boundaries} sec")
+        
+    config.addinivalue_line(
+        "markers", "network_onera: test available on ONERA machines only")
 
 def get_cost_marker(marker_container):
     for marker in marker_container:
@@ -52,3 +66,10 @@ def check_cost(func, marker):
 
         return result
     return wrapper
+
+def pytest_collection_modifyitems(config, items):
+
+    skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
+    for item in items:
+        if ("network_onera" in item.keywords) and (SV.get_network() != 'onera'):
+            item.add_marker(skip_onera)

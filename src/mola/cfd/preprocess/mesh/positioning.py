@@ -16,9 +16,13 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-import Transform.PyTree as T
 
 def apply(workflow):
+    if not all([('Positioning' in component) for component in workflow.RawMeshComponents]):
+        return
+    
+    import Transform.PyTree as T
+
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
         

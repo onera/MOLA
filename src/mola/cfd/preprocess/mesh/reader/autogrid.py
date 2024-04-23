@@ -17,6 +17,7 @@
 
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
+from ..families import join_families
 
 
 SCALE_DICT = dict(
@@ -57,14 +58,18 @@ def reader(component):
     mesh = cgns.load(component['Source'])
     clean_autogrid_log_bases(mesh)
 
-    # Only if grid connectivities are not already in the mesh
-    # TODO: Test on the presence of GC
-    component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
+    clean_family_properties(mesh)
 
-    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['Tolerance'])
-    component['Connection'] += periodic_connections
+    # Join HUB and SHROUD families
+    join_families(mesh, 'HUB')
+    join_families(mesh, 'SHROUD')
 
-    clean_mesh_from_autogrid(mesh)
+    update_Connection_from_mesh(mesh, component)
+    clean_grid_connectivities(mesh)
+
+    # # Clean RS interfaces
+    # t.findAndRemoveNodes(Type='InterfaceType')
+    # t.findAndRemoveNodes(Type='DonorFamily')
 
     nb_of_bases = len(mesh.bases())
     if nb_of_bases != 1:
@@ -78,64 +83,6 @@ def reader(component):
 
     return base
 
-def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance):
-    base = mesh.bases()[0]
-    angles = set()
-    for node in base.group(Name='BladeNumber'):
-        angles.add(360./float(node.value()))
-    
-    Connections = []
-    for angle in angles:
-        mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
-        Connections.append(
-            dict(Type='PeriodicMatch', Tolerance=Tolerance, RotationAngle=[angle,0.,0.])
-            )
-    return Connections
-
-def clean_mesh_from_autogrid(t): #, basename='Base#1', zonesToRename={}):
-    '''
-    Clean a CGNS mesh from Autogrid 5.
-    The sequence of operations performed are the following:
-
-    #. remove useless nodes specific to AG5
-    #. rename base
-    #. rename zones
-    #. clean Joins & Periodic Joins
-    #. clean Rotor/Stator interfaces
-    #. join HUB and SHROUD families
-
-    Parameters
-    ----------
-
-        t : PyTree
-            CGNS mesh from Autogrid 5
-
-        basename: str
-            Name of the base. Will replace the default AG5 name.
-
-        zonesToRename : dict
-            Each key corresponds to the name of a zone to modify, and the associated
-            value is the new name to give.
-
-    Returns
-    -------
-
-        t : PyTree
-            modified mesh tree
-
-    '''
-    clean_family_properties(t)
-    # rename_zones(t, zonesToRename=dict())
-    clean_grid_connectivities(t)
-
-    # # Clean RS interfaces
-    # t.findAndRemoveNodes(Type='InterfaceType')
-    # t.findAndRemoveNodes(Type='DonorFamily')
-
-    # # Join HUB and SHROUD families
-    # J.joinFamilies(t, 'HUB')
-    # J.joinFamilies(t, 'SHROUD')
-    return t
 
 def clean_autogrid_log_bases(t):
     t.findAndRemoveNodes(Name='Numeca*', Type='CGNSBase', Depth=1)
@@ -166,6 +113,47 @@ def rename_zones(t, zonesToRename=dict()):
         for pattern in ['_flux_1', '_flux_2', '_flux_3', '_Main_Blade']:
             new_name = new_name.replace(pattern, '')
         I._renameNode(t, name, new_name)
+
+def update_Connection_from_mesh(mesh, component):
+    # Only if grid connectivities are not already in the mesh
+    # TODO: Test on the presence of GC
+    component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
+
+    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['Tolerance'])
+    component['Connection'] += periodic_connections
+
+def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance):
+    base = mesh.bases()[0]
+    # angles = set()
+    # for node in base.group(Name='BladeNumber'):
+    #     angles.add(360./float(node.value()))
+    
+    # Connections = []
+    # for angle in angles:
+    #     mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
+    #     Connections.append(
+    #         dict(Type='PeriodicMatch', Tolerance=Tolerance, RotationAngle=[angle,0.,0.])
+    #         )
+        
+    Connections = []
+    for family in base.group(Type='Family', Depth=1):
+        node = family.get(Name='BladeNumber')
+        if node is None:
+            continue
+        angle = 360./float(node.value())
+
+        mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
+        row = family.name()
+        Connections.append(
+            dict(
+                Type='PeriodicMatch', 
+                Tolerance=Tolerance, 
+                RotationAngle=[angle,0.,0.],
+                Families=(f'{row}_PER1', f'{row}_PER2'),
+                )
+            )
+        
+    return Connections
 
 def clean_grid_connectivities(t):
     # Clean Joins & Periodic Joins

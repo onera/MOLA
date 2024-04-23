@@ -20,7 +20,6 @@ import shutil
 from treelab import cgns
 from mola import misc
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
-from mola import __MOLA_PATH__
 from mola import server as SV
 
 def apply_to_solver(workflow):
@@ -130,6 +129,8 @@ def write_data_files(workflow):
             destination_path=os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'), 
             destination_machine=workflow.RunManagement['Machine'],
             )
+        SV.remove_path('main.cgns', machine='localhost')
+        SV.remove_path('OUTPUT', machine='localhost', file_only=False)
 
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)
@@ -137,9 +138,12 @@ def write_run_scripts(workflow):
     write_job_launcher(workflow.RunManagement)
 
 def write_compute(RunManagement):
+    # FIXME Here it is not necessarily Workflow that should be imported
+    # but the Workflow* that serves to preprocess the case.
+    # See how it is done in bin/mola_prepare
 
     txt = '''
-from mola.workflow.workflow import Workflow
+from mola.workflow import Workflow
 
 workflow = Workflow('main.cgns')
 workflow.print()

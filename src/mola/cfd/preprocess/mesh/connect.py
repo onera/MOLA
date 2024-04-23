@@ -15,13 +15,22 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
+
 import treelab.cgns as cgns
 from mola.logging import mola_logger, MolaException, MolaAssertionError
-
-import Converter.PyTree as C
-import Connector.PyTree as X
+from mola.server import MaiaParallel
 
 def apply(workflow):
+    if not all([('Connection' in component) for component in workflow.RawMeshComponents]):
+        return
+    
+    apply_with_cassiopee(workflow)
+        
+def apply_with_cassiopee(workflow):
+    import Converter.PyTree as C
+    import Connector.PyTree as X
+
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
         base_name = base.name()
@@ -77,6 +86,30 @@ def apply(workflow):
 
     workflow.tree = cgns.castNode(workflow.tree)
 
+def apply_with_maia(workflow):
+    component = workflow.RawMeshComponents[0]
+    for operation in component['Connection']:
+        ConnectionType = operation['Type']
+        mola_logger.info(f'  > connecting type {ConnectionType}')
+        try: 
+            tolerance = operation['Tolerance']
+        except KeyError:
+            tolerance = 1e-8
+            mola_logger.warning(f'    connection tolerance not defined. Using tolerance={tolerance}')
+            
+        if ConnectionType == 'PeriodicMatch':
+            rotation_center = operation.get('RotationCenter', [0., 0., 0.])
+            rotation_angle = operation.get('RotationAngle', [0., 0., 0.])
+            translation = operation.get('Translation', [0., 0., 0.])
+            mola_logger.debug(f'    RotationCenter = {rotation_center}')
+            mola_logger.debug(f'    RotationAngle = {rotation_angle}')
+            mola_logger.debug(f'    Translation = {translation}')
+            # Work only on a top Tree, not on a Base
+            connect_periodic_with_maia(workflow.tree, operation['Families'], rotation_center, rotation_angle, translation, tolerance)
+
+        else:
+            raise MolaException(f'  Connection type {ConnectionType} not implemented')
+    
 def _check_connections(connections):
     '''
     If there is one ConnectionType == 'Match' in **connections**, there must be only one
@@ -87,3 +120,48 @@ def _check_connections(connections):
             if connection['Type'] == 'Match':
                 if i != 0:
                     raise MolaAssertionError("Type='Match' cannot be used after another type oc connection")
+
+
+@MaiaParallel
+def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, translation, tol):
+    # TODO Should be replace by a function from Miles
+
+    import maia
+    from mpi4py import MPI
+
+    def _check_unmatched_faces(tree):
+        unmatched_gc = maia.pytree.get_nodes_from_name(tree, '*_unmatched')
+        if len(unmatched_gc) > 0:
+            raise MolaException(f"Bad geometry (check mesh or tolerance)")
+
+    periodic = dict(
+        rotation_angle = np.array(rotation_angle)*np.pi/180.,
+        rotation_center = np.array(rotation_center),
+        translation = np.array(translation),
+    )
+
+    try:
+        maia.algo.dist.connect_1to1_families(
+            tree,
+            families,
+            comm=MPI.COMM_WORLD,
+            periodic=periodic, 
+            tol=tol
+        )
+        _check_unmatched_faces(tree)
+    except ZeroDivisionError:
+        # TODO Put this message in debug log
+        mola_logger.warning('No Periodic match found. Testing reverting families...')
+        # Second test reverting families
+        try:
+            maia.algo.dist.connect_1to1_families(
+                tree,
+                families[::-1],
+                comm=MPI.COMM_WORLD,
+                periodic=periodic, 
+                tol=tol
+            )
+            _check_unmatched_faces(tree)
+        except ZeroDivisionError:
+            raise MolaException(f"No Periodic match found. Check translation or rotation input data.")
+    

@@ -19,10 +19,6 @@ import pytest
 import os
 from mola import __MOLA_PATH__
 from mola.server import job_writer
-from mola.server import server
-
-onera_only = pytest.mark.skipif(server.get_network() != 'onera', reason="test on ONERA machines")
-
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -49,7 +45,7 @@ def test_time_margin():
     assert RunManagement['TimeOutInSeconds'] == 1200.
 
 
-@onera_only
+@pytest.mark.network_onera
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_onera_get_job_text():

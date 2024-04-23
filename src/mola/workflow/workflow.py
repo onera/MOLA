@@ -18,6 +18,7 @@
 import os
 import copy
 import numpy as np
+import copy
 from treelab import cgns
 import inspect
 from typing import Union, get_type_hints
@@ -603,6 +604,23 @@ class Workflow(object):
         for parameter in workflow_parameters:
             setattr(self, parameter, workflow_parameters[parameter])
 
+        self._FlowGenerator = self.get_flow_generator(self.FlowGenerator)
+        if self.RawMeshComponents is None: self.RawMeshComponents = []
+        if self.ApplicationContext is None: self.ApplicationContext = dict()
+        if self.Fluid is None: self.Fluid = dict()
+        if self.Flow is None: self.Flow = dict()
+        if self.Turbulence is None: self.Turbulence = dict()
+        if self.BoundaryConditions is None: self.BoundaryConditions = []
+        if self.SplittingAndDistribution is None: self.SplittingAndDistribution = dict()
+        if self.Numerics is None: self.Numerics = dict()
+        if self.BodyForceModeling is None: self.BodyForceModeling = []
+        if self.Motion is None: self.Motion = dict()
+        if self.Initialization is None: self.Initialization = dict(method='uniform')
+        if self.Extractions is None: self.Extractions = []
+        if self.ConvergenceCriteria is None: self.ConvergenceCriteria = []
+        if self.Monitoring is None: self.Monitoring = dict()
+        if self.RunManagement is None: self.RunManagement = dict()
+
 
     def set_workflow_parameters_in_tree(self):
         if not self.tree: self.tree = cgns.Tree()
@@ -640,8 +658,8 @@ class Workflow(object):
         self.set_motion()
         self.set_boundary_conditions()
         self.set_cfd_parameters()  # model, numerics, others...
-        self.set_extractions()
         self.initialize_flow()  # eventually + distance to wall
+        self.set_extractions()
         # self.check_preprocess() # empty BCs... maybe solver-specific
         self.set_workflow_parameters_in_tree()
         # self.set_workflow_parameters_in_file()
@@ -734,20 +752,24 @@ class Workflow(object):
         return False
     
     def submit(self, command=None):
+        mola_logger.info(f"Submit job on machine {self.RunManagement['Machine']}")
         if command is None:
             command = self.RunManagement['LauncherCommand']
         user = self.RunManagement.get('User')
         SV.submit_command(command, self.RunManagement['Machine'], user=user)
 
+    def write_tree_remote(self, data_directory=None):
+        from . import workflow_manager as WM
+        sender = WM.WorkflowSender(self, data_directory=data_directory)
+        sender.apply()
+
     def merge(self, other_workflow):
         # TODO Still in development, not validated
-        # merge trees
-        self.tree.merge(other_workflow.tree)
+        mola_logger.warning(f'Merge workflows')
 
-        # update BCs or GCs at the interface
-        for bc in self.BoundaryConditions + other_workflow.BoundaryConditions:
-            if bc['type'] == 'WorkflowInterface':
-                bc['type'] = bc.pop['final_type']
+        self._merge_trees(other_workflow)
+
+        self._update_interfaces_between_workflows(other_workflow)
         
         # merge attributes
         self.RawMeshComponents += other_workflow.RawMeshComponents
@@ -757,8 +779,52 @@ class Workflow(object):
         self.Extractions += other_workflow.Extractions
         self.ConvergenceCriteria += other_workflow.ConvergenceCriteria
 
-        # set again boundary conditions because it may have changed
-        self.set_boundary_conditions()
+    def _merge_trees(self, other_workflow):
+        other_tree = other_workflow.tree
+        other_tree.findAndRemoveNode(Name=self._workflow_parameters_container_, Depth=1)
+        main_base = self.tree.get(Type='CGNSBase', Depth=1)
+        secondary_basename = other_tree.get(Type='CGNSBase', Depth=1).name()
+
+        self.tree.merge(other_tree)
+
+        # Move children of secondary base to the main base if they don't already exists in main base
+        secondary_base = self.tree.get(Name=secondary_basename, Type='CGNSBase', Depth=1)
+        children_to_move = copy.copy(secondary_base.children())
+        for child in children_to_move:
+            if not main_base.get(Name=child.name(), Type=child.type(), Depth=1):
+                child.moveTo(main_base)
+        secondary_base.remove()
+
+    def _update_interfaces_between_workflows(self, other_workflow):
+        updated_boundary_conditions = []
+        for bc in self.BoundaryConditions + other_workflow.BoundaryConditions:
+            if bc['type'] != 'InterfaceBetweenWorkflows':
+                continue
+
+            if not 'interface_type' in bc:
+                raise MolaException(
+                    f"The boundary condition on Family {bc['Family']} is of type {bc['type']},"
+                    "and for this type the key 'interface_type' must be defined."
+                    )
+            
+            elif isinstance(bc['interface_type'], str):
+                assert bc['interface_type'] in ['Match']
+                raise NotImplementedError
+
+            elif isinstance(bc['interface_type'], dict):
+                bc.update(bc['interface_type'])
+                bc.pop('interface_type')
+                if bc['type'] in boundary_conditions.turbomachinery_interfaces:
+                    bc.pop('Family')
+                updated_boundary_conditions.append(bc)
+
+            else:
+                raise MolaException(
+                    f"For BC on Family {bc['Family']}, the value of 'interface_type' must be of type str or dict."
+                    )
+        
+        # set again boundary conditions because it have changed
+        boundary_conditions.apply(self, updated_boundary_conditions)
 
     def show_interface(self):
         def show_interface_of_method(method, skip_args=['self'], indentation=2):

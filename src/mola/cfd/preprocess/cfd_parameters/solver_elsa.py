@@ -18,6 +18,7 @@
 from mola.logging import mola_logger, MolaException
 
 from treelab import cgns
+from mola.cfd.preprocess.cfd_parameters import cfd_parameters
 
 K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
@@ -209,10 +210,13 @@ def set_model(workflow):
 
 def set_numerics(workflow):
 
+    TurbulenceCutOffSetup = cfd_parameters.get_turbulence_cutoff_setup(workflow.Turbulence)
+    TurbulenceCutOffSetup = dict((f't_cutvar{i+1}', value) for i, value in enumerate(TurbulenceCutOffSetup.values()))
+
     workflow.SolverParameters['numerics'] = dict(
         **get_spatial_fluxes(workflow.Numerics, workflow.tree, workflow.Flow),
         **get_time_marching_setup(workflow.Numerics),
-        **get_turbulence_cutoff_setup(workflow.Turbulence),
+        **TurbulenceCutOffSetup,
         **get_miscellaneous_setup(workflow),
     )
 
@@ -429,27 +433,6 @@ def get_time_marching_setup(Numerics):
             TimeMarchingSetup['gear_iteration'] = 20
 
     return TimeMarchingSetup
-
-def get_turbulence_cutoff_setup(Turbulence):
-    # Definition of cut-off values for turbulence 
-    turbValues = list(Turbulence['Conservatives'].values())
-    if len(turbValues) == 7:  # RSM
-        TurbulenceCutOffSetup = dict(
-            t_cutvar1 = Turbulence['TurbulenceCutOffRatio'] * turbValues[0],
-            t_cutvar2 = Turbulence['TurbulenceCutOffRatio'] * turbValues[3],
-            t_cutvar3 = Turbulence['TurbulenceCutOffRatio'] * turbValues[5],
-            t_cutvar4 = Turbulence['TurbulenceCutOffRatio'] * turbValues[6],
-        )
-
-    elif len(turbValues) > 4: # unsupported 
-        raise MolaException('Unsupported number of turbulent fields')
-    
-    else:
-        TurbulenceCutOffSetup = dict()
-        for i, value in enumerate(turbValues):
-            TurbulenceCutOffSetup[f't_cutvar{i+1}'] = Turbulence['TurbulenceCutOffRatio'] * value
-
-    return TurbulenceCutOffSetup
 
 def get_miscellaneous_setup(workflow):
     MiscellaneousSetup = dict(

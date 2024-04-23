@@ -2,7 +2,6 @@ import pytest
 
 import os
 import shutil
-import copy
 import numpy as np
 from dataclasses import dataclass
 
@@ -12,8 +11,6 @@ from mola.workflow import Workflow
 import mola.workflow.workflow_manager as WM
 from mola.logging import check_error_message, MolaException
 from mola import server as SV
-
-from mola.workflow.test.test_workflow import onera_only
 
 def get_fake():
     @dataclass
@@ -68,6 +65,38 @@ def test_get_value_on_leaf():
     value = WM.get_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'])
     assert value == 10
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_find_matching_leaves():
+    @dataclass
+    class Fake(Workflow):
+
+        RawMeshComponents = [
+            dict(
+                Name = 'test',
+                Source = 'source.cgns',
+            )
+        ]
+
+        BoundaryConditions = [
+            dict(Family='INFLOW', filename='inflow_map.cgns'),
+            dict(Family='OUTFLOW', type='OutflowPressure', Pressure=10),
+        ]
+
+        Initialization = dict(
+            method = 'copy',
+            filename = 'init.cgns',
+        )
+
+    def add_preffix(name):
+        return 'new_'+name
+
+    workflow = Fake()
+    filenames = WM.find_matching_leaves(workflow, ['*.cgns'], operation=add_preffix)
+    assert set(filenames) == {'source.cgns', 'inflow_map.cgns', 'init.cgns'}
+    assert workflow.RawMeshComponents[0]['Source'] == 'new_source.cgns'
+    assert workflow.BoundaryConditions[0]['filename'] == 'new_inflow_map.cgns'
+    assert workflow.Initialization['filename'] == 'new_init.cgns'
 
 def get_fake_workflow():
     x, y, z = np.meshgrid( np.linspace(0,1,21),
@@ -186,7 +215,7 @@ def test_WorkflowParallelScheduler_prepare():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
-def test_WorkflowParallelScheduler_sphere():
+def test_WorkflowParallelScheduler_sphere_local():
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
     w = get_workflow_sphere_struct()
@@ -223,46 +252,48 @@ def test_WorkflowParallelScheduler_sphere():
 
     shutil.rmtree(test_dir)
 
-# @onera_only
-# def test_WorkflowParallelScheduler_sphere_remote_sator():
+@pytest.mark.network_onera
+@pytest.mark.integration
+@pytest.mark.cost_level_4
+def test_WorkflowParallelScheduler_sphere_remote_sator():
 
-#     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
-#     w = get_workflow_sphere_struct()
-#     w.RunManagement['mola_target_path'] = '/tmp_user/sator/$USER/MOLA/mola_v2/src/'
-#     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+    from mola.workflow.test.test_workflow import get_workflow_sphere_struct
+    w = get_workflow_sphere_struct()
+    scheduler_defaults = SV.get_scheduler_defaults('sator')
+    w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
+    w.RunManagement['TimeLimit'] = '00:30:00'
 
-#     dispatcher = WM.WorkflowDispatcher(w)
-#     for BCWall in ['WallViscous', 'WallInviscid']:
-#         dispatcher.new_job(BCWall)
-#         for velocity in [50., 20., 80.]:
-#             dispatcher.add_variations(
-#                 [
-#                     ('RunManagement|JobName', f'test_{BCWall}'),
-#                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
-#                     ('Flow|Velocity', velocity),
-#                     ('BoundaryConditions|Family=Wall|Type', BCWall),
-#                 ], 
-#                 initialize_from_previous=False
-#                 )
+    dispatcher = WM.WorkflowDispatcher(w)
+    for BCWall in ['WallViscous', 'WallInviscid']:
+        dispatcher.new_job(BCWall)
+        for velocity in [50., 20., 80.]:
+            dispatcher.add_variations(
+                [
+                    ('RunManagement|JobName', f'test_{BCWall}'),
+                    ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
+                    ('Flow|Velocity', velocity),
+                    ('BoundaryConditions|Family=Wall|type', BCWall),
+                ], 
+                initialize_from_previous=False
+                )
     
-#     test_dir = '/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
-#     try:
-#         # remove this directory in case it exists already (e.g. because of a previous error)
-#         SV.remove_path(test_dir, machine='sator', file_only=False)
-#     except FileNotFoundError:
-#         pass
+    test_dir = f'/tmp_user/sator/{os.getenv("USER")}/.test/tmp_MOLA_test/'
+    try:
+        # remove this directory in case it exists already (e.g. because of a previous error)
+        SV.remove_path(test_dir, machine='sator', file_only=False)
+    except FileNotFoundError:
+        pass
         
-#     scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
-#     scheduler.prepare()
-#     scheduler.submit()
+    scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
+    scheduler.prepare()
+    scheduler.submit()
 
-#     for BCWall in ['WallViscous', 'WallInviscid']:
-#         for velocity in [50., 20., 80.]:
-#             COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', 'COMPLETED')
-#             if not SV.is_existing_path(COMPLETED_PATH, machine='sator'):
-#                 raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
+    for BCWall in ['WallViscous', 'WallInviscid']:
+        for velocity in [50., 20., 80.]:
+            COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', 'COMPLETED')
+            SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
 
-#     SV.remove_path(test_dir, machine='sator', file_only=False)
+    SV.remove_path(test_dir, machine='sator', file_only=False)
 
 
 

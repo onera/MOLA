@@ -19,9 +19,10 @@ import numpy as np
 import copy
 
 from treelab import cgns
-from mola.workflow import Workflow
+from . import Workflow
 from mola.logging import mola_logger, MolaException, MolaAssertionError
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
+from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
+from  mola.cfd.preprocess.mesh import duplicate
 
 
 class WorkflowRotatingComponent(Workflow):
@@ -58,22 +59,36 @@ class WorkflowRotatingComponent(Workflow):
         super().__init__(**kwargs)
 
         if self.tree is None:
-            if not 'ShaftRotationSpeed' in self.ApplicationContext:
-                assert 'RPM' in self.ApplicationContext
-                self.ApplicationContext['ShaftRotationSpeed'] = self.ApplicationContext['RPM'] * np.pi / 30
+            self.set_rotation_speed()
 
             # Axis of the engine
             self.ApplicationContext.setdefault('ShaftAxis', np.array([1.,0,0]))
             self.Flow['Direction'] = self.ApplicationContext['ShaftAxis']
 
+    def set_rotation_speed(self):
+        if not 'ShaftRotationSpeed' in self.ApplicationContext \
+            and not 'RPM' in self.ApplicationContext:
+            raise MolaAssertionError('ShaftRotationSpeed (in rad/s) or RPM (in rpm) must be provided in ApplicationContext.')
+        elif 'RPM' in self.ApplicationContext:
+            self.ApplicationContext['ShaftRotationSpeed'] = self.ApplicationContext['RPM'] * np.pi / 30
+        elif 'ShaftRotationSpeed' in self.ApplicationContext: 
+            self.ApplicationContext['RPM'] = self.ApplicationContext['ShaftRotationSpeed'] * 30 / np.pi
+        else:
+            raise MolaAssertionError('Cannot provide both ShaftRotationSpeed and RPM.')
+
     def define_families(self):
         super().define_families()
         self.set_default_parameters_for_rows()
         self.compute_fluxcoef_by_row() 
+        # duplicate.duplicate_workflow_with_cassiopee(self)
+        # duplicate.duplicate_workflow_with_maia(self)
 
     def set_default_parameters_for_rows(self):
 
         for row, rowParams in self.ApplicationContext['Rows'].items():
+
+            if not self.tree.get(Name=row, Type='Family', Depth=2):
+                raise MolaException(f'The family {row} given in ApplicationContext is not found in the mesh.')
 
             rowParams.setdefault('IsRotating', False)
 
@@ -85,18 +100,7 @@ class WorkflowRotatingComponent(Workflow):
                 mola_logger.info(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
 
             rowParams.setdefault('NumberOfBladesSimulated', 1)
-            rowParams.setdefault('NumberOfBladesInInitialMesh', self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades']))
-
-    def duplicate(self):
-        jns_paths = PT.predicates_to_paths(dist_tree, 'CGNSBase_t/Zone_t/ZoneGridConnectivity_t/GridConnectivity_t')
-        maia.algo.dist.duplicate_from_periodic_jns(dist_tree, 
-                                                   ['Base/ZoneRotor'], 
-                                                   [[jns_paths[0]], [jns_paths[1]]], 
-                                                   number_of_duplications, 
-                                                   comm, 
-                                                   apply_to_fields=True)
-        # if is_unstructured:
-        #     maia.algo.dist.merge_connected_zones(dist_tree, comm)    
+            rowParams.setdefault('NumberOfBladesInInitialMesh', self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades']))     
 
     def set_motion(self):
         for row, rowParams in self.ApplicationContext['Rows'].items():

@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from treelab import cgns
+
 def apply_to_solver(workflow):
     # Remove ChimeraCellType nodes
     groupOfNodes = workflow.tree.group(Name='FlowSolution#Init')
@@ -26,3 +28,4 @@ def apply_to_solver(workflow):
         import Converter.Internal as I
         I.__FlowSolutionCenters__ = 'FlowSolution#Init'
         elsAProfile._addTurbulentDistanceIndex(workflow.tree)
+        workflow.tree = cgns.castNode(workflow.tree)

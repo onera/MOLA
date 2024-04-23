@@ -22,18 +22,18 @@ from mola.logging import mola_logger, MolaException, mute_stdout
 from mola.cfd.preprocess.motion import motion
 
 BoundaryConditionsNames = dict(
-    Farfield                     = dict(elsa='nref'),
-    InflowStagnation             = dict(elsa='inj1'),
-    InflowMassFlow               = dict(elsa='injmfr1'),
-    OutflowPressure              = dict(elsa='outpres'),
+    Farfield                     = dict(elsa='nref', sonics='BCFarfield'),
+    InflowStagnation             = dict(elsa='inj1', sonics='BCInflowSubsonicPressure'),
+    InflowMassFlow               = dict(elsa='injmfr1', sonics='BCInflowSubsonicMassFlow'),
+    OutflowPressure              = dict(elsa='outpres', sonics='BCOutflowSubsonic'),
     OutflowMassFlow              = dict(elsa='outmfr2'),
     OutflowRadialEquilibrium     = dict(elsa='outradeq'),
     MixingPlane                  = dict(elsa='stage_mxpl'),
     UnsteadyRotorStatorInterface = dict(elsa='stage_red'),
-    WallViscous                  = dict(elsa='walladia'),
-    WallViscousIsothermal        = dict(elsa='wallisoth'),
-    WallInviscid                 = dict(elsa='wallslip'),
-    SymmetryPlane                = dict(elsa='sym'),
+    WallViscous                  = dict(elsa='walladia', sonics='BCWallViscous'),
+    WallViscousIsothermal        = dict(elsa='wallisoth', sonics='BCWallViscousIsothermal'),
+    WallInviscid                 = dict(elsa='wallslip', sonics='BCWallInviscid'),
+    SymmetryPlane                = dict(elsa='sym', sonics='BCSymmetryPlane'),
 )
 
 # Shortcuts for already defined boundary conditions
@@ -47,7 +47,7 @@ permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'Outfl
 turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface']
 
 
-def apply(workflow):
+def apply(workflow, selected_boundaries_conditions=None):
     '''
     Set all boundary conditions for **workflow**.
     It transforms the tree attribute of the **workflow**.
@@ -55,13 +55,23 @@ def apply(workflow):
     Parameters
     ----------
     workflow : Workflow object
+
+    selected_boundaries_conditions : :py:class:`list` of :py:class:`dict`, optional
+        Boudaries to apply. 
+        If not given, the attribute `BoundaryConditions` of the **workflow** is used.
+        Otherwise, it is possible to give a filtered list.
     '''
-    if len(workflow.BoundaryConditions) != 0:
+    if selected_boundaries_conditions is None:
+        selected_boundaries_conditions = workflow.BoundaryConditions
+
+    if len(selected_boundaries_conditions) != 0:
         mola_logger.info(f'Set boundary conditions:')
 
-    for bc in workflow.BoundaryConditions:
+    for bc in selected_boundaries_conditions:
         
         bcName = bc['Type']
+        if bcName == 'InterfaceBetweenWorkflows':
+            continue
         try:
             mola_logger.info(f'  > {bcName} on family {bc["Family"]}')
         except:

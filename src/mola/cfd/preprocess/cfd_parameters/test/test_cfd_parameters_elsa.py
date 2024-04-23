@@ -21,6 +21,8 @@ from treelab import cgns
 from mola.cfd.preprocess.cfd_parameters import solver_elsa
 from mola.workflow import Workflow
 from mola.logging import check_error_message, MolaException
+
+pytestmark = pytest.mark.elsa
     
 @pytest.fixture
 def tree_struct():

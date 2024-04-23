@@ -15,7 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
 from mola.cfd.preprocess.solver_specific_tools import solver_elsa
+
+pytestmark = pytest.mark.elsa
 
 RSM_CGNS2ElsaDict = dict(
         TurbulentDissipationRate = 'inj_tur7',

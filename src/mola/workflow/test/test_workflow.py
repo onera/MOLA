@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
+
 import os
 import numpy as np
 
@@ -23,10 +25,6 @@ import treelab.cgns as cgns
 from mola.workflow import Workflow
 from mola.logging import mola_logger, MolaException, mute_stdout
 from mola import server as SV
-
-import pytest
-onera_only = pytest.mark.skipif(SV.get_network() != 'onera', reason="test on ONERA machines")
-
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -291,7 +289,7 @@ def test_prepare_workflow2():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
-def test_workflow_sphere_struct():
+def test_workflow_sphere_struct_local():
     w = get_workflow_sphere_struct()
     w.prepare()
     w.write_cfd_files()
@@ -301,25 +299,44 @@ def test_workflow_sphere_struct():
         raise MolaException('simulation did not ended as expected')
     w.remove_cfd_files()
 
-# @onera_only
+# This test does not end for some reason... but the simulation is COMPLETED on spiro
+# @pytest.mark.network_onera
 # @pytest.mark.integration
 # @pytest.mark.cost_level_3
-# def test_workflow_sphere_struct_remote_sator():
+# def test_workflow_sphere_struct_remote_spiro():
 #     w = get_workflow_sphere_struct()
-#     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/tmp_MOLA_test/'
-#     w.RunManagement['mola_target_path'] = f'/tmp_user/sator/$USER/MOLA/mola_v2/src/'
-#     w.RunManagement['AER'] = '34790002F' # PDEV MOLA 2024
+#     w.RunManagement['RunDirectory'] = f'/scratchm/$USER/.test/tmp_MOLA_test/'
 #     w.RunManagement['TimeLimit'] = '00:30:00'
 
-#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+#     SV.remove_path(w.RunManagement['RunDirectory'], machine='spiro', file_only=False)
 
 #     w.prepare()
 #     w.write_cfd_files()
 #     w.submit()
 
 #     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-#     SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
-#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+#     SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='spiro', timeout=30)
+#     SV.remove_path(w.RunManagement['RunDirectory'], machine='spiro', file_only=False)
+
+@pytest.mark.network_onera
+@pytest.mark.integration
+@pytest.mark.cost_level_4
+def test_workflow_sphere_struct_remote_sator():
+    w = get_workflow_sphere_struct()
+    w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/test_workflow_sphere_struct_remote_sator/'
+    scheduler_defaults = SV.get_scheduler_defaults('sator')
+    w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
+    w.RunManagement['TimeLimit'] = '00:30:00'
+
+    SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+
+    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
+    SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -356,5 +373,5 @@ def test_wip():
 if __name__ == '__main__':
     # test_show_interface_1()
     # test_prepare_workflow1()
-    test_workflow_sphere_struct()
+    test_workflow_sphere_struct_local()
     # test_wip()

@@ -22,6 +22,9 @@ from mola.logging import mola_logger, MolaException
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 
 def apply(workflow):
+    if not all([('Families' in component) for component in workflow.RawMeshComponents]):
+        return
+    
     t = workflow.tree
     for base in t.bases():
         component = workflow.get_component(base.name())
@@ -131,3 +134,61 @@ def appendFamiliesToBase(base):
                 AllFamilyNames.add( FamilyNameNode.value() )
     for FamilyName in AllFamilyNames:
         cgns.Node(Name=FamilyName, Type='Family', Parent=base)
+
+def join_families(t, pattern):
+    '''
+    In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
+    Families <ROW_I>_<PATTERN>, so as many as rows.
+    Useful to join all the row_i_HUB* or (row_i_SHROUD*) together
+
+    Parameters
+    ----------
+
+        t : PyTree
+            A PyTree read by Cassiopee
+
+        pattern : str
+            The pattern used to gather CGNS families. Should be for example 'HUB' or 'SHROUD'
+    '''
+    fam2remove = []
+    fam2keep = []
+    # Loop on the BCs in the tree
+    for bc in t.group(Type='BC'):
+        # Get BC family name
+        famBC_node = bc.get(Type='FamilyName')
+        if not famBC_node: 
+            continue
+        famBC = famBC_node.value()
+        # Check if the pattern is present in FamilyBC name
+        if pattern not in famBC:
+            continue
+        # Split to get the short name based on pattern
+        split_fanBC = famBC.split(pattern)
+        assert len(split_fanBC) == 2, (
+            f'The pattern {pattern} is present more than once in the FamilyBC f{famBC}. ' 
+            'It must be more selective.'
+        )
+        preffix, suffix = split_fanBC
+        # Add the short name to the set fam2keep
+        short_name = f'{preffix}{pattern}'
+        if short_name not in fam2keep: 
+            fam2keep.append(short_name)
+        if suffix != '':
+            # Change the family name
+            famBC_node.setValue(short_name)
+            if famBC not in fam2remove: 
+                fam2remove.append(famBC)
+
+    # Remove families
+    for fam in fam2remove:
+        mola_logger.debug(f'Remove family {fam}')
+        t.findAndRemoveNodes(Name=fam, Type='Family', Depth=2)
+
+    # Check that families to keep still exist
+    base = t.get(Type='CGNSBase')
+    for fam in fam2keep:
+        fam_node = t.get(Name=fam, Type='Family', Depth=2)
+        if fam_node is None:
+            mola_logger.debug(f'Add family {fam}')
+            cgns.createNode(Name=fam, Type='Family', Parent=base)
+

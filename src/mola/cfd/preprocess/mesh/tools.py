@@ -15,36 +15,27 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from fnmatch import fnmatch
 from mola.logging import mola_logger, MolaException
 
-def get_surface_of_inflow(workflow):
-    '''
-    Compute the inflow surface from the inflow families.
+def get_bc_from_bc_type(workflow, bctypes):
+    if isinstance(bctypes, str):
+        bctypes = [bctypes]
 
-    Returns
-    -------
-
-        Surface : float
-            surface
-    '''
-    # Get inflow BCs
-    InflowBCs = [bc for bc in workflow.BoundaryConditions \
-        if bc['Type'].startswith('Inflow') or bc['Type'].startswith('inj')]
+    # Get BCs
+    BCs = []
+    for bctype in bctypes:
+        BCs += [bc for bc in workflow.BoundaryConditions if fnmatch(bc['Type'], bctype)]
 
     # Check unicity
-    if len(InflowBCs) != 1:
-        raise MolaException( 'Please provide a reference surface as "Surface" in ReferenceValues or provide a unique inflow BC in BoundaryConditions')
-    
-    InflowFamily = InflowBCs[0]['Family']
-    Surface = get_surface_of_family(workflow.tree, InflowFamily)
-    try:
-        Surface *= workflow.ApplicationContext['NormalizationCoefficient'][InflowFamily]['FluxCoef']
-    except:
-        pass
+    if len(BCs) == 0:
+        raise MolaException(f'There is no Family in BoundaryConditions matching the type {bctypes}')
+    elif len(BCs) > 1:
+        raise MolaException(f'There is more than one Family in BoundaryConditions matching the type {bctypes}: {[BC for BC in BCs]}')
+    else:
+        BC = BCs[0]
 
-    mola_logger.info(f'Reference surface = {Surface} m^2 (computed from inflow family {InflowFamily})')
-    
-    return Surface
+    return BC
 
 def get_surface_of_family(tree, Family):
     import Converter.PyTree as C

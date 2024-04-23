@@ -19,40 +19,28 @@ import numpy as np
 from treelab import cgns
 from mola.cfd.preprocess.initialization import solver_elsa
 
+import pytest
+pytestmark = pytest.mark.elsa
+
 class FakeWorkflow():
-    def __init__(self, t):
-        self.tree = t
+    def __init__(self):
+        # Build a base with two identical zones
+        base = cgns.Node( Name='Base', Type='Base')
+        z1 = cgns.Node( Name='Zone1', Type='Zone', Parent=base)
+        z2 = cgns.Node( Name='Zone2', Type='Zone', Parent=base)
+        for zone, shape in zip([z1, z2], [(1,2), (3,2)]):
+            fs = cgns.Node( Name='FlowSolution#Init', Type='FlowSolution', Parent=zone )
+            cgns.Node( Name='ChimeraCellType', Parent=fs )
+            cgns.Node( Name='TurbulentDistance', Value=np.ones(shape, dtype=np.float64, order='F'), Parent=fs )
+            cgns.Node( Name='OtherChild', Parent=fs )
+
+        self.tree = base
 
 def test_apply_to_solver():
-    # Build a base with two identical zones
-    base = cgns.Node( Name='Base', Type='Base')
-    z1 = cgns.Node( Name='Zone1', Type='Zone', Parent=base)
-    z2 = cgns.Node( Name='Zone2', Type='Zone', Parent=base)
-    for zone, shape in zip([z1, z2], [(1,2), (3,2)]):
-        fs = cgns.Node( Name='FlowSolution#Init', Type='FlowSolution', Parent=zone )
-        cgns.Node( Name='ChimeraCellType', Parent=fs )
-        cgns.Node( Name='TurbulentDistance', Value=np.ones(shape, dtype=np.float64, order='F'), Parent=fs )
-        cgns.Node( Name='OtherChild', Parent=fs )
 
-    workflow = FakeWorkflow(base)
+    workflow = FakeWorkflow()
     solver_elsa.apply_to_solver(workflow)
 
-    RefTree = ['Base', None, [
-        ['Zone1', None, [
-            ['FlowSolution#Init', None, [
-                ['TurbulentDistance', np.array([[1., 1.]]), [], 'DataArray_t'], 
-                ['OtherChild', None, [], 'DataArray_t'], 
-                ['TurbulentDistanceIndex', np.array([[-1., -1.]]), [], 'DataArray_t']
-            ], 'FlowSolution_t']
-        ], 'Zone_t'], 
-        ['Zone2', None, [
-            ['FlowSolution#Init', None, [
-                ['TurbulentDistance', np.array([[1., 1.],[1., 1.],[1., 1.]]), [], 'DataArray_t'], 
-                ['OtherChild', None, [], 'DataArray_t'], 
-                ['TurbulentDistanceIndex', np.array([[-1., -1.],[-1., -1.],[-1., -1.]]), [], 'DataArray_t']
-            ], 'FlowSolution_t']
-        ], 'Zone_t']
-    ], 'Base_t']
-
-    assert str(workflow.tree) == str(RefTree)
+    assert len(workflow.tree.group(Name='ChimeraCellType')) == 0
+    assert len(workflow.tree.group(Name='TurbulentDistanceIndex')) == 2
     

@@ -41,20 +41,10 @@ class ExternalFlowGenerator(object):
         self.Turbulence = workflow.Turbulence if workflow.Turbulence is not None else dict()
 
     def generate(self):
-        # Compute flow and turbulence properties
         self.set_fluid_properties()
         self.set_flow_properties()
         self.set_turbulence_properties()
         self.Flow['ReferenceState'] = dict(**self.Flow['Conservatives'], **self.Turbulence['Conservatives'])
-
-        # TODO Move these values ?
-        # If yes, Surface can be removed from the attributes of this class
-        # self.Flow.update(dict(
-        #     Length          = Length,
-        #     Surface         = Surface,
-        #     FluxCoef        = 1./(self.Flow['PressureDynamic'] * Surface),
-        #     TorqueCoef      = 1./(self.Flow['PressureDynamic'] * Surface * Length),
-        # ))
     
     def set_fluid_properties(self):
         self.Fluid['cv'] = self.Fluid['IdealGasConstant'] / (self.Fluid['Gamma']-1.0)
@@ -205,16 +195,4 @@ class ExternalFlowGenerator(object):
 
         else:
             raise AttributeError(f'Turbulence model {self.Turbulence["Model"]} not implemented in workflow. Must be in: {AvailableTurbulenceModels}')
-
-        # if self.Turbulence['TransitionMode'] is not None:
-        #     self.Turbulence['TransitionZones'] = dict(
-        #         TopOrigin                   = 0.002,
-        #         BottomOrigin                = 0.010,
-        #         TopLaminarImposedUpTo       = 0.001,
-        #         TopLaminarIfFailureUpTo     = 0.2,
-        #         TopTurbulentImposedFrom     = 0.995,
-        #         BottomLaminarImposedUpTo    = 0.001,
-        #         BottomLaminarIfFailureUpTo  = 0.2,
-        #         BottomTurbulentImposedFrom  = 0.995,
-        #     )
             
