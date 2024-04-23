@@ -22,6 +22,9 @@ from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.server import MaiaParallel
 
 def apply(workflow):
+    if not all([('Connection' in component) for component in workflow.RawMeshComponents]):
+        return
+    
     apply_with_cassiopee(workflow)
         
 def apply_with_cassiopee(workflow):

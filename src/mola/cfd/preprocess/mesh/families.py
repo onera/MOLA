@@ -22,6 +22,9 @@ from mola.logging import mola_logger, MolaException
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 
 def apply(workflow):
+    if not all([('Families' in component) for component in workflow.RawMeshComponents]):
+        return
+    
     t = workflow.tree
     for base in t.bases():
         component = workflow.get_component(base.name())

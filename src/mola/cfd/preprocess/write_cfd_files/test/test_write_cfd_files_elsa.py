@@ -19,6 +19,10 @@ import numpy as np
 from treelab import cgns
 from mola.cfd.preprocess.write_cfd_files import solver_elsa, write_cfd_files
 
+import pytest
+pytestmark = pytest.mark.elsa
+
+
 class FakeWorkflow():
     def __init__(self, t):
         self.tree = t

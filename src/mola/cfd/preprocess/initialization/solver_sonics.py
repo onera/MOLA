@@ -15,14 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source $SCRIPT_DIR/../network.sh
 
-source /tmp_user/sator/sonics/usr/sonics/2024-03-05/dsi-cfd6/source.sh
-export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
+def apply_to_solver(workflow):
+    InitialSolutionContainer = 'FSolution#CellCenter#Init'
+    for node in workflow.tree.group(Name='FlowSolution#Init'):
+        node.setName(InitialSolutionContainer)    
 
-export PYTHONPATH=$MOLA:$PYTHONPATH
-export PATH=$MOLA/mola/bin:$PATH
-
-export PYTHONEXE=python3
-alias python=python3

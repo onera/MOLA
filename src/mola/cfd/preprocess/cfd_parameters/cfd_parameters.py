@@ -86,3 +86,25 @@ def check_cfl(workflow):
         
     else:
         raise MolaException('CFL must be a scalar or a dict')
+
+def get_turbulence_cutoff_setup(Turbulence):
+    # Definition of cut-off values for turbulence 
+    turbValues = list(Turbulence['Conservatives'].values())
+    if len(turbValues) == 7:  # RSM
+        TurbulenceCutOffSetup = dict(
+            t_cutvar1 = Turbulence['TurbulenceCutOffRatio'] * turbValues[0],
+            t_cutvar2 = Turbulence['TurbulenceCutOffRatio'] * turbValues[3],
+            t_cutvar3 = Turbulence['TurbulenceCutOffRatio'] * turbValues[5],
+            t_cutvar4 = Turbulence['TurbulenceCutOffRatio'] * turbValues[6],
+        )
+
+    elif len(turbValues) > 4: # unsupported 
+        raise MolaException('Unsupported number of turbulent fields')
+    
+    else:
+        TurbulenceCutOffSetup = dict()
+        for i, value in enumerate(turbValues):
+            TurbulenceCutOffSetup[f't_cutvar{i+1}'] = Turbulence['TurbulenceCutOffRatio'] * value
+
+    return TurbulenceCutOffSetup
+    

@@ -15,14 +15,19 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source $SCRIPT_DIR/../network.sh
+from mola.logging import mola_logger
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
 
-source /tmp_user/sator/sonics/usr/sonics/2024-03-05/dsi-cfd6/source.sh
-export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
+BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
 
-export PYTHONPATH=$MOLA:$PYTHONPATH
-export PATH=$MOLA/mola/bin:$PATH
+# For each boundary condition, this generic function does the job
+def function_generator(name):
+    def set_bc(workflow, *args, **kwargs):
+        import miles
+        miles.bcfactory(workflow.tree, name, *args, **kwargs)
+    return set_bc
 
-export PYTHONEXE=python3
-alias python=python3
+# Define functions with the write name to be called from .boundary_conditions
+for fun_name in BoundaryConditionsNamesInSONICS:
+    locals()[fun_name] = function_generator(fun_name)
+

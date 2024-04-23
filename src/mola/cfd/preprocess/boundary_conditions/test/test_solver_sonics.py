@@ -15,14 +15,18 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source $SCRIPT_DIR/../network.sh
+import pytest
 
-source /tmp_user/sator/sonics/usr/sonics/2024-03-05/dsi-cfd6/source.sh
-export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
+from mola.logging import mola_logger
+from mola.cfd.preprocess.boundary_conditions import solver_sonics
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
 
-export PYTHONPATH=$MOLA:$PYTHONPATH
-export PATH=$MOLA/mola/bin:$PATH
+pytestmark = pytest.mark.sonics
 
-export PYTHONEXE=python3
-alias python=python3
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_functions_well_defined():
+    BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
+    for fun_name in BoundaryConditionsNamesInSONICS:
+        assert getattr(solver_sonics, fun_name)
+

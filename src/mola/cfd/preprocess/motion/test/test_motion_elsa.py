@@ -21,6 +21,9 @@ import numpy as np
 from treelab import cgns
 from mola.cfd.preprocess.motion import solver_elsa
 
+pytestmark = pytest.mark.elsa
+
+
 class FakeWorkflow():
 
     def __init__(self, Motion):

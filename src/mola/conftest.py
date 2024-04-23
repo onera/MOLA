@@ -17,6 +17,12 @@ cost_levels = {
 def pytest_configure(config):
 
     config.addinivalue_line(
+        "markers", "elsa: test is relevant only for the solver elsa")
+    
+    config.addinivalue_line(
+        "markers", "sonics: test is relevant only for the solver sonics")
+
+    config.addinivalue_line(
         "markers", "unit: unit test of an isolated operation, usually fast")
 
     config.addinivalue_line(

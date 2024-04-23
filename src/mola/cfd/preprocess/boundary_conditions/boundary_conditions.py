@@ -22,18 +22,18 @@ from mola.logging import mola_logger, MolaException, mute_stdout
 from mola.cfd.preprocess.motion import motion
 
 BoundaryConditionsNames = dict(
-    Farfield                     = dict(elsa='nref'),
-    InflowStagnation             = dict(elsa='inj1'),
-    InflowMassFlow               = dict(elsa='injmfr1'),
-    OutflowPressure              = dict(elsa='outpres'),
+    Farfield                     = dict(elsa='nref', sonics='BCFarfield'),
+    InflowStagnation             = dict(elsa='inj1', sonics='BCInflowSubsonicPressure'),
+    InflowMassFlow               = dict(elsa='injmfr1', sonics='BCInflowSubsonicMassFlow'),
+    OutflowPressure              = dict(elsa='outpres', sonics='BCOutflowSubsonic'),
     OutflowMassFlow              = dict(elsa='outmfr2'),
     OutflowRadialEquilibrium     = dict(elsa='outradeq'),
     MixingPlane                  = dict(elsa='stage_mxpl'),
     UnsteadyRotorStatorInterface = dict(elsa='stage_red'),
-    WallViscous                  = dict(elsa='walladia'),
-    WallViscousIsothermal        = dict(elsa='wallisoth'),
-    WallInviscid                 = dict(elsa='wallslip'),
-    SymmetryPlane                = dict(elsa='sym'),
+    WallViscous                  = dict(elsa='walladia', sonics='BCWallViscous'),
+    WallViscousIsothermal        = dict(elsa='wallisoth', sonics='BCWallViscousIsothermal'),
+    WallInviscid                 = dict(elsa='wallslip', sonics='BCWallInviscid'),
+    SymmetryPlane                = dict(elsa='sym', sonics='BCSymmetryPlane'),
 )
 
 # Shortcuts for already defined boundary conditions

@@ -15,14 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source $SCRIPT_DIR/../network.sh
+from treelab import cgns
+from mola.logging import mola_logger, MolaException
 
-source /tmp_user/sator/sonics/usr/sonics/2024-03-05/dsi-cfd6/source.sh
-export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
+def apply_to_solver(workflow):
 
-export PYTHONPATH=$MOLA:$PYTHONPATH
-export PATH=$MOLA/mola/bin:$PATH
+    mola_logger.warning('No custom extractions available with SoNICS for now.')
 
-export PYTHONEXE=python3
-alias python=python3
