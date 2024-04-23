@@ -19,6 +19,7 @@ import numpy as np
 
 from treelab import cgns
 from mola.server import MaiaParallel
+from mola.logging import mola_logger
 
 def duplicate_workflow_with_cassiopee(workflow):
     '''
@@ -203,10 +204,15 @@ def duplicate_with_cassiopee(tree, rowFamily, nBlades, nDupli=None, merge=False,
     assert check, 'None of the zones was duplicated. Check the name of row family'
 
 def duplicate_workflow_with_maia(workflow):
-    duplication_parameters = dict( 
-        (row, rowParams['NumberOfBladesSimulated']-rowParams['NumberOfBladesInInitialMesh']) 
-        for row, rowParams in workflow.ApplicationContext['Rows'].items()
+    duplication_parameters = dict()
+    for row, rowParams in workflow.ApplicationContext['Rows'].items():
+        duplication_parameters[row] = dict(
+            number_of_duplications = rowParams['NumberOfBladesSimulated'] - rowParams['NumberOfBladesInInitialMesh'],
+            is_360 = rowParams['NumberOfBladesSimulated'] == rowParams['NumberOfBlades']
         )
+
+    if any([p['number_of_duplications']>0 for p in duplication_parameters.values()]):
+        mola_logger.info('Duplication:')
     
     workflow.tree = duplicate_with_maia(workflow.tree, duplication_parameters, merge_zones=workflow.tree.isUnstructured())
 
@@ -217,41 +223,35 @@ def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
-    # for row, number_of_duplications in duplication_parameters.items():
-    #     # is_zone_in_row = [
-    #     #     lambda n: PT.get_label(n)=='Zone_t',
-    #     #     lambda n: PT.get_value(PT.get_child_from_label(n, 'FamilyName_t')) == row
-    #     # ]
-    #     # zones_paths = PT.predicates_to_paths(dist_tree, is_zone_in_row)
-    #     zones = []
-
-    #     zones_paths = PT.predicates_to_paths(dist_tree, ['CGNSBase_t/Zone_t', lambda n: True])
-    #     jns_paths = PT.predicates_to_paths(dist_tree, 'CGNSBase_t/Zone_t/ZoneGridConnectivity_t/GridConnectivity1to1_t')
-    #     print(zones_paths)
-    #     maia.algo.dist.duplicate_from_periodic_jns(dist_tree, 
-    #                                             zones_paths, 
-    #                                             [[jns_paths[0]], [jns_paths[1]]], 
-    #                                             number_of_duplications, 
-    #                                             comm, 
-    #                                             apply_to_fields=True)
-        
-    #     # zones_paths = get_zonepath_from_family(dist_tree, row)
-    #     # maia.algo.dist.duplicate_from_periodic_jns(dist_tree, 
-    #     #                                         zones_paths,  
-    #     #                                         number_of_duplications, 
-    #     #                                         comm)
-
-    for row, number_of_duplications in duplication_parameters.items():
-        if number_of_duplications == 0:
+    for row, dup_params in duplication_parameters.items():
+        if dup_params['number_of_duplications'] == 0:
             continue
-        zones_paths = PT.predicates_to_paths(dist_tree, ['CGNSBase_t/Zone_t', lambda n: True])
-        jns_paths = PT.predicates_to_paths(dist_tree, 'CGNSBase_t/Zone_t/ZoneGridConnectivity_t/GridConnectivity1to1_t')
-        maia.algo.dist.duplicate_from_periodic_jns(dist_tree, 
-                                                zones_paths, 
-                                                [[jns_paths[0]], [jns_paths[1]]], 
-                                                number_of_duplications, 
-                                                comm, 
-                                                apply_to_fields=True)
+
+        is_zone_in_row = lambda n : PT.get_label(n) == 'Zone_t' and PT.predicate.belongs_to_family(n, row)
+        zones_paths = PT.predicates_to_paths(dist_tree, ['CGNSBase_t', is_zone_in_row])
+
+        _, perio_jns = PT.find_periodic_jns(dist_tree)
+
+        if dup_params['is_360']:
+            mola_logger.info(f"  > row {row} is replicated on 360 degrees")
+            maia.algo.dist.duplicate_from_rotation_jns_to_360(
+                dist_tree, 
+                zones_paths, 
+                perio_jns, 
+                comm, 
+                apply_to_fields=True
+                )
+        else:
+            plurial = 's' if dup_params['number_of_duplications'] > 1 else ''
+            mola_logger.info(f"  > row {row} is replicated {dup_params['number_of_duplications']} time"+plurial)
+            maia.algo.dist.duplicate_from_periodic_jns(
+                dist_tree, 
+                zones_paths, 
+                perio_jns, 
+                dup_params['number_of_duplications'], 
+                comm, 
+                apply_to_fields=True
+                )
         
     if merge_zones:
         maia.algo.dist.merge_connected_zones(dist_tree, comm)    

@@ -81,7 +81,7 @@ class WorkflowRotatingComponent(Workflow):
         self.set_default_parameters_for_rows()
         self.compute_fluxcoef_by_row() 
         # duplicate.duplicate_workflow_with_cassiopee(self)
-        # duplicate.duplicate_workflow_with_maia(self)
+        duplicate.duplicate_workflow_with_maia(self)
 
     def set_default_parameters_for_rows(self):
 
