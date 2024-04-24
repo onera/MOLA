@@ -16,11 +16,13 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+import inspect
 import sys
 import os
 import pprint
 import shutil
-from mola.logging import mola_logger
+from typing import Union
+from .logging.formatters import BOLD, CYAN, PINK, ENDC
 
 AutoGridLocation = {'FlowSolution':'Vertex',
                     'FlowSolution#Centers':'CellCenter',
@@ -206,7 +208,7 @@ def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6):
     bool
         result of the comparison
     '''
-
+    from .logging import mola_logger # here in order to avoid circular import in exceptions.py
     if len(d1) != len(d2):
         mola_logger.debug(f'Both dictionary have not the same length ({len(d1)} and {len(d2)} respectively)')
         return False

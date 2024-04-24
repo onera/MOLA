@@ -34,7 +34,10 @@ class FakeWorkflow():
 
         self.Flow = dict(
             Direction = [1, 0, 0],
-            Velocity = 10,
+            Velocity = 10.0,
+            Temperature = 288.15,
+            Density = 1.225,
+            VelocityUsedForScalingAndTurbulence = 10.0,
             )
         
         self.Turbulence = dict(

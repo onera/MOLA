@@ -27,7 +27,7 @@ from treelab import cgns
 def test_Wall():
     class FakeWorkflow():
         def __init__(self):
-            self.BoundaryConditions = [dict(Family='WING', type='BCWall')]
+            self.BoundaryConditions = [dict(Family='WING', Type='BCWall')]
 
     workflow = FakeWorkflow()
     bc = workflow.BoundaryConditions[0]
@@ -45,7 +45,7 @@ def test_Wall():
 def test_Farfield():
     class FakeWorkflow():
         def __init__(self):
-            self.BoundaryConditions = [dict(Family='UPSTREAM', type='BCFarfield')]
+            self.BoundaryConditions = [dict(Family='UPSTREAM', Type='BCFarfield')]
 
     workflow = FakeWorkflow()
     bc = workflow.BoundaryConditions[0]

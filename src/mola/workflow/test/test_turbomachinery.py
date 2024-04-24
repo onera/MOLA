@@ -26,6 +26,7 @@ def get_workflow_rotor37():
     w = WorkflowTurbomachinery( 
         RawMeshComponents=[
             dict(
+                Name='rotor37',
                 Source = '/stck/mola/data/mesh/rotor37/rotor37.cgns',
                 ) 
         ],
@@ -58,12 +59,12 @@ def get_workflow_rotor37():
         ),
 
         BoundaryConditions = [
-            dict(Family='R37_INFLOW', type='InflowStagnation'),
-            dict(Family='R37_OUTFLOW', type='OutflowPressure', Pressure=0.9936*1e5),
+            dict(Family='R37_INFLOW', Type='InflowStagnation'),
+            dict(Family='R37_OUTFLOW', Type='OutflowPressure', Pressure=0.9936*1e5),
         ],
 
         Extractions = [
-            dict(type='IsoSurface', field='ChannelHeight', value=0.9)
+            dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9)
         ],
 
         RunManagement=dict(
@@ -107,7 +108,14 @@ def test_rotor37_sator():
     w.write_cfd_files()
     w.submit()
 
-    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-    SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
-    SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+    # NOTE: do not wait for job to end, since that approach would provoke
+    # too important delays (waiting for resources of SLURM)
+    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
+    # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
+
+if __name__ == '__main__':
+    # test_show_interface_1()
+    test_rotor37_sator()
+    # test_wip()

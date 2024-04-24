@@ -210,7 +210,7 @@ def set_model(workflow):
 
 def set_numerics(workflow):
 
-    TurbulenceCutOffSetup = cfd_parameters.get_turbulence_cutoff_setup(workflow.Turbulence)
+    TurbulenceCutOffSetup = get_turbulence_cutoff_setup(workflow.Turbulence)
     TurbulenceCutOffSetup = dict((f't_cutvar{i+1}', value) for i, value in enumerate(TurbulenceCutOffSetup.values()))
 
     workflow.SolverParameters['numerics'] = dict(
@@ -257,6 +257,7 @@ def get_turbulent_setup(Turbulence):
 
 def get_transition_setup(Turbulence):
     TransitionModeSetup = dict()
+    if not 'TransitionMode' in Turbulence: return TransitionModeSetup
     if Turbulence['TransitionMode'] == 'NonLocalCriteria-LSTT':
 
         if 'LM2009' in Turbulence['Model']:
@@ -470,3 +471,24 @@ def tag_zones_with_sourceterm(t):
         if not solverParam:
             solverParam = cgns.Node(Parent=zone, Name='.Solver#Param', Type='UserDefinedData_t')
         cgns.Node(Parent=solverParam, Name='xdt_nature', Value='sourceterm', Type='DataArray')
+
+def get_turbulence_cutoff_setup(Turbulence):
+    # Definition of cut-off values for turbulence 
+    turbValues = list(Turbulence['Conservatives'].values())
+    if len(turbValues) == 7:  # RSM
+        TurbulenceCutOffSetup = dict(
+            t_cutvar1 = Turbulence['TurbulenceCutOffRatio'] * turbValues[0],
+            t_cutvar2 = Turbulence['TurbulenceCutOffRatio'] * turbValues[3],
+            t_cutvar3 = Turbulence['TurbulenceCutOffRatio'] * turbValues[5],
+            t_cutvar4 = Turbulence['TurbulenceCutOffRatio'] * turbValues[6],
+        )
+
+    elif len(turbValues) > 4: # unsupported 
+        raise MolaException('Unsupported number of turbulent fields')
+    
+    else:
+        TurbulenceCutOffSetup = dict()
+        for i, value in enumerate(turbValues):
+            TurbulenceCutOffSetup[f't_cutvar{i+1}'] = Turbulence['TurbulenceCutOffRatio'] * value
+
+    return TurbulenceCutOffSetup

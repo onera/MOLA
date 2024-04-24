@@ -25,7 +25,7 @@ def get_bc_from_bc_type(workflow, bctypes):
     # Get BCs
     BCs = []
     for bctype in bctypes:
-        BCs += [bc for bc in workflow.BoundaryConditions if fnmatch(bc['type'], bctype)]
+        BCs += [bc for bc in workflow.BoundaryConditions if fnmatch(bc['Type'], bctype)]
 
     # Check unicity
     if len(BCs) == 0:

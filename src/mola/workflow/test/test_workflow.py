@@ -67,19 +67,18 @@ def get_workflow1():
                             Axis2=[0,1,0],
                             Axis3=[0,0,1]),
                         ),
-                    # dict(
-                    #     Type='DuplicateByRotation',
-                    #     RotationPoint=[0,0,0],
-                    #     RotationAxis=[0,0,1],
-                    #     RightHandRuleRotation=True,
-                    #     NumberOfInstances=4,
-                    #     AddInstancesAsNewComponents=True,
-                    #     ),
+                    dict(
+                        Type='DuplicateByRotation',
+                        RotationPoint=[0,0,0],
+                        RotationAxis=[0,0,1],
+                        RightHandRuleRotation=True,
+                        NumberOfInstances=4,
+                        AddInstancesAsNewComponents=True,
+                        ),
                 ],
                 Connection = [
                     dict(Type='Match', Tolerance=1e-8),
                 ],
-                OversetOptions=dict(),
                 )
         ],
 
@@ -98,6 +97,7 @@ def get_workflow1():
 
 
         )
+
     return w
 
 @pytest.mark.unit
@@ -134,7 +134,9 @@ def test_prepare_workflow1():
     w.connect()
     w.define_families()
     w.split_and_distribute()
-    w.write_tree()
+    w.write_tree('test.cgns')
+    os.unlink('test.cgns')
+    
 
 def get_workflow2():
 
@@ -173,7 +175,6 @@ def get_workflow2():
                 Connection = [
                     dict(Type='Match', Tolerance=1e-8),
                 ],
-                OversetOptions=dict(),
                 )
         ],
 
@@ -200,18 +201,20 @@ def get_workflow2():
         ),
 
         BoundaryConditions=[
-            dict(Family='Ground', type='Wall'),
-            dict(Family='Farfield', type='Farfield'),
+            dict(Family='Ground', Type='Wall'),
+            dict(Family='Farfield', Type='Farfield'),
         ],
 
+        ExtractionsDefaults=[dict(ReferenceParameter='File',File='signals.cgns',SavePeriod=69)],
+
         Extractions=[
-            dict(type='signals', name='Integrals', fields=['CL', 'std-CL'], Period=10),
-            dict(type='probe', name='probe1', fields=['std-Pressure'], Period=5),
-            dict(type='probe', name='probe2', fields=['std-Density'], Period=5),
-            dict(type='3D', fields=['Mach', 'q_criterion']),
-            dict(type='bc', BCType='BCWall*', storage='ByFamily', fields=['normalvector', 'frictionvector']),
-            dict(type='bc', BCType='*', storage='ByFamily', fields=['Pressure']),
-            dict(type='IsoSurface', name='MySurface', field='CoordinateY', value=1.e-6, AllowedFields=['Mach','cellN']),
+            dict(Type='Integral', Name='AeroCoefs', Fields=['CL', 'std-CL']),
+            dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
+            dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
+            dict(Type='3D', Fields=['Mach', 'q_criterion']),
+            dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['normalvector', 'frictionvector']),
+            dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
+            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateY', IsoSurfaceValue=1.e-6, Fields=['Mach','cellN']),
             ],
 
 
@@ -258,14 +261,14 @@ def get_workflow_sphere_struct():
         ),
 
         BoundaryConditions=[
-            dict(Family='Wall', type='Wall'),
-            dict(Family='Farfield', type='Farfield'),
+            dict(Family='Wall', Type='Wall'),
+            dict(Family='Farfield', Type='Farfield'),
         ],
 
         Extractions=[
-            dict(type='bc', BCType='*', storage='ByFamily', fields=['Pressure']),
-            dict(type='bc', BCType='BCWall*', storage='ByFamily', fields=['NormalVector', 'Friction', 'BoundaryLayer']),
-            dict(type='IsoSurface', name='MySurface', field='CoordinateZ', value=1.e-6),
+            dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
+            dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
+            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1.e-6),
             ],
 
         RunManagement=dict(
@@ -331,6 +334,46 @@ def test_workflow_sphere_struct_remote_sator():
     w.write_cfd_files()
     w.submit()
 
-    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-    SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
-    SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+    # NOTE: do not wait for job to end, since that approach would provoke
+    # too important delays (waiting for resources of SLURM)
+    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
+    # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_show_interface_1():
+    w = get_workflow1()
+    w.show_interface()
+
+def test_wip():
+    import inspect
+
+    def repack_kwargs_only(**kwargs):
+        # Get the current frame (frame where this function is called)
+        frame = inspect.currentframe().f_back
+        # Get the arguments from the calling frame
+        locals_dict = frame.f_locals
+        # Remove 'self' if this is a method in a class
+        locals_dict.pop("self", None)
+        # Remove 'kwargs' if it exists
+        locals_dict.pop("kwargs", None)
+        # Repack only kwargs
+        kwargs = {key: locals_dict[key] for key in locals_dict if key not in locals_dict.get("args", [])}
+        return kwargs
+
+    # Example usage:
+    def example_function(a, b, c, d=1, e=2, *, f=None, g=None):
+        kwargs = repack_kwargs_only()
+        return kwargs
+
+    result = example_function(1, 2, 3, g='value')
+    print("Keyword arguments:", result)
+    
+    
+
+if __name__ == '__main__':
+    # test_show_interface_1()
+    # test_prepare_workflow1()
+    test_get_workflow_parameters_from_tree()
+    # test_wip()

@@ -132,7 +132,7 @@ class WorkflowRotatingComponent(Workflow):
                     continue
                 
                 self.BoundaryConditions.append(
-                    dict(Family=FamilyBoundary, type='Wall')
+                    dict(Family=FamilyBoundary, Type='Wall')
                     )
     
     def set_blade_boundary_conditions(self, families=['blade', 'aube']):
@@ -146,10 +146,10 @@ class WorkflowRotatingComponent(Workflow):
 
                 try:
                     self.BoundaryConditions.append(
-                        dict(Family=FamilyBoundary, type='Wall', Motion=self.Motion[row_family])
+                        dict(Family=FamilyBoundary, Type='Wall', Motion=self.Motion[row_family])
                         )
                 except KeyError:
-                    self.BoundaryConditions.append(dict(Family=FamilyBoundary, type='Wall'))
+                    self.BoundaryConditions.append(dict(Family=FamilyBoundary, Type='Wall'))
     
     def set_hub_boundary_conditions(self, families=['hub', 'moyeu']):
         for hub_family in self._extendListOfFamilies(families):
@@ -164,13 +164,13 @@ class WorkflowRotatingComponent(Workflow):
                     row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
                     try:
                         self.BoundaryConditions.append(
-                            dict(Family=FamilyBoundary, type='Wall', Motion=self.Motion[row_family])
+                            dict(Family=FamilyBoundary, Type='Wall', Motion=self.Motion[row_family])
                             )
                     except KeyError:
                         self.BoundaryConditions.append(dict(Family=FamilyBoundary, type='Wall'))
                 else:
                     self.BoundaryConditions.append(
-                        dict(Family=FamilyBoundary, type='Wall', Motion=dict(RotationSpeed=self._get_hub_rotation_function()))
+                        dict(Family=FamilyBoundary, Type='Wall', Motion=dict(RotationSpeed=self._get_hub_rotation_function()))
                         )
 
     @staticmethod
@@ -313,10 +313,10 @@ class WorkflowRotatingComponent(Workflow):
 
         for bc in self.BoundaryConditions:
 
-            if bc['type'] not in permeable_boundaries+turbomachinery_interfaces:
+            if bc['Type'] not in permeable_boundaries+turbomachinery_interfaces:
                 continue
             
-            Families = [value for key, value in bc.items() if key in ['Family', 'left', 'right']]
+            Families = [value for key, value in bc.items() if key in ['Family', 'LinkedFamily']]
             for Family in Families:
                 row = self._get_row_from_BC_Family(self.tree, Family)
         

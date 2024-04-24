@@ -22,9 +22,9 @@ class FakeWorkflow():
 
     def __init__(self):
         self.Extractions = [
-            dict(type='fake'),
-            dict(type='bc', BCType='BCWallViscous', fields=['Pressure']),
-            dict(type='bc', BCType='BCWallInviscid'),
+            dict(Type='BC', Source='BCWallViscous', Fields=['Pressure']),
+            dict(Type='BC', Source='BCWallInviscid'),
+            dict(Type='3D', Fields=['Density', 'Momentum', 'Energy'])
         ]
         self.Flow = dict(
             ReferenceState = dict(
@@ -42,11 +42,10 @@ def test_process_extractions_3d():
     extractions.process_extractions_3d(workflow)
 
     assert workflow.Extractions == [
-        dict(type='fake'), 
-        dict(type='bc', BCType='BCWallViscous', fields=['Pressure']),
-        dict(type='bc', BCType='BCWallInviscid'),
-        dict(type='3D', fields=dict(Density=1.2,Momentum=10.,Energy=5.))
-    ]
+        {'Type': 'BC', 'Source': 'BCWallViscous', 'Fields': ['Pressure']},
+        {'Type': 'BC', 'Source': 'BCWallInviscid'},
+        {'Type': '3D', 'Fields': ['Density', 'Momentum', 'Energy']}]
+
 
 
 @pytest.mark.unit
@@ -56,7 +55,10 @@ def test_process_extractions_2d():
     extractions.process_extractions_2d(workflow)
 
     assert workflow.Extractions == [
-        dict(type='fake'), 
-        dict(type='bc', BCType='BCWallViscous', fields=['Pressure']),
-        dict(type='bc', BCType='BCWallInviscid', fields=[]),
-    ]
+            {'Type': 'BC', 'Source': 'BCWallViscous', 'Fields': ['Pressure']},
+            {'Type': 'BC', 'Source': 'BCWallInviscid', 'Fields': []},
+            {'Type': '3D', 'Fields': ['Density', 'Momentum', 'Energy']}]
+    
+    
+if __name__ == '__main__':
+    test_process_extractions_3d()

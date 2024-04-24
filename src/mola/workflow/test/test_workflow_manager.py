@@ -134,8 +134,8 @@ def get_fake_workflow():
         ),
 
         BoundaryConditions=[
-            dict(Family='Wall', type='Wall'),
-            dict(Family='Farfield', type='Farfield', Pressure=10),
+            dict(Family='Wall', Type='Wall'),
+            dict(Family='Farfield', Type='Farfield', Pressure=10.0),
         ],
 
         RunManagement=dict(
@@ -228,7 +228,7 @@ def test_WorkflowParallelScheduler_sphere_local():
                 [
                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
                     ('Flow|Velocity', velocity),
-                    ('BoundaryConditions|Family=Wall|type', BCWall),
+                    ('BoundaryConditions|Family=Wall|Type', BCWall),
                 ], 
                 initialize_from_previous=False
                 )
@@ -239,7 +239,7 @@ def test_WorkflowParallelScheduler_sphere_local():
         shutil.rmtree(test_dir)
     except FileNotFoundError:
         pass
-        
+    
     scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
     scheduler.prepare()
     scheduler.submit()
@@ -295,3 +295,10 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
 
     SV.remove_path(test_dir, machine='sator', file_only=False)
 
+
+
+if __name__ == '__main__':
+    # test_show_interface_1()
+    # test_prepare_workflow1()
+    test_WorkflowParallelScheduler_sphere()
+    # test_wip()

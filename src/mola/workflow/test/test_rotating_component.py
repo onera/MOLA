@@ -51,7 +51,7 @@ Base CGNSBase_t:
         # PT.print_tree(self.tree)
 
         self.BoundaryConditions = [
-            dict(Family='fake_shroud', type='Farfield')
+            dict(Family='fake_shroud', Type='Farfield')
             ]
         
         self.Motion = dict(
@@ -82,10 +82,10 @@ def test_extendListOfFamilies():
 def test_set_shroud_boundary_conditions():
     w = FakeWorkflow()
     w.set_shroud_boundary_conditions()
-    assert dict(Family='Shroud', type='Wall') in w.BoundaryConditions
+    assert dict(Family='Shroud', Type='Wall') in w.BoundaryConditions
     # Check fake_shroud has not been modified
-    assert not dict(Family='fake_shroud', type='Wall') in w.BoundaryConditions
-    assert dict(Family='fake_shroud', type='Farfield') in w.BoundaryConditions
+    assert not dict(Family='fake_shroud', Type='Wall') in w.BoundaryConditions
+    assert dict(Family='fake_shroud', Type='Farfield') in w.BoundaryConditions
 
 
 @pytest.mark.unit
@@ -93,14 +93,14 @@ def test_set_shroud_boundary_conditions():
 def test_set_blade_boundary_conditions():
     w = FakeWorkflow()
     w.set_blade_boundary_conditions()
-    assert dict(Family='test_Blade1', type='Wall', Motion=w.Motion['Rotor']) in w.BoundaryConditions
+    assert dict(Family='test_Blade1', Type='Wall', Motion=w.Motion['Rotor']) in w.BoundaryConditions
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_set_hub_boundary_conditions_default():
     w = FakeWorkflow()
     w.set_hub_boundary_conditions()
-    assert dict(Family='Hub_test', type='Wall', Motion=w.Motion['Rotor']) in w.BoundaryConditions
+    assert dict(Family='Hub_test', Type='Wall', Motion=w.Motion['Rotor']) in w.BoundaryConditions
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -110,7 +110,7 @@ def test_set_hub_boundary_conditions_list():
     w.set_hub_boundary_conditions()
     last_bc = w.BoundaryConditions[1]
     assert last_bc['Family'] == 'Hub_test'
-    assert last_bc['type'] == 'Wall'
+    assert last_bc['Type'] == 'Wall'
     assert callable(last_bc['Motion']['RotationSpeed'])
 
 @pytest.mark.unit
@@ -121,7 +121,7 @@ def test_set_hub_boundary_conditions_function():
     w.set_hub_boundary_conditions()
     last_bc = w.BoundaryConditions[1]
     assert last_bc['Family'] == 'Hub_test'
-    assert last_bc['type'] == 'Wall'
+    assert last_bc['Type'] == 'Wall'
     assert callable(last_bc['Motion']['RotationSpeed'])
 
 @pytest.mark.unit

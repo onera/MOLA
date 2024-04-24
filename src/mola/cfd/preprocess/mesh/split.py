@@ -144,16 +144,7 @@ def set_default_splitting_parameters(SplittingAndDistribution):
             raise MolaException(f'More parameters must be given with the splitter {SplittingAndDistribution}. See the doc.')
         
     default_splitAndDist = dict(
-            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
-            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
-            Distributor='Cassiopee', 
-            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors='auto', 
-            MinimumAllowedNodes=1,
-            MaximumAllowedNodes=1,
-            MaximumNumberOfPointsPerNode=1e9,
             CoresPerNode=48, # FIXME Should depend on the machine, and so on the Network. Otherwise, don't set a default value
-            DistributeExclusivelyOnFullNodes=True
             )
 
     for key, value in default_splitAndDist.items():

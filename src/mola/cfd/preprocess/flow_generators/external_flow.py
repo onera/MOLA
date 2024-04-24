@@ -40,17 +40,6 @@ class ExternalFlowGenerator(object):
         self.Flow = workflow.Flow if workflow.Flow is not None else dict()
         self.Turbulence = workflow.Turbulence if workflow.Turbulence is not None else dict()
 
-        # Set default values 
-        self.Flow.setdefault('Direction', [1., 0., 0.])
-        self.Flow['Direction'] = [float(x) for x in self.Flow['Direction']]
-        self.Flow.setdefault('Density', 1.225)
-        self.Flow.setdefault('Temperature', 288.15)
-        self.Flow.setdefault('Velocity', 0.)
-        self.Flow.setdefault('VelocityUsedForScalingAndTurbulence', None)
-
-        self.Turbulence.setdefault('Level', 0.001)
-        self.Turbulence.setdefault('Viscosity_EddyMolecularRatio', 0.1)
-
     def generate(self):
         self.set_fluid_properties()
         self.set_flow_properties()
@@ -58,33 +47,10 @@ class ExternalFlowGenerator(object):
         self.Flow['ReferenceState'] = dict(**self.Flow['Conservatives'], **self.Turbulence['Conservatives'])
     
     def set_fluid_properties(self):
-        air_defaults = dict(
-            Gamma=1.4,
-            IdealGasConstant=287.053,
-            Prandtl=0.72,
-            PrandtlTurbulent=0.9,
-            SutherlandConstant=110.4,
-            SutherlandViscosity=1.78938e-05,
-            SutherlandTemperature=288.15
-            )
-        self.Fluid.update(air_defaults)
         self.Fluid['cv'] = self.Fluid['IdealGasConstant'] / (self.Fluid['Gamma']-1.0)
         self.Fluid['cp'] = self.Fluid['Gamma'] * self.Fluid['cv']
 
     def set_flow_properties(self):
-
-        FreestreamIsTooLow = np.abs(self.Flow['Velocity']) < 1e-5
-        if FreestreamIsTooLow and self.Flow['VelocityUsedForScalingAndTurbulence'] is None:
-            ERRMSG = f'Velocity is too low ({self.Flow["Velocity"]}).'
-            ERRMSG+= 'You must provide a non-zero value for VelocityUsedForScalingAndTurbulence'
-            raise MolaException(ERRMSG)
-
-        if self.Flow['VelocityUsedForScalingAndTurbulence'] is not None:
-            if self.Flow['VelocityUsedForScalingAndTurbulence'] <= 0:
-                ERRMSG = 'VelocityUsedForScalingAndTurbulence must be positive'
-                raise MolaException(ERRMSG)
-        else:
-            self.Flow['VelocityUsedForScalingAndTurbulence'] = np.abs(self.Flow['Velocity'])
 
         # TODO Put ViscosityMolecular in the Fluid attribute ?
         def SutherlandLaw(T, mus, Ts, S):
