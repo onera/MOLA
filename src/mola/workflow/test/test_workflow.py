@@ -394,4 +394,6 @@ def test_wip():
 if __name__ == '__main__':
     # test_show_interface_1()
     # test_prepare_workflow1()
-    # test_get_workflow_parameters_from
+    # test_get_workflow_parameters_from_tree()
+    test_submit()
+    # test_wip()
