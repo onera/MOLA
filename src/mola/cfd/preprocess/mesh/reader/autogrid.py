@@ -58,14 +58,13 @@ def reader(component):
     mesh = cgns.load(component['Source'])
     clean_autogrid_log_bases(mesh)
 
-    clean_family_properties(mesh)
-
     # Join HUB and SHROUD families
     join_families(mesh, 'HUB')
     join_families(mesh, 'SHROUD')
 
     update_Connection_from_mesh(mesh, component)
     clean_grid_connectivities(mesh)
+    clean_family_properties(mesh)
 
     # # Clean RS interfaces
     # t.findAndRemoveNodes(Type='InterfaceType')

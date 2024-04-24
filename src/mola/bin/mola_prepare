@@ -3,6 +3,7 @@
 # Read a file with workflow parameters and apply methods prepare() and write_cfd_files()
 
 import sys
+import traceback
 
 from treelab import cgns
 
@@ -27,5 +28,5 @@ try:
 
 except Exception as exception:
     with open('ERROR_PREPARING_WORKFLOW','w') as f: 
-        f.write(str(exception))
+        f.write(traceback.format_exc())
     raise MolaException('Unable to prepare workflow')
