@@ -95,3 +95,5 @@ def test_get_turbulence_cutoff_setup():
     except MolaException:
         return
 
+if __name__ == '__main__':
+    test_get_turbulence_cutoff_setup()

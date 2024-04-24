@@ -153,7 +153,6 @@ class Workflow(object):
             try: self.set_Extractions(Extractions)
             except TypeError as e: raise MolaUserAttributeError(self.set_Extractions, e)
 
-
             try: self.set_ConvergenceCriteria(ConvergenceCriteria)
             except TypeError as e: raise MolaUserAttributeError(self.set_ConvergenceCriteria, e)
 
@@ -604,7 +603,11 @@ class Workflow(object):
         for parameter in workflow_parameters:
             setattr(self, parameter, workflow_parameters[parameter])
 
-        self._FlowGenerator = self.get_flow_generator(self.FlowGenerator)
+        try:
+            self._FlowGenerator = self.get_flow_generator(self.Flow['Generator'])
+        except:
+            self._FlowGenerator = None
+
         if self.RawMeshComponents is None: self.RawMeshComponents = []
         if self.ApplicationContext is None: self.ApplicationContext = dict()
         if self.Fluid is None: self.Fluid = dict()
@@ -616,9 +619,9 @@ class Workflow(object):
         if self.BodyForceModeling is None: self.BodyForceModeling = []
         if self.Motion is None: self.Motion = dict()
         if self.Initialization is None: self.Initialization = dict(method='uniform')
+        if self.ExtractionsDefaults is None: self.ExtractionsDefaults = []
         if self.Extractions is None: self.Extractions = []
         if self.ConvergenceCriteria is None: self.ConvergenceCriteria = []
-        if self.Monitoring is None: self.Monitoring = dict()
         if self.RunManagement is None: self.RunManagement = dict()
 
 

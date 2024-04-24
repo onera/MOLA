@@ -334,9 +334,11 @@ def test_workflow_sphere_struct_remote_sator():
     w.write_cfd_files()
     w.submit()
 
-    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-    SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
-    SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+    # NOTE: do not wait for job to end, since that approach would provoke
+    # too important delays (waiting for resources of SLURM)
+    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
+    # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -373,5 +375,5 @@ def test_wip():
 if __name__ == '__main__':
     # test_show_interface_1()
     # test_prepare_workflow1()
-    test_workflow_sphere_struct_local()
+    test_get_workflow_parameters_from_tree()
     # test_wip()

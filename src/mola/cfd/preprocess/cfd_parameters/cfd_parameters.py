@@ -18,7 +18,5 @@
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd import apply_to_solver
 
-MANDATORY_KEYS_FOR_CFL_DICT = ['EndIteration', 'StartValue', 'EndValue']
-
 def apply(workflow):
     apply_to_solver(workflow)

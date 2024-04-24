@@ -108,12 +108,14 @@ def test_rotor37_sator():
     w.write_cfd_files()
     w.submit()
 
-    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-    SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
-    SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+    # NOTE: do not wait for job to end, since that approach would provoke
+    # too important delays (waiting for resources of SLURM)
+    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
+    # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
 
 if __name__ == '__main__':
     # test_show_interface_1()
-    test_rotor37()
+    test_rotor37_sator()
     # test_wip()
