@@ -18,13 +18,15 @@
 import sys
 import os
 import argparse
+from .catchers import mute_stderr
 
 def parse_args(args):
-    parser = argparse.ArgumentParser(...)
+    parser = argparse.ArgumentParser('Logger parser')
     parser.add_argument('-v', '--verbosity', help='Level of verbosity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], default='INFO')
     parser.add_argument('-l', '--logfile', help='Name of log file', type=str)
     return parser.parse_args(args)
 
+@mute_stderr
 def get_log_level_and_log_file():
     try:
         # Need that try/except because pytest does not work with the following lines
