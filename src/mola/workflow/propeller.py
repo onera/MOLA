@@ -57,7 +57,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
 
     def prepare(self):
         
-        PRE.mesh.read_mesh(mesher='Autogrid')
+        PRE.mesh.read_mesh(Mesher='Autogrid')
 
         self.prepare_mesh(**kwargs)
 

@@ -36,7 +36,7 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
         if self.tree is None:
             for meshInfo in self.RawMeshComponents:
-                meshInfo.setdefault('mesher', 'Autogrid')
+                meshInfo.setdefault('Mesher', 'Autogrid')
 
             self.Extractions.extend([
                 dict(Type='BC', Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus']),

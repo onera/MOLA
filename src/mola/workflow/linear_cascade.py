@@ -35,7 +35,7 @@ class WorkflowLinearCascade(Workflow):
 
         if self.tree is not None:
             for meshInfo in self.RawMeshComponents:
-                meshInfo.setdefault('mesher', 'Autogrid')
+                meshInfo.setdefault('Mesher', 'Autogrid')
             
             self.Extractions.extend([
                 dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),

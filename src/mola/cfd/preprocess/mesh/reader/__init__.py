@@ -19,10 +19,10 @@ from mola.logging import MolaException
 from . import default, autogrid 
 
 def apply(component):
-    if 'mesher' not in component or component['mesher'] == 'default':
+    if 'Mesher' not in component or component['Mesher'] == 'default':
         return default.reader(component)
-    elif component['mesher'].lower() == 'autogrid':
+    elif component['Mesher'].lower() == 'autogrid':
         return autogrid.reader(component)
     else:
-        raise MolaException(f"unknown mesher: {component['mesher']}")
+        raise MolaException(f"unknown Mesher: {component['Mesher']}")
     

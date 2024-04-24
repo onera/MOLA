@@ -117,5 +117,5 @@ def test_rotor37_sator():
 
 if __name__ == '__main__':
     # test_show_interface_1()
-    test_rotor37_sator()
+    test_rotor37_local()
     # test_wip()

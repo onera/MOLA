@@ -18,6 +18,7 @@
 import pytest
 
 import os
+import shutil
 import numpy as np
 
 import treelab.cgns as cgns
@@ -25,6 +26,7 @@ import treelab.cgns as cgns
 from mola.workflow import Workflow
 from mola.logging import mola_logger, MolaException, mute_stdout
 from mola import server as SV
+from mola.cfd.preprocess.write_cfd_files.write_cfd_files import set_default
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -346,6 +348,23 @@ def test_show_interface_1():
     w = get_workflow1()
     w.show_interface()
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_submit():
+    test_dir = 'test_submit_dir'
+    os.makedirs(test_dir, exist_ok=True)
+    w = Workflow(RunManagement=dict(RunDirectory=test_dir))
+    set_default(w.RunManagement)
+    SV.job_writer.set_launcher_command(w.RunManagement)
+    with open(os.path.join(test_dir,'job.sh'),'w') as f:
+        f.write('hostname > test.txt')
+    w.submit()
+    if not os.path.exists(os.path.join(test_dir,'test.txt')):
+        raise MolaException('submit test failed')
+    shutil.rmtree(test_dir)
+    
+
+
 def test_wip():
     import inspect
 
@@ -375,5 +394,4 @@ def test_wip():
 if __name__ == '__main__':
     # test_show_interface_1()
     # test_prepare_workflow1()
-    test_get_workflow_parameters_from_tree()
-    # test_wip()
+    # test_get_workflow_parameters_from
