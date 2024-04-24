@@ -44,7 +44,7 @@ def apply_all_previous_stages(workflow):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
+@pytest.mark.cost_level_1
 def test_initialization_uniform():
     mesh = get_debug_mesh()
     workflow = Workflow(
