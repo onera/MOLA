@@ -22,29 +22,28 @@ import copy
 from treelab import cgns
 import inspect
 from typing import Union, get_type_hints
-from ..logging import (mola_logger,
+from mola.logging import (mola_logger,
                        MolaException,
                        MolaUserError,
                        MolaUserAttributeError,
                        redirect_streams_to_logger,
                        get_signature)
-from ..logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
-from  ..cfd.preprocess.mesh import (reader,
+from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
+from  mola.cfd.preprocess.mesh import (reader,
                                     positioning,
                                     connect,
                                     split,
                                     families)
-from  ..cfd.preprocess import (flow_generators,
+from  mola.cfd.preprocess import (flow_generators,
                                boundary_conditions,
                                initialization,
                                motion,
                                cfd_parameters,
                                extractions,
                                write_cfd_files)
-from .. import server as SV 
-from ..cfd.postprocess import remove_cfd_files
-from ..cfd.compute import compute
-from .. import misc
+from mola import server as SV 
+from mola.cfd.postprocess import remove_cfd_files
+from mola.cfd.compute import compute
 
 
 def deep_update(d, u):
@@ -623,7 +622,7 @@ class Workflow(object):
         if self.Extractions is None: self.Extractions = []
         if self.ConvergenceCriteria is None: self.ConvergenceCriteria = []
         if self.RunManagement is None: self.RunManagement = dict()
-
+        if self.SolverParameters is None: self.SolverParameters = dict()
 
     def set_workflow_parameters_in_tree(self):
         if not self.tree: self.tree = cgns.Tree()
