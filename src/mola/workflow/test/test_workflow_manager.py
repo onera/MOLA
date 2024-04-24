@@ -300,5 +300,5 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
 if __name__ == '__main__':
     # test_show_interface_1()
     # test_prepare_workflow1()
-    test_WorkflowParallelScheduler_sphere()
+    test_WorkflowParallelScheduler_sphere_local()
     # test_wip()

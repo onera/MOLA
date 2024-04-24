@@ -21,7 +21,7 @@ import numpy as np
 from mola.workflow import WorkflowAirfoil
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
+@pytest.mark.cost_level_1
 def test_get_flow_directions():
     AngleOfAttackDeg = 15
     AngleOfSlipDeg   = 2

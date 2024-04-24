@@ -102,31 +102,6 @@ def get_workflow1():
 
     return w
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_write_tree():
-    w = Workflow()
-    w.write_tree('main.cgns')
-    os.unlink('main.cgns')
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_set_workflow_parameters_in_tree(filename=''):
-    w = Workflow()
-    w.set_workflow_parameters_in_tree()
-    if filename: w.write_tree(filename)
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_get_workflow_parameters_from_tree(filename=''):
-    w = Workflow()
-    w.set_workflow_parameters_in_tree()
-    w.write_tree('test.cgns')
-    w.tree = 'test.cgns'
-    w.get_workflow_parameters_from_tree()
-    os.unlink('test.cgns')
-    if filename: w.write_tree(filename)
-
 @pytest.mark.cost_level_1
 @pytest.mark.integration
 def test_prepare_workflow1():
@@ -392,8 +367,4 @@ def test_wip():
     
 
 if __name__ == '__main__':
-    # test_show_interface_1()
-    # test_prepare_workflow1()
-    # test_get_workflow_parameters_from_tree()
-    test_submit()
-    # test_wip()
+    test_workflow_sphere_struct_local()

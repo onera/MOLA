@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from .workflow_interface import WorkflowInterface
 from .workflow import Workflow 
 from .linear_cascade import WorkflowLinearCascade
 from .rotating_component import WorkflowRotatingComponent

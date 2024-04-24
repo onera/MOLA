@@ -15,8 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from typing import Union
 import numpy as np
+from . import WorkflowInterface
 from . import WorkflowRotatingComponent
 from . import workflow_manager as WM
 from mola.logging import mola_logger, MolaAssertionError
@@ -25,14 +27,26 @@ from mola.cfd.preprocess.mesh import tools as mesh_tools
 class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
     def __init__(self, 
-                 SplittingAndDistribution=None,
-                 Flow=None,
-                 **kwargs
+                tree=None,
+                Solver : str = os.environ.get('MOLA_SOLVER'),
+                RawMeshComponents : list = None,
+                Fluid : dict = None,
+                Flow : dict = None,
+                Turbulence : dict = None,
+                BoundaryConditions : list = None,
+                SplittingAndDistribution : dict = None,
+                Numerics : dict = None,
+                BodyForceModeling : list = None,
+                Motion : dict = None, 
+                Initialization : dict = None,
+                ExtractionsDefaults : list = None,
+                Extractions : list = None,
+                ConvergenceCriteria : list = None,
+                RunManagement : dict = None,
+                ApplicationContext : dict = None,
                  ):
         
-        super().__init__(SplittingAndDistribution=SplittingAndDistribution,
-                         Flow=Flow,
-                         **kwargs)
+        super().__init__(**WorkflowInterface.repack_kwargs())
 
         if self.tree is None:
             for meshInfo in self.RawMeshComponents:

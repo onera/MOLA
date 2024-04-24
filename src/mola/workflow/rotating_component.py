@@ -15,11 +15,12 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import numpy as np
+import os
 import copy
+import numpy as np
 
 from treelab import cgns
-from . import Workflow
+from . import WorkflowInterface, Workflow
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
 from  mola.cfd.preprocess.mesh import duplicate
@@ -54,9 +55,26 @@ class WorkflowRotatingComponent(Workflow):
 
     '''
 
-    def __init__(self, **kwargs):
+    def __init__(self, 
+            tree=None,
+            Solver : str = os.environ.get('MOLA_SOLVER'),
+            RawMeshComponents : list = None,
+            Fluid : dict = None,
+            Flow : dict = None,
+            Turbulence : dict = None,
+            BoundaryConditions : list = None,
+            SplittingAndDistribution : dict = None,
+            Numerics : dict = None,
+            BodyForceModeling : list = None,
+            Motion : dict = None, 
+            Initialization : dict = None,
+            ExtractionsDefaults : list = None,
+            Extractions : list = None,
+            ConvergenceCriteria : list = None,
+            RunManagement : dict = None,
+            ApplicationContext : dict = None,):
         
-        super().__init__(**kwargs)
+        super().__init__(**WorkflowInterface.repack_kwargs())
 
         if self.tree is None:
             self.set_rotation_speed()
