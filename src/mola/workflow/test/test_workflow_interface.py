@@ -52,6 +52,4 @@ def test_get_workflow_parameters_from_tree(filename=''):
 
 
 if __name__=='__main__':
-    w = WorkflowInterface()
-    w.set_workflow_parameters_in_tree()
-    w.write_tree('test.cgns')
+    test_init()
