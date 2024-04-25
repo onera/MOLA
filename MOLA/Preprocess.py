@@ -3849,8 +3849,8 @@ def addOversetMotion(t, OversetMotion):
             alp0=0.,
             alp_pnt=[0.,0.,0.],
             alp_vct=[0.,1.,0.],
-            rot_pnt=[rc[0],rc[1],rc[2]],
-            rot_vct=[ra[0],ra[1],ra[2]],
+            rot_pnt=[float(rc[0]),float(rc[1]),float(rc[2])],
+            rot_vct=[float(ra[0]),float(ra[1]),float(ra[2])],
             rot_omg=motion_keys['omega'],
             span_vct=bd,
             pre_lag_pnt=[0.,0.,0.],
@@ -3891,21 +3891,26 @@ def addOversetMotion(t, OversetMotion):
 
 
 def _getMotionDataFromMeshInfo(base):
-    defaultRotationCenter = np.array([0.,0.,0.],order='F')
-    defaultRotationAxis = np.array([0.,0.,1.],order='F')
-    defaultTranslationDirection = np.array([1.,0.,0.],order='F')
+    defaultRotationCenter = np.array([0.,0.,0.],dtype=float,order='F')
+    defaultRotationAxis = np.array([0.,0.,1.],dtype=float,order='F')
+    defaultTranslationDirection = np.array([1.,0.,0.],dtype=float,order='F')
     default = defaultRotationCenter, defaultRotationAxis, defaultTranslationDirection
 
-    MeshInfo = J.get(base,'.MOLA#MeshInfo')
-    if not MeshInfo: return default
-    try: MotionData = MeshInfo['Motion']
-    except KeyError: return default
+    MeshInfo = J.get(base,'.MOLA#InputMesh')
+    if not MeshInfo:
+        raise ValueError(f'base {base[0]} must have .MOLA#InputMesh node')
+    
+    if not 'Motion' in MeshInfo:
+        print(f'base {base[0]} does not have Motion attribute. Assigning default.')
+        return default
 
-    try: RotationCenter = MotionData['RotationCenter']
-    except KeyError: RotationCenter = defaultRotationCenter
 
-    try: RotationAxis = MotionData['RotationAxis']
-    except KeyError: RotationAxis = defaultRotationAxis
+    if not 'RequestedFrame' in MeshInfo['Motion']:
+        print(J.WARN+f'no requested frame in {base[0]}, using InitialFrame data'+J.ENDC)
+    MotionData = MeshInfo['Motion']['InitialFrame']
+    
+    RotationCenter = np.array(MotionData['RotationCenter'],dtype=float)
+    RotationAxis = np.array(MotionData['RotationAxis'],dtype=float)
 
     try: TranslationDirection = MotionData['TranslationDirection']
     except KeyError: TranslationDirection = defaultTranslationDirection
