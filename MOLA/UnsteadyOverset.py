@@ -54,6 +54,18 @@ def setMaskParameters(t, InputMeshes):
     mask_params = dict(type='cart_elts', blanking_criteria='center_in',
                        dim1=100, dim2=100)
     
+    default_mask_axis = np.array([0.0, 0.0, 1.0])
+    for base in I.getBases(t):
+        MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
+        if not MasksInfo: continue
+        try:
+            default_mask_axis = np.array(meshInfo['Motion']['RequestedFrame']['RotationAxis'],dtype=float)
+            break
+        except:
+            pass
+
+
+
     for base in I.getBases(t):
         MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
         if not MasksInfo: continue
@@ -65,12 +77,14 @@ def setMaskParameters(t, InputMeshes):
             meshInfo = [m for m in InputMeshes if m['baseName']==MaskBase[0]][0]
             if 'UnsteadyMaskOptions' in meshInfo['OversetOptions']:
                 mask_params.update(meshInfo['OversetOptions']['UnsteadyMaskOptions'])
-            if mask_params['type'] == 'cart_elts':
-                try: a = np.array(meshInfo['Motion']['RotationAxis'],dtype=float)
-                except KeyError: a = np.array([0,0,1],dtype=float)
+            if mask_params['type'] == 'cart_elts' and 'proj_direction' not in mask_params:
+                if 'Motion' in meshInfo:
+                    a = np.array(meshInfo['Motion']['RequestedFrame']['RotationAxis'],dtype=float)
+                else: 
+                    a = default_mask_axis
                 alignment = [np.abs(a.dot(np.array([1.0,0.0,0.0]))),
-                                np.abs(a.dot(np.array([0.0,1.0,0.0]))),
-                                np.abs(a.dot(np.array([0.0,0.0,1.0])))]
+                             np.abs(a.dot(np.array([0.0,1.0,0.0]))),
+                             np.abs(a.dot(np.array([0.0,0.0,1.0])))]
                 mask_params['proj_direction'] = 'xyz'[np.argmax(alignment)]
 
             J.set(mask,'Parameters',**mask_params)
