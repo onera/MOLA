@@ -5733,6 +5733,8 @@ def duplicateBlades(base, meshInfo):
                 bc['type'] += suffix
                 bc['name'] += suffix
 
+        addSuffixToAllFamilies(base, suffix)
+
         J.set(base,'.MOLA#InputMesh',**newMeshInfo)
         NewMeshInfos += [newMeshInfo]
 
@@ -5762,6 +5764,55 @@ def removeFamilies(t, families_to_remove):
         for n in all_family_types+all_family_name_types+all_bc_types:
             if n[0] == f or I.getValue(n) == f:
                 I.rmNode(t, n)
+
+
+def addSuffixToAllFamilies(t, suffix):
+    '''
+    Takes all existing families, and adds a suffix.
+    '''
+    for base in I.getBases(t):
+        for fam in I.getNodesFromType1(base, 'Family_t'):
+            renameFamily(base, fam[0], fam[0]+suffix)
+
+def renameFamily(t, existing_name, new_name):
+    '''
+    Renames a family (of zones, or of BC) using a new name.
+    It will change the name of ``Family_t`` nodes inside ``CGNSBase_t`` nodes and
+    the values of the nodes ``FamilyName_t`` inside ``Zone_t``
+
+    Parameters
+    ----------
+
+        t : PyTree, base
+            will be modified in-place
+
+        existing_name : str
+            name of the existing family (to be renamed)
+
+        new_name : str
+            name of the new family
+    '''
+    for base in I.getBases(t):
+        for family_node in I.getNodesFromType1(base, 'Family_t'):
+            if family_node[0] == existing_name:
+                family_node[0] = new_name
+            for family_subnode in I.getNodesFromType(family_node, 'Family_t'):
+                if family_subnode[0] == existing_name:
+                    family_subnode[0] = new_name
+        
+        for zone in I.getZones(base):
+            for family_name_node in I.getNodesFromType1(zone,'FamilyName_t'):
+                family_name = I.getValue(family_name_node)
+                if family_name == existing_name:
+                    I.setValue(family_name_node, new_name)
+                
+            zone_bc = I.getNodeFromType1(zone, 'ZoneBC_t')
+            if not zone_bc: continue
+            for family_name_subnode in I.getNodesFromType(zone_bc,'FamilyName_t'):
+                family_name = I.getValue(family_name_subnode)
+                if family_name == existing_name:
+                    I.setValue(family_name_subnode, new_name)
+
 
 def renameNodes(t, rename_dict={}):
     '''
