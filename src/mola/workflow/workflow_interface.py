@@ -73,8 +73,6 @@ class WorkflowInterface(object):
 
             self.set_attributes(attributes)
 
-        self._FlowGenerator = self.get_flow_generator(self.Flow['Generator'])
-
     def set_attributes(self, attributes, skip_attributes=['self','tree']):
 
         expected_attribute_types = self.get_argument_types(self.__init__)
@@ -151,13 +149,6 @@ class WorkflowInterface(object):
             SutherlandViscosity        : float = 1.78938e-05,
             SutherlandTemperature      : float = 288.15):
         self.Fluid = self._get_comp(self.set_Fluid, self.repack_kwargs())
-
-    def get_flow_generator(self, fg):
-        if isinstance(fg, str):
-            return flow_generators.AvailableFlowGenerators[fg]
-        else:
-            return fg
-
 
     def set_Flow(self,
             Generator : str = 'External_rho_V_T',
@@ -548,10 +539,6 @@ class WorkflowInterface(object):
                 setattr(self, attribute_name, expected_type())
 
         # for the rest
-        try:
-            self._FlowGenerator = self.get_flow_generator(self.Flow['Generator'])
-        except:
-            self._FlowGenerator = None
         if self.SolverParameters is None: self.SolverParameters = dict()
 
     def set_workflow_parameters_in_tree(self):

@@ -120,15 +120,8 @@ class Workflow(WorkflowInterface):
     def process_overset(self):
         pass
 
-    def get_flow_generator(self, fg):
-        if isinstance(fg, str):
-            return flow_generators.AvailableFlowGenerators[fg]
-        else:
-            return fg
-        
     def compute_flow_and_turbulence(self):
-        # mola-generic set of parameters
-        FlowGen = self._FlowGenerator(self)
+        FlowGen = flow_generators.AvailableFlowGenerators[self.Flow['Generator']]
         FlowGen.generate()
         self.Fluid = FlowGen.Fluid
         self.Flow = FlowGen.Flow
