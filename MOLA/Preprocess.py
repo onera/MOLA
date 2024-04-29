@@ -1881,7 +1881,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t_blank = staticBlanking(t, bodies, BlankingMatrix, InputMeshes)
     if hasAnyOversetMotion(InputMeshes):
         StaticBlankingMatrix  = getBlankingMatrix(bodies, InputMeshes,
-                                                    StaticOnly=True)
+                                    StaticOnly=True, FullBlankMatrix=BlankingMatrix)
         t = staticBlanking(t, bodies, StaticBlankingMatrix, InputMeshes)
     else:
         StaticBlankingMatrix = BlankingMatrix
@@ -2040,7 +2040,7 @@ def hasAnyOversetMotion(InputMeshes):
     return False
 
 
-def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
+def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False, FullBlankMatrix=None):
     '''
     .. attention:: this is a **private-level** function. Users shall employ
         user-level function :py:func:`addOversetData`.
@@ -2082,7 +2082,6 @@ def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
 
     # Initialization: all bodies mask all bases
     BlankingMatrix = np.ones((Nbases, Nbodies))
-
     # do not allow bodies issued of a given base to mask its own parent base
     for i, j in product(range(Nbases), range(Nbodies)):
         BaseName = BaseNames[i]
@@ -2104,29 +2103,39 @@ def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
             if BodyName.startswith('overlap') and BodyParentBaseName in Forbidden:
                 BlankingMatrix[i, j] = 0
         
-
-    # masking protection using key "OnlyMaskedByWalls"
     for i, meshInfo in enumerate(InputMeshes):
+        
+        # masking protection using key "OnlyMaskedByWalls"
         try: OnlyMaskedByWalls = meshInfo['OversetOptions']['OnlyMaskedByWalls']
         except KeyError: continue
+        
         if OnlyMaskedByWalls:
             for j, BodyName in enumerate(BodyNames):
                 if not BodyName.startswith('wall'):
                     BlankingMatrix[i, j] = 0
 
     if StaticOnly:
-        # TODO optimize by fixed masking of components with same rigid motion
-        for j, BodyName in enumerate(BodyNames):
-            BodyParentBaseName = getBodyParentBaseName(BodyName)
-            bodyInfo = getMeshInfoFromBaseName(BodyParentBaseName,InputMeshes)
-            MovingBody = True if 'Motion' in bodyInfo else False
-            if MovingBody or BodyName.startswith('overlap'):
-                BlankingMatrix[:,j] = 0
-
         for i, meshInfo in enumerate(InputMeshes):
             MovingBase = True if 'Motion' in meshInfo else False
-            if MovingBase: BlankingMatrix[i,:] = 0
 
+            for j, BodyName in enumerate(BodyNames):
+                BodyParentBaseName = getBodyParentBaseName(BodyName)
+                bodyInfo = getMeshInfoFromBaseName(BodyParentBaseName,InputMeshes)
+                MovingBody = True if 'Motion' in bodyInfo else False
+
+                # if MovingBase and MovingBody: rigidMotionToBeImplementedHere # TODO
+                
+                if not MovingBody and not MovingBase: continue # will make static blank
+
+                BlankingMatrix[i,j] = 0
+
+
+        # HACK elsA does not allow for static blanking a base if already dynamic blanked
+        # by other moving bodies
+        Dynamic = FullBlankMatrix - BlankingMatrix
+        for i in range(Dynamic.shape[0]):
+            if any(Dynamic[i,:]):
+                BlankingMatrix[i,:] = 0
     print('BaseNames (rows) = %s'%str(BaseNames))
     print('BodyNames (columns) = %s'%str(BodyNames))
     msg = 'BlankingMatrix:' if not StaticOnly else 'static BlankingMatrix:'
@@ -2134,6 +2143,7 @@ def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
     print(np.array(BlankingMatrix,dtype=int))
 
     return BlankingMatrix
+
 
 def getMaskingBodiesAsDict(t, InputMeshes):
     '''
