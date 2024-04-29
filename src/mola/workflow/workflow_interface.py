@@ -108,8 +108,10 @@ class WorkflowInterface(object):
         requested_solver = self.Solver
         env_solver = os.environ.get('MOLA_SOLVER')
         if requested_solver != env_solver:
-            raise MolaException((f'the requested solver "{requested_solver}" does not'
-                f'match the type of environment "{env_solver}"'))
+            mola_logger.warning(
+                f'The requested solver "{requested_solver}" does not '
+                f'match the type of environment "{env_solver}"'
+                )
 
     def set_Solver(self, solver_name : str):
         self.Solver = solver_name.lower()
