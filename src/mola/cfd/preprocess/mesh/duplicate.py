@@ -239,7 +239,7 @@ def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
                 zones_paths, 
                 perio_jns, 
                 comm, 
-                apply_to_fields=True
+                apply_to_fields=True  # TODO that becomes the default value with maia v1.4
                 )
         else:
             plurial = 's' if dup_params['number_of_duplications'] > 1 else ''
@@ -250,7 +250,7 @@ def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
                 perio_jns, 
                 dup_params['number_of_duplications'], 
                 comm, 
-                apply_to_fields=True
+                apply_to_fields=True  # TODO that becomes the default value with maia v1.4
                 )
         
     if merge_zones:

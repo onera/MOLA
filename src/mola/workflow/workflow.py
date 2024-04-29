@@ -121,7 +121,8 @@ class Workflow(WorkflowInterface):
         pass
 
     def compute_flow_and_turbulence(self):
-        FlowGen = flow_generators.AvailableFlowGenerators[self.Flow['Generator']]
+        FlowGenerator = flow_generators.AvailableFlowGenerators[self.Flow['Generator']]
+        FlowGen = FlowGenerator(self)
         FlowGen.generate()
         self.Fluid = FlowGen.Fluid
         self.Flow = FlowGen.Flow
