@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from treelab import cgns
-from mola import misc
+import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
 
@@ -253,7 +253,7 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariabl
         mola_logger.warning(f'Caution: the list of fields to extract on {FamilyNode.name()} is empty')
 
 
-def add_trigger(t, coprocessFilename='coprocess.py'):
+def add_trigger(t, coprocessFilename=names.FILE_COPROCESS):
     '''
     Add ``.Solver#Trigger`` node to all zones.
 
@@ -265,8 +265,6 @@ def add_trigger(t, coprocessFilename='coprocess.py'):
 
         coprocessFilename : str
             the name of the coprocess file.
-
-            .. note:: it is recommended using ``'coprocess.py'``
 
     '''
     FamilyName = cgns.Node(Name='ELSA_TRIGGER', Type='AdditionalFamilyName', Value='ELSA_TRIGGER')

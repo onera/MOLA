@@ -23,6 +23,7 @@ It should only contains class named <something>Logger
 import os
 import logging
 from .formatters import CustomFormatter
+import mola.naming_conventions as names
 
 class MolaLogger(logging.Logger):
     
@@ -66,8 +67,8 @@ class ParallelLogger(MolaLogger):
 
     '''
 
-    def __init__(self, name='mola_logger.parallel', level='INFO', stream=False, filename='coprocess.log'):
-        super().__init__(name, level=level, stream=stream, filename=filename)
+    def __init__(self, name='mola_logger.parallel', level='INFO', stream=False):
+        super().__init__(name, level=level, stream=stream, filename=names.FILE_COLOG)
         try:
             import numpy as np
             from mpi4py import MPI

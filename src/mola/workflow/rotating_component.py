@@ -146,7 +146,7 @@ class WorkflowRotatingComponent(Workflow):
         for shroud_family in self._extendListOfFamilies(families):
             for famNode in self.tree.group(Type='Family', Name=f'*{shroud_family}*'):
                 FamilyBoundary = famNode.name()
-                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skeep(FamilyBoundary):
+                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
                     continue
                 
                 self.BoundaryConditions.append(
@@ -157,7 +157,7 @@ class WorkflowRotatingComponent(Workflow):
         for blade_family in self._extendListOfFamilies(families):
             for famNode in self.tree.group(Type='Family', Name=f'*{blade_family}*'):
                 FamilyBoundary = famNode.name()
-                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skeep(FamilyBoundary):
+                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
                     continue
                 
                 row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
@@ -173,7 +173,7 @@ class WorkflowRotatingComponent(Workflow):
         for hub_family in self._extendListOfFamilies(families):
             for famNode in self.tree.group(Type='Family', Name=f'*{hub_family}*'):
                 FamilyBoundary = famNode.name()
-                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skeep(FamilyBoundary):
+                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
                     continue
 
                 if not 'HubRotationSpeed' in self.ApplicationContext:
@@ -212,7 +212,7 @@ class WorkflowRotatingComponent(Workflow):
         return False
     
     @staticmethod
-    def _is_boundary_to_skeep(FamilyBoundary):
+    def _is_boundary_to_skip(FamilyBoundary):
         # TODO Is it possible to remove this condition ?
         return FamilyBoundary.startswith('F_OV_') or FamilyBoundary.endswith('Zones')  
     

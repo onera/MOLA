@@ -29,8 +29,8 @@ def test_init():
 @pytest.mark.cost_level_0
 def test_write_tree():
     w = WorkflowInterface()
-    w.write_tree('main.cgns')
-    os.unlink('main.cgns')
+    w.write_tree('test.cgns')
+    os.unlink('test.cgns')
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

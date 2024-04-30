@@ -23,6 +23,7 @@ import numpy as np
 
 import treelab.cgns as cgns
 
+import mola.naming_conventions as names
 from mola.workflow import Workflow
 from mola.logging import mola_logger, MolaException, mute_stdout
 from mola import server as SV
@@ -271,7 +272,7 @@ def test_workflow_sphere_struct_local():
     w.prepare()
     w.write_cfd_files()
     w.submit()
-    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
     if not os.path.exists(COMPLETED_PATH):
         raise MolaException('simulation did not ended as expected')
     w.remove_cfd_files()
@@ -291,7 +292,7 @@ def test_workflow_sphere_struct_local():
 #     w.write_cfd_files()
 #     w.submit()
 
-#     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+#     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
 #     SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='spiro', timeout=30)
 #     SV.remove_path(w.RunManagement['RunDirectory'], machine='spiro', file_only=False)
 
@@ -313,7 +314,7 @@ def test_workflow_sphere_struct_remote_sator():
 
     # NOTE: do not wait for job to end, since that approach would provoke
     # too important delays (waiting for resources of SLURM)
-    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
@@ -331,7 +332,7 @@ def test_submit():
     w = Workflow(RunManagement=dict(RunDirectory=test_dir))
     set_default(w.RunManagement)
     SV.job_writer.set_launcher_command(w.RunManagement)
-    with open(os.path.join(test_dir,'job.sh'),'w') as f:
+    with open(os.path.join(test_dir,names.FILE_JOB),'w') as f:
         f.write('hostname > test.txt')
     w.submit()
     if not os.path.exists(os.path.join(test_dir,'test.txt')):

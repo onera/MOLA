@@ -33,6 +33,7 @@ from mola.logging import (mola_logger,
                        get_signature)
 from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
 from  mola.cfd.preprocess import flow_generators
+import mola.naming_conventions as names
 
 
 class WorkflowInterface(object):
@@ -59,7 +60,7 @@ class WorkflowInterface(object):
             
         attributes = self.repack_kwargs()
 
-        self._workflow_parameters_container_ = 'WorkflowParameters'
+        self._workflow_parameters_container_ = names.CONTAINER_WORKLFOW_PARAMETERS
 
         self.Name = self.__class__.__name__
         self.tree = tree
@@ -84,7 +85,7 @@ class WorkflowInterface(object):
             try:
                 expected_type = expected_attribute_types[attribute_name]
             except KeyError:
-                raise MolaException(f'{attribute_name=} not implemented from {self.Name} (expected {list(expected_attribute_types)})')
+                raise MolaException(f'attribute_name={attribute_name} not implemented from {self.Name} (expected {list(expected_attribute_types)})')
 
             if user_input is None: user_input = expected_type()
             
@@ -322,7 +323,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_Integral(self,
             Fields : list = None, # accepts prefix avg- or std-
-            File : str = 'signals.cgns', # if None will use signals.cgns
+            File : str = names.FILE_OUTPUT_1D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 1,
             SavePeriod : int = 100,
@@ -343,7 +344,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_Probe(self,
             Fields : list = None, # accepts prefix avg- or std-
-            File : str = 'signals.cgns',
+            File : str = names.FILE_OUTPUT_1D,
             Name : str = None, # if None, will be based on Position
             ExtractionPeriod : int = 1,
             SavePeriod : int = 100,
@@ -366,7 +367,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_BC(self,
             Fields : list = None,
-            File : str = 'surfaces.cgns',
+            File : str = names.FILE_OUTPUT_2D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
@@ -388,7 +389,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_IsoSurface(self,
             Fields : list = None,
-            File : str = 'surfaces.cgns', # if None will use surfaces.cgns
+            File : str = names.FILE_OUTPUT_2D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
@@ -411,7 +412,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_Interpolation(self,
             Fields : list = None,
-            File : str = 'surfaces.cgns', # if None will use surfaces.cgns
+            File : str = names.FILE_OUTPUT_2D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
@@ -434,7 +435,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_3D(self,
             Fields : list = None,
-            File : str = 'fields.cgns', # if None will use fields.cgns
+            File : str = names.FILE_OUTPUT_3D, 
             Name : str = None, # if None, will be based on Position
             ExtractionPeriod : int = 5000,
             SavePeriod : int = 5000,
@@ -501,7 +502,7 @@ class WorkflowInterface(object):
                           ):
         self.RunManagement = self._get_comp(self.set_RunManagement, self.repack_kwargs())
 
-    def write_tree(self, filename='main.cgns'):
+    def write_tree(self, filename=names.FILE_INPUT_SOLVER):
         if not self.tree: 
             self.tree = cgns.Tree()
         with redirect_streams_to_logger(mola_logger):
@@ -624,7 +625,7 @@ class WorkflowInterface(object):
             try:
                 value = kwargs[name]
             except KeyError:
-                raise MolaException(f'parameter {name} was not implemented in interface {fun.__name__}. \n{kwargs=}\n{new_component=}')
+                raise MolaException(f'parameter {name} was not implemented in interface {fun.__name__}. \nkwargs={kwargs}\nnew_component={new_component}')
             if value is not None:
                 expected_type = parameter_annotations.get(name)
                 if expected_type:

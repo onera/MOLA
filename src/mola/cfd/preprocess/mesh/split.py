@@ -15,9 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import numpy as np
 from treelab import cgns
-from mola import misc
+import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, print, GREEN, ENDC
 
 def apply(workflow):
@@ -603,8 +604,8 @@ def getProc(t):
 
 def splitWithPyPart(comm=None):
     '''
-    Use PyPart to split the mesh in ``main.cgns``. This function should be use
-    in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
+    Use PyPart to split the mesh in :mola_name:`FILE_INPUT_SOLVER`. This function should be use
+    to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
 
     .. note:: For more details on PyPart, see the dedicated pages on elsA
         support:
@@ -619,10 +620,10 @@ def splitWithPyPart(comm=None):
 
         t : PyTree
             Split tree, merged with the skeleton. It will be the **tree**
-            argument of ``elsAxdt.XdtCGNS()`` in ``compute.py``
+            argument of ``elsAxdt.XdtCGNS()``
 
         Skeleton : PyTree
-            Skeleton tree to use in ``coprocess.py``
+            Skeleton tree to use in during coprocess
 
         PyPartBase : PyPart object
             PyPart objet that is mandatory to use its method mergeAndSave latter
@@ -637,12 +638,12 @@ def splitWithPyPart(comm=None):
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
 
-    PyPartBase = PPA.PyPart('main.cgns',
-                            lksearch=['OUTPUT', '.'],
+    PyPartBase = PPA.PyPart(names.FILE_INPUT_SOLVER,
+                            lksearch=[names.DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
                             mpicomm=comm,
                             LoggingInFile=False,
-                            LoggingFile='LOGS/partTree',
+                            LoggingFile=os.path.join(names.DIRECTORY_LOG, 'partTree'),
                             LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
                             )
     # reorder=[6, 2] is recommended by CLEF, mostly for unstructured mesh
@@ -694,18 +695,18 @@ def splitWithPyPart(comm=None):
 
 def splitWithMaia(comm=None):
     '''
-    Use Maia to split the mesh in ``main.cgns``. This function should be use
-    in ``compute.py`` to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
+    Use Maia to split the mesh in :mola_name:`FILE_INPUT_SOLVER`. This function should be use
+     to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
 
     Returns
     -------
 
         t : PyTree
             Split tree, merged with the skeleton. It will be the **tree**
-            argument of ``elsAxdt.XdtCGNS()`` in ``compute.py``
+            argument of ``elsAxdt.XdtCGNS()`` 
 
         Skeleton : PyTree
-            Skeleton tree to use in ``coprocess.py``
+            Skeleton tree to use during coprocess
 
         PyPartBase : PyPart object
             PyPart objet that is mandatory to use its method mergeAndSave latter
@@ -719,7 +720,7 @@ def splitWithMaia(comm=None):
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
 
-    dist_tree = maia.io. file_to_dist_tree('main.cgns', comm)
+    dist_tree = maia.io. file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
     # zone_to_parts = maia.factory.partitioning.compute_balanced_weights(dist_tree, comm)
     part_tree = maia.factory.partition_dist_tree(dist_tree, comm)
     maia.io.part_tree_to_file(part_tree, 'part_tree.cgns', comm)

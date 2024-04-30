@@ -17,20 +17,23 @@
 
 import os
 import shutil 
+import mola.naming_conventions as names
 
 solver_specific_files = [
-        'COMPLETED',
-        'FAILED',
-        'NEWJOB_REQUIRED',
-        'compute.py',
-        'coprocess.py',
-        'job.sh',
-        'main.cgns']
+    names.FILE_JOB_COMPLETED,
+    names.FILE_JOB_FAILED,
+    names.FILE_NEWJOB_REQUIRED,
+    names.FILE_COMPUTE,
+    names.FILE_COPROCESS,
+    names.FILE_JOB,
+    names.FILE_INPUT_SOLVER,
+]
 
 solver_specific_directories = [
-        'OUTPUT',
-        'LOGS',
-        'OVERSET']
+    names.DIRECTORY_OUTPUT,
+    names.DIRECTORY_LOG,
+    names.DIRECTORY_OVERSET,
+]
 
 def apply(workflow):
 

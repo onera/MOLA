@@ -31,7 +31,7 @@ def set_default(RunManagement):
         RunDirectory='.',
         NumberOfProcessors=None,
         SecondsMarginForQuitBeforeTimeOut = 180,
-        LauncherCommand = 'auto', # or 'sbatch job.sh', './job.sh'...
+        LauncherCommand = 'auto', 
         FilesAndDirectories=[],
         )
     for key, default_value in RunManagementDefault.items():
