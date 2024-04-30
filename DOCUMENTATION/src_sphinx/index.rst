@@ -4,7 +4,7 @@ MOLA documentation
 Welcome to **MO**\ dular workf\ **L**\ ows for **A**\ erodynamics (MOLA)
 documentation website.
 
-Current documentation version is: ``v1.15``
+Current documentation version is: ``v2.0``
 
 Please note the `GitLab page <https://gitlab.onera.net/numerics/mola>`_ of MOLA
 and its associated `Issues <https://gitlab.onera.net/numerics/mola/-/issues>`_ section where
@@ -26,15 +26,12 @@ using `elsA <https://elsa.onera.fr>`_ solver.
   :maxdepth: 1
   :caption: Contents:
 
-  StarterGuide
-  Tutorials
-  Examples
   Modules
 
 Major changes
 =============
 
-Major changes with respect to previous version (``v1.14``):
+Major changes with respect to previous version (``v1``):
 
 
 Indices and tables
