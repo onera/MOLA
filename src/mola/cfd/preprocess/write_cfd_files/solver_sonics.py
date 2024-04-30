@@ -81,15 +81,11 @@ def write_run_scripts(workflow):
     write_job_launcher(workflow.RunManagement)
 
 def write_compute(RunManagement):
-    # FIXME Here it is not necessarily Workflow that should be imported
-    # but the Workflow* that serves to preprocess the case.
-    # See how it is done in bin/mola_prepare
-
     txt = f'''
-from mola.workflow import Workflow
+from mola.workflow import read_workflow
 import mola.naming_conventions as names
 
-workflow = Workflow(names.FILE_INPUT_SOLVER)
+workflow = read_workflow(names.FILE_INPUT_SOLVER)
 workflow.print()
 workflow.compute()
 '''

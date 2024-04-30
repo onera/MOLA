@@ -5,28 +5,21 @@
 import sys
 import traceback
 
-from treelab import cgns
-
 from mola import __MOLA_PATH__
-from mola import misc
+import mola.naming_conventions as names
 from mola.logging import MolaException
+from mola.workflow import read_workflow
 
-err1 = 'must specify an input file name, e.g.: "mola_prepare workflow.cgns"'
+err1 = f'must specify an input file name, e.g.: "mola_prepare {names.FILE_INPUT_WORKLFOW}"'
 if len(sys.argv) != 2: raise AttributeError(err1)
 filename = str(sys.argv[1])
 
 try:
-    # Get the right class of Workflow
-    tree = cgns.load(filename)
-    workflow_name = tree.get(Name='WorkflowParameters').get(Name='Name', Depth=1).value()
-    workflows = misc.load_source('workflows', f'{__MOLA_PATH__}/mola/workflow/__init__.py')
-    PreviouslyUsedWorkflow = getattr(workflows, workflow_name)
-
-    w = PreviouslyUsedWorkflow(tree=tree)
+    w = read_workflow(filename)
     w.prepare()  
     w.write_cfd_files()
 
 except Exception as exception:
-    with open('ERROR_PREPARING_WORKFLOW','w') as f: 
+    with open(names.FILE_ERROR_PREPARING_WORKFLOW, 'w') as f: 
         f.write(traceback.format_exc())
     raise MolaException('Unable to prepare workflow')
