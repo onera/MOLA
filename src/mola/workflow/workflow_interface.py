@@ -66,8 +66,6 @@ class WorkflowInterface(object):
         self.tree = tree
 
         if self.tree is not None:
-            try: self.set_Solver(solver_name=Solver)
-            except TypeError as e: raise MolaUserAttributeError(self.set_Solver, e)
             self.get_workflow_parameters_from_tree()
 
         else:
