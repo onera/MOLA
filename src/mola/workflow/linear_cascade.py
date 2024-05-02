@@ -38,8 +38,8 @@ class WorkflowLinearCascade(Workflow):
                 meshInfo.setdefault('Mesher', 'Autogrid')
             
             self.Extractions.extend([
-                dict(type='bc', BCType='BCInflow*', fields=['MassFlow']),
-                dict(type='bc', BCType='BCOutflow*', fields=['MassFlow']),
+                dict(Type='BC', Source='BCInflow*', Fields=['MassFlow']),
+                dict(Type='BC', Source='BCOutflow*', Fields=['MassFlow']),
             ])
         
 

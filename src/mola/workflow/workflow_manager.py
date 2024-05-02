@@ -71,7 +71,7 @@ class WorkflowDispatcher():
                         ('RunManagement|JobName', BCWall),
                         ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
                         ('Flow|Velocity', velocity),
-                        ('BoundaryConditions|Family=Wall|type', BCWall),
+                        ('BoundaryConditions|Family=Wall|Type', BCWall),
                     ], 
                 )
 
@@ -83,11 +83,11 @@ class WorkflowDispatcher():
 
        * ``'RunManagement|JobName'`` selects ``workflow.RunManagement['JobName']``.
 
-       * ``'BoundaryConditions|Family=Wall|type'`` selects ``workflow.BoundaryConditions[<index>]['type']``.
+       * ``'BoundaryConditions|Family=Wall|Type'`` selects ``workflow.BoundaryConditions[<index>]['Type']``.
          Because ``workflow.BoundaryConditions`` is a :py:class:`list`, ``Family=Wall`` is a mean to select 
          the boundary condition `BC` in this list (remember `BC` is a :py:class:`dict`) such as ``BC['Family']=='Wall'``. 
          ``workflow.BoundaryConditions[<index>]`` is that ``BC``, and finally the value corresponding to the key 
-         ``'type'`` is selected.
+         ``'Type'`` is selected.
 
     #. the new value to apply to this selected parameter.
 
@@ -511,7 +511,7 @@ def set_value_on_leaf(tree, path: str, value)-> None:
         Path of the leaf to modify in tree, using the pipe '|' as separator.
         Examples: 
         * `'RunManagement|JobName'`
-        * `'BoundaryConditions|Family=Wall|type'``
+        * `'BoundaryConditions|Family=Wall|Type'``
 
     value : 
         the new value to set for the selected leaf.

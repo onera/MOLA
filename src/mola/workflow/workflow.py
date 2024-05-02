@@ -215,29 +215,29 @@ class Workflow(WorkflowInterface):
     def _update_interfaces_between_workflows(self, other_workflow):
         updated_boundary_conditions = []
         for bc in self.BoundaryConditions + other_workflow.BoundaryConditions:
-            if bc['type'] != 'InterfaceBetweenWorkflows':
+            if bc['Type'] != 'InterfaceBetweenWorkflows':
                 continue
 
-            if not 'interface_type' in bc:
+            if not 'TypeOfInterface' in bc:
                 raise MolaException(
-                    f"The boundary condition on Family {bc['Family']} is of type {bc['type']},"
-                    "and for this type the key 'interface_type' must be defined."
+                    f"The boundary condition on Family {bc['Family']} is of Type {bc['Type']},"
+                    "and for this Type the key 'TypeOfInterface' must be defined."
                     )
             
-            elif isinstance(bc['interface_type'], str):
-                assert bc['interface_type'] in ['Match']
+            elif isinstance(bc['TypeOfInterface'], str):
+                assert bc['TypeOfInterface'] in ['Match']
                 raise NotImplementedError
 
-            elif isinstance(bc['interface_type'], dict):
-                bc.update(bc['interface_type'])
-                bc.pop('interface_type')
-                if bc['type'] in boundary_conditions.turbomachinery_interfaces:
+            elif isinstance(bc['TypeOfInterface'], dict):
+                bc.update(bc['TypeOfInterface'])
+                bc.pop('TypeOfInterface')
+                if bc['Type'] in boundary_conditions.turbomachinery_interfaces:
                     bc.pop('Family')
                 updated_boundary_conditions.append(bc)
 
             else:
                 raise MolaException(
-                    f"For BC on Family {bc['Family']}, the value of 'interface_type' must be of type str or dict."
+                    f"For BC on Family {bc['Family']}, the value of 'TypeOfInterface' must be of type str or dict."
                     )
         
         # set again boundary conditions because it have changed

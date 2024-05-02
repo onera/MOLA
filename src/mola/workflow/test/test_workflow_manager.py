@@ -19,7 +19,7 @@ def get_fake():
 
         BoundaryConditions = [
             dict(Family='INFLOW'),
-            dict(Family='OUTFLOW', type='OutflowPressure', Pressure=10),
+            dict(Family='OUTFLOW', Type='OutflowPressure', Pressure=10),
         ]
 
         RunManagement = dict(
@@ -279,7 +279,7 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
                     ('RunManagement|JobName', f'test_{BCWall}'),
                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
                     ('Flow|Velocity', velocity),
-                    ('BoundaryConditions|Family=Wall|type', BCWall),
+                    ('BoundaryConditions|Family=Wall|Type', BCWall),
                 ], 
                 initialize_from_previous=False
                 )

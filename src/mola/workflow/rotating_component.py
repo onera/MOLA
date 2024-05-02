@@ -185,7 +185,7 @@ class WorkflowRotatingComponent(Workflow):
                             dict(Family=FamilyBoundary, Type='Wall', Motion=self.Motion[row_family])
                             )
                     except KeyError:
-                        self.BoundaryConditions.append(dict(Family=FamilyBoundary, type='Wall'))
+                        self.BoundaryConditions.append(dict(Family=FamilyBoundary, Type='Wall'))
                 else:
                     self.BoundaryConditions.append(
                         dict(Family=FamilyBoundary, Type='Wall', Motion=dict(RotationSpeed=self._get_hub_rotation_function()))
@@ -206,7 +206,7 @@ class WorkflowRotatingComponent(Workflow):
 
     def _is_boundary_already_defined(self, FamilyBoundary):
         for bc in self.BoundaryConditions:
-            for key in ['Family', 'left', 'right']:
+            for key in ['Family', 'LinkedFamily']:
                 if key in bc and bc[key] == FamilyBoundary:
                     return True
         return False
