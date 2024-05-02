@@ -22,6 +22,32 @@ import subprocess
 from mola.logging import mola_logger, MolaException
 from . import remote
 
+def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000,
+        start_scan_keywords=['error','warning','traceback','abort']):
+
+    separator_line = 'SCANNED_ERRORS'
+    if remote.run_on_localhost(machine=machine, run_directory=filepath):
+        # implementation of the function
+        found_info = False
+        result_lines = [separator_line]
+        with open(filepath, 'r') as f:
+            for line in f:
+                if found_info or any([word in line.lower() for word in start_scan_keywords]):
+                    found_info = True
+                    result_lines += [line]
+                    if len(result_lines) > max_lines: break
+        if found_info: return ''.join(result_lines)
+
+    else:
+        # remote call to the function
+        pycode = [f"import mola.server.files_operations as FOP"]
+        pycode+= [f"print(FOP.read_text_file_from_errors('{filepath}'))"]
+        pycode = ';'.join(pycode)
+        out = remote.submit_command(f'python3 -c "{pycode}"', machine, user=user,
+                                    use_mola_env=True)
+        if separator_line in out: return out.split(separator_line)
+        return ''
+    
 def save_file(filename, text, directory='.'):
     os.makedirs(directory, exist_ok=True)
     filename = os.path.join(directory, filename)

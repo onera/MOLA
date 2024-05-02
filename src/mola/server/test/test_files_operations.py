@@ -133,3 +133,33 @@ def test_scp_local_destination_and_source_are_the_same():
     os.unlink(source)
     assert not FOP.is_existing_path(source)
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_read_text_file_from_errors():
+    source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_err_file.log')
+    expected_err_msg = (
+        'From this line the file is registered, since there is the word ERROR\n'
+        'so this line is registered as well\n'
+        'and this one.\n')
+    with open(source, 'w') as fi:
+        fi.write('This line will not be catched by scanner\n')
+        fi.write('this one neither.\n')
+        fi.write(expected_err_msg)
+
+    err_msg = FOP.read_text_file_from_errors(source)
+    os.unlink(source)
+    assert expected_err_msg == err_msg
+
+
+@pytest.mark.network_onera
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_read_text_file_from_errors_sator():
+    source = '/tmp_user/sator/lbernard/.test/test_workflow_sphere_struct_remote_sator/stderr.log'
+    err_msg = FOP.read_text_file_from_errors(source, 'sator')
+    print(err_msg)
+
+
+if __name__ == '__main__':
+    test_read_text_file_from_errors_sator()

@@ -111,7 +111,7 @@ def test_prepare_workflow1():
     w.connect()
     w.define_families()
     w.split_and_distribute()
-    w.write_tree('test.cgns')
+    w.tree.save('test.cgns')
     os.unlink('test.cgns')
     
 
@@ -271,9 +271,7 @@ def test_workflow_sphere_struct_local():
     w.prepare()
     w.write_cfd_files()
     w.submit()
-    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-    if not os.path.exists(COMPLETED_PATH):
-        raise MolaException('simulation did not ended as expected')
+    w.simulation_status()
     w.remove_cfd_files()
 
 # This test does not end for some reason... but the simulation is COMPLETED on spiro
@@ -311,17 +309,15 @@ def test_workflow_sphere_struct_remote_sator():
     w.write_cfd_files()
     w.submit()
 
+    # TODO: 
+    # w.simulation_status( wait_until_simulation_end=True ) # TODO implement option
+    # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+
     # NOTE: do not wait for job to end, since that approach would provoke
     # too important delays (waiting for resources of SLURM)
     # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_show_interface_1():
-    w = get_workflow1()
-    w.show_interface()
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -367,4 +363,4 @@ def test_wip():
     
 
 if __name__ == '__main__':
-    test_workflow_sphere_struct_local()
+    test_workflow_sphere_struct_remote_sator()

@@ -32,12 +32,11 @@ from mola.logging import (mola_logger,
                        redirect_streams_to_logger,
                        get_signature)
 from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
-from  mola.cfd.preprocess import flow_generators
 
 
 class WorkflowInterface(object):
 
-    def __init__(self, 
+    def __init__(self, workflow=None,
             tree=None,
             Solver : str = os.environ.get('MOLA_SOLVER'),
             RawMeshComponents : list = None,
@@ -58,24 +57,13 @@ class WorkflowInterface(object):
             ):
             
         attributes = self.repack_kwargs()
-
-        self._workflow_parameters_container_ = 'WorkflowParameters'
-
         self.Name = self.__class__.__name__
-        self.tree = tree
+        self.set_attributes(attributes)
+        self.transfer_attributes_to_workflow(workflow)
 
-        if self.tree is not None:
-            try: self.set_Solver(solver_name=Solver)
-            except TypeError as e: raise MolaUserAttributeError(self.set_Solver, e)
-            self.get_workflow_parameters_from_tree()
 
-        else:
 
-            self.set_attributes(attributes)
-
-        self._FlowGenerator = self.get_flow_generator(self.Flow['Generator'])
-
-    def set_attributes(self, attributes, skip_attributes=['self','tree']):
+    def set_attributes(self, attributes, skip_attributes=['self','tree','workflow']):
 
         expected_attribute_types = self.get_argument_types(self.__init__)
         
@@ -86,7 +74,7 @@ class WorkflowInterface(object):
             try:
                 expected_type = expected_attribute_types[attribute_name]
             except KeyError:
-                raise MolaException(f'{attribute_name=} not implemented from {self.Name} (expected {list(expected_attribute_types)})')
+                raise MolaException(f'attribute_name={attribute_name} not implemented from {self.Name} (expected {list(expected_attribute_types)})')
 
             if user_input is None: user_input = expected_type()
             
@@ -105,17 +93,9 @@ class WorkflowInterface(object):
 
         self.SolverParameters = dict()
 
-
-    def check_consistency_between_solver_and_environment(self):
-        requested_solver = self.Solver
-        env_solver = os.environ.get('MOLA_SOLVER')
-        if requested_solver != env_solver:
-            raise MolaException((f'the requested solver "{requested_solver}" does not'
-                f'match the type of environment "{env_solver}"'))
-
     def set_Solver(self, solver_name : str):
         self.Solver = solver_name.lower()
-        self.check_consistency_between_solver_and_environment()
+        
 
     def add_to_RawMeshComponents(self,
         Mesher        : str  = None,
@@ -151,12 +131,6 @@ class WorkflowInterface(object):
             SutherlandViscosity        : float = 1.78938e-05,
             SutherlandTemperature      : float = 288.15):
         self.Fluid = self._get_comp(self.set_Fluid, self.repack_kwargs())
-
-    def get_flow_generator(self, fg):
-        if isinstance(fg, str):
-            return flow_generators.AvailableFlowGenerators[fg]
-        else:
-            return fg
 
 
     def set_Flow(self,
@@ -500,6 +474,7 @@ class WorkflowInterface(object):
         RunDirectory : str = '.',
         NumberOfProcessors : int = 1,
         Machine : int = None,
+        User : str = None,
         TimeOutInSeconds : float = None,
         SecondsMarginForQuitBeforeTimeOut : float = None,
         LauncherCommand : str = 'auto',
@@ -514,73 +489,9 @@ class WorkflowInterface(object):
         with redirect_streams_to_logger(mola_logger):
             self.tree.save(filename)
 
-    def convert_to_dict(self):
-        params= dict()
-        for a in list(self.__dict__):
-            if not a.startswith('_') and a != 'tree':
-                att = getattr(self,a)
-                if not callable(att):
-                    params[a] = att
-        return params
-
-    def print(self):
-        print(self.__str__())
-    
-    def __str__(self):
-        params= self.convert_to_dict()
-        import pprint
-        return pprint.pformat(params)
-
-    def get_workflow_parameters_from_tree(self):
-        
-        self.tree = cgns.load(self.tree)
-        
-        workflow_parameters = self.tree.getParameters(
-            self._workflow_parameters_container_, transform_numpy_scalars=True)
-        
-        for parameter in workflow_parameters:
-            setattr(self, parameter, workflow_parameters[parameter])
-
-        # for attributes appearing in constructor signature
-        expected_types = self.get_argument_types(self.__init__)
-        for attribute_name, expected_type in expected_types.items():
-            if getattr(self, attribute_name) is None:
-                setattr(self, attribute_name, expected_type())
-
-        # for the rest
-        try:
-            self._FlowGenerator = self.get_flow_generator(self.Flow['Generator'])
-        except:
-            self._FlowGenerator = None
-        if self.SolverParameters is None: self.SolverParameters = dict()
-
-    def set_workflow_parameters_in_tree(self):
-        if not self.tree: self.tree = cgns.Tree()
-
-        params= self.convert_to_dict()
-        self.tree.setParameters(self._workflow_parameters_container_,
-                                **params)
-    
-    def set_workflow_parameters_in_file(self, filename='setup.py'):
-
-        import mola
-        import pprint
-        Lines = '#!/usr/bin/env python3\n'
-        Lines+= f"'''\nMOLA {mola.__version__} setup.py file automatically generated in PREPROCESS\n"
-        Lines+= f"Path to MOLA: {mola.__MOLA_PATH__}\n"
-        Lines+= f"Commit SHA: {mola.__SHA__}\n'''\n\n"
-
-        params = self.convert_to_dict()
-        for key, value in params.items():
-            Lines += f"{key}={pprint.pformat(value)}\n\n"
-
-        with open(filename,'w') as f: f.write(Lines)
-
-        try: os.remove(filename+'c')
-        except: pass
             
-    def show_interface(self):
-        def show_interface_of_method(method, skip_args=['self'], indentation=2):
+    def __str__(self):
+        def get_interface_of_method(txt, method, skip_args=['self','tree','workflow'], indentation=2):
             indent1 = ' '*indentation
             signature = inspect.signature(method)
             for param in signature.parameters.values():
@@ -589,28 +500,29 @@ class WorkflowInterface(object):
                 try:
                     setter_method = getattr(self,setter_name)
                 except:
-                    raise MolaException(f'Must implement interface for argument {param.name} using method "{setter_name}" in {self.Name}')
-                print(indent1+f'Attribute \033[4m\033[1m{param.name}\033[0m is set using:')
+                    raise MolaException(f'Must implement interface for argument "{param.name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
+                txt += indent1+f'Attribute \033[4m\033[1m{param.name}\033[0m is set using:\n'
                 signature = get_signature(setter_method)
                 for line in signature.split('\n'):
-                    print(indent1 + line)
+                    txt += indent1 + line + '\n'
 
                 add_to_methods_from_type = self._get_add_to_methods_of_attribute(param.name)
                 if not add_to_methods_from_type: continue 
                 indent2 = indent1+' '*2
                 several_add_to_methods = len(add_to_methods_from_type) > 1
                 for Type, add_to_method in add_to_methods_from_type.items():
-                    print(indent2+f"where each item is a {CYAN}dict{ENDC} with these authorized keys:")
+                    txt += indent2+f"where each item is a {CYAN}dict{ENDC} with these authorized keys:\n"
                     if several_add_to_methods:
-                        print(indent2+ f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}')
+                        txt += indent2+ f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}\n'
                     signature = get_signature(add_to_method)
                     for line in signature.split('\n'):
-                        print(indent2 + line)
+                        txt += indent2 + line + '\n'
+            
+            return txt
 
-
-        print(f'User interface of {BOLD}{self.Name}{ENDC}:')
-        print(f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n')
-        show_interface_of_method(self.__init__, skip_args=['self','tree'])
+        txt = f'User interface of {BOLD}{self.Name}{ENDC}:\n'
+        txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n'
+        return get_interface_of_method(txt, self.__init__)
 
     def _get_add_to_methods_of_attribute(self, attribute):
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
@@ -621,6 +533,12 @@ class WorkflowInterface(object):
             if split_name[0] == attribute:
                 add_to_methods_from_type[split_name[-1]] = method
         return add_to_methods_from_type
+    
+    def transfer_attributes_to_workflow(self, workflow):
+        if not workflow: return
+        for attr_name, attr_value in vars(self).items():
+            if not callable(attr_value):
+                setattr(workflow, attr_name, attr_value)
 
     @staticmethod
     def _method_name():
@@ -635,7 +553,7 @@ class WorkflowInterface(object):
             try:
                 value = kwargs[name]
             except KeyError:
-                raise MolaException(f'parameter {name} was not implemented in interface {fun.__name__}. \n{kwargs=}\n{new_component=}')
+                raise MolaException(f'parameter {name} was not implemented in interface {fun.__name__}. \nkwargs={kwargs}\nnew_component={new_component}')
             if value is not None:
                 expected_type = parameter_annotations.get(name)
                 if expected_type:
@@ -699,3 +617,4 @@ class WorkflowInterface(object):
                 arg_types[param.name] = None
 
         return arg_types
+    

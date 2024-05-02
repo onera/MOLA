@@ -25,21 +25,37 @@ from mola import misc
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola import __MOLA_PATH__
 
-def submit_command(command, machine, input=None, user=None):
+def submit_command(command, machine, input=None, user=None, use_mola_env=False,
+        false_errors_startwith=['sbatch: Soumission depuis noeud']):
 
     ssh_host = get_ssh_host_command(machine=machine, user=user)
     if ssh_host != '':
         assert input is None
         input = '\n'.join(command.split(';'))
         command = f'{ssh_host}'
+        if use_mola_env:
+            input = add_mola_env(machine) + input
+            env = {}
+        else:
+            env = os.environ.copy()
 
     if input is None:
         mola_logger.debug(f'run command: {command}')
     else:
         mola_logger.debug(f'run command: {command} with input:\n{input}')
-    
-    output = subprocess.run([command], input=input, shell=True, check=True, capture_output=True, env=os.environ.copy(), encoding='UTF-8')
+
+    output = subprocess.run([command], input=input, shell=True, check=False,
+                capture_output=True, env=env, encoding='UTF-8')
+    errlines = [] 
+    for line in output.stderr.split('\n')[:-1]:
+        if not any([line.startswith(false_error) for false_error in false_errors_startwith]):
+            errlines += [line]
+    if errlines:
+        raise MolaException('\n'.join(errlines))
+
     mola_logger.debug(output.stdout)
+
+    return output.stdout
 
 def get_network():
     network = os.getenv('MOLA_NETWORK')
@@ -67,6 +83,13 @@ def get_scheduler_defaults(machine, mola_target_path=__MOLA_PATH__):
             pass
 
     return None
+
+def add_mola_env(machine, solver=os.environ.get('MOLA_SOLVER')):
+    mola_path = get_mola_installation_path(machine)
+    network = get_network()
+    mola_env = os.path.join(mola_path, 'mola', 'env', network, 'env.sh')
+    return  f'source {mola_env} {solver} &>/dev/null && '
+
 
 def guess_localhost():
     HostName = socket.gethostname()
@@ -133,9 +156,9 @@ def run_on_localhost(machine=None, run_directory='.'):
 def get_ssh_host_command(machine=None, user=None, path='.'):
     if not run_on_localhost(machine, path):
         if user is None:
-            ssh_host = f'ssh {machine}'
+            ssh_host = f'ssh -T {machine}'
         else:
-            ssh_host = f'ssh {user}@{machine}'
+            ssh_host = f'ssh -T {user}@{machine}'
     else:
         ssh_host = ''
     return ssh_host

@@ -63,9 +63,10 @@ def test_submit_command():
 @pytest.mark.unit
 @pytest.mark.cost_level_1
 def test_submit_command_sator():
-    machine = 'sator'
     # create an empty file with a python command send with submit_command
-    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
+    machine = 'sator'
+    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            'test_submit_command_file')
     remote.submit_command(f'touch {filename}', machine)
     FOP.remove_path(filename, machine=machine)
 
@@ -90,6 +91,25 @@ with open('{filename}', 'w') as f:
     
     os.remove(filename)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_submit_python_command_with_error():
+    try: localhost = remote.guess_localhost()
+    except: return
+
+    code = "raise ValueError('this is an expected error')"
+    expected_error = 'ValueError: this is an expected error'
+    try:
+        remote.submit_command(sys.executable, localhost, input=code)
+    except MolaException as e:
+        got_expected_error = False
+        for err_msg_line in str(e).split('\n'):
+            if err_msg_line == expected_error:
+                got_expected_error = True
+                break
+        if not got_expected_error:
+            raise MolaException(f'did not got expected error, instead got: {e}')
+    
 # @pytest.mark.network_onera
 # @pytest.mark.unit
 # @pytest.mark.cost_level_1
@@ -125,3 +145,7 @@ def test_wait_until():
         return
     except:
         assert False
+
+
+if __name__ == '__main__':
+    test_submit_command_sator()

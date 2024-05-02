@@ -145,7 +145,7 @@ def write_compute(RunManagement):
     txt = '''
 from mola.workflow import Workflow
 
-workflow = Workflow('main.cgns')
+workflow = Workflow(tree='main.cgns')
 workflow.print()
 workflow.compute()
 '''
