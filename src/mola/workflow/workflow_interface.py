@@ -38,7 +38,7 @@ import mola.naming_conventions as names
 
 class WorkflowInterface(object):
 
-    def __init__(self, 
+    def __init__(self, workflow=None,
             tree=None,
             Solver : str = os.environ.get('MOLA_SOLVER'),
             RawMeshComponents : list = None,
@@ -62,22 +62,17 @@ class WorkflowInterface(object):
 
         self._workflow_parameters_container_ = names.CONTAINER_WORKLFOW_PARAMETERS
 
-        self.Name = self.__class__.__name__
-        self.tree = tree
+        self.Name = workflow.Name if workflow else self.__class__.__name__
+        self.set_attributes(attributes)
+        self.transfer_attributes_to_workflow(workflow)
 
-        if self.tree is not None:
-            self.get_workflow_parameters_from_tree()
 
-        else:
 
-            self.set_attributes(attributes)
+    def set_attributes(self, attributes, skip_attributes=['self','tree','workflow']):
 
-    def set_attributes(self, attributes, skip_attributes=['self','tree']):
-
-        expected_attribute_types = self.get_argument_types(self.__init__)
+        expected_attribute_types = self.get_argument_types(WorkflowInterface.__init__)
         
         for attribute_name, user_input in attributes.items():
-
             if attribute_name in skip_attributes: continue
         
             try:
@@ -114,7 +109,7 @@ class WorkflowInterface(object):
 
     def set_Solver(self, solver_name : str):
         self.Solver = solver_name.lower()
-        self.check_consistency_between_solver_and_environment()
+        
 
     def add_to_RawMeshComponents(self,
         Mesher        : str  = None,
@@ -130,7 +125,8 @@ class WorkflowInterface(object):
                                Base,
                                Zone ],
         ):
-        self.RawMeshComponents.append(self._get_comp(self.add_to_RawMeshComponents, self.repack_kwargs()))
+        self.RawMeshComponents.append(self._get_comp(
+            WorkflowInterface.add_to_RawMeshComponents, self.repack_kwargs()))
 
     def set_RawMeshComponents(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -149,7 +145,8 @@ class WorkflowInterface(object):
             SutherlandConstant         : float = 110.4,
             SutherlandViscosity        : float = 1.78938e-05,
             SutherlandTemperature      : float = 288.15):
-        self.Fluid = self._get_comp(self.set_Fluid, self.repack_kwargs())
+        self.Fluid = self._get_comp(WorkflowInterface.set_Fluid, self.repack_kwargs())
+
 
     def set_Flow(self,
             Generator : str = 'External_rho_V_T',
@@ -170,7 +167,7 @@ class WorkflowInterface(object):
             VelocityUsedForScalingAndTurbulence : float = None
             ):
 
-        self.Flow = self._get_comp(self.set_Flow, self.repack_kwargs())
+        self.Flow = self._get_comp(WorkflowInterface.set_Flow, self.repack_kwargs())
 
         if 'Direction' in self.Flow:
             self.Flow['Direction'] = np.array(self.Flow['Direction'], dtype=float)
@@ -193,7 +190,7 @@ class WorkflowInterface(object):
         TurbulenceCutOffRatio        : float = 1e-8,
         TransitionMode               :   str = None,
                        ):
-        self.Turbulence = self._get_comp(self.set_Turbulence, self.repack_kwargs())
+        self.Turbulence = self._get_comp(WorkflowInterface.set_Turbulence, self.repack_kwargs())
 
     def set_BoundaryConditions(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -206,7 +203,8 @@ class WorkflowInterface(object):
         Family        : str   = None,
         Type          : str   = None,
         ):
-        self.BoundaryConditions.append(self._get_comp(self.add_to_BoundaryConditions, self.repack_kwargs()))
+        self.BoundaryConditions.append(self._get_comp(
+            WorkflowInterface.add_to_BoundaryConditions, self.repack_kwargs()))
 
     def set_SplittingAndDistribution(self,
         Strategy                         : str = 'AtPreprocess',
@@ -223,7 +221,8 @@ class WorkflowInterface(object):
         CoresPerNode                     : int = 48,
         DistributeExclusivelyOnFullNodes : bool = True,
                        ):
-        self.SplittingAndDistribution = self._get_comp(self.set_SplittingAndDistribution, self.repack_kwargs())
+        self.SplittingAndDistribution = self._get_comp(
+            WorkflowInterface.set_SplittingAndDistribution, self.repack_kwargs())
 
     def set_Numerics(self,
         Scheme                    : str   = 'Jameson',
@@ -237,7 +236,8 @@ class WorkflowInterface(object):
         CFL                       : Union[ float,
                                             dict] = 10.0,
                        ):
-        self.Numerics = self._get_comp(self.set_Numerics, self.repack_kwargs())
+        self.Numerics = self._get_comp(
+            WorkflowInterface.set_Numerics, self.repack_kwargs())
         self.check_time_marching()
         self.check_cfl()
 
@@ -273,11 +273,12 @@ class WorkflowInterface(object):
 
     def add_to_BodyForceModeling(self,
             ToBeImplmented : str = 'NotYetImplemented'):
-        self.BodyForceModeling.append(self._get_comp(self.add_to_BodyForceModeling, self.repack_kwargs()))
+        self.BodyForceModeling.append(self._get_comp(
+            WorkflowInterface.add_to_BodyForceModeling, self.repack_kwargs()))
 
     def set_Motion(self,
             motion_per_family_dict    : dict  = None):
-        self.Motion = self._get_comp(self.set_Motion, self.repack_kwargs())
+        self.Motion = self._get_comp(WorkflowInterface.set_Motion, self.repack_kwargs())
 
     def set_Initialization(self,
             Method    : str  = 'uniform',
@@ -286,7 +287,8 @@ class WorkflowInterface(object):
                                   Base,
                                   Zone ]  = None,
             KeepTurbulentDistance    : bool  = False):
-        self.Initialization = self._get_comp(self.set_Initialization, self.repack_kwargs())
+        self.Initialization = self._get_comp(
+            WorkflowInterface.set_Initialization, self.repack_kwargs())
 
     def set_Extractions(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list, several_add_tos=True,
@@ -338,7 +340,8 @@ class WorkflowInterface(object):
         '''
         Summation over a given source of the mesh, providing a scalar integral value
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_Integral, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_Integral, self.repack_kwargs()))
 
     def add_to_Extractions_Probe(self,
             Fields : list = None, # accepts prefix avg- or std-
@@ -361,7 +364,8 @@ class WorkflowInterface(object):
         '''
         Probe extraction 
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_Probe, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_Probe, self.repack_kwargs()))
 
     def add_to_Extractions_BC(self,
             Fields : list = None,
@@ -383,7 +387,8 @@ class WorkflowInterface(object):
         '''
         Extraction at boundaries of the mesh
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_BC, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_BC, self.repack_kwargs()))
 
     def add_to_Extractions_IsoSurface(self,
             Fields : list = None,
@@ -406,7 +411,8 @@ class WorkflowInterface(object):
         '''
         Extraction using an iso-surface operation
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_IsoSurface, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_IsoSurface, self.repack_kwargs()))
 
     def add_to_Extractions_Interpolation(self,
             Fields : list = None,
@@ -429,7 +435,8 @@ class WorkflowInterface(object):
         '''
         Extraction using an interpolation on a user-provided grid by file or in memory
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_Interpolation, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_Interpolation, self.repack_kwargs()))
 
     def add_to_Extractions_3D(self,
             Fields : list = None,
@@ -452,7 +459,8 @@ class WorkflowInterface(object):
         '''
         Fields (or sub-fields) extraction 
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_3D, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_3D, self.repack_kwargs()))
 
     def set_ExtractionsDefaults(self, user_list : list = None):
         self._set_by_user_list(self._method_name(), user_list)
@@ -472,7 +480,8 @@ class WorkflowInterface(object):
         *,
         ReferenceParameter : str = 'File',
         ):
-        self.ExtractionsDefaults.append(self._get_comp(self.add_to_ExtractionsDefaults, self.repack_kwargs()))
+        self.ExtractionsDefaults.append(self._get_comp(
+            WorkflowInterface.add_to_ExtractionsDefaults, self.repack_kwargs()))
 
     def set_ConvergenceCriteria(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -485,90 +494,26 @@ class WorkflowInterface(object):
         Variable      : str   = 'std-MyVariable',
         Threshold     : float = 1e-3,
         ):
-        self.ConvergenceCriteria.append(self._get_comp(self.add_to_ConvergenceCriteria, self.repack_kwargs()))
+        self.ConvergenceCriteria.append(self._get_comp(
+            WorkflowInterface.add_to_ConvergenceCriteria, self.repack_kwargs()))
 
     def set_RunManagement(self,
         JobName : str = None,
         RunDirectory : str = '.',
         NumberOfProcessors : int = 1,
         Machine : int = None,
+        User : str = None,
         TimeOutInSeconds : float = None,
         SecondsMarginForQuitBeforeTimeOut : float = None,
         LauncherCommand : str = 'auto',
         FilesAndDirectories : list = [],
         mola_target_path : str = None,
                           ):
-        self.RunManagement = self._get_comp(self.set_RunManagement, self.repack_kwargs())
-
-    def write_tree(self, filename=names.FILE_INPUT_SOLVER):
-        if not self.tree: 
-            self.tree = cgns.Tree()
-        with redirect_streams_to_logger(mola_logger):
-            self.tree.save(filename)
-
-    def convert_to_dict(self):
-        params= dict()
-        for a in list(self.__dict__):
-            if not a.startswith('_') and a != 'tree':
-                att = getattr(self,a)
-                if not callable(att):
-                    params[a] = att
-        return params
-
-    def print(self):
-        print(self.__str__())
-    
-    def __str__(self):
-        params= self.convert_to_dict()
-        import pprint
-        return pprint.pformat(params)
-
-    def get_workflow_parameters_from_tree(self):
-        
-        self.tree = cgns.load(self.tree)
-        
-        workflow_parameters = self.tree.getParameters(
-            self._workflow_parameters_container_, transform_numpy_scalars=True)
-        
-        for parameter in workflow_parameters:
-            setattr(self, parameter, workflow_parameters[parameter])
-
-        # for attributes appearing in constructor signature
-        expected_types = self.get_argument_types(self.__init__)
-        for attribute_name, expected_type in expected_types.items():
-            if getattr(self, attribute_name) is None:
-                setattr(self, attribute_name, expected_type())
-
-        # for the rest
-        if self.SolverParameters is None: self.SolverParameters = dict()
-
-    def set_workflow_parameters_in_tree(self):
-        if not self.tree: self.tree = cgns.Tree()
-
-        params= self.convert_to_dict()
-        self.tree.setParameters(self._workflow_parameters_container_,
-                                **params)
-    
-    def set_workflow_parameters_in_file(self, filename='setup.py'):
-
-        import mola
-        import pprint
-        Lines = '#!/usr/bin/env python3\n'
-        Lines+= f"'''\nMOLA {mola.__version__} setup.py file automatically generated in PREPROCESS\n"
-        Lines+= f"Path to MOLA: {mola.__MOLA_PATH__}\n"
-        Lines+= f"Commit SHA: {mola.__SHA__}\n'''\n\n"
-
-        params = self.convert_to_dict()
-        for key, value in params.items():
-            Lines += f"{key}={pprint.pformat(value)}\n\n"
-
-        with open(filename,'w') as f: f.write(Lines)
-
-        try: os.remove(filename+'c')
-        except: pass
+        self.RunManagement = self._get_comp(
+            WorkflowInterface.set_RunManagement, self.repack_kwargs())
             
-    def show_interface(self):
-        def show_interface_of_method(method, skip_args=['self'], indentation=2):
+    def __str__(self):
+        def get_interface_of_method(txt, method, skip_args=['self','tree','workflow'], indentation=2):
             indent1 = ' '*indentation
             signature = inspect.signature(method)
             for param in signature.parameters.values():
@@ -577,28 +522,29 @@ class WorkflowInterface(object):
                 try:
                     setter_method = getattr(self,setter_name)
                 except:
-                    raise MolaException(f'Must implement interface for argument {param.name} using method "{setter_name}" in {self.Name}')
-                print(indent1+f'Attribute \033[4m\033[1m{param.name}\033[0m is set using:')
+                    raise MolaException(f'Must implement interface for argument "{param.name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
+                txt += indent1+f'Attribute \033[4m\033[1m{param.name}\033[0m is set using:\n'
                 signature = get_signature(setter_method)
                 for line in signature.split('\n'):
-                    print(indent1 + line)
+                    txt += indent1 + line + '\n'
 
                 add_to_methods_from_type = self._get_add_to_methods_of_attribute(param.name)
                 if not add_to_methods_from_type: continue 
                 indent2 = indent1+' '*2
                 several_add_to_methods = len(add_to_methods_from_type) > 1
                 for Type, add_to_method in add_to_methods_from_type.items():
-                    print(indent2+f"where each item is a {CYAN}dict{ENDC} with these authorized keys:")
+                    txt += indent2+f"where each item is a {CYAN}dict{ENDC} with these authorized keys:\n"
                     if several_add_to_methods:
-                        print(indent2+ f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}')
+                        txt += indent2+ f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}\n'
                     signature = get_signature(add_to_method)
                     for line in signature.split('\n'):
-                        print(indent2 + line)
+                        txt += indent2 + line + '\n'
+            
+            return txt
 
-
-        print(f'User interface of {BOLD}{self.Name}{ENDC}:')
-        print(f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n')
-        show_interface_of_method(self.__init__, skip_args=['self','tree'])
+        txt = f'User interface of {BOLD}{self.Name}{ENDC}:\n'
+        txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n'
+        return get_interface_of_method(txt, WorkflowInterface.__init__)
 
     def _get_add_to_methods_of_attribute(self, attribute):
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
@@ -609,6 +555,12 @@ class WorkflowInterface(object):
             if split_name[0] == attribute:
                 add_to_methods_from_type[split_name[-1]] = method
         return add_to_methods_from_type
+    
+    def transfer_attributes_to_workflow(self, workflow):
+        if not workflow: return
+        for attr_name, attr_value in vars(self).items():
+            if not callable(attr_value):
+                setattr(workflow, attr_name, attr_value)
 
     @staticmethod
     def _method_name():
@@ -620,6 +572,7 @@ class WorkflowInterface(object):
         parameter_annotations = get_type_hints(fun)
         new_component = dict()
         for name, param in signature.parameters.items():
+            if name == 'self': continue
             try:
                 value = kwargs[name]
             except KeyError:
@@ -687,3 +640,4 @@ class WorkflowInterface(object):
                 arg_types[param.name] = None
 
         return arg_types
+    

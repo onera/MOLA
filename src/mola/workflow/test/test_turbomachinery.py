@@ -77,6 +77,11 @@ def get_workflow_rotor37():
         )
     return w
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_init():
+    w = get_workflow_rotor37()
+    w.print_interface()
 
 
 @pytest.mark.user_case
@@ -86,9 +91,7 @@ def test_rotor37_local():
     w.prepare()
     w.write_cfd_files()
     w.submit()
-    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
-    if not os.path.exists(COMPLETED_PATH):
-        raise MolaException('simulation did not ended as expected')
+    w.simulation_status()
     w.remove_cfd_files()
 
 

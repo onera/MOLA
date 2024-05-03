@@ -55,28 +55,15 @@ class WorkflowRotatingComponent(Workflow):
 
     '''
 
-    def __init__(self, 
-            tree=None,
-            Solver : str = os.environ.get('MOLA_SOLVER'),
-            RawMeshComponents : list = None,
-            Fluid : dict = None,
-            Flow : dict = None,
-            Turbulence : dict = None,
-            BoundaryConditions : list = None,
-            SplittingAndDistribution : dict = None,
-            Numerics : dict = None,
-            BodyForceModeling : list = None,
-            Motion : dict = None, 
-            Initialization : dict = None,
-            ExtractionsDefaults : list = None,
-            Extractions : list = None,
-            ConvergenceCriteria : list = None,
-            RunManagement : dict = None,
-            ApplicationContext : dict = None,):
-        
-        super().__init__(**WorkflowInterface.repack_kwargs())
+    def __init__(self, tree=None, **kwargs):
 
-        if self.tree is None:
+        self._workflow_parameters_container_ = 'WorkflowParameters'
+        self.Name = self.__class__.__name__
+        self.tree = tree
+        self._interface = WorkflowInterface(self, **kwargs)
+        if tree is not None:
+            self.get_workflow_parameters_from_tree()
+        else:
             self.set_rotation_speed()
 
             # Axis of the engine

@@ -44,33 +44,19 @@ from  mola.cfd.preprocess import (flow_generators,
 from mola import server as SV 
 from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
-from . import WorkflowInterface
+from mola.server import files_operations as FOP
+from .workflow_interface import WorkflowInterface
 
-class Workflow(WorkflowInterface):
+class Workflow(object):
 
-    def __init__(self, 
-            tree=None,
-            Solver : str = os.environ.get('MOLA_SOLVER'),
-            RawMeshComponents : list = None,
-            Fluid : dict = None,
-            Flow : dict = None,
-            Turbulence : dict = None,
-            BoundaryConditions : list = None,
-            SplittingAndDistribution : dict = None,
-            Numerics : dict = None,
-            BodyForceModeling : list = None,
-            Motion : dict = None, 
-            Initialization : dict = None,
-            ExtractionsDefaults : list = None,
-            Extractions : list = None,
-            ConvergenceCriteria : list = None,
-            RunManagement : dict = None,
-            ApplicationContext : dict = None,
-            ):
+    def __init__(self, tree=None, **kwargs):
 
+        self._workflow_parameters_container_ = 'WorkflowParameters'
+        self.Name = self.__class__.__name__
+        self.tree = tree
+        self._interface = WorkflowInterface(self, **kwargs)
+        if tree is not None: self.get_workflow_parameters_from_tree()
         
-        super().__init__(**WorkflowInterface.repack_kwargs())
-    
     def prepare(self):
         self.assemble()
         self.positioning()
@@ -87,6 +73,14 @@ class Workflow(WorkflowInterface):
         # self.check_preprocess() # empty BCs... maybe solver-specific
         self.set_workflow_parameters_in_tree()
         # self.set_workflow_parameters_in_file()
+
+    def check_consistency_between_solver_and_environment(self):
+        requested_solver = self.Solver
+        env_solver = os.environ.get('MOLA_SOLVER')
+        if requested_solver != env_solver:
+            raise MolaException((f'the requested solver "{requested_solver}" does not'
+                f'match the type of environment "{env_solver}"'))
+
 
     def assemble(self):
         self.read_meshes()
@@ -120,9 +114,16 @@ class Workflow(WorkflowInterface):
     def process_overset(self):
         pass
 
+    def get_flow_generator(self, fg):
+        if isinstance(fg, str):
+            return flow_generators.AvailableFlowGenerators[fg]
+        else:
+            return fg
+
+
     def compute_flow_and_turbulence(self):
-        FlowGenerator = flow_generators.AvailableFlowGenerators[self.Flow['Generator']]
-        FlowGen = FlowGenerator(self)
+        # mola-generic set of parameters
+        FlowGen = self.get_flow_generator(self.Flow['Generator'])(self)
         FlowGen.generate()
         self.Fluid = FlowGen.Fluid
         self.Flow = FlowGen.Flow
@@ -173,12 +174,26 @@ class Workflow(WorkflowInterface):
         if command is None:
             command = self.RunManagement['LauncherCommand']
         user = self.RunManagement.get('User')
-        SV.submit_command(command, self.RunManagement['Machine'], user=user)
+        out = SV.submit_command(command, self.RunManagement['Machine'], user=user)
+        job_nb = None
+        for line in out.split('\n'):
+            if line.startswith('Submit'):
+                print(line)
+                try: job_nb = int(line.split('')[-1])
+                except: pass
+        return job_nb
 
     def write_tree_remote(self, data_directory=None):
         from . import workflow_manager as WM
         sender = WM.WorkflowSender(self, data_directory=data_directory)
         sender.apply()
+
+    def write_tree(self, filename='main.cgns'):
+        if not self.tree: 
+            self.tree = cgns.Tree()
+        with redirect_streams_to_logger(mola_logger):
+            self.tree.save(filename)
+
 
     def merge(self, other_workflow):
         # TODO Still in development, not validated
@@ -242,3 +257,93 @@ class Workflow(WorkflowInterface):
         
         # set again boundary conditions because it have changed
         boundary_conditions.apply(self, updated_boundary_conditions)
+
+
+    def convert_to_dict(self, skip_attributes=['self','tree','workflow']):
+        params= dict()
+        for a in list(self.__dict__):
+            if not a.startswith('_') and a not in skip_attributes:
+                att = getattr(self,a)
+                if not callable(att):
+                    params[a] = att
+        return params
+
+    def get_workflow_parameters_from_tree(self, skip_attributes=['self','tree','workflow']):
+        
+        self.tree = cgns.load(self.tree)
+        
+        workflow_parameters = self.tree.getParameters(
+            self._workflow_parameters_container_, transform_numpy_scalars=True)
+        
+        for parameter in workflow_parameters:
+            setattr(self, parameter, workflow_parameters[parameter])
+
+        # for attributes appearing in constructor signature
+        expected_types = self._interface.get_argument_types(WorkflowInterface.__init__)
+        for attribute_name, expected_type in expected_types.items():
+            if attribute_name in skip_attributes: continue
+            if getattr(self, attribute_name) is None:
+                setattr(self, attribute_name, expected_type())
+
+        if self.SolverParameters is None: self.SolverParameters = dict()
+
+    def set_workflow_parameters_in_tree(self):
+        if not self.tree: self.tree = cgns.Tree()
+
+        params= self.convert_to_dict()
+        self.tree.setParameters(self._workflow_parameters_container_,**params)
+    
+    def set_workflow_parameters_in_file(self, filename='setup.py'):
+
+        import mola
+        import pprint
+        Lines = '#!/usr/bin/env python3\n'
+        Lines+= f"'''\nMOLA {mola.__version__} setup.py file automatically generated in PREPROCESS\n"
+        Lines+= f"Path to MOLA: {mola.__MOLA_PATH__}\n"
+        Lines+= f"Commit SHA: {mola.__SHA__}\n'''\n\n"
+
+        params = self.convert_to_dict()
+        for key, value in params.items():
+            Lines += f"{key}={pprint.pformat(value)}\n\n"
+
+        with open(filename,'w') as f: f.write(Lines)
+
+        try: os.remove(filename+'c')
+        except: pass
+
+
+    def print(self):
+        print(self.__str__())
+    
+    def __str__(self):
+        params= self.convert_to_dict()
+        import pprint
+        return pprint.pformat(params)
+
+    def simulation_status(self, raise_error_if_not_completed=True,
+            max_lines_of_catched_error=1000):
+        run_dir = self.RunManagement['RunDirectory']
+        machine = self.RunManagement['Machine']
+        user = self.RunManagement.get('User')
+
+        if FOP.is_existing_path(os.path.join(run_dir,'COMPLETED'),
+                machine=machine, user=user, file_only=True):
+            return 'COMPLETED'
+        
+        elif FOP.is_existing_path(os.path.join(run_dir,'FAILED'),
+                machine=machine, user=user, file_only=True):
+            status = 'FAILED'
+        else:
+            status = 'RUNNING, NOT STARTED OR CRASHED'
+
+        errmsg = FOP.read_text_file_from_errors(os.path.join(run_dir,'stderr.log'),
+            machine=machine, user=user, max_lines=max_lines_of_catched_error)
+        if raise_error_if_not_completed:
+            raise MolaException(errmsg)
+        else:
+            mola_logger.warning(errmsg)
+            status += '\n'+errmsg
+
+        return status
+
+    def print_interface(self): print(self._interface)
