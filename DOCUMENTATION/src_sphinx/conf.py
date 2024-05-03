@@ -12,7 +12,7 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('../../src/mola/'))
 
 # -- Project information -----------------------------------------------------
 
@@ -34,6 +34,7 @@ extensions = [
 'sphinx.ext.intersphinx',
 'sphinx.ext.todo',
 'sphinx.ext.autosummary',
+'doc_utils',  # custom extension, in the root directory of MOLA
 ]
 
 intersphinx_mapping = {

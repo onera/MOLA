@@ -25,31 +25,17 @@ NumberOfProcessors = comm.Get_size()
 import glob
 import shutil
 
+import mola.naming_conventions as names
+
+from mola.cfd.compute.compute import check_stderr_and_create_COMPLETED
+
 
 def apply_to_solver(workflow):
 
-    # ------------------------- IMPORT  CASSIOPEE ------------------------- #
-    import Converter.PyTree as C
-    import Converter.Internal as I
-    import Converter.Filter as Filter
-    import Converter.Mpi as Cmpi
-
-    # ------------------------------ SETTINGS ------------------------------ #
-    # TODO: List all MOLA keywords in mola.__init__.py ? 
-    FULL_CGNS_MODE   = False
-    FILE_CGNS        = 'main.cgns'
-    FILE_SURFACES    = 'surfaces.cgns'
-    FILE_ARRAYS      = 'arrays.cgns'
-    FILE_FIELDS      = 'tmp-fields.cgns' # BEWARE of tmp- suffix
-    FILE_COLOG       = 'coprocess.log'
-    DIRECTORY_OUTPUT = 'OUTPUT'
-    DIRECTORY_LOGS   = 'LOGS'
-
     if rank==0:
-        os.makedirs(DIRECTORY_OUTPUT, exist_ok=True)
-        os.makedirs(DIRECTORY_LOGS, exist_ok=True)
+        os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
+        os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
 
-    # --------------------------- END OF IMPORTS --------------------------- #
 
     # ----------------- DECLARE ADDITIONAL GLOBAL VARIABLES ----------------- #
     # CO.invokeCoprocessLogFile()
@@ -64,13 +50,13 @@ def apply_to_solver(workflow):
 
     # ========================== LAUNCH ELSA ========================== #
 
-    launch_elsa_computation(workflow, FILE_CGNS)
-    moveLogFiles(DIRECTORY_LOGS)
-    # TODO move this operation to coprocess.py once implemented
+    launch_elsa_computation(workflow)
+    moveLogFiles()
+    # TODO move this operation to coprocess script once implemented
     check_stderr_and_create_COMPLETED()
 
 
-def launch_elsa_computation(workflow, FILE_CGNS):
+def launch_elsa_computation(workflow):
 
     import elsAxdt
     elsAxdt.trace(0)
@@ -83,12 +69,12 @@ def launch_elsa_computation(workflow, FILE_CGNS):
         e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
         e.distribution = Distribution
     else:
-        e = elsAxdt.XdtCGNS(FILE_CGNS)
+        e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
 
     e.action=elsAxdt.COMPUTE
     e.mode=elsAxdt.READ_ALL
     e.compute()
-    e.save(f'OUTPUT/solution_{rank}.cgns', rank)
+    e.save(f'{names.DIRECTORY_OUTPUT}/solution_{rank}.cgns', rank)
 
 
 def set_parameters_in_elsa_objects(SolverParameters):
@@ -139,37 +125,21 @@ def split_mesh(Splitter):
     
     return t, Distribution
     
-def moveLogFiles(DIRECTORY_LOGS):
+def moveLogFiles():
     if rank == 0:
-        try: os.makedirs(DIRECTORY_LOGS)
+        try: os.makedirs(names.DIRECTORY_LOG)
         except: pass
 
         for fn in glob.glob('*.log'):
             FilenameBase = fn[:-4]
             i = 1
             NewFilename = FilenameBase+'-%d'%i+'.log'
-            while os.path.isfile(os.path.join('LOGS', NewFilename)):
+            while os.path.isfile(os.path.join(names.DIRECTORY_LOG, NewFilename)):
                 i += 1
                 NewFilename = FilenameBase+'-%d'%i+'.log'
 
-            shutil.move(fn, os.path.join('LOGS', NewFilename))
+            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, NewFilename))
         for fn in glob.glob('elsA_MPI*'):
-            shutil.move(fn, os.path.join('LOGS', fn))
+            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, fn))
 
     comm.barrier()
-
-def check_stderr_and_create_COMPLETED():
-    check_stderr()
-    if rank==0:
-        with open('COMPLETED','w') as f: 
-            f.write('COMPLETED')
-    
-def check_stderr():
-    # TODO Simple check for now, but it should be different if this function is called in coprocess.py
-    if rank==0:
-        try:
-            with open('stderr.log','r') as f:
-                Error = f.read()
-            raise Exception(Error)
-        except FileNotFoundError:
-            pass

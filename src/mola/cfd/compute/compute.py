@@ -14,7 +14,28 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+from mpi4py import MPI
+rank = MPI.COMM_WORLD.Get_rank()
+
+import mola.naming_conventions as names
 from mola.cfd import apply_to_solver
 
 def apply(workflow):
     apply_to_solver(workflow)
+
+def check_stderr_and_create_COMPLETED():
+    check_stderr()
+    if rank==0:
+        with open(names.FILE_JOB_COMPLETED,'w') as f: 
+            f.write(names.FILE_JOB_COMPLETED)
+    
+def check_stderr():
+    # TODO Simple check for now, but it should be different if this function is called in the coprocess script
+    if rank==0:
+        try:
+            with open(names.FILE_STDERR,'r') as f:
+                Error = f.read()
+            raise Exception(Error)
+        except FileNotFoundError:
+            pass

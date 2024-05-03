@@ -17,6 +17,7 @@
 
 import os
 from treelab import cgns
+import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import server as SV
 
@@ -36,65 +37,62 @@ def write_data_files(workflow):
     for node in t.group(Name='BCDataSet#Average', Type='BCDataSet'):
         node.setType('UserDefinedData')
 
-    # Save fields.cgns with the 3D fields
+    # Save FILE_OUTPUT_3D with the 3D fields
     with redirect_streams_to_logger(mola_logger):
         if run_on_localhost:
-            os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT'), exist_ok=True)
-            t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'))
+            os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT), exist_ok=True)
+            t.save(os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D))
         else:
-            os.makedirs('OUTPUT', exist_ok=True)
-            t.save(os.path.join('OUTPUT', 'fields.cgns'))
+            os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
+            t.save(os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D))
 
-    # Save main.cgns with links to OUTPUT/fields.cgns for 
-    NodesToLink = t.group(Name='FSolution#*#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
+    # Save FILE_INPUT_SOLVER with links to FILE_OUTPUT_3D for 
+    NodesToLink = t.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
     NodesToLink += t.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
     NodesToLink += t.group(Name='BCDataSet#Average') 
     
     for FlowSolutionInit in NodesToLink:
         path = FlowSolutionInit.path()
         FlowSolutionInit.remove()
-        t.addLink(path=path, target_file='OUTPUT/fields.cgns', target_path=path)
+        t.addLink(path=path, target_file=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), target_path=path)
         
     with redirect_streams_to_logger(mola_logger):
         if run_on_localhost:
-            t.save(os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'))
+            t.save(os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER))
         else:
-            t.save('main.cgns')
+            t.save(names.FILE_INPUT_SOLVER)
     
     if not run_on_localhost:
         SV.copy_remote(
-            source_path='main.cgns', 
-            destination_path=os.path.join(workflow.RunManagement['RunDirectory'], 'main.cgns'), 
+            source_path=names.FILE_INPUT_SOLVER, 
+            destination_path=os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER), 
             destination_machine=workflow.RunManagement['Machine'],
             )
         SV.copy_remote(
-            source_path=os.path.join('OUTPUT', 'fields.cgns'), 
-            destination_path=os.path.join(workflow.RunManagement['RunDirectory'], 'OUTPUT', 'fields.cgns'), 
+            source_path=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), 
+            destination_path=os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), 
             destination_machine=workflow.RunManagement['Machine'],
             )
-        SV.remove_path('main.cgns', machine='localhost')
-        SV.remove_path('OUTPUT', machine='localhost', file_only=False)
-
+        SV.remove_path(names.FILE_INPUT_SOLVER, machine='localhost')
+        SV.remove_path(names.DIRECTORY_OUTPUT, machine='localhost', file_only=False)
+        
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)
     write_job_launcher(workflow.RunManagement)
 
 def write_compute(RunManagement):
-    # FIXME Here it is not necessarily Workflow that should be imported
-    # but the Workflow* that serves to preprocess the case.
-    # See how it is done in bin/mola_prepare
+    txt = f'''
+from mola.workflow import read_workflow
+import mola.naming_conventions as names
 
-    txt = '''
-from mola.workflow import Workflow
-
-workflow = Workflow(tree='main.cgns')
+workflow = read_workflow(names.FILE_INPUT_SOLVER)
 workflow.print()
 workflow.compute()
 '''
-    SV.save_file_maybe_remote('compute.py', txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
+    SV.save_file_maybe_remote(names.FILE_COMPUTE, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 def write_job_launcher(RunManagement):
 
-    job_text = SV.get_job_text(RunManagement, 'elsa')+'\n\n'
-    job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} python3 compute.py 1>stdout.log 2>stderr.log\n'
-    SV.save_file_maybe_remote('job.sh', job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
+    job_text = SV.get_job_text(RunManagement, 'sonics')+'\n\n'
+    job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} python3 {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}\n'
+    SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])

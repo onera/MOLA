@@ -25,61 +25,45 @@ NumberOfProcessors = comm.Get_size()
 import glob
 import shutil
 
+import mola.naming_conventions as names
+from .compute import check_stderr_and_create_COMPLETED
+
 
 def apply_to_solver(workflow):
 
-    FILE_CGNS = 'main.cgns'
-    DIRECTORY_LOGS   = 'LOGS'
     if rank==0:
-        os.makedirs(DIRECTORY_LOGS, exist_ok=True)
+        os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
 
-    launch_sonics_computation(workflow, FILE_CGNS)
-    moveLogFiles(DIRECTORY_LOGS)
-    # TODO move this operation to coprocess.py once implemented
+    launch_sonics_computation(workflow)
+    moveLogFiles()
     check_stderr_and_create_COMPLETED()
 
 
-def launch_sonics_computation(workflow, FILE_CGNS):
+def launch_sonics_computation(workflow):
 
     import sonics
     import maia
 
-    dist_tree = maia.io.file_to_dist_tree(FILE_CGNS, comm)
+    dist_tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
 
     sonics.solver.run(workflow.SolverParameters['configuration'], dist_tree, comm)
 
     maia.algo.pe_to_nface(dist_tree, comm)
     maia.io.dist_tree_to_file(dist_tree, f'solution.cgns', comm)
  
-def moveLogFiles(DIRECTORY_LOGS):
+def moveLogFiles():
     if rank == 0:
-        try: os.makedirs(DIRECTORY_LOGS)
+        try: os.makedirs(names.DIRECTORY_LOG)
         except: pass
 
         for fn in glob.glob('*.log'):
             FilenameBase = fn[:-4]
             i = 1
             NewFilename = FilenameBase+'-%d'%i+'.log'
-            while os.path.isfile(os.path.join('LOGS', NewFilename)):
+            while os.path.isfile(os.path.join(names.DIRECTORY_LOG, NewFilename)):
                 i += 1
                 NewFilename = FilenameBase+'-%d'%i+'.log'
 
-            shutil.move(fn, os.path.join('LOGS', NewFilename))
+            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, NewFilename))
 
     comm.barrier()
-
-def check_stderr_and_create_COMPLETED():
-    check_stderr()
-    if rank==0:
-        with open('COMPLETED','w') as f: 
-            f.write('COMPLETED')
-    
-def check_stderr():
-    # TODO Simple check for now, but it should be different if this function is called in coprocess.py
-    if rank==0:
-        try:
-            with open('stderr.log','r') as f:
-                Error = f.read()
-            raise Exception(Error)
-        except FileNotFoundError:
-            pass

@@ -32,6 +32,8 @@ from mola.logging import (mola_logger,
                        redirect_streams_to_logger,
                        get_signature)
 from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
+from  mola.cfd.preprocess import flow_generators
+import mola.naming_conventions as names
 
 
 class WorkflowInterface(object):
@@ -57,7 +59,10 @@ class WorkflowInterface(object):
             ):
             
         attributes = self.repack_kwargs()
-        self.Name = self.__class__.__name__
+
+        self._workflow_parameters_container_ = names.CONTAINER_WORKLFOW_PARAMETERS
+
+        self.Name = workflow.Name if workflow else self.__class__.__name__
         self.set_attributes(attributes)
         self.transfer_attributes_to_workflow(workflow)
 
@@ -91,6 +96,16 @@ class WorkflowInterface(object):
                 except TypeError as e: raise MolaUserAttributeError(method, e)
 
         self.SolverParameters = dict()
+
+
+    def check_consistency_between_solver_and_environment(self):
+        requested_solver = self.Solver
+        env_solver = os.environ.get('MOLA_SOLVER')
+        if requested_solver != env_solver:
+            mola_logger.warning(
+                f'The requested solver "{requested_solver}" does not '
+                f'match the type of environment "{env_solver}"'
+                )
 
     def set_Solver(self, solver_name : str):
         self.Solver = solver_name.lower()
@@ -308,7 +323,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_Integral(self,
             Fields : list = None, # accepts prefix avg- or std-
-            File : str = 'signals.cgns', # if None will use signals.cgns
+            File : str = names.FILE_OUTPUT_1D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 1,
             SavePeriod : int = 100,
@@ -330,7 +345,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_Probe(self,
             Fields : list = None, # accepts prefix avg- or std-
-            File : str = 'signals.cgns',
+            File : str = names.FILE_OUTPUT_1D,
             Name : str = None, # if None, will be based on Position
             ExtractionPeriod : int = 1,
             SavePeriod : int = 100,
@@ -354,7 +369,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_BC(self,
             Fields : list = None,
-            File : str = 'surfaces.cgns',
+            File : str = names.FILE_OUTPUT_2D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
@@ -377,7 +392,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_IsoSurface(self,
             Fields : list = None,
-            File : str = 'surfaces.cgns', # if None will use surfaces.cgns
+            File : str = names.FILE_OUTPUT_2D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
@@ -401,7 +416,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_Interpolation(self,
             Fields : list = None,
-            File : str = 'surfaces.cgns', # if None will use surfaces.cgns
+            File : str = names.FILE_OUTPUT_2D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
@@ -425,7 +440,7 @@ class WorkflowInterface(object):
 
     def add_to_Extractions_3D(self,
             Fields : list = None,
-            File : str = 'fields.cgns', # if None will use fields.cgns
+            File : str = names.FILE_OUTPUT_3D, 
             Name : str = None, # if None, will be based on Position
             ExtractionPeriod : int = 5000,
             SavePeriod : int = 5000,

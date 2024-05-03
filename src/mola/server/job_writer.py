@@ -17,6 +17,7 @@
 
 import os
 
+import mola.naming_conventions as names
 from . import remote 
 
 MolaToScheduler = dict(
@@ -121,12 +122,12 @@ def set_launcher_command(RunManagement):
     if 'LauncherCommand' not in RunManagement \
         or RunManagement['LauncherCommand'] == 'auto':
         scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
-        job_path = os.path.join(RunManagement['RunDirectory'], 'job.sh')
+        job_path = os.path.join(RunManagement['RunDirectory'], names.FILE_JOB)
         if scheduler == 'SLURM':
             # RunManagement['LauncherCommand'] = f'sbatch {job_path}'
-            RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; sbatch job.sh"
+            RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; sbatch {names.FILE_JOB}"
         else:
-            RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; bash job.sh"
+            RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; bash {names.FILE_JOB}"
 
 def convert_to_seconds(time_value):
     '''

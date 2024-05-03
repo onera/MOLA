@@ -51,7 +51,8 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
         if not any([line.startswith(false_error) for false_error in false_errors_startwith]):
             errlines += [line]
     if errlines:
-        raise MolaException('\n'.join(errlines))
+        msg = f'got error using command: {command} with input:\n{input}, error is:\n'
+        raise MolaException(msg+'\n'.join(errlines))
 
     mola_logger.debug(output.stdout)
 

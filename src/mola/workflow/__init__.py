@@ -22,3 +22,16 @@ from .rotating_component import WorkflowRotatingComponent
 from .turbomachinery import WorkflowTurbomachinery
 from .propeller import WorkflowPropeller 
 from .airfoil import WorkflowAirfoil
+
+AVAILABLE_WORKFLOWS = locals()
+
+from treelab import cgns
+
+def read_workflow(source):
+    # Get the right class of Workflow
+    tree = cgns.load(source)
+    workflow_name = tree.get(Name='WorkflowParameters').get(Name='Name', Depth=1).value()
+    PreviouslyUsedWorkflow = AVAILABLE_WORKFLOWS.get(workflow_name)
+
+    workflow = PreviouslyUsedWorkflow(tree=tree)
+    return workflow

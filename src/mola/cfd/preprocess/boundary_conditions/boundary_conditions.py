@@ -72,11 +72,10 @@ def apply(workflow, selected_boundaries_conditions=None):
         bcName = bc['Type']
         if bcName == 'InterfaceBetweenWorkflows':
             continue
-        try:
+        if 'LinkedFamily' in bc:
+            mola_logger.info(f'  > {bcName} between families {bc["Family"]} and {bc["LinkedFamily"]}')
+        else:
             mola_logger.info(f'  > {bcName} on family {bc["Family"]}')
-        except:
-            # TODO : change this by using Family and LinkedFamily
-            mola_logger.info(f'  > {bcName} between families {bc["left"]} and {bc["right"]}')
         
         if bcName in BoundaryConditionsNames:
             # Define in the main MOLA preprocess, lower in this file
@@ -270,10 +269,10 @@ def OutflowRadialEquilibrium(workflow, bc):
     # )
     kwargs = copy.deepcopy(bc)
     kwargs.pop('Family')
-    kwargs.pop('type')
+    kwargs.pop('Type')
     return [bc['Family']], kwargs
 
 
 def MixingPlane(workflow, bc):
-    return [bc['left'], bc['right']], dict() 
+    return [bc['Family'], bc['LinkedFamily']], dict() 
 

@@ -76,7 +76,7 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         # elif outflow_bc['valve_type'] in [3, 4]:
         #     THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_relax' 
 
-        throttle_key = THROTTLE_KEY[outflow_bc["type"]]
+        throttle_key = THROTTLE_KEY[outflow_bc["Type"]]
 
         dispatcher = WM.WorkflowDispatcher(self)
         if not ParallelMode:

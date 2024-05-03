@@ -34,9 +34,9 @@ class FakeWorkflow():
         self.Turbulence = dict(TransitionMode=None)
 
         self.Extractions = [
-            dict(type='fake'),
-            dict(type='bc', BCType='BCWallViscous', fields=['Pressure']),
-            dict(type='3D', fields=['Density', 'Momentum', 'Energy']),
+            dict(Type='fake'),
+            dict(Type='BC', Source='BCWallViscous', Fields=['Pressure']),
+            dict(Type='3D', Field=['Density', 'Momentum', 'Energy']),
         ]
 
         self.tree = cgns.Tree()

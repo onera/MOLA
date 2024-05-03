@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from treelab import cgns
 
+import mola.naming_conventions as names
 from mola.workflow import Workflow
 import mola.workflow.workflow_manager as WM
 from mola.logging import check_error_message, MolaException
@@ -18,7 +19,7 @@ def get_fake():
 
         BoundaryConditions = [
             dict(Family='INFLOW'),
-            dict(Family='OUTFLOW', type='OutflowPressure', Pressure=10),
+            dict(Family='OUTFLOW', Type='OutflowPressure', Pressure=10),
         ]
 
         RunManagement = dict(
@@ -68,35 +69,41 @@ def test_get_value_on_leaf():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_find_matching_leaves():
-    @dataclass
     class Fake(Workflow):
 
-        RawMeshComponents = [
-            dict(
-                Name = 'test',
-                Source = 'source.cgns',
+        def __init__(self):
+
+            self.RawMeshComponents = [
+                dict(
+                    Name = 'test',
+                    Source = 'source.cgns',
+                )
+            ]
+
+            self.BoundaryConditions = [
+                dict(Family='INFLOW', File='inflow_map.cgns'),
+                dict(Family='OUTFLOW', Type='OutflowPressure', Pressure=10),
+            ]
+
+            self.Initialization = dict(
+                Method = 'copy',
+                Source = 'init.cgns',
             )
-        ]
 
-        BoundaryConditions = [
-            dict(Family='INFLOW', filename='inflow_map.cgns'),
-            dict(Family='OUTFLOW', type='OutflowPressure', Pressure=10),
-        ]
-
-        Initialization = dict(
-            method = 'copy',
-            filename = 'init.cgns',
-        )
+            self.Extractions = [
+                dict(Type='BC', File='extractions.cgns'),
+            ]
 
     def add_preffix(name):
         return 'new_'+name
 
     workflow = Fake()
-    filenames = WM.find_matching_leaves(workflow, ['*.cgns'], operation=add_preffix)
+    filenames = WM.find_matching_leaves(workflow, ['*.cgns'], operation=add_preffix, excluded_attributes=['Extractions'])
     assert set(filenames) == {'source.cgns', 'inflow_map.cgns', 'init.cgns'}
     assert workflow.RawMeshComponents[0]['Source'] == 'new_source.cgns'
-    assert workflow.BoundaryConditions[0]['filename'] == 'new_inflow_map.cgns'
-    assert workflow.Initialization['filename'] == 'new_init.cgns'
+    assert workflow.BoundaryConditions[0]['File'] == 'new_inflow_map.cgns'
+    assert workflow.Initialization['Source'] == 'new_init.cgns'
+    assert workflow.Extractions[0]['File'] == 'extractions.cgns'
 
 def get_fake_workflow():
     x, y, z = np.meshgrid( np.linspace(0,1,21),
@@ -209,7 +216,7 @@ def test_WorkflowParallelScheduler_prepare():
         files_list.append(files)
 
     assert root_dirs == [test_dir, f'{test_dir}/model1', f'{test_dir}/model1/test_10', f'{test_dir}/model1/test_30', f'{test_dir}/model1/test_20', f'{test_dir}/model2', f'{test_dir}/model2/test_10', f'{test_dir}/model2/test_30', f'{test_dir}/model2/test_20']
-    assert files_list == [[], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns'], ['job_sequence.sh'], ['workflow.cgns'], ['workflow.cgns'], ['workflow.cgns']]
+    assert files_list == [[], [names.FILE_JOB_SEQUENCE], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_JOB_SEQUENCE], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW]]
     
     shutil.rmtree(test_dir)
 
@@ -246,7 +253,7 @@ def test_WorkflowParallelScheduler_sphere_local():
 
     for BCWall in ['WallViscous', 'WallInviscid']:
         for velocity in [50., 20., 80.]:
-            COMPLETED_PATH = os.path.join(scheduler.root_directory, BCWall, f'Velocity_{velocity}', 'COMPLETED')
+            COMPLETED_PATH = os.path.join(scheduler.root_directory, BCWall, f'Velocity_{velocity}', names.FILE_JOB_COMPLETED)
             if not os.path.exists(COMPLETED_PATH):
                 raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
 
@@ -272,7 +279,7 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
                     ('RunManagement|JobName', f'test_{BCWall}'),
                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
                     ('Flow|Velocity', velocity),
-                    ('BoundaryConditions|Family=Wall|type', BCWall),
+                    ('BoundaryConditions|Family=Wall|Type', BCWall),
                 ], 
                 initialize_from_previous=False
                 )
@@ -290,7 +297,7 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
 
     for BCWall in ['WallViscous', 'WallInviscid']:
         for velocity in [50., 20., 80.]:
-            COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', 'COMPLETED')
+            COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', names.FILE_JOB_COMPLETED)
             SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
 
     SV.remove_path(test_dir, machine='sator', file_only=False)

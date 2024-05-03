@@ -23,6 +23,7 @@ import numpy as np
 
 import treelab.cgns as cgns
 
+import mola.naming_conventions as names
 from mola.workflow import Workflow
 from mola.logging import mola_logger, MolaException, mute_stdout
 from mola import server as SV
@@ -339,10 +340,58 @@ def test_workflow_sphere_struct_remote_sator():
 
     # NOTE: do not wait for job to end, since that approach would provoke
     # too important delays (waiting for resources of SLURM)
-    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_print_interface_1():
+    w = get_workflow1()
+    w.print_interface()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_submit():
+    test_dir = 'test_submit_dir'
+    os.makedirs(test_dir, exist_ok=True)
+    w = Workflow(RunManagement=dict(RunDirectory=test_dir))
+    set_default(w.RunManagement)
+    SV.job_writer.set_launcher_command(w.RunManagement)
+    with open(os.path.join(test_dir,names.FILE_JOB),'w') as f:
+        f.write('hostname > test.txt')
+    w.submit()
+    if not os.path.exists(os.path.join(test_dir,'test.txt')):
+        raise MolaException('submit test failed')
+    shutil.rmtree(test_dir)
+    
+
+
+def test_wip():
+    import inspect
+
+    def repack_kwargs_only(**kwargs):
+        # Get the current frame (frame where this function is called)
+        frame = inspect.currentframe().f_back
+        # Get the arguments from the calling frame
+        locals_dict = frame.f_locals
+        # Remove 'self' if this is a method in a class
+        locals_dict.pop("self", None)
+        # Remove 'kwargs' if it exists
+        locals_dict.pop("kwargs", None)
+        # Repack only kwargs
+        kwargs = {key: locals_dict[key] for key in locals_dict if key not in locals_dict.get("args", [])}
+        return kwargs
+
+    # Example usage:
+    def example_function(a, b, c, d=1, e=2, *, f=None, g=None):
+        kwargs = repack_kwargs_only()
+        return kwargs
+
+    result = example_function(1, 2, 3, g='value')
+    print("Keyword arguments:", result)
+    
+    
 
 if __name__ == '__main__':
     test_workflow_sphere_struct_remote_sator()

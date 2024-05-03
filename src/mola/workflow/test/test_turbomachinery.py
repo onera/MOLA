@@ -18,6 +18,7 @@
 import pytest
 import os
 
+import mola.naming_conventions as names
 from mola.logging import MolaException
 from mola.workflow import WorkflowTurbomachinery
 from mola import server as SV
@@ -90,9 +91,7 @@ def test_rotor37_local():
     w.prepare()
     w.write_cfd_files()
     w.submit()
-    COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-    if not os.path.exists(COMPLETED_PATH):
-        raise MolaException('simulation did not ended as expected')
+    w.simulation_status()
     w.remove_cfd_files()
 
 
@@ -115,12 +114,12 @@ def test_rotor37_sator():
 
     # NOTE: do not wait for job to end, since that approach would provoke
     # too important delays (waiting for resources of SLURM)
-    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
+    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
 
 if __name__ == '__main__':
     # test_show_interface_1()
-    test_init()
+    test_rotor37_local()
     # test_wip()
