@@ -25,7 +25,7 @@ from . import remote
 def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000,
         start_scan_keywords=['error','warning','traceback','abort']):
 
-    separator_line = 'SCANNED_ERRORS'
+    separator_line = 'SCANNED_ERRORS\n'
     if remote.run_on_localhost(machine=machine, run_directory=filepath):
         # implementation of the function
         found_info = False
@@ -45,7 +45,8 @@ def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000
         pycode = ';'.join(pycode)
         out = remote.submit_command(f'python3 -c "{pycode}"', machine, user=user,
                                     use_mola_env=True)
-        if separator_line in out: return out.split(separator_line)
+        
+        if separator_line in out: return separator_line+out.split(separator_line)[-1]
         return ''
     
 def save_file(filename, text, directory='.'):

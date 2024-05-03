@@ -18,42 +18,27 @@
 import os
 from typing import Union
 import numpy as np
-from . import WorkflowInterface
-from . import WorkflowRotatingComponent
+from .rotating_component import WorkflowRotatingComponent
+from .turbomachinery_interface import WorkflowTurbomachineryInterface
 from . import workflow_manager as WM
 from mola.logging import mola_logger, MolaAssertionError
 from mola.cfd.preprocess.mesh import tools as mesh_tools
 
 class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
-    def __init__(self, 
-                tree=None,
-                Solver : str = os.environ.get('MOLA_SOLVER'),
-                RawMeshComponents : list = None,
-                Fluid : dict = None,
-                Flow : dict = None,
-                Turbulence : dict = None,
-                BoundaryConditions : list = None,
-                SplittingAndDistribution : dict = None,
-                Numerics : dict = None,
-                BodyForceModeling : list = None,
-                Motion : dict = None, 
-                Initialization : dict = None,
-                ExtractionsDefaults : list = None,
-                Extractions : list = None,
-                ConvergenceCriteria : list = None,
-                RunManagement : dict = None,
-                ApplicationContext : dict = None,
-                 ):
+    def __init__(self, tree=None, **kwargs):
         
-        super().__init__(**WorkflowInterface.repack_kwargs())
-
-        if self.tree is None:
-            for meshInfo in self.RawMeshComponents:
-                meshInfo.setdefault('Mesher', 'Autogrid')
-
+        self._workflow_parameters_container_ = 'WorkflowParameters'
+        self.Name = self.__class__.__name__
+        self.tree = tree
+        self._interface = WorkflowTurbomachineryInterface(workflow=self, **kwargs)
+        if tree is not None:
+            self.get_workflow_parameters_from_tree()
+        else:
             self.Extractions.extend([
-                dict(Type='BC', Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus']),
+                dict(Type='BC', Source='BCWall*', Fields=['Pressure',
+                                                          'BoundaryLayer',
+                                                          'yPlus']),
                 dict(Type='BC', Source='BCInflow*', Fields=['MassFlow']),
                 dict(Type='BC', Source='BCOutflow*', Fields=['MassFlow']),
             ])
@@ -111,52 +96,4 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         scheduler = WM.WorkflowParallelScheduler(dispatcher, RunDirectory, skip_if_exists=True)
         scheduler.prepare()
         scheduler.submit()
-
-    def set_Flow(self,
-            Generator : str = 'Internal',
-            Velocity  : float = 1.0,
-            # Parameters relevant to InternalFlowGenerator
-            MassFlow               : float = None,
-            Mach                   : float = None,
-            PressureStagnation     : float = None,
-            TemperatureStagnation  : float = None,
-            IdealGasConstant       : float = None,
-            Gamma                  : float = None,
-            ):
-        return super().set_Flow(**self.repack_kwargs())
-
-    def set_SplittingAndDistribution(self, 
-            Strategy                         : str = 'AtComputation',
-            Splitter                         : str = 'PyPart',
-            Distributor                      : str = 'PyPart',
-            ComponentsToSplit                : Union[ str,
-                                                    None,
-                                                    list ] = 'all',
-            NumberOfProcessors               : Union[ str,
-                                                    int]  = 'auto',
-            MinimumAllowedNodes              : int = 1,
-            MaximumAllowedNodes              : int = 20,
-            MaximumNumberOfPointsPerNode     : int = int(1e9),
-            CoresPerNode                     : int = 48,
-            DistributeExclusivelyOnFullNodes : bool = True,
-                       ):
-        return super().set_SplittingAndDistribution(**self.repack_kwargs())
-        
-
-    def set_ApplicationContext(self,
-            ShaftAxis : Union[list,
-                             tuple,
-                             np.ndarray] = [1,0,0],
-            
-            # TODO : redefine as Workflow's attributes with set_* and add_to_* ?
-            Rows : dict = None,
-            HubRotationSpeed : list = None,
-            ShaftRotationSpeed : float = None,
-            NormalizationCoefficient : dict = None):
-        '''
-        
-        '''
-        # shall make _get_comp accessible (staticmethod?)
-        self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.repack_kwargs())
-
-        self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
+ 

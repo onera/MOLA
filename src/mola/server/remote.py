@@ -26,18 +26,18 @@ from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola import __MOLA_PATH__
 
 def submit_command(command, machine, input=None, user=None, use_mola_env=False,
+        remote_solver=os.environ.get('MOLA_SOLVER'),
         false_errors_startwith=['sbatch: Soumission depuis noeud']):
 
     ssh_host = get_ssh_host_command(machine=machine, user=user)
+    env = os.environ.copy()
     if ssh_host != '':
         assert input is None
         input = '\n'.join(command.split(';'))
         command = f'{ssh_host}'
         if use_mola_env:
-            input = add_mola_env(machine) + input
+            input = add_mola_env(machine, remote_solver) + input
             env = {}
-        else:
-            env = os.environ.copy()
 
     if input is None:
         mola_logger.debug(f'run command: {command}')

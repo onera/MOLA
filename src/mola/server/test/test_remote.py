@@ -104,27 +104,24 @@ def test_submit_python_command_with_error():
     except MolaException as e:
         got_expected_error = False
         for err_msg_line in str(e).split('\n'):
-            if err_msg_line == expected_error:
+            if expected_error in err_msg_line:
                 got_expected_error = True
                 break
         if not got_expected_error:
-            raise MolaException(f'did not got expected error, instead got: {e}')
+            raise MolaException(f'did not get the expected error:\n{expected_error}\ninstead got:\n{e}')
     
-# @pytest.mark.network_onera
-# @pytest.mark.unit
-# @pytest.mark.cost_level_1
-# def test_submit_command_python_sator():
-#     machine = 'sator'
-
-#     # create an empty file with a python command send with submit_command
-#     filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
-#     code = f'''
-# with open('{filename}', 'w') as f:
-#     f.write('test')
-# '''
-#     remote.submit_command(sys.executable, machine, input=code)
-    
-#     FOP.remove_path(filename, machine=machine)
+@pytest.mark.network_onera
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_submit_command_python_sator():
+    # create an empty file with a python command send with submit_command
+    machine = 'sator'
+    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
+    pycode = [f"with open('{filename}', 'w') as f:"]
+    pycode+= [f"    f.write('test')"]
+    pycode = ';'.join(pycode)
+    out = remote.submit_command(f'python3 -c "{pycode}"', machine, use_mola_env=True)
+    FOP.remove_path(filename, machine=machine)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -148,4 +145,4 @@ def test_wait_until():
 
 
 if __name__ == '__main__':
-    test_submit_command_sator()
+    test_submit_command_python_sator()

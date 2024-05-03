@@ -149,17 +149,24 @@ def test_read_text_file_from_errors():
 
     err_msg = FOP.read_text_file_from_errors(source)
     os.unlink(source)
-    assert expected_err_msg == err_msg
+    assert 'SCANNED_ERRORS\n'+expected_err_msg == err_msg
 
 
 @pytest.mark.network_onera
 @pytest.mark.unit
 @pytest.mark.cost_level_1
 def test_read_text_file_from_errors_sator():
-    source = '/tmp_user/sator/lbernard/.test/test_workflow_sphere_struct_remote_sator/stderr.log'
-    err_msg = FOP.read_text_file_from_errors(source, 'sator')
-    print(err_msg)
-
+    directory = '/tmp_user/sator/$USER/.test/'
+    filename = 'dummy_test_err_file.log'
+    expected_err_msg = (
+        'From this line the file is registered, since there is the word ERROR\n'
+        'so this line is registered as well\n'
+        'and this one.\n')
+    full_txt = 'This line will not be catched by scanner\nThis one neither\n'+expected_err_msg
+    FOP.save_file_maybe_remote(filename, full_txt, directory, machine='sator')
+    err_msg = FOP.read_text_file_from_errors(directory+filename, 'sator')
+    FOP.remove_path(directory+filename,'sator',file_only=True)
+    assert 'SCANNED_ERRORS\n'+expected_err_msg+'\n' == err_msg
 
 if __name__ == '__main__':
     test_read_text_file_from_errors_sator()

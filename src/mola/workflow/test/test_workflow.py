@@ -28,92 +28,6 @@ from mola.logging import mola_logger, MolaException, mute_stdout
 from mola import server as SV
 from mola.cfd.preprocess.write_cfd_files.write_cfd_files import set_default
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_init():
-    w = Workflow()
-
-
-def get_workflow1():
-
-    x, y, z = np.meshgrid( np.linspace(0,1,21),
-                           np.linspace(0,1,21),
-                           np.linspace(0,1,21), indexing='ij')
-    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'],
-                                            [ x,  y,  z ])
-
-    w = Workflow(
-        RawMeshComponents=[
-            dict(
-                Name='cartesian',
-                Source=mesh,
-                Mesher=None,
-                CleaningMacro=None,
-                Families=[
-                    dict(Name='Ground',
-                         Location='kmin'),
-                    dict(Name='Farfield',
-                         Location='remaining'),
-                ],
-                Positioning=[
-                    dict(
-                        Type='TranslationAndRotation',
-                        InitialFrame=dict(
-                            Point=[0,0,0],
-                            Axis1=[1,0,0],
-                            Axis2=[0,1,0],
-                            Axis3=[0,0,1]),
-                        RequestedFrame=dict(
-                            Point=[0,0,0],
-                            Axis1=[1,0,0],
-                            Axis2=[0,1,0],
-                            Axis3=[0,0,1]),
-                        ),
-                    dict(
-                        Type='DuplicateByRotation',
-                        RotationPoint=[0,0,0],
-                        RotationAxis=[0,0,1],
-                        RightHandRuleRotation=True,
-                        NumberOfInstances=4,
-                        AddInstancesAsNewComponents=True,
-                        ),
-                ],
-                Connection = [
-                    dict(Type='Match', Tolerance=1e-8),
-                ],
-                )
-        ],
-
-        SplittingAndDistribution=dict(
-            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
-            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
-            Distributor='Cassiopee', 
-            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=4, 
-            # MinimumAllowedNodes=1,
-            # MaximumAllowedNodes=20,
-            # MaximumNumberOfPointsPerNode=1e9,
-            # CoresPerNode=48,
-            # DistributeExclusivelyOnFullNodes=True,
-            ),
-
-
-        )
-
-    return w
-
-@pytest.mark.cost_level_1
-@pytest.mark.integration
-def test_prepare_workflow1():
-    w = get_workflow1()
-    w.assemble()
-    w.positioning()
-    w.connect()
-    w.define_families()
-    w.split_and_distribute()
-    w.tree.save('test.cgns')
-    os.unlink('test.cgns')
-    
 
 def get_workflow2():
 
@@ -198,7 +112,6 @@ def get_workflow2():
         )
     return w
 
-
 def get_workflow_sphere_struct():
     w = Workflow(
         RawMeshComponents=[
@@ -256,6 +169,135 @@ def get_workflow_sphere_struct():
     
     return w
 
+def get_workflow1():
+
+    x, y, z = np.meshgrid( np.linspace(0,1,21),
+                           np.linspace(0,1,21),
+                           np.linspace(0,1,21), indexing='ij')
+    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'],
+                                            [ x,  y,  z ])
+
+    w = Workflow(
+        RawMeshComponents=[
+            dict(
+                Name='cartesian',
+                Source=mesh,
+                Mesher=None,
+                CleaningMacro=None,
+                Families=[
+                    dict(Name='Ground',
+                         Location='kmin'),
+                    dict(Name='Farfield',
+                         Location='remaining'),
+                ],
+                Positioning=[
+                    dict(
+                        Type='TranslationAndRotation',
+                        InitialFrame=dict(
+                            Point=[0,0,0],
+                            Axis1=[1,0,0],
+                            Axis2=[0,1,0],
+                            Axis3=[0,0,1]),
+                        RequestedFrame=dict(
+                            Point=[0,0,0],
+                            Axis1=[1,0,0],
+                            Axis2=[0,1,0],
+                            Axis3=[0,0,1]),
+                        ),
+                    dict(
+                        Type='DuplicateByRotation',
+                        RotationPoint=[0,0,0],
+                        RotationAxis=[0,0,1],
+                        RightHandRuleRotation=True,
+                        NumberOfInstances=4,
+                        AddInstancesAsNewComponents=True,
+                        ),
+                ],
+                Connection = [
+                    dict(Type='Match', Tolerance=1e-8),
+                ],
+                )
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+            Distributor='Cassiopee', 
+            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            NumberOfProcessors=4, 
+            # MinimumAllowedNodes=1,
+            # MaximumAllowedNodes=20,
+            # MaximumNumberOfPointsPerNode=1e9,
+            # CoresPerNode=48,
+            # DistributeExclusivelyOnFullNodes=True,
+            ),
+
+
+        )
+
+    return w
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_init():
+    w = Workflow()
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_submit():
+    test_dir = 'test_submit_dir'
+    os.makedirs(test_dir, exist_ok=True)
+    w = Workflow(RunManagement=dict(RunDirectory=test_dir))
+    set_default(w.RunManagement)
+    SV.job_writer.set_launcher_command(w.RunManagement)
+    with open(os.path.join(test_dir,'job.sh'),'w') as f:
+        f.write('hostname > test.txt')
+    w.submit()
+    if not os.path.exists(os.path.join(test_dir,'test.txt')):
+        raise MolaException('submit test failed')
+    shutil.rmtree(test_dir)
+    
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_write_tree():
+    w = Workflow()
+    w.write_tree('main.cgns')
+    os.unlink('main.cgns')
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_workflow_parameters_in_tree(filename=''):
+    w = Workflow()
+    w.set_workflow_parameters_in_tree()
+    if filename: w.write_tree(filename)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_workflow_parameters_from_tree(filename=''):
+    w = Workflow()
+    w.set_workflow_parameters_in_tree()
+    w.write_tree('test.cgns')
+    w.tree = 'test.cgns'
+    w.get_workflow_parameters_from_tree()
+    os.unlink('test.cgns')
+    if filename: w.write_tree(filename)    
+
+
+@pytest.mark.cost_level_1
+@pytest.mark.integration
+def test_prepare_workflow1():
+    w = get_workflow1()
+    w.assemble()
+    w.positioning()
+    w.connect()
+    w.define_families()
+    w.split_and_distribute()
+    w.tree.save('test.cgns')
+    os.unlink('test.cgns')
+    
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_prepare_workflow2():
@@ -274,24 +316,6 @@ def test_workflow_sphere_struct_local():
     w.simulation_status()
     w.remove_cfd_files()
 
-# This test does not end for some reason... but the simulation is COMPLETED on spiro
-# @pytest.mark.network_onera
-# @pytest.mark.integration
-# @pytest.mark.cost_level_3
-# def test_workflow_sphere_struct_remote_spiro():
-#     w = get_workflow_sphere_struct()
-#     w.RunManagement['RunDirectory'] = f'/scratchm/$USER/.test/tmp_MOLA_test/'
-#     w.RunManagement['TimeLimit'] = '00:30:00'
-
-#     SV.remove_path(w.RunManagement['RunDirectory'], machine='spiro', file_only=False)
-
-#     w.prepare()
-#     w.write_cfd_files()
-#     w.submit()
-
-#     COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'],'COMPLETED')
-#     SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='spiro', timeout=30)
-#     SV.remove_path(w.RunManagement['RunDirectory'], machine='spiro', file_only=False)
 
 @pytest.mark.network_onera
 @pytest.mark.integration
@@ -319,48 +343,6 @@ def test_workflow_sphere_struct_remote_sator():
     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_submit():
-    test_dir = 'test_submit_dir'
-    os.makedirs(test_dir, exist_ok=True)
-    w = Workflow(RunManagement=dict(RunDirectory=test_dir))
-    set_default(w.RunManagement)
-    SV.job_writer.set_launcher_command(w.RunManagement)
-    with open(os.path.join(test_dir,'job.sh'),'w') as f:
-        f.write('hostname > test.txt')
-    w.submit()
-    if not os.path.exists(os.path.join(test_dir,'test.txt')):
-        raise MolaException('submit test failed')
-    shutil.rmtree(test_dir)
-    
-
-
-def test_wip():
-    import inspect
-
-    def repack_kwargs_only(**kwargs):
-        # Get the current frame (frame where this function is called)
-        frame = inspect.currentframe().f_back
-        # Get the arguments from the calling frame
-        locals_dict = frame.f_locals
-        # Remove 'self' if this is a method in a class
-        locals_dict.pop("self", None)
-        # Remove 'kwargs' if it exists
-        locals_dict.pop("kwargs", None)
-        # Repack only kwargs
-        kwargs = {key: locals_dict[key] for key in locals_dict if key not in locals_dict.get("args", [])}
-        return kwargs
-
-    # Example usage:
-    def example_function(a, b, c, d=1, e=2, *, f=None, g=None):
-        kwargs = repack_kwargs_only()
-        return kwargs
-
-    result = example_function(1, 2, 3, g='value')
-    print("Keyword arguments:", result)
-    
-    
 
 if __name__ == '__main__':
     test_workflow_sphere_struct_remote_sator()

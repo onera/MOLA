@@ -27,31 +27,6 @@ def test_init():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_write_tree():
-    w = WorkflowInterface()
-    w.write_tree('main.cgns')
-    os.unlink('main.cgns')
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_set_workflow_parameters_in_tree(filename=''):
-    w = WorkflowInterface()
-    w.set_workflow_parameters_in_tree()
-    if filename: w.write_tree(filename)
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_get_workflow_parameters_from_tree(filename=''):
-    w = WorkflowInterface()
-    w.set_workflow_parameters_in_tree()
-    w.write_tree('test.cgns')
-    w.tree = 'test.cgns'
-    w.get_workflow_parameters_from_tree()
-    os.unlink('test.cgns')
-    if filename: w.write_tree(filename)
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_print():
     w = WorkflowInterface()
     print(w)

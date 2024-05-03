@@ -65,10 +65,9 @@ class WorkflowInterface(object):
 
     def set_attributes(self, attributes, skip_attributes=['self','tree','workflow']):
 
-        expected_attribute_types = self.get_argument_types(self.__init__)
+        expected_attribute_types = self.get_argument_types(WorkflowInterface.__init__)
         
         for attribute_name, user_input in attributes.items():
-
             if attribute_name in skip_attributes: continue
         
             try:
@@ -111,7 +110,8 @@ class WorkflowInterface(object):
                                Base,
                                Zone ],
         ):
-        self.RawMeshComponents.append(self._get_comp(self.add_to_RawMeshComponents, self.repack_kwargs()))
+        self.RawMeshComponents.append(self._get_comp(
+            WorkflowInterface.add_to_RawMeshComponents, self.repack_kwargs()))
 
     def set_RawMeshComponents(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -130,7 +130,7 @@ class WorkflowInterface(object):
             SutherlandConstant         : float = 110.4,
             SutherlandViscosity        : float = 1.78938e-05,
             SutherlandTemperature      : float = 288.15):
-        self.Fluid = self._get_comp(self.set_Fluid, self.repack_kwargs())
+        self.Fluid = self._get_comp(WorkflowInterface.set_Fluid, self.repack_kwargs())
 
 
     def set_Flow(self,
@@ -152,7 +152,7 @@ class WorkflowInterface(object):
             VelocityUsedForScalingAndTurbulence : float = None
             ):
 
-        self.Flow = self._get_comp(self.set_Flow, self.repack_kwargs())
+        self.Flow = self._get_comp(WorkflowInterface.set_Flow, self.repack_kwargs())
 
         if 'Direction' in self.Flow:
             self.Flow['Direction'] = np.array(self.Flow['Direction'], dtype=float)
@@ -175,7 +175,7 @@ class WorkflowInterface(object):
         TurbulenceCutOffRatio        : float = 1e-8,
         TransitionMode               :   str = None,
                        ):
-        self.Turbulence = self._get_comp(self.set_Turbulence, self.repack_kwargs())
+        self.Turbulence = self._get_comp(WorkflowInterface.set_Turbulence, self.repack_kwargs())
 
     def set_BoundaryConditions(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -188,7 +188,8 @@ class WorkflowInterface(object):
         Family        : str   = None,
         Type          : str   = None,
         ):
-        self.BoundaryConditions.append(self._get_comp(self.add_to_BoundaryConditions, self.repack_kwargs()))
+        self.BoundaryConditions.append(self._get_comp(
+            WorkflowInterface.add_to_BoundaryConditions, self.repack_kwargs()))
 
     def set_SplittingAndDistribution(self,
         Strategy                         : str = 'AtPreprocess',
@@ -205,7 +206,8 @@ class WorkflowInterface(object):
         CoresPerNode                     : int = 48,
         DistributeExclusivelyOnFullNodes : bool = True,
                        ):
-        self.SplittingAndDistribution = self._get_comp(self.set_SplittingAndDistribution, self.repack_kwargs())
+        self.SplittingAndDistribution = self._get_comp(
+            WorkflowInterface.set_SplittingAndDistribution, self.repack_kwargs())
 
     def set_Numerics(self,
         Scheme                    : str   = 'Jameson',
@@ -219,7 +221,8 @@ class WorkflowInterface(object):
         CFL                       : Union[ float,
                                             dict] = 10.0,
                        ):
-        self.Numerics = self._get_comp(self.set_Numerics, self.repack_kwargs())
+        self.Numerics = self._get_comp(
+            WorkflowInterface.set_Numerics, self.repack_kwargs())
         self.check_time_marching()
         self.check_cfl()
 
@@ -255,11 +258,12 @@ class WorkflowInterface(object):
 
     def add_to_BodyForceModeling(self,
             ToBeImplmented : str = 'NotYetImplemented'):
-        self.BodyForceModeling.append(self._get_comp(self.add_to_BodyForceModeling, self.repack_kwargs()))
+        self.BodyForceModeling.append(self._get_comp(
+            WorkflowInterface.add_to_BodyForceModeling, self.repack_kwargs()))
 
     def set_Motion(self,
             motion_per_family_dict    : dict  = None):
-        self.Motion = self._get_comp(self.set_Motion, self.repack_kwargs())
+        self.Motion = self._get_comp(WorkflowInterface.set_Motion, self.repack_kwargs())
 
     def set_Initialization(self,
             Method    : str  = 'uniform',
@@ -268,7 +272,8 @@ class WorkflowInterface(object):
                                   Base,
                                   Zone ]  = None,
             KeepTurbulentDistance    : bool  = False):
-        self.Initialization = self._get_comp(self.set_Initialization, self.repack_kwargs())
+        self.Initialization = self._get_comp(
+            WorkflowInterface.set_Initialization, self.repack_kwargs())
 
     def set_Extractions(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list, several_add_tos=True,
@@ -320,7 +325,8 @@ class WorkflowInterface(object):
         '''
         Summation over a given source of the mesh, providing a scalar integral value
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_Integral, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_Integral, self.repack_kwargs()))
 
     def add_to_Extractions_Probe(self,
             Fields : list = None, # accepts prefix avg- or std-
@@ -343,7 +349,8 @@ class WorkflowInterface(object):
         '''
         Probe extraction 
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_Probe, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_Probe, self.repack_kwargs()))
 
     def add_to_Extractions_BC(self,
             Fields : list = None,
@@ -365,7 +372,8 @@ class WorkflowInterface(object):
         '''
         Extraction at boundaries of the mesh
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_BC, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_BC, self.repack_kwargs()))
 
     def add_to_Extractions_IsoSurface(self,
             Fields : list = None,
@@ -388,7 +396,8 @@ class WorkflowInterface(object):
         '''
         Extraction using an iso-surface operation
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_IsoSurface, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_IsoSurface, self.repack_kwargs()))
 
     def add_to_Extractions_Interpolation(self,
             Fields : list = None,
@@ -411,7 +420,8 @@ class WorkflowInterface(object):
         '''
         Extraction using an interpolation on a user-provided grid by file or in memory
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_Interpolation, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_Interpolation, self.repack_kwargs()))
 
     def add_to_Extractions_3D(self,
             Fields : list = None,
@@ -434,7 +444,8 @@ class WorkflowInterface(object):
         '''
         Fields (or sub-fields) extraction 
         '''
-        self.Extractions.append(self._get_comp(self.add_to_Extractions_3D, self.repack_kwargs()))
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_3D, self.repack_kwargs()))
 
     def set_ExtractionsDefaults(self, user_list : list = None):
         self._set_by_user_list(self._method_name(), user_list)
@@ -454,7 +465,8 @@ class WorkflowInterface(object):
         *,
         ReferenceParameter : str = 'File',
         ):
-        self.ExtractionsDefaults.append(self._get_comp(self.add_to_ExtractionsDefaults, self.repack_kwargs()))
+        self.ExtractionsDefaults.append(self._get_comp(
+            WorkflowInterface.add_to_ExtractionsDefaults, self.repack_kwargs()))
 
     def set_ConvergenceCriteria(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -467,7 +479,8 @@ class WorkflowInterface(object):
         Variable      : str   = 'std-MyVariable',
         Threshold     : float = 1e-3,
         ):
-        self.ConvergenceCriteria.append(self._get_comp(self.add_to_ConvergenceCriteria, self.repack_kwargs()))
+        self.ConvergenceCriteria.append(self._get_comp(
+            WorkflowInterface.add_to_ConvergenceCriteria, self.repack_kwargs()))
 
     def set_RunManagement(self,
         JobName : str = None,
@@ -481,14 +494,8 @@ class WorkflowInterface(object):
         FilesAndDirectories : list = [],
         mola_target_path : str = None,
                           ):
-        self.RunManagement = self._get_comp(self.set_RunManagement, self.repack_kwargs())
-
-    def write_tree(self, filename='main.cgns'):
-        if not self.tree: 
-            self.tree = cgns.Tree()
-        with redirect_streams_to_logger(mola_logger):
-            self.tree.save(filename)
-
+        self.RunManagement = self._get_comp(
+            WorkflowInterface.set_RunManagement, self.repack_kwargs())
             
     def __str__(self):
         def get_interface_of_method(txt, method, skip_args=['self','tree','workflow'], indentation=2):
@@ -522,7 +529,7 @@ class WorkflowInterface(object):
 
         txt = f'User interface of {BOLD}{self.Name}{ENDC}:\n'
         txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n'
-        return get_interface_of_method(txt, self.__init__)
+        return get_interface_of_method(txt, WorkflowInterface.__init__)
 
     def _get_add_to_methods_of_attribute(self, attribute):
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
@@ -550,6 +557,7 @@ class WorkflowInterface(object):
         parameter_annotations = get_type_hints(fun)
         new_component = dict()
         for name, param in signature.parameters.items():
+            if name == 'self': continue
             try:
                 value = kwargs[name]
             except KeyError:

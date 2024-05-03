@@ -45,7 +45,7 @@ from mola import server as SV
 from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
 from mola.server import files_operations as FOP
-from . import WorkflowInterface
+from .workflow_interface import WorkflowInterface
 
 class Workflow(object):
 
@@ -186,6 +186,13 @@ class Workflow(object):
         from . import workflow_manager as WM
         sender = WM.WorkflowSender(self, data_directory=data_directory)
         sender.apply()
+
+    def write_tree(self, filename='main.cgns'):
+        if not self.tree: 
+            self.tree = cgns.Tree()
+        with redirect_streams_to_logger(mola_logger):
+            self.tree.save(filename)
+
 
     def merge(self, other_workflow):
         # TODO Still in development, not validated
@@ -337,3 +344,5 @@ class Workflow(object):
             status += '\n'+errmsg
 
         return status
+
+    def print_interface(self): print(self._interface)

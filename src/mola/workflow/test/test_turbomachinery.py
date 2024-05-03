@@ -76,6 +76,11 @@ def get_workflow_rotor37():
         )
     return w
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_init():
+    w = get_workflow_rotor37()
+    w.print_interface()
 
 
 @pytest.mark.user_case
@@ -117,5 +122,5 @@ def test_rotor37_sator():
 
 if __name__ == '__main__':
     # test_show_interface_1()
-    test_rotor37_local()
+    test_init()
     # test_wip()
