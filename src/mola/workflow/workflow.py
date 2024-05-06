@@ -17,18 +17,16 @@
 
 import os
 import copy
-import numpy as np
 import copy
+
 from treelab import cgns
-import inspect
-from typing import Union, get_type_hints
+
+import mola.naming_conventions as names
+from mola import server as SV 
 from mola.logging import (mola_logger,
                        MolaException,
                        MolaUserError,
-                       MolaUserAttributeError,
-                       redirect_streams_to_logger,
-                       get_signature)
-from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
+                       redirect_streams_to_logger)
 from  mola.cfd.preprocess.mesh import (reader,
                                     positioning,
                                     connect,
@@ -41,17 +39,17 @@ from  mola.cfd.preprocess import (flow_generators,
                                cfd_parameters,
                                extractions,
                                write_cfd_files)
-from mola import server as SV 
 from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
-from mola.server import files_operations as FOP
+
 from .workflow_interface import WorkflowInterface
+
 
 class Workflow(object):
 
     def __init__(self, tree=None, **kwargs):
 
-        self._workflow_parameters_container_ = 'WorkflowParameters'
+        self._workflow_parameters_container_ = names.CONTAINER_WORKLFOW_PARAMETERS
         self.Name = self.__class__.__name__
         self.tree = tree
         self._interface = WorkflowInterface(self, **kwargs)
@@ -188,7 +186,7 @@ class Workflow(object):
         sender = WM.WorkflowSender(self, data_directory=data_directory)
         sender.apply()
 
-    def write_tree(self, filename='main.cgns'):
+    def write_tree(self, filename=names.FILE_INPUT_SOLVER):
         if not self.tree: 
             self.tree = cgns.Tree()
         with redirect_streams_to_logger(mola_logger):
@@ -326,17 +324,17 @@ class Workflow(object):
         machine = self.RunManagement['Machine']
         user = self.RunManagement.get('User')
 
-        if FOP.is_existing_path(os.path.join(run_dir,'COMPLETED'),
+        if SV.is_existing_path(os.path.join(run_dir, names.FILE_JOB_COMPLETED),
                 machine=machine, user=user, file_only=True):
-            return 'COMPLETED'
+            return names.FILE_JOB_COMPLETED
         
-        elif FOP.is_existing_path(os.path.join(run_dir,'FAILED'),
+        elif SV.is_existing_path(os.path.join(run_dir, names.FILE_JOB_FAILED),
                 machine=machine, user=user, file_only=True):
-            status = 'FAILED'
+            status = names.FILE_JOB_FAILED
         else:
             status = 'RUNNING, NOT STARTED OR CRASHED'
 
-        errmsg = FOP.read_text_file_from_errors(os.path.join(run_dir,'stderr.log'),
+        errmsg = SV.read_text_file_from_errors(os.path.join(run_dir, names.FILE_STDERR),
             machine=machine, user=user, max_lines=max_lines_of_catched_error)
         if raise_error_if_not_completed:
             raise MolaException(errmsg)
@@ -346,4 +344,5 @@ class Workflow(object):
 
         return status
 
-    def print_interface(self): print(self._interface)
+    def print_interface(self): 
+        print(self._interface)

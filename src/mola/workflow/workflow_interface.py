@@ -19,7 +19,6 @@ import os
 import copy
 import numpy as np
 import copy
-from treelab import cgns
 from treelab.cgns.tree import Tree
 from treelab.cgns.base import Base
 from treelab.cgns.zone import Zone
@@ -29,10 +28,8 @@ from mola.logging import (mola_logger,
                        MolaException,
                        MolaUserError,
                        MolaUserAttributeError,
-                       redirect_streams_to_logger,
                        get_signature)
 from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
-from  mola.cfd.preprocess import flow_generators
 import mola.naming_conventions as names
 
 

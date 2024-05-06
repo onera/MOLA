@@ -16,46 +16,43 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+
+from mola.logging import (mola_logger, MolaException)
+
 from . import Workflow
+from .linear_cascade_interface import WorkflowLinearCascadeInterface
 
 
 class WorkflowLinearCascade(Workflow):
 
-    def __init__(self, 
-                 SplittingAndDistribution='PyPart',
-                 FlowGenerator='Internal',
-                 **kwargs
-                 ):
-    
-        super().__init__(SplittingAndDistribution=SplittingAndDistribution, FlowGenerator=FlowGenerator, **kwargs)
+    def __init__(self, tree=None, **kwargs):
         
-        # channel height computation
-        # postprocess on internal component, between two planes
-        # automatic postprocess with turbo for cascade
-
-        if self.tree is not None:
-            for meshInfo in self.RawMeshComponents:
-                meshInfo.setdefault('Mesher', 'Autogrid')
-            
+        self.Name = self.__class__.__name__
+        self.tree = tree
+        self._interface = WorkflowLinearCascadeInterface(workflow=self, **kwargs)
+        if tree is not None:
+            self.get_workflow_parameters_from_tree()
+        else:
             self.Extractions.extend([
+                dict(Type='BC', Source='BCWall*', Fields=['Pressure',
+                                                          'BoundaryLayer',
+                                                          'yPlus']),
                 dict(Type='BC', Source='BCInflow*', Fields=['MassFlow']),
                 dict(Type='BC', Source='BCOutflow*', Fields=['MassFlow']),
             ])
-        
 
-
-    # def get_periodic_direction(self):
-    #     # Get periodic match connections
-    #     perio_connections = [connec for connec in self.RawMeshComponents['Connection'] if connec['Type'] == 'PeriodicMatch']
-    #     if len(perio_connections) == 1:
-    #         periodic_direction = np.array(perio_connections[0]['Translation'])
-    #         periodic_direction /= np.sqrt(np.sum(periodic_direction**2))
-    #     elif len(perio_connections) == 0:
-    #         # Check that Periodicity already given in the mesh and adapt it if necessary
-    #         # For now raise an exception
-    #         raise Exception('Not yet implemented')
-    #     else:
-    #         raise Exception('More than one PeriodicMatch')
+    def get_periodic_direction(self):
+        # Get periodic match connections
+        perio_connections = [connec for connec in self.RawMeshComponents['Connection'] if connec['Type'] == 'PeriodicMatch']
+        if len(perio_connections) == 1:
+            periodic_direction = np.array(perio_connections[0]['Translation'])
+            periodic_direction /= np.sqrt(np.sum(periodic_direction**2))
+        elif len(perio_connections) == 0:
+            # Check that Periodicity already given in the mesh and adapt it if necessary
+            # For now raise an exception
+            raise MolaException('Not yet implemented')
+        else:
+            raise MolaException('More than one PeriodicMatch')
         
-    #     return periodic_direction
+        return periodic_direction
 
