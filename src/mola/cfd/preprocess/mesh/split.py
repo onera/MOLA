@@ -704,16 +704,6 @@ def splitWithMaia(comm=None):
         t : PyTree
             Split tree, merged with the skeleton. It will be the **tree**
             argument of ``elsAxdt.XdtCGNS()`` 
-
-        Skeleton : PyTree
-            Skeleton tree to use during coprocess
-
-        PyPartBase : PyPart object
-            PyPart objet that is mandatory to use its method mergeAndSave latter
-
-        Distribution : dict
-            Correspondence between zones and processors.
-
     '''
     import maia
     if comm is None:
@@ -723,6 +713,5 @@ def splitWithMaia(comm=None):
     dist_tree = maia.io. file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
     # zone_to_parts = maia.factory.partitioning.compute_balanced_weights(dist_tree, comm)
     part_tree = maia.factory.partition_dist_tree(dist_tree, comm)
-    maia.io.part_tree_to_file(part_tree, 'part_tree.cgns', comm)
 
-    return part_tree, Distribution
+    return part_tree

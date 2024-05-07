@@ -74,7 +74,13 @@ def launch_elsa_computation(workflow):
     e.action=elsAxdt.COMPUTE
     e.mode=elsAxdt.READ_ALL
     e.compute()
-    e.save(f'{names.DIRECTORY_OUTPUT}/solution_{rank}.cgns', rank)
+
+    if workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
+        raise NotImplementedError
+    elif workflow.SplittingAndDistribution['Splitter'].lower() == 'maia':
+        save_with_maia(DistTree, t)
+    else:
+        e.save(f'{names.DIRECTORY_OUTPUT}/solution_{rank}.cgns', rank)
 
 
 def set_parameters_in_elsa_objects(SolverParameters):
@@ -119,12 +125,31 @@ def split_mesh(Splitter):
     if Splitter.lower() == 'pypart':
         t, Skeleton, PyPartBase, Distribution = split.splitWithPyPart()
     elif Splitter.lower() == 'maia':
+        import maia4elsA
         t, Distribution = split.splitWithMaia()
+        Skeleton = maia4elsA.get_skeleton_tree(t, comm)
+        Distribution = maia4elsA.get_distribution(t, comm)
     else:
         raise Exception(f"Unkwown Splitter: {Splitter}")
     
     return t, Distribution
     
+def save_with_maia(DistTree, PartTree):
+    # see https://elsa-doc.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/maia_tutorials.html#step-4-generating-output-tree-and-saving-overall-outputs
+    import elsAxdt
+    import maia
+    import maia.pytree as PT
+    import Converter.Internal as I
+
+    tsol = I.merge([PartTree, elsAxdt.get(elsAxdt.OUTPUT_TREE)])
+    maia.transfer.part_tree_to_dist_tree_all(tsol, DistTree, comm)
+    # Also copy GlobalConvergenceHistory
+    for base, hist in PT.get_children_from_predicates(tsol, 'CGNSBase_t/ConvergenceHistory_t', ancestors=True):
+        dist_base = PT.get_child_from_name(DistTree, PT.get_name(base))
+        PT.add_child(dist_base, hist)
+    maia.io.dist_tree_to_file(DistTree, os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), comm)
+
+
 def moveLogFiles():
     if rank == 0:
         try: os.makedirs(names.DIRECTORY_LOG)

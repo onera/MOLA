@@ -5,7 +5,6 @@
 import sys
 import traceback
 
-from mola import __MOLA_PATH__
 import mola.naming_conventions as names
 from mola.logging import MolaException
 from mola.workflow import read_workflow
