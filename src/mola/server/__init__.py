@@ -19,3 +19,4 @@ from .files_operations import *
 from .job_writer import get_job_text, get_scheduler_and_options
 from .remote import *
 from .parallel import sequential_execution, MaiaParallel
+from .print_env import print_environment

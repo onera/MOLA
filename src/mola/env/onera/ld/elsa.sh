@@ -20,26 +20,6 @@ source $SCRIPT_DIR/../network.sh
 
 export MAIAVERSION=1.2
 
-# architecture
-if lscpu | grep -q 'avx512' ; then
-    export ARCH='avx512'
-elif lscpu | grep -q 'avx2' ; then
-    export ARCH='avx2'
-elif lscpu | grep -q 'avx' ; then
-    export ARCH='avx'
-elif lscpu | grep -q 'sse4_2' ; then
-    export ARCH='sse4_2'
-elif lscpu | grep -q 'sse4_1' ; then
-    export ARCH='sse4_1'
-elif lscpu | grep -q 'ssse3' ; then
-    export ARCH='ssse3'
-elif lscpu | grep -q 'sse3' ; then
-    export ARCH='sse3'
-else
-    export ARCH='sse2'
-fi
-
-
 source /stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA &>/dev/null
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 module load vscode/1.85.2

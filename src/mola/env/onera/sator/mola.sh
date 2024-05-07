@@ -17,7 +17,6 @@
 
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
-export TREELABVERSION=v0.1.1
 
 source /etc/bashrc
 module purge &>/dev/null

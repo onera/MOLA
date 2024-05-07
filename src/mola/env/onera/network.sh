@@ -24,6 +24,25 @@ export MOLA_NETWORK=${SCRIPT_DIR##*/} # get only the last part of SCRIPT_DIR, so
 export http_proxy=http://proxy.onera:80 https_proxy=http://proxy.onera:80 ftp_proxy=http://proxy.onera:80
 export no_proxy=localhost,gitlab-dtis.onera,gitlab.onera.net
 
+# architecture
+if lscpu | grep -q 'avx512' ; then
+    export ARCH='avx512'
+elif lscpu | grep -q 'avx2' ; then
+    export ARCH='avx2'
+elif lscpu | grep -q 'avx' ; then
+    export ARCH='avx'
+elif lscpu | grep -q 'sse4_2' ; then
+    export ARCH='sse4_2'
+elif lscpu | grep -q 'sse4_1' ; then
+    export ARCH='sse4_1'
+elif lscpu | grep -q 'ssse3' ; then
+    export ARCH='ssse3'
+elif lscpu | grep -q 'sse3' ; then
+    export ARCH='sse3'
+else
+    export ARCH='sse2'
+fi
+
 export FORT_BUFFERED=true
 export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
@@ -40,3 +59,5 @@ export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export ELSA_NOLOG=ON
+
+export SONICSVERSION='2024-03-05'

@@ -16,19 +16,23 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 # Detection machine
-KC=`uname -n`
-EL8=`uname -r|grep el8`
-MAC0=$(echo $KC | grep 'n'); if [ "$MAC0" != "" ]; then export MAC="sator"; fi
-MAC0=$(echo $KC | grep 'sator'); if [ "$MAC0" != "" ]; then export MAC="sator"; fi
-MAC0=$(echo $KC | grep 'ld'); if [ "$MAC0" != "" ]; then export MAC="ld"; fi
-MAC0=$(echo $KC | grep 'eos'); if [ "$MAC0" != "" ]; then export MAC="ld"; fi
-MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; fi
-MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export MAC="visung"; fi
-
-if [ "$MAC" = "ld" ] && [ ! "$EL8" ] ; then export MAC="visung"; fi
-
-if [ "$MAC" = "visung" ] && [ "$EL8" ] ; then export MAC="ld"; fi
+HOSTNAME=`hostname`
+# Extract lines containing the Python dict PatternsToEnvironments in network.py
+python_data=$(sed -n '/PatternsToEnvironments/,/}/p' $SCRIPT_DIR/network.py)
+# Extract keys and values from PatternsToEnvironments
+keys=$(echo "$python_data" | grep -oP "'[^']+'\ *:" | sed "s/'//g;s/://g")
+values=$(echo "$python_data" | grep -oP ":\ *'[^']+'" | sed "s/://;s/'//g")
+i=1
+for pattern in $keys; do
+    if [[ $HOSTNAME == $pattern* ]]; then 
+        export MAC=$(echo $values | cut -d ' ' -f $i)
+        break
+    fi
+    i=$((i+1))
+done
 
 if [ "$1" = "" ]; then
     export MOLA_SOLVER=mola
@@ -36,7 +40,6 @@ else
     export MOLA_SOLVER=$1
 fi
 
-SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/network.sh
 
 # source the environment associated to the current machine and MOLA_SOLVER
