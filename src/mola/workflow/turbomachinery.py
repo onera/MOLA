@@ -15,8 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-from typing import Union
 import numpy as np
 from .rotating_component import WorkflowRotatingComponent
 from .turbomachinery_interface import WorkflowTurbomachineryInterface
@@ -28,7 +26,6 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
     def __init__(self, tree=None, **kwargs):
         
-        self._workflow_parameters_container_ = 'WorkflowParameters'
         self.Name = self.__class__.__name__
         self.tree = tree
         self._interface = WorkflowTurbomachineryInterface(workflow=self, **kwargs)

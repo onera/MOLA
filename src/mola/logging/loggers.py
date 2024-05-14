@@ -20,6 +20,7 @@ This module defines Loggers only.
 It should only contains class named <something>Logger  
 '''
 
+import sys
 import os
 import logging
 from .formatters import CustomFormatter
@@ -45,9 +46,14 @@ class MolaLogger(logging.Logger):
             handler.setFormatter(logging.Formatter(format))
     
     def add_stream_handler(self, formatter):
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        self.addHandler(console_handler)
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(formatter)
+        self.addHandler(stdout_handler)
+
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setFormatter(formatter)
+        stderr_handler.setLevel(logging.ERROR) 
+        self.addHandler(stderr_handler) 
     
     def add_file_handler(self, formatter, filename):
         file_handler = logging.FileHandler(filename)

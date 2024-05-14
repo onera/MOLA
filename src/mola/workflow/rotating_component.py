@@ -15,11 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import copy
 import numpy as np
 
-from treelab import cgns
 from . import WorkflowInterface, Workflow
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
@@ -57,7 +55,6 @@ class WorkflowRotatingComponent(Workflow):
 
     def __init__(self, tree=None, **kwargs):
 
-        self._workflow_parameters_container_ = 'WorkflowParameters'
         self.Name = self.__class__.__name__
         self.tree = tree
         self._interface = WorkflowInterface(self, **kwargs)
