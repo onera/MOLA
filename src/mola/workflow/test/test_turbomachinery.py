@@ -120,6 +120,38 @@ def test_rotor37_sator():
 
 
 if __name__ == '__main__':
-    # test_show_interface_1()
-    test_rotor37_local()
+    test_init()
+    exit()
+    # test_rotor37_local()
     # test_wip()
+
+    def print_inheritance_tree(cls):
+        """Prints the inheritance tree of a class in a human-readable format.
+
+        Args:
+            cls: The class for which to print the inheritance tree.
+        """
+        indent = "  "
+        queue = [(cls, 0)]
+        while queue:
+            current_cls, level = queue.pop(0)
+            print(" " * (level * len(indent)), current_cls.__name__)
+            for base_cls in current_cls.__bases__:
+                if len(base_cls.__bases__) > 0 and level < 3:  # Limit to 4 levels
+                    queue.append((base_cls, level + 1))
+
+    # Example usage
+    class A:
+        pass
+
+    class B(A):
+        pass
+
+    class C(B):
+        pass
+
+    class D(C):
+        pass
+
+    print_inheritance_tree(D)
+

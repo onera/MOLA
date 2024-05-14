@@ -513,9 +513,51 @@ class WorkflowInterface(object):
             WorkflowInterface.set_RunManagement, self.repack_kwargs())
             
     def __str__(self):
+
+        def get_parent_signature_text(obj, txt_child, ind, method_name):
+            txt = ''
+            parent_class = super(type(obj),obj)
+            dbg = method_name == 'add_to_Extractions_Integral'
+            if dbg:
+                print(f"get_parent_signature_text class={obj.__class__.__bases__[0].__name__}, method={method_name}")
+            try:
+                setter_method = getattr(parent_class,method_name)
+            except AttributeError:
+                if dbg: print(f'{RED}did not find method {method_name}{ENDC}'); exit()
+                return txt
+            signature = get_signature(setter_method)
+            for line in signature.split('\n'):
+                txt += ind + line + '\n'
+            # if method_name == 'add_to_Extractions_Integral':
+            #     print('')
+            #     print(f"class={obj.__class__.__bases__[0].__name__}, method={method_name}")
+            #     print(txt)
+            #     print('')
+            if txt_child == txt: return ''
+            if not txt: return ''
+            return ind+f'which is a specialization of {obj.__class__.__bases__[0].__name__}:\n' \
+                   + txt
+        
+        def get_all_parents_signature_text(obj, txt_child, ind, method_name):
+            all_txt = ''
+            dbg = method_name == 'add_to_Extractions_Integral'
+            if dbg: print(f'will call get_parent_signature_text with txt_child:\n{txt_child}')
+
+            new_txt = get_parent_signature_text(obj, txt_child, ind, method_name)
+            if dbg: print(f'got: \n{new_txt}')
+            while new_txt:
+                all_txt += new_txt
+                parent_class = super(type(obj),obj)
+                if dbg: print(f'recursive call with all_txt: \n{all_txt}')
+                new_txt = get_all_parents_signature_text(parent_class, txt_child, ind, method_name)
+                all_txt += new_txt
+            
+            return all_txt
+
         def get_interface_of_method(txt, method, skip_args=['self','tree','workflow'], indentation=2):
             indent1 = ' '*indentation
             signature = inspect.signature(method)
+            class_tree = inspect.getclasstree([type(self)])
             for param in signature.parameters.values():
                 if param.name in skip_args: continue
                 setter_name = 'set_'+param.name
@@ -528,6 +570,15 @@ class WorkflowInterface(object):
                 for line in signature.split('\n'):
                     txt += indent1 + line + '\n'
 
+                # look to base classes
+                for class_intro in class_tree[::-1]:
+                    print('')
+                    print(class_intro)
+                    print(YELLOW,class_intro[0],ENDC)
+                    print(CYAN,class_intro[1],ENDC)
+                exit()
+                    
+
                 add_to_methods_from_type = self._get_add_to_methods_of_attribute(param.name)
                 if not add_to_methods_from_type: continue 
                 indent2 = indent1+' '*2
@@ -536,15 +587,92 @@ class WorkflowInterface(object):
                     txt += indent2+f"where each item is a {CYAN}dict{ENDC} with these authorized keys:\n"
                     if several_add_to_methods:
                         txt += indent2+ f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}\n'
+                    
                     signature = get_signature(add_to_method)
+                    txt_child = ''
                     for line in signature.split('\n'):
-                        txt += indent2 + line + '\n'
+                        txt_child += indent2 + line + '\n'
+                    all_txt = get_all_parents_signature_text(self, txt_child, indent2, add_to_method.__name__)
+                    txt += txt_child + all_txt
+                    
             
             return txt
 
+        def print_inheritance_tree(cls, indent="  "):
+            queue = [(cls, 0)]
+            while queue:
+                current_cls, level = queue.pop(0)
+                print(" " * (level * len(indent)), current_cls.__name__)
+                for base_cls in current_cls.__bases__:
+                    if len(base_cls.__bases__) > 0:  
+                        queue.append((base_cls, level + 1))
+
+        def get_interface_text(cls, indent="    ", skip_args=['self','tree','workflow']):
+            txt = ''
+            signature = inspect.signature(WorkflowInterface.__init__)
+            for param in signature.parameters.values():
+                param_name = param.name
+                if param_name in skip_args: continue
+                setter_name = 'set_'+param_name
+
+                try:
+                    setter_method = getattr(self,setter_name)
+                except:
+                    raise MolaException(f'Must implement interface for argument "{param_name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
+                txt += f'Attribute \033[4m\033[1m{param_name}\033[0m is set using:\n'
+                queue = [(cls, 0)]
+                last_signature = ''
+                while queue:
+                    current_cls, level = queue.pop(0)
+                    indent_local = " " * (level * len(indent))
+                    setter_method = getattr(current_cls, setter_name)
+                    signature = get_signature(setter_method)
+                    signature_non_empty = not not signature.split()
+                    if signature_non_empty and last_signature != signature:
+                        txt += indent_local+ f'from interface {BOLD}{current_cls.__name__}{ENDC}:\n'
+                        for line in signature.split('\n'):
+                            txt += indent_local + line + '\n'
+                    last_signature = signature
+
+                    for base_cls in current_cls.__bases__:
+                        if len(base_cls.__bases__) > 0:
+                            queue.append((base_cls, level + 1))
+
+                add_to_methods_from_type = self._get_add_to_methods_of_attribute(param_name)
+                several_add_to_methods = len(add_to_methods_from_type) > 1
+
+                for Type, add_to_method in add_to_methods_from_type.items():
+                    txt += f"where each item is a {CYAN}dict{ENDC} with these authorized keys:\n"
+                    if several_add_to_methods:
+                        txt += f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}\n'
+
+                    queue = [(cls, 0)]
+                    last_signature = ''
+                    while queue:
+                        current_cls, level = queue.pop(0)
+                        indent_local = " " * (level * len(indent))
+                        add_to_method_of_current_cls = getattr(current_cls, add_to_method.__name__)
+                        signature = get_signature(add_to_method_of_current_cls)
+                        signature_non_empty = not not signature.split()
+                        if signature_non_empty and last_signature != signature:
+                            txt += indent_local+ f'from interface {BOLD}{current_cls.__name__}{ENDC}:\n'
+                            for line in signature.split('\n'):
+                                txt += indent_local + line + '\n'
+                        last_signature = signature
+
+                        for base_cls in current_cls.__bases__:
+                            if len(base_cls.__bases__) > 0:
+                                queue.append((base_cls, level + 1))
+
+            return txt
+
+
+
         txt = f'User interface of {BOLD}{self.Name}{ENDC}:\n'
         txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n'
-        return get_interface_of_method(txt, WorkflowInterface.__init__)
+        # return get_interface_of_method(txt, WorkflowInterface.__init__)
+        # print_inheritance_tree(type(self))
+        return get_interface_text(type(self))
 
     def _get_add_to_methods_of_attribute(self, attribute):
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
@@ -602,7 +730,7 @@ class WorkflowInterface(object):
         locals_dict.pop("self.repack_kwargs", None)
         kwargs = {key: locals_dict[key] for key in locals_dict if key not in locals_dict.get("args", [])}
         return kwargs
- 
+
     @staticmethod
     def get_method_kwargs_with_defaults(method):
         """

@@ -75,3 +75,45 @@ class WorkflowTurbomachineryInterface(WorkflowInterface):
         self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.repack_kwargs())
 
         self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
+
+    def add_to_Extractions_Integral(self,
+            File : str = "turbo_signals.cgns",
+            Frame : str = 'relative',
+            **kwargs):
+        '''
+        Summation over a given source of the mesh, providing a scalar integral value
+        '''
+        local_kwargs = self.repack_kwargs()
+        local_kwargs.update(kwargs)
+        return super().add_to_Extractions_Integral(**local_kwargs)
+
+
+class WorkflowCompressorInterface(WorkflowTurbomachineryInterface):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def set_Flow(self,
+                Generator : str = 'InternalCompressor',
+                **kwargs):
+        local_kwargs = self.repack_kwargs()
+        local_kwargs.update(kwargs)
+        return super().set_Flow(**local_kwargs)
+
+    def add_to_Extractions_Integral(self,
+            File : str = "compressor_signals.cgns",
+            **kwargs):
+        '''
+        Summation over a given source of the mesh, providing a scalar integral value
+        '''
+        local_kwargs = self.repack_kwargs()
+        local_kwargs.update(kwargs)
+        return super().add_to_Extractions_Integral(**local_kwargs)
+    
+
+    def add_to_RawMeshComponents(self,
+            Mesher : str = "Autogrid2",
+            **kwargs):
+        local_kwargs = self.repack_kwargs()
+        local_kwargs.update(kwargs)
+        return super().add_to_RawMeshComponents(**local_kwargs)
