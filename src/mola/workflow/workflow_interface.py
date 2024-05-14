@@ -31,7 +31,7 @@ from mola.logging import (mola_logger,
                        MolaUserAttributeError,
                        redirect_streams_to_logger,
                        get_signature)
-from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
+from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, GREEN, ENDC
 from  mola.cfd.preprocess import flow_generators
 import mola.naming_conventions as names
 
@@ -512,131 +512,96 @@ class WorkflowInterface(object):
         self.RunManagement = self._get_comp(
             WorkflowInterface.set_RunManagement, self.repack_kwargs())
             
-    def __str__(self):
-
-        def get_parent_signature_text(obj, txt_child, ind, method_name):
-            txt = ''
-            parent_class = super(type(obj),obj)
-            dbg = method_name == 'add_to_Extractions_Integral'
-            if dbg:
-                print(f"get_parent_signature_text class={obj.__class__.__bases__[0].__name__}, method={method_name}")
-            try:
-                setter_method = getattr(parent_class,method_name)
-            except AttributeError:
-                if dbg: print(f'{RED}did not find method {method_name}{ENDC}'); exit()
-                return txt
-            signature = get_signature(setter_method)
-            for line in signature.split('\n'):
-                txt += ind + line + '\n'
-            # if method_name == 'add_to_Extractions_Integral':
-            #     print('')
-            #     print(f"class={obj.__class__.__bases__[0].__name__}, method={method_name}")
-            #     print(txt)
-            #     print('')
-            if txt_child == txt: return ''
-            if not txt: return ''
-            return ind+f'which is a specialization of {obj.__class__.__bases__[0].__name__}:\n' \
-                   + txt
+    def __str__(self, maxlevel=1000):
         
-        def get_all_parents_signature_text(obj, txt_child, ind, method_name):
-            all_txt = ''
-            dbg = method_name == 'add_to_Extractions_Integral'
-            if dbg: print(f'will call get_parent_signature_text with txt_child:\n{txt_child}')
+        def get_interface_text(cls, indent="    ", skip_args=['self','tree','workflow'], maxlevel=maxlevel):
 
-            new_txt = get_parent_signature_text(obj, txt_child, ind, method_name)
-            if dbg: print(f'got: \n{new_txt}')
-            while new_txt:
-                all_txt += new_txt
-                parent_class = super(type(obj),obj)
-                if dbg: print(f'recursive call with all_txt: \n{all_txt}')
-                new_txt = get_all_parents_signature_text(parent_class, txt_child, ind, method_name)
-                all_txt += new_txt
-            
-            return all_txt
+            def process_signature_per_class_to_text(signature_per_class):
+                txt = ''
+                parent_signature = ''
+                for class_txt, signature_txt in reversed(list(signature_per_class.items())):
+                    if parent_signature == signature_txt:
+                        signature_per_class[class_txt] = ''
+                    parent_signature = signature_txt
 
-        def get_interface_of_method(txt, method, skip_args=['self','tree','workflow'], indentation=2):
-            indent1 = ' '*indentation
-            signature = inspect.signature(method)
-            class_tree = inspect.getclasstree([type(self)])
-            for param in signature.parameters.values():
-                if param.name in skip_args: continue
-                setter_name = 'set_'+param.name
+                level = 0
+                for class_txt, signature_txt in signature_per_class.items():
+                    if level == maxlevel: break
+                    if signature_txt:
+                        level += 1
+                        indent_local = " " * (level * len(indent))
+                        if txt.endswith('\n'):
+                            txt += indent_local[:-2]+ '↳ which is a specialization of ' + class_txt +':\n'
+                        elif not txt.endswith(' → '):
+                            txt += indent_local + 'parameters provided by ' + class_txt +' (highest priority):\n'
+                        else:
+                            txt += class_txt +':\n'
+
+                        for line in signature_txt.split('\n'):
+                            txt += indent_local + line + '\n'
+                    else:
+                        if txt.endswith('\n') or txt == '':
+                            indent_local = " " * (level * len(indent))
+                            txt += indent_local + 'parameters provided by ' + class_txt + ' → '
+                        else:
+                            txt += class_txt + ' → '
+
+                return txt
+
+            def get_signature_per_class_of_setters(param_name) -> dict:
+                setter_name = 'set_'+param_name
                 try:
                     setter_method = getattr(self,setter_name)
                 except:
-                    raise MolaException(f'Must implement interface for argument "{param.name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
-                txt += indent1+f'Attribute \033[4m\033[1m{param.name}\033[0m is set using:\n'
-                signature = get_signature(setter_method)
-                for line in signature.split('\n'):
-                    txt += indent1 + line + '\n'
+                    raise MolaException(f'Must implement interface for argument "{param_name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
+                queue = [(cls, 0)]
+                signature_per_class = {}
+                while queue:
+                    current_cls, level = queue.pop(0)
+                    setter_method = getattr(current_cls, setter_name)
+                    signature = get_signature(setter_method)
+                    signature_non_empty = not not signature.split()
+                    if signature_non_empty:
+                        key = current_cls.__name__
+                        signature_per_class[key] = ''
+                        for line in signature.split('\n'):
+                            signature_per_class[key] += line + '\n'
 
-                # look to base classes
-                for class_intro in class_tree[::-1]:
-                    print('')
-                    print(class_intro)
-                    print(YELLOW,class_intro[0],ENDC)
-                    print(CYAN,class_intro[1],ENDC)
-                exit()
-                    
-
-                add_to_methods_from_type = self._get_add_to_methods_of_attribute(param.name)
-                if not add_to_methods_from_type: continue 
-                indent2 = indent1+' '*2
-                several_add_to_methods = len(add_to_methods_from_type) > 1
-                for Type, add_to_method in add_to_methods_from_type.items():
-                    txt += indent2+f"where each item is a {CYAN}dict{ENDC} with these authorized keys:\n"
-                    if several_add_to_methods:
-                        txt += indent2+ f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}\n'
-                    
-                    signature = get_signature(add_to_method)
-                    txt_child = ''
-                    for line in signature.split('\n'):
-                        txt_child += indent2 + line + '\n'
-                    all_txt = get_all_parents_signature_text(self, txt_child, indent2, add_to_method.__name__)
-                    txt += txt_child + all_txt
-                    
+                    for base_cls in current_cls.__bases__:
+                        if len(base_cls.__bases__) > 0:
+                            queue.append((base_cls, level + 1))
+                return signature_per_class
             
-            return txt
+            def get_signature_per_class_of_add_to(add_to_method) -> dict:
+                queue = [(cls, 0)]
+                signature_per_class = {}
+                while queue:
+                    current_cls, level = queue.pop(0)
+                    add_to_method_of_current_cls = getattr(current_cls, add_to_method.__name__)
+                    signature = get_signature(add_to_method_of_current_cls)
+                    signature_non_empty = not not signature.split()
+                    if signature_non_empty:
+                        key = current_cls.__name__
+                        signature_per_class[key] = ''
+                        for line in signature.split('\n'):
+                            signature_per_class[key] += line + '\n'
 
-        def print_inheritance_tree(cls, indent="  "):
-            queue = [(cls, 0)]
-            while queue:
-                current_cls, level = queue.pop(0)
-                print(" " * (level * len(indent)), current_cls.__name__)
-                for base_cls in current_cls.__bases__:
-                    if len(base_cls.__bases__) > 0:  
-                        queue.append((base_cls, level + 1))
-
-        def get_interface_text(cls, indent="    ", skip_args=['self','tree','workflow']):
+                    for base_cls in current_cls.__bases__:
+                        if len(base_cls.__bases__) > 0:
+                            queue.append((base_cls, level + 1))
+                return signature_per_class
+            
             txt = ''
             signature = inspect.signature(WorkflowInterface.__init__)
             for param in signature.parameters.values():
                 param_name = param.name
                 if param_name in skip_args: continue
-                setter_name = 'set_'+param_name
 
-                try:
-                    setter_method = getattr(self,setter_name)
-                except:
-                    raise MolaException(f'Must implement interface for argument "{param_name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
                 txt += f'Attribute \033[4m\033[1m{param_name}\033[0m is set using:\n'
-                queue = [(cls, 0)]
-                last_signature = ''
-                while queue:
-                    current_cls, level = queue.pop(0)
-                    indent_local = " " * (level * len(indent))
-                    setter_method = getattr(current_cls, setter_name)
-                    signature = get_signature(setter_method)
-                    signature_non_empty = not not signature.split()
-                    if signature_non_empty and last_signature != signature:
-                        txt += indent_local+ f'from interface {BOLD}{current_cls.__name__}{ENDC}:\n'
-                        for line in signature.split('\n'):
-                            txt += indent_local + line + '\n'
-                    last_signature = signature
 
-                    for base_cls in current_cls.__bases__:
-                        if len(base_cls.__bases__) > 0:
-                            queue.append((base_cls, level + 1))
+                signature_per_class = get_signature_per_class_of_setters(param_name)
+                txt += process_signature_per_class_to_text(signature_per_class)
+
 
                 add_to_methods_from_type = self._get_add_to_methods_of_attribute(param_name)
                 several_add_to_methods = len(add_to_methods_from_type) > 1
@@ -646,33 +611,15 @@ class WorkflowInterface(object):
                     if several_add_to_methods:
                         txt += f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}\n'
 
-                    queue = [(cls, 0)]
-                    last_signature = ''
-                    while queue:
-                        current_cls, level = queue.pop(0)
-                        indent_local = " " * (level * len(indent))
-                        add_to_method_of_current_cls = getattr(current_cls, add_to_method.__name__)
-                        signature = get_signature(add_to_method_of_current_cls)
-                        signature_non_empty = not not signature.split()
-                        if signature_non_empty and last_signature != signature:
-                            txt += indent_local+ f'from interface {BOLD}{current_cls.__name__}{ENDC}:\n'
-                            for line in signature.split('\n'):
-                                txt += indent_local + line + '\n'
-                        last_signature = signature
-
-                        for base_cls in current_cls.__bases__:
-                            if len(base_cls.__bases__) > 0:
-                                queue.append((base_cls, level + 1))
+                    signature_per_class = get_signature_per_class_of_add_to(add_to_method)
+                    txt += process_signature_per_class_to_text(signature_per_class)
 
             return txt
 
-
-
         txt = f'User interface of {BOLD}{self.Name}{ENDC}:\n'
-        txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n'
-        # return get_interface_of_method(txt, WorkflowInterface.__init__)
-        # print_inheritance_tree(type(self))
-        return get_interface_text(type(self))
+        txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n\n'
+
+        return txt + get_interface_text(type(self))
 
     def _get_add_to_methods_of_attribute(self, attribute):
         methods = inspect.getmembers(self, predicate=inspect.ismethod)

@@ -19,7 +19,7 @@ import os
 from typing import Union
 import numpy as np
 from .rotating_component import WorkflowRotatingComponent
-from .turbomachinery_interface import WorkflowTurbomachineryInterface, WorkflowCompressorInterface 
+from .turbomachinery_interface import WorkflowTurbomachineryInterface
 from . import workflow_manager as WM
 from mola.logging import mola_logger, MolaAssertionError
 from mola.cfd.preprocess.mesh import tools as mesh_tools
@@ -31,8 +31,7 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         self._workflow_parameters_container_ = 'WorkflowParameters'
         self.Name = self.__class__.__name__
         self.tree = tree
-        # self._interface = WorkflowTurbomachineryInterface(workflow=self, **kwargs)
-        self._interface = WorkflowCompressorInterface (workflow=self, **kwargs)
+        self._interface = WorkflowTurbomachineryInterface(workflow=self, **kwargs)
         if tree is not None:
             self.get_workflow_parameters_from_tree()
         else:
