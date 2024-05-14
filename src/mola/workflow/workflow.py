@@ -344,5 +344,5 @@ class Workflow(object):
 
         return status
 
-    def print_interface(self): 
-        print(self._interface)
+    def print_interface(self, maxlevel : int = 1000):
+        print(self._interface.__str__(maxlevel=maxlevel))

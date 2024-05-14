@@ -56,6 +56,7 @@ def get_signature(fun):
     kw_only_args = ''
     
     for param in signature.parameters.values():
+        if param.name == 'self': continue
         if param.annotation == inspect.Parameter.empty:
             annotation_name = ''
         elif hasattr(param.annotation, "__origin__") and param.annotation.__origin__ == Union:

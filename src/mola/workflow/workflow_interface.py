@@ -509,39 +509,114 @@ class WorkflowInterface(object):
         self.RunManagement = self._get_comp(
             WorkflowInterface.set_RunManagement, self.repack_kwargs())
             
-    def __str__(self):
-        def get_interface_of_method(txt, method, skip_args=['self','tree','workflow'], indentation=2):
-            indent1 = ' '*indentation
-            signature = inspect.signature(method)
-            for param in signature.parameters.values():
-                if param.name in skip_args: continue
-                setter_name = 'set_'+param.name
+    def __str__(self, maxlevel=1000):
+        
+        def get_interface_text(cls, indent="    ", skip_args=['self','tree','workflow'], maxlevel=maxlevel):
+
+            def process_signature_per_class_to_text(signature_per_class):
+                txt = ''
+                parent_signature = ''
+                for class_txt, signature_txt in reversed(list(signature_per_class.items())):
+                    if parent_signature == signature_txt:
+                        signature_per_class[class_txt] = ''
+                    parent_signature = signature_txt
+
+                level = 0
+                for class_txt, signature_txt in signature_per_class.items():
+                    if level == maxlevel: break
+                    if signature_txt:
+                        level += 1
+                        indent_local = " " * (level * len(indent))
+                        if txt.endswith('\n'):
+                            txt += indent_local[:-2]+ '↳ which is a specialization of ' + class_txt +':\n'
+                        elif not txt.endswith(' → '):
+                            txt += indent_local + 'parameters provided by ' + class_txt +' (highest priority):\n'
+                        else:
+                            txt += class_txt +':\n'
+
+                        for line in signature_txt.split('\n'):
+                            txt += indent_local + line + '\n'
+                    else:
+                        if txt.endswith('\n') or txt == '':
+                            indent_local = " " * (level * len(indent))
+                            txt += indent_local + 'parameters provided by ' + class_txt + ' → '
+                        else:
+                            txt += class_txt + ' → '
+
+                return txt
+
+            def get_signature_per_class_of_setters(param_name) -> dict:
+                setter_name = 'set_'+param_name
                 try:
                     setter_method = getattr(self,setter_name)
                 except:
-                    raise MolaException(f'Must implement interface for argument "{param.name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
-                txt += indent1+f'Attribute \033[4m\033[1m{param.name}\033[0m is set using:\n'
-                signature = get_signature(setter_method)
-                for line in signature.split('\n'):
-                    txt += indent1 + line + '\n'
+                    raise MolaException(f'Must implement interface for argument "{param_name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
+                queue = [(cls, 0)]
+                signature_per_class = {}
+                while queue:
+                    current_cls, level = queue.pop(0)
+                    setter_method = getattr(current_cls, setter_name)
+                    signature = get_signature(setter_method)
+                    signature_non_empty = not not signature.split()
+                    if signature_non_empty:
+                        key = current_cls.__name__
+                        signature_per_class[key] = ''
+                        for line in signature.split('\n'):
+                            signature_per_class[key] += line + '\n'
 
-                add_to_methods_from_type = self._get_add_to_methods_of_attribute(param.name)
-                if not add_to_methods_from_type: continue 
-                indent2 = indent1+' '*2
-                several_add_to_methods = len(add_to_methods_from_type) > 1
-                for Type, add_to_method in add_to_methods_from_type.items():
-                    txt += indent2+f"where each item is a {CYAN}dict{ENDC} with these authorized keys:\n"
-                    if several_add_to_methods:
-                        txt += indent2+ f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}\n'
-                    signature = get_signature(add_to_method)
-                    for line in signature.split('\n'):
-                        txt += indent2 + line + '\n'
+                    for base_cls in current_cls.__bases__:
+                        if len(base_cls.__bases__) > 0:
+                            queue.append((base_cls, level + 1))
+                return signature_per_class
             
+            def get_signature_per_class_of_add_to(add_to_method) -> dict:
+                queue = [(cls, 0)]
+                signature_per_class = {}
+                while queue:
+                    current_cls, level = queue.pop(0)
+                    add_to_method_of_current_cls = getattr(current_cls, add_to_method.__name__)
+                    signature = get_signature(add_to_method_of_current_cls)
+                    signature_non_empty = not not signature.split()
+                    if signature_non_empty:
+                        key = current_cls.__name__
+                        signature_per_class[key] = ''
+                        for line in signature.split('\n'):
+                            signature_per_class[key] += line + '\n'
+
+                    for base_cls in current_cls.__bases__:
+                        if len(base_cls.__bases__) > 0:
+                            queue.append((base_cls, level + 1))
+                return signature_per_class
+            
+            txt = ''
+            signature = inspect.signature(WorkflowInterface.__init__)
+            for param in signature.parameters.values():
+                param_name = param.name
+                if param_name in skip_args: continue
+
+                txt += f'Attribute \033[4m\033[1m{param_name}\033[0m is set using:\n'
+
+                signature_per_class = get_signature_per_class_of_setters(param_name)
+                txt += process_signature_per_class_to_text(signature_per_class)
+
+
+                add_to_methods_from_type = self._get_add_to_methods_of_attribute(param_name)
+                several_add_to_methods = len(add_to_methods_from_type) > 1
+
+                for Type, add_to_method in add_to_methods_from_type.items():
+                    txt += f"where each item is a {CYAN}dict{ENDC} with these authorized keys:\n"
+                    if several_add_to_methods:
+                        txt += f'if {BOLD}Type{ENDC} ({CYAN}str{ENDC}) == {PINK}"{Type}"{ENDC}\n'
+
+                    signature_per_class = get_signature_per_class_of_add_to(add_to_method)
+                    txt += process_signature_per_class_to_text(signature_per_class)
+
             return txt
 
         txt = f'User interface of {BOLD}{self.Name}{ENDC}:\n'
-        txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n'
-        return get_interface_of_method(txt, WorkflowInterface.__init__)
+        txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n\n'
+
+        return txt + get_interface_text(type(self))
 
     def _get_add_to_methods_of_attribute(self, attribute):
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
@@ -599,7 +674,7 @@ class WorkflowInterface(object):
         locals_dict.pop("self.repack_kwargs", None)
         kwargs = {key: locals_dict[key] for key in locals_dict if key not in locals_dict.get("args", [])}
         return kwargs
- 
+
     @staticmethod
     def get_method_kwargs_with_defaults(method):
         """
