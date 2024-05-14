@@ -3654,6 +3654,13 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         addKeys['t_cutvar3'] = TurbulenceCutoff*ReferenceStateTurbulence[5]
         addKeys['t_cutvar4'] = TurbulenceCutoff*ReferenceStateTurbulence[6]
 
+    elif 'LM2009' in ReferenceValues['TurbulenceModel']:
+        addKeys['t_cutvar1'] = TurbulenceCutoff*ReferenceStateTurbulence[0]
+        addKeys['t_cutvar2'] = TurbulenceCutoff*ReferenceStateTurbulence[1]
+        addKeys['t_cutvar3'] = 0
+        addKeys['t_cutvar4'] = 0
+
+
     elif len(ReferenceStateTurbulence)>4: # unsupported 
         raise ValueError('UNSUPPORTED NUMBER OF TURBULENT FIELDS')
     
