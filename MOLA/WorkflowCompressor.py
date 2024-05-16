@@ -1411,7 +1411,8 @@ def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
     '''
     # Get inflow BCs
     InflowBCs = [bc for bc in BoundaryConditions \
-        if bc['type'] == 'InflowStagnation' or bc['type'] == 'InflowStagnationWithRotation' or bc['type'].startswith('inj') or bc['type'] == 'InflowGiles']
+        #if bc['type'] == 'InflowStagnation' or bc['type'] == 'InflowStagnationWithRotation' or bc['type'].startswith('inj') or bc['type'] == 'InflowGiles']
+        if bc['type'].startswith('Inflow') or bc['type'].startswith('inj')]
     # Check unicity
     if len(InflowBCs) != 1:
         MSG = 'Please provide a reference surface as "Surface" in '
@@ -1990,8 +1991,11 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             I._rmNodesByType(FamilyNode, 'FamilyBC_t')
             I.newFamilyBC(value='BCInflowSubsonic', parent=FamilyNode)
 
+            injrot_type = BCparam['injrot_type']
+            filename = BCparam['filename']
+
             for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
-                setBC_injrot(t, bc, **BCkwargs)
+                setBC_injrot(t, bc, injrot_type, filename)
 
         elif BCparam['type'] == 'injmfr1':
             print(J.CYAN + 'set BC injmfr1 on ' + BCparam['FamilyName'] + J.ENDC)
@@ -2961,7 +2965,7 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     # set the BC with keys
     J.set(bc, '.Solver#BC',**DictKeysGilesOutlet)
 
-def setBC_injrot(t, bc, **kwargs):
+def setBC_injrot(t, bc, injrot_type, filename):
     '''
     Impose a Boundary Condition ``injrot``.
 
@@ -2974,6 +2978,13 @@ def setBC_injrot(t, bc, **kwargs):
             bc : CGNS node of type BC_t
                  BC node attached to the family in the which the boundary condition is applied
 
+            injrot_type : string
+                 type of injrot formulation : 'rel_direction' or 'tangential_comp'
+            
+            filename: string ('*.cgns')
+                 filename of the CGNS file containing the inlet data suitable for injrot
+
+
             kwargs : dict
                 Parameters defined by the user: filename (mandatory)
 
@@ -2982,10 +2993,10 @@ def setBC_injrot(t, bc, **kwargs):
 
     DictKeysInjrot={}
     DictKeysInjrot['type'] = 'injrot'
-    DictKeysInjrot['injrot_type'] = kwargs.get('injrot_type')  # rel_direction or tangential_comp - prescribed variables must be adapted 
+    DictKeysInjrot['injrot_type'] = injrot_type             # 'rel_direction' or 'tangential_comp' - prescribed variables must be adapted 
 
     # get the data from the file
-    bnd_data = C.convertFile2PyTree(kwargs['filename'])
+    bnd_data = C.convertFile2PyTree(filename)
 
     # get Node FlowSolutionCenters
     # we suppose here that the variable names are correctly set for Giles inj1
@@ -3078,7 +3089,7 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
     DictKeysGilesInlet['monitoring_flag'] = kwargs['GilesMonitoringFlag']                                # automatically computed
 
     # keys relative to the inlet BC
-    DictKeysGilesInlet['nscbc_in_type'] = 'htpt'                                                         # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesInlet['nscbc_in_type'] = kwargs.get('nscbc_in_type','htpt')                             # 'htpt', 'htpt_reldir', 'htpt_tangcomp' 
     # - numerics -
     DictKeysGilesInlet['nscbc_relaxi1'] = kwargs.get('nscbc_relaxi1',  500.)                             # recommended value
     DictKeysGilesInlet['nscbc_relaxi2'] = kwargs.get('nscbc_relaxi2',  500.)                             # recommended value
