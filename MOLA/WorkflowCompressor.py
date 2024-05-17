@@ -547,14 +547,15 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
 
     if is_unsteady:
         if avg_requested:
-            containers = ['FlowSolution#InitV', 'FlowSolution#AverageV']
-            try:
-                containers_at_vertex = PostprocessOptions['container_at_vertex']
-                for c in containers:
-                    if c not in containers_at_vertex: 
-                        containers_at_vertex += [ c ]
-            except KeyError:
-                PostprocessOptions['container_at_vertex'] = containers
+            if PostprocessOptions is not None:  # Otherwise postprocessing is not activated
+                containers = ['FlowSolution#InitV', 'FlowSolution#AverageV']
+                try:
+                    containers_at_vertex = PostprocessOptions['container_at_vertex']
+                    for c in containers:
+                        if c not in containers_at_vertex: 
+                            containers_at_vertex += [ c ]
+                except KeyError:
+                    PostprocessOptions['container_at_vertex'] = containers
 
         else:
             msg =('WARNING: You are setting an unsteady simulation, but no field averaging\n'
