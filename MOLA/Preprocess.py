@@ -3657,8 +3657,8 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
     elif 'LM2009' in ReferenceValues['TurbulenceModel']:
         addKeys['t_cutvar1'] = TurbulenceCutoff*ReferenceStateTurbulence[0]
         addKeys['t_cutvar2'] = TurbulenceCutoff*ReferenceStateTurbulence[1]
-        addKeys['t_cutvar3'] = 0
-        addKeys['t_cutvar4'] = 0
+        addKeys['t_cutvar3'] = 0.0
+        addKeys['t_cutvar4'] = 0.0
 
 
     elif len(ReferenceStateTurbulence)>4: # unsupported 
