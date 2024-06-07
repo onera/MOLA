@@ -73,8 +73,8 @@ class ParallelLogger(MolaLogger):
 
     '''
 
-    def __init__(self, name='mola_logger.parallel', level='INFO', stream=False):
-        super().__init__(name, level=level, stream=stream, filename=names.FILE_COLOG)
+    def __init__(self, name='mola_logger.parallel', level='INFO', stream=False, filename=names.FILE_COLOG):
+        super().__init__(name, level=level, stream=stream, filename=filename)
         try:
             import numpy as np
             from mpi4py import MPI

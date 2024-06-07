@@ -27,7 +27,7 @@ from mola.logging import (mola_logger,
                        MolaException,
                        MolaUserError,
                        redirect_streams_to_logger)
-from  mola.cfd.preprocess.mesh import (reader,
+from  mola.cfd.preprocess.mesh import (io,
                                     positioning,
                                     connect,
                                     split,
@@ -56,11 +56,11 @@ class Workflow(object):
         if tree is not None: self.get_workflow_parameters_from_tree()
         
     def prepare(self):
-        self.assemble()
+        self.assemble() # if mpi, distributed from here ?
         self.positioning()
         self.connect()
         self.define_families()
-        self.split_and_distribute()
+        self.split_and_distribute() # if mpi, partitioned from here ?
         self.process_overset()
         self.compute_flow_and_turbulence()
         self.set_motion()
@@ -94,17 +94,7 @@ class Workflow(object):
         families.apply(self)
 
     def read_meshes(self):
-        meshes = []
-        for component in self.RawMeshComponents:
-            base = reader.apply(component)
-            meshes += [base]
-        
-        self.tree = cgns.merge(meshes)
-
-        dimOfBases = set(base.dim() for base in self.tree.bases())
-        if len(dimOfBases) != 1:
-            raise MolaUserError('All bases must have the same physical dimension')
-        self.ProblemDimension = int(list(dimOfBases)[0])
+        io.read(self)
 
     def split_and_distribute(self):
         split.apply(self)
@@ -168,17 +158,20 @@ class Workflow(object):
         return False
     
     def submit(self, command=None):
-        mola_logger.info(f"Submit job on machine {self.RunManagement['Machine']}")
-        if command is None:
-            command = self.RunManagement['LauncherCommand']
-        user = self.RunManagement.get('User')
-        out = SV.submit_command(command, self.RunManagement['Machine'], user=user)
+        from mpi4py import MPI
         job_nb = None
-        for line in out.split('\n'):
-            if line.startswith('Submit'):
-                print(line)
-                try: job_nb = int(line.split('')[-1])
-                except: pass
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            mola_logger.info(f"Submit job on machine {self.RunManagement['Machine']}")
+            if command is None:
+                command = self.RunManagement['LauncherCommand']
+            user = self.RunManagement.get('User')
+            out = SV.submit_command(command, self.RunManagement['Machine'], user=user)
+            for line in out.split('\n'):
+                if line.startswith('Submit'):
+                    print(line)
+                    try: job_nb = int(line.split('')[-1])
+                    except: pass
+        MPI.COMM_WORLD.barrier()
         return job_nb
 
     def write_tree_remote(self, data_directory=None):
@@ -190,8 +183,7 @@ class Workflow(object):
         if not self.tree: 
             self.tree = cgns.Tree()
         with redirect_streams_to_logger(mola_logger):
-            self.tree.save(filename)
-
+            io.writer.write(self, self.tree, filename)
 
     def merge(self, other_workflow):
         # TODO Still in development, not validated

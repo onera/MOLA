@@ -58,9 +58,9 @@ class ExternalFlowGenerator(object):
        
         ViscosityMolecular = SutherlandLaw(self.Flow['Temperature'], self.Fluid['SutherlandViscosity'], self.Fluid['SutherlandTemperature'], self.Fluid['SutherlandConstant'])
 
-        Mach = self.Flow['VelocityUsedForScalingAndTurbulence'] /np.sqrt( self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * self.Flow['Temperature'] )
+        Mach = self.Flow['VelocityForScalingAndTurbulence'] /np.sqrt( self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * self.Flow['Temperature'] )
         Pressure = self.Flow['Density'] * self.Fluid['IdealGasConstant'] * self.Flow['Temperature']
-        PressureDynamic = 0.5 * self.Flow['Density'] * self.Flow['VelocityUsedForScalingAndTurbulence'] **2
+        PressureDynamic = 0.5 * self.Flow['Density'] * self.Flow['VelocityForScalingAndTurbulence'] **2
 
         Momentum_vector = self.Flow['Density'] * self.Flow['Velocity'] * np.array(self.Flow['Direction'])
         MomentumX =  Momentum_vector[0]
@@ -114,7 +114,7 @@ class ExternalFlowGenerator(object):
                                                     )
 
         # -> for k-omega models
-        TurbulentEnergyKineticDensity   = self.Flow['Density']*1.5*(self.Turbulence['Level']**2)*(self.Flow['VelocityUsedForScalingAndTurbulence']**2)
+        TurbulentEnergyKineticDensity   = self.Flow['Density']*1.5*(self.Turbulence['Level']**2)*(self.Flow['VelocityForScalingAndTurbulence']**2)
         TurbulentDissipationRateDensity = self.Flow['Density'] * TurbulentEnergyKineticDensity / (self.Turbulence['Viscosity_EddyMolecularRatio'] * self.Flow['ViscosityMolecular'])
         
         # -> for Smith k-l model

@@ -18,7 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-export MAIAVERSION=1.2
+export MAIAVERSION=1.4
 
 # architecture
 if lscpu | grep -q 'avx512' ; then

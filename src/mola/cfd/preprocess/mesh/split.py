@@ -108,11 +108,10 @@ def apply(workflow):
             new distributed *(and possibly split)* tree
 
     '''
-    workflow.SplittingAndDistribution = set_default_splitting_parameters(workflow.SplittingAndDistribution)
     
     if not workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess': 
         return
-        
+
     mola_logger.info('splitting and distributing mesh...')
     mode = get_and_check_splitting_mode(workflow.SplittingAndDistribution)
     if mode == 'auto':
@@ -124,34 +123,6 @@ def apply(workflow):
     set_default_NumberOfProcessors_in_RunManagement(workflow)
     workflow.tree = cgns.castNode(workflow.tree)
 
-def set_default_splitting_parameters(SplittingAndDistribution):
-    
-    if isinstance(SplittingAndDistribution, str):
-        if SplittingAndDistribution.lower() == 'pypart':
-            SplittingAndDistribution = dict(
-                Strategy='AtComputation', 
-                Splitter='PyPart', 
-                Distributor='PyPart', 
-                ComponentsToSplit='all',
-                )
-        elif SplittingAndDistribution.lower() == 'maia':
-            SplittingAndDistribution = dict(
-                Strategy='AtComputation', 
-                Splitter='maia', 
-                Distributor='maia', 
-                ComponentsToSplit='all',
-                )
-        else:
-            raise MolaException(f'More parameters must be given with the splitter {SplittingAndDistribution}. See the doc.')
-        
-    default_splitAndDist = dict(
-            CoresPerNode=48, # FIXME Should depend on the machine, and so on the Network. Otherwise, don't set a default value
-            )
-
-    for key, value in default_splitAndDist.items():
-        SplittingAndDistribution.setdefault(key, value)
-    
-    return SplittingAndDistribution
 
 
 def get_and_check_splitting_mode(SplittingParameters):
@@ -163,7 +134,7 @@ def get_and_check_splitting_mode(SplittingParameters):
         return 'imposed'
 
     if SplittingParameters['MinimumAllowedNodes'] == SplittingParameters['MaximumAllowedNodes']:
-        if SplittingParameters['DistributeExclusivelyOnFullNodes']:
+        if SplittingParameters['DistributeOnlyOnFullNodes']:
             SplittingParameters['NumberOfProcessors'] = SplittingParameters['MinimumAllowedNodes'] * SplittingParameters['CoresPerNode']
             mola_logger.warning(f'User constrained to NumberOfProcessors={SplittingParameters["NumberOfProcessors"]}, switching to mode="imposed"')
             return 'imposed'
@@ -180,11 +151,15 @@ def split_with_auto_mode(workflow):
 
     t = workflow.tree
     splitAndDistribUser = workflow.SplittingAndDistribution
+    splitter = splitAndDistribUser['Splitter'].lower()
+    if splitter != 'cassiopee':
+        msg = f'splitting with automatic mode at preprocess requires using Cassiopee, but you chosed Splitter={splitter}'
+        raise MolaException(msg)
 
     cores_per_node = splitAndDistribUser['CoresPerNode']
     minimum_number_of_nodes = splitAndDistribUser['MinimumAllowedNodes']
     maximum_allowed_nodes = splitAndDistribUser['MaximumAllowedNodes']
-    only_consider_full_node_nproc = splitAndDistribUser['DistributeExclusivelyOnFullNodes']
+    only_consider_full_node_nproc = splitAndDistribUser['DistributeOnlyOnFullNodes']
     maximum_number_of_points_per_node = splitAndDistribUser['MaximumNumberOfPointsPerNode']
 
     TotalNPts = t.numberOfPoints()
@@ -223,7 +198,7 @@ def split_with_auto_mode(workflow):
     AllMaxPtsPerProc = []
     for i, NumberOfProcessors in enumerate(NProcCandidates):
         _, NZones, varMax, meanPtsPerProc, MaxPtsPerNode, MaxPtsPerProc = \
-            _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
+            _splitAndDistributeUsingNProcsWithCassiopee(workflow, NumberOfProcessors,
                                             raise_error=False)
         AllNZones.append( NZones )
         AllVarMax.append( varMax )
@@ -261,11 +236,11 @@ def split_with_auto_mode(workflow):
             Line += '  <== BEST'+ENDC
             print(Line)
             break
-    tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors,
+    tRef = _splitAndDistributeUsingNProcsWithCassiopee(workflow, NumberOfProcessors,
                                             raise_error=True)[0]
 
     tRef.setUniqueZoneNames()
-    # tRef = connectMesh(tRef, InputMeshes) # TODO do it after split&dist
+    
 
     # update NumberOfProcessors in workflow
     # This is mandatory for function set_default_NumberOfProcessors_in_RunManagement
@@ -275,18 +250,27 @@ def split_with_auto_mode(workflow):
 
 def split_with_imposed_mode(workflow):
     NumberOfProcessors = workflow.SplittingAndDistribution['NumberOfProcessors']
-    tRef = _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=True)[0]
+    splitter = workflow.SplittingAndDistribution['Splitter'].lower()
+    if splitter == 'cassiopee':
+        tRef = _splitAndDistributeUsingNProcsWithCassiopee(workflow, NumberOfProcessors, raise_error=True)[0]
+    elif splitter == 'maia':
+        tRef = _splitAndDistributeUsingNProcsWithMaia(workflow)
     tRef.setUniqueZoneNames()
-    # tRef = connectMesh(tRef, InputMeshes) # TODO do it after split&dist
-    workflow.tree = cgns.castNode(tRef)
+    
+    workflow.tree = tRef
     
 def set_default_NumberOfProcessors_in_RunManagement(workflow):
     if 'NumberOfProcessors' not in workflow.RunManagement \
         or workflow.RunManagement['NumberOfProcessors'] is None:
         workflow.RunManagement['NumberOfProcessors'] = workflow.SplittingAndDistribution['NumberOfProcessors']
 
-def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=False):
+def _splitAndDistributeUsingNProcsWithCassiopee(workflow, NumberOfProcessors, raise_error=False):
 
+    from mpi4py import MPI
+    if MPI.COMM_WORLD.Get_size() > 1:
+        raise MolaException('cannot use Splitter="cassiopee" in MPI parallel mode. Use maia or relaunch in sequential mode.')
+
+    import Converter.PyTree as C
     import Distributor2.PyTree as D2
     import Transform.PyTree as T
 
@@ -310,16 +294,11 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
 
         tToSplit = cgns.merge([b.copy() for b in basesToSplit])
         splitter = workflow.SplittingAndDistribution['Splitter']
-        if splitter.lower() == 'cassiopee':
-            tToSplit.findAndRemoveNodes(Type='GridConnectivity1to1_t')
-            tToSplit.findAndRemoveNodes(Type='GridConnectivity_t', Value='Abbuting')
+        C.registerAllNames(tToSplit) # HACK https://gitlab.onera.net/numerics/mola/-/issues/143
+        tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
+                             minPtsPerDir=5)
 
-            tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
-                                minPtsPerDir=5)
-            tSplit = cgns.castNode(tSplit)
-        else:
-            raise ValueError(f'splitter {splitter} not implemented yet')
-
+        tSplit = cgns.castNode(tSplit)
         NbOfZonesAfterSplit = tSplit.numberOfZones()
         HasDegeneratedZones = False
         if NbOfZonesAfterSplit < remainingNProcs:
@@ -362,6 +341,7 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
                        'You may try the following:\n'
                        ' - Reduce the number of procs\n'
                        ' - increase the number of grid points'))
+            tRef = cgns.castNode(tRef)
             return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     NZones = tRef.numberOfZones()
@@ -389,6 +369,7 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
     behavior = 'raise' if raise_error else 'silent'
 
     if hasAnyEmptyProc(tRef, NumberOfProcessors, behavior=behavior):
+        tRef = cgns.castNode(tRef)
         return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
     splitAndDistribUser = workflow.SplittingAndDistribution
@@ -402,10 +383,31 @@ def _splitAndDistributeUsingNProcs(workflow, NumberOfProcessors, raise_error=Fal
     if HighestLoad > maximum_number_of_points_per_node:
         if raise_error:
             raise MolaException(f'exceeded maximum_number_of_points_per_node ({HighestLoad}>{maximum_number_of_points_per_node})')
+        tRef = cgns.castNode(tRef)
         return tRef, 0, np.inf, np.inf, np.inf, np.inf
 
-
+    tRef = cgns.castNode(tRef)
     return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad, HighestLoadProc
+
+def _splitAndDistributeUsingNProcsWithMaia(workflow):
+    from mola.cfd.preprocess.mesh.tools import to_partitioned_if_distributed
+    
+    tree_is_distributed = bool(workflow.tree.get(':CGNS#Distribution'))
+    if not tree_is_distributed: raise MolaException('unexpected behavior, expected dist_tree')
+    
+    from mpi4py import MPI
+    size = MPI.COMM_WORLD.Get_size()
+    rank = MPI.COMM_WORLD.Get_rank()
+    nproc = workflow.SplittingAndDistribution['NumberOfProcessors']
+    if size != nproc:
+        msg = f'Splitting with maia requires using same mpi number of ranks as requested splitting.\n'
+        msg+= f'You are using {size} mpi ranks, and requested {nproc} procs, which are not equal.\n'
+        msg+=  'Please adapt your MPI size or change your splitter in SplitAndDistribute options.'
+        raise MolaException(msg)
+
+    t = to_partitioned_if_distributed(workflow.tree)
+    MPI.COMM_WORLD.barrier()
+    return t
 
 def getNbOfPointsOfHighestLoadedNode(t, cores_per_node):
     NPtsPerNode = {}
@@ -519,6 +521,11 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=48):
             number of processors per node.
 
     '''
+
+    # unable to compute statistics on MPI partitioned tree
+    # hint: use skeleton, see /stck/jcoulet/dev/dev-Tools/maia/Support/lbernard/skeleton.py
+    if get_mpi_size() > 1: return 
+
     ProcDistributed = getProc(tNew)
     ResultingNProc = max(ProcDistributed)+1
 
@@ -726,3 +733,7 @@ def splitWithMaia(comm=None):
     maia.io.part_tree_to_file(part_tree, 'part_tree.cgns', comm)
 
     return part_tree, Distribution
+
+def get_mpi_size():
+    from mpi4py import MPI
+    return MPI.COMM_WORLD.Get_size()

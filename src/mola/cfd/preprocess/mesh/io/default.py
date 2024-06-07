@@ -16,16 +16,16 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from treelab import cgns
+from .reader import read
 
-def reader(component):
+def reader(w, component):
     
-    src = component['Source']
-    mesh = cgns.load(src)
+    mesh = read(w, component['Source'])
+
     nb_of_bases = len(mesh.bases())
     if nb_of_bases != 1:
         msg = f"component {component['Name']} must have exactly 1 base (got {nb_of_bases})"
         raise ValueError(msg)
-
     base = mesh.bases()[0]
     base.setName( component['Name'] )
 

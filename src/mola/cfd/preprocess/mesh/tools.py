@@ -15,8 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 from fnmatch import fnmatch
 from mola.logging import mola_logger, MolaException
+from treelab import cgns
 
 def get_bc_from_bc_type(workflow, bctypes):
     if isinstance(bctypes, str):
@@ -48,3 +50,40 @@ def get_surface_of_family(tree, Family):
     mola_logger.debug(f'Surface of family {Family} = {Surface} m^2')
 
     return Surface
+
+def to_partitioned_if_distributed(tree : cgns.Tree):
+    is_dist = bool(tree.get(':CGNS#Distribution'))
+    if not is_dist: return tree
+
+    from mpi4py import MPI
+    import maia
+    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD)
+    t = cgns.castNode(t)
+
+
+    for zone in t.zones():
+        zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
+        if not zone.isStructured(): continue
+        vertex_shape = zone.value()[:,0]
+        nvertex = np.sum(vertex_shape)
+        cell_shape = zone.value()[:,1]
+        ncell = np.sum(cell_shape)
+        for coord in zone.xyz():
+            coord.shape = vertex_shape
+
+        for field in zone.allFields(return_type='list'):
+            nfield = np.size(field)
+            if nfield == nvertex:
+                field.shape = vertex_shape
+            elif nfield == ncell:
+                field.shape = cell_shape
+    t = cgns.castNode(t)
+    return t
+
+def to_distributed(tree : cgns.Tree):
+    from mpi4py import MPI
+    import maia
+    t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
+    t = cgns.castNode(t)
+
+    return t

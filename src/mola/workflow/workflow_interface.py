@@ -161,7 +161,7 @@ class WorkflowInterface(object):
                                        np.ndarray ] = [1, 0, 0],
             Density                : float = 1.225,
             Temperature            : float = 288.15,
-            VelocityUsedForScalingAndTurbulence : float = None
+            VelocityForScalingAndTurbulence : float = None
             ):
 
         self.Flow = self._get_comp(WorkflowInterface.set_Flow, self.repack_kwargs())
@@ -171,14 +171,14 @@ class WorkflowInterface(object):
             if len(self.Flow['Direction']) != 3:
                 raise MolaUserAttributeError('Direction argument must be a 3-float list, tuple or numpy')
             
-        if 'VelocityUsedForScalingAndTurbulence' not in self.Flow:
+        if 'VelocityForScalingAndTurbulence' not in self.Flow:
             V = np.abs(self.Flow['Velocity'])
             if V < 1e-5:
-                raise MolaUserError('Velocity is very low. You must set a positive value for VelocityUsedForScalingAndTurbulence')
+                raise MolaUserError('Velocity is very low. You must set a positive value for VelocityForScalingAndTurbulence')
             else:
-                self.Flow['VelocityUsedForScalingAndTurbulence'] = V
-        elif self.Flow['VelocityUsedForScalingAndTurbulence'] <= 0:
-            raise MolaUserError('You must provide positive value for VelocityUsedForScalingAndTurbulence')
+                self.Flow['VelocityForScalingAndTurbulence'] = V
+        elif self.Flow['VelocityForScalingAndTurbulence'] <= 0:
+            raise MolaUserError('You must provide positive value for VelocityForScalingAndTurbulence')
 
     def set_Turbulence(self,
         Viscosity_EddyMolecularRatio : float = 0.1,
@@ -216,7 +216,7 @@ class WorkflowInterface(object):
         MaximumAllowedNodes              : int = 20,
         MaximumNumberOfPointsPerNode     : int = int(1e9),
         CoresPerNode                     : int = 48,
-        DistributeExclusivelyOnFullNodes : bool = True,
+        DistributeOnlyOnFullNodes : bool = True,
                        ):
         self.SplittingAndDistribution = self._get_comp(
             WorkflowInterface.set_SplittingAndDistribution, self.repack_kwargs())
@@ -497,7 +497,7 @@ class WorkflowInterface(object):
     def set_RunManagement(self,
         JobName : str = None,
         RunDirectory : str = '.',
-        NumberOfProcessors : int = 1,
+        NumberOfProcessors : int = None,
         Machine : int = None,
         User : str = None,
         TimeOutInSeconds : float = None,

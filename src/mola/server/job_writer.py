@@ -54,7 +54,9 @@ def get_job_text(RunManagement, solver):
 
     job_text = ('#!/bin/bash\n'
                f'{header}\n'
-               f'source {env}')
+               f'source {env}\n'
+                'unset "${!OMPI_@}" "${!MPI_@}"' # https://stackoverflow.com/questions/76672866/running-an-independent-slurm-job-with-mpirun-inside-a-python-script-recursive
+                )
 
     return job_text
 

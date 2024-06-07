@@ -18,7 +18,7 @@
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
 from ..families import join_families
-
+from .reader import read
 
 SCALE_DICT = dict(
     mm = 0.001,
@@ -27,7 +27,7 @@ SCALE_DICT = dict(
     m  = 1.
 )
 
-def reader(component):
+def reader(w, component):
 
     name = component['Name'] if 'Name' in component else ''
     mola_logger.info(f'Read component {name} with Autogrid reader')
@@ -55,7 +55,7 @@ def reader(component):
     component.setdefault('Positioning', DefaultPositioning)
     component.setdefault('Connection', [])
 
-    mesh = cgns.load(component['Source'])
+    mesh = read(w, component['Source'])
     clean_autogrid_log_bases(mesh)
 
     # Join HUB and SHROUD families

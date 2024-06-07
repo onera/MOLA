@@ -17,6 +17,7 @@
 
 import os
 from treelab import cgns
+import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import server as SV
@@ -41,10 +42,11 @@ def write_data_files(workflow):
     with redirect_streams_to_logger(mola_logger):
         if run_on_localhost:
             os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT), exist_ok=True)
-            t.save(os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D))
+            dst = os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D)
         else:
             os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
-            t.save(os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D))
+            dst = os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D)
+        io.writer.write(workflow, t, dst)
 
     # Save FILE_INPUT_SOLVER with links to FILE_OUTPUT_3D for 
     NodesToLink = t.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
@@ -58,9 +60,10 @@ def write_data_files(workflow):
         
     with redirect_streams_to_logger(mola_logger):
         if run_on_localhost:
-            t.save(os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER))
+            dst = os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER)
         else:
-            t.save(names.FILE_INPUT_SOLVER)
+            dst = names.FILE_INPUT_SOLVER
+        io.writer.write(workflow, t, dst)
     
     if not run_on_localhost:
         SV.copy_remote(
