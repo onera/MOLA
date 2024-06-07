@@ -128,10 +128,10 @@ def test_process_extractions_3d():
     solver_elsa.process_extractions_3d(workflow)
 
     zone = workflow.tree.zones()[0]
-    FS = zone.get(Name='FlowSolution#EndOfRun', Type='FlowSolution')
+    FS = zone.get(Name='FlowSolution#Output', Type='FlowSolution')
     assert FS
 
-    FS_ref = ['FlowSolution#EndOfRun', None, [
+    FS_ref = ['FlowSolution#Output', None, [
                 ['Density', None, [], 'DataArray_t'], 
                 ['Momentum', None, [], 'DataArray_t'], 
                 ['Energy', None, [], 'DataArray_t'], 
@@ -158,10 +158,10 @@ def test_process_extractions_3d_additional_variables():
     solver_elsa.process_extractions_3d(workflow)
 
     zone = workflow.tree.zones()[0]
-    FS = zone.get(Name='FlowSolution#EndOfRun', Type='FlowSolution')
+    FS = zone.get(Name='FlowSolution#Output', Type='FlowSolution')
     assert FS
 
-    FS_ref = ['FlowSolution#EndOfRun', None, [
+    FS_ref = ['FlowSolution#Output', None, [
                 ['Density', None, [], 'DataArray_t'], 
                 ['Momentum', None, [], 'DataArray_t'], 
                 ['Energy', None, [], 'DataArray_t'], 

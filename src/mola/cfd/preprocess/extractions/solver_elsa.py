@@ -26,6 +26,7 @@ import copy
 
 def apply_to_solver(workflow):
 
+    add_extractions_for_restart(workflow)
     add_extractions_for_overset_components(workflow)
     process_extractions_3d(workflow)
     process_extractions_2d(workflow)
@@ -53,6 +54,20 @@ def add_global_convergence_history(workflow):
                                         var='residual_cons residual_turb'
                                         )
 
+def add_extractions_for_restart(workflow):
+    workflow.tree.findAndRemoveNodes(Name='FlowSolution#EndOfRun', Type='FlowSolution')
+
+    Extraction = dict(
+            Type='Restart',
+            Container='FlowSolution#EndOfRun',
+            GridLocation='CellCenter',
+            Frame='relative',
+            Fields=list(workflow.Flow['ReferenceState']),
+            ExtractionPeriod=1e20, # Only done at the end of the simulation
+            SavePeriod=1e20,
+            )
+    workflow.Extractions.append(Extraction)
+
 def process_extractions_3d(workflow):
 
     # For 3D averaged field : 
@@ -61,11 +76,9 @@ def process_extractions_3d(workflow):
     # For coordinates : 
     #    dict(type='3D', Container='FlowSolution#EndOfRun#Coords', fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], GridLocation='Vertex', Frame='absolute')
 
-    workflow.tree.findAndRemoveNodes(Name='FlowSolution#EndOfRun', Type='FlowSolution')
-
     for zone in workflow.tree.zones():
         for Extraction in workflow.Extractions:
-            if Extraction['Type'] == '3D' and is_zone_in_extraction_family(zone, Extraction):
+            if Extraction['Type'] in ['3D', 'Restart'] and is_zone_in_extraction_family(zone, Extraction):
                 add_3d_extraction_to_zone(zone, Extraction)
 
 def is_zone_in_extraction_family(zone, Extraction):
@@ -82,7 +95,7 @@ def is_zone_in_extraction_family(zone, Extraction):
 
 def add_3d_extraction_to_zone(zone, Extraction):
 
-    Container = Extraction.get('Container', 'FlowSolution#EndOfRun')
+    Container = Extraction.get('Container', 'FlowSolution#Output')
     GridLocation = Extraction.get('GridLocation', 'CellCenter')
     Frame = Extraction.get('Frame', 'relative')
     Fields2Extract = Extraction['Fields']

@@ -37,19 +37,6 @@ class FakeWorkflow():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_process_extractions_3d():
-    workflow = FakeWorkflow()
-    extractions.process_extractions_3d(workflow)
-
-    assert workflow.Extractions == [
-        {'Type': 'BC', 'Source': 'BCWallViscous', 'Fields': ['Pressure']},
-        {'Type': 'BC', 'Source': 'BCWallInviscid'},
-        {'Type': '3D', 'Fields': ['Density', 'Momentum', 'Energy']}]
-
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_process_extractions_2d():
     workflow = FakeWorkflow()
     extractions.process_extractions_2d(workflow)
@@ -59,6 +46,3 @@ def test_process_extractions_2d():
             {'Type': 'BC', 'Source': 'BCWallInviscid', 'Fields': []},
             {'Type': '3D', 'Fields': ['Density', 'Momentum', 'Energy']}]
     
-    
-if __name__ == '__main__':
-    test_process_extractions_3d()

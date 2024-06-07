@@ -19,22 +19,8 @@ from mola.cfd import apply_to_solver
 
 def apply(workflow):
 
-    process_extractions_3d(workflow)
     process_extractions_2d(workflow)
-
     apply_to_solver(workflow)
-
-
-def process_extractions_3d(workflow):
-    '''
-    Process 3D extractions. 
-    The conservatives quantities are unconditionnally extracted, plus all the 
-    quantities 
-    '''
-
-    # TODO Check the name 
-    ...
-
 
 def process_extractions_2d(workflow):
     for Extraction in workflow.Extractions:
