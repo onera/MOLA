@@ -26,7 +26,6 @@ import glob
 import shutil
 
 import mola.naming_conventions as names
-from .compute import check_stderr_and_create_COMPLETED
 
 
 def apply_to_solver(workflow):
@@ -36,7 +35,6 @@ def apply_to_solver(workflow):
 
     launch_sonics_computation(workflow)
     moveLogFiles()
-    check_stderr_and_create_COMPLETED()
 
 
 def launch_sonics_computation(workflow):

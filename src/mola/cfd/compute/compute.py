@@ -23,19 +23,3 @@ from mola.cfd import apply_to_solver
 
 def apply(workflow):
     apply_to_solver(workflow)
-
-def check_stderr_and_create_COMPLETED():
-    check_stderr()
-    if rank==0:
-        with open(names.FILE_JOB_COMPLETED,'w') as f: 
-            f.write(names.FILE_JOB_COMPLETED)
-    
-def check_stderr():
-    # TODO Simple check for now, but it should be different if this function is called in the coprocess script
-    if rank==0:
-        try:
-            with open(names.FILE_STDERR,'r') as f:
-                Error = f.read()
-            raise Exception(Error)
-        except FileNotFoundError:
-            pass

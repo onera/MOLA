@@ -633,7 +633,9 @@ def splitWithPyPart(comm=None):
 
     '''
     import Converter.Internal as I
+    import Converter.Mpi as Cmpi
     import etc.pypart.PyPart as PPA
+
     if comm is None:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
@@ -654,29 +656,32 @@ def splitWithPyPart(comm=None):
     Skeleton = PyPartBase.getPyPartSkeletonTree()
     Distribution = PyPartBase.getDistribution()
 
-    # # Put Distribution into the Skeleton
-    # for zone in I.getZones(Skeleton):
-    #     zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
-    #     Cmpi._setProc(zone, Distribution[zonePath])
+    # Put Distribution into the Skeleton
+    for zone in I.getZones(Skeleton):
+        zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
+        Cmpi._setProc(zone, Distribution[zonePath])
 
     t = I.merge([Skeleton, PartTree])
 
-    # Skeleton = loadSkeleton(Skeleton, PartTree)
-    # # Add empty Coordinates for skeleton zones
-    # # Needed to make Cmpi.convert2PartialTree work
-    # for zone in I.getZones(Skeleton):
-    #     GC = I.getNodeFromType1(zone, 'GridCoordinates_t')
-    #     if not GC:
-    #         J.set(zone, 'GridCoordinates', childType='GridCoordinates_t',
-    #             CoordinateX=None, CoordinateY=None, CoordinateZ=None)
-    #     elif I.getZoneType(zone) == 2:
-    #         # For unstructured zone, correct the node NFaceElements/ElementConnectivity
-    #         # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
-    #         # C._convertArray2NGon(zone)
-    #         NFaceElements = I.getNodeFromName(zone, 'NFaceElements')
-    #         if NFaceElements:
-    #             node = I.getNodeFromName(NFaceElements, 'ElementConnectivity')
-    #             I.setValue(node, np.abs(I.getValue(node)))
+    # TODO This import should be there !! Preprocess should be linked to coprocess
+    from mola.cfd.coprocess.tools import load_skeleton
+    Skeleton = load_skeleton(Skeleton, PartTree)
+    # Add empty Coordinates for skeleton zones
+    # Needed to make Cmpi.convert2PartialTree work
+    for zone in I.getZones(Skeleton):
+        GC = I.getNodeFromType1(zone, 'GridCoordinates_t')
+        if not GC:
+            zone = cgns.castNode(zone)
+            zone.setParameters('GridCoordinates', childType='GridCoordinates_t',
+                CoordinateX=None, CoordinateY=None, CoordinateZ=None)
+        elif I.getZoneType(zone) == 2:
+            # For unstructured zone, correct the node NFaceElements/ElementConnectivity
+            # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
+            # C._convertArray2NGon(zone)
+            NFaceElements = I.getNodeFromName(zone, 'NFaceElements')
+            if NFaceElements:
+                node = I.getNodeFromName(NFaceElements, 'ElementConnectivity')
+                I.setValue(node, np.abs(I.getValue(node)))
 
     # if 'CoupledSurfaces' in setup.ReferenceValues['CoprocessOptions']:
     #     # This part is linked to the WorkflowAerothermalCoupling

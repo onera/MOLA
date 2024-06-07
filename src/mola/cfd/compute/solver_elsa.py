@@ -27,61 +27,41 @@ import shutil
 
 import mola.naming_conventions as names
 
-from mola.cfd.compute.compute import check_stderr_and_create_COMPLETED
-
-
 def apply_to_solver(workflow):
 
     if rank==0:
         os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
         os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
 
-
-    # ----------------- DECLARE ADDITIONAL GLOBAL VARIABLES ----------------- #
-    # CO.invokeCoprocessLogFile()
-    # arrays = CO.invokeArrays()
-
-    # if workflow.Numerics['NumberOfIterations'] == 0:
-    #     CO.printCo('WARNING: niter = 0 -> will only make extractions', proc=0, color=J.YELLOW)
-    # inititer = setup.elsAkeysNumerics['inititer']
-    # itmax    = inititer+niter-2 # BEWARE last iteration accessible trigger-state-16
-
-    # Skeleton = CO.loadSkeleton()
-
-    # ========================== LAUNCH ELSA ========================== #
-
-    launch_elsa_computation(workflow)
-    moveLogFiles()
-    # TODO move this operation to coprocess script once implemented
-    check_stderr_and_create_COMPLETED()
-
-
-def launch_elsa_computation(workflow):
-
     import elsAxdt
     elsAxdt.trace(0)
 
+    from mola.cfd.coprocess.manager import CoprocessManager
+    coprocess_manager = CoprocessManager(workflow)
+    workflow._coprocess_manager = coprocess_manager
+
     if not hasattr(workflow, '_FULL_CGNS_MODE'):
         set_parameters_in_elsa_objects(workflow.SolverParameters)
+
+    # FIXME FOr now, the main tree is read twice: 
+    # firstly loading the workflow, and secondly with PyPart, Maia or elsA
         
     if workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation':
-        t, Distribution = split_mesh(workflow.SplittingAndDistribution['Splitter'])
+        t, Distribution = split_mesh(workflow.SplittingAndDistribution['Splitter'], coprocess_manager)
         e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
         e.distribution = Distribution
     else:
+        from mola.cfd.coprocess.tools import load_skeleton
+        coprocess_manager.skeleton = load_skeleton()
         e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
 
     e.action=elsAxdt.COMPUTE
     e.mode=elsAxdt.READ_ALL
     e.compute()
 
-    if workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
-        raise NotImplementedError
-    elif workflow.SplittingAndDistribution['Splitter'].lower() == 'maia':
-        save_with_maia(DistTree, t)
-    else:
-        e.save(f'{names.DIRECTORY_OUTPUT}/solution_{rank}.cgns', rank)
-
+    coprocess_manager.finalize()
+    del workflow._coprocess_manager
+    
 
 def set_parameters_in_elsa_objects(SolverParameters):
     import elsA_user
@@ -119,16 +99,21 @@ def set_cfl_function(elsA_user, Num, funDict):
         f_cfl.set(v,  funDict[v])
     Num.attach('cfl', function=f_cfl)
 
-def split_mesh(Splitter):
+def split_mesh(Splitter, coprocess_manager):
     from mola.cfd.preprocess.mesh import split
 
     if Splitter.lower() == 'pypart':
         t, Skeleton, PyPartBase, Distribution = split.splitWithPyPart()
+        coprocess_manager.PyPartBase = PyPartBase
+        coprocess_manager.skeleton = Skeleton
+
     elif Splitter.lower() == 'maia':
         import maia4elsA
         t, Distribution = split.splitWithMaia()
         Skeleton = maia4elsA.get_skeleton_tree(t, comm)
         Distribution = maia4elsA.get_distribution(t, comm)
+        coprocess_manager.skeleton = Skeleton
+
     else:
         raise Exception(f"Unkwown Splitter: {Splitter}")
     
@@ -149,22 +134,3 @@ def save_with_maia(DistTree, PartTree):
         PT.add_child(dist_base, hist)
     maia.io.dist_tree_to_file(DistTree, os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), comm)
 
-
-def moveLogFiles():
-    if rank == 0:
-        try: os.makedirs(names.DIRECTORY_LOG)
-        except: pass
-
-        for fn in glob.glob('*.log'):
-            FilenameBase = fn[:-4]
-            i = 1
-            NewFilename = FilenameBase+'-%d'%i+'.log'
-            while os.path.isfile(os.path.join(names.DIRECTORY_LOG, NewFilename)):
-                i += 1
-                NewFilename = FilenameBase+'-%d'%i+'.log'
-
-            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, NewFilename))
-        for fn in glob.glob('elsA_MPI*'):
-            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, fn))
-
-    comm.barrier()
