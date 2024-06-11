@@ -18,12 +18,14 @@
 import numpy as np
 
 import Converter.Internal as I
-import Converter.Mpi as Cmpi
 
 import elsAxdt
 
 from mola.logging import MolaException
-from mola.cfd.coprocess.tools import ravelBCDataSet, forceFamilyBCasFamilySpecified
+# no relative imports possible for the following line because the current file is called by
+# call_solver_specific_function in manager.py
+from mola.cfd.coprocess import mola_logger, rank, comm
+from mola.cfd.coprocess.io.utils import ravelBCDataSet, forceFamilyBCasFamilySpecified
 
 def end_simulation(workflow):
     elsAxdt.safeInterrupt()
@@ -121,7 +123,7 @@ def moveCoordsFromEndOfRunToGridCoords(to):
                 raise MolaException(ERRMSG)
             I.rmNode(to, GridLocationNode)
             I.setType(GridCoordsNode, 'GridCoordinates_t')
-    Cmpi.barrier()
+    comm.barrier()
 
 def resumeFieldsAveraging(coprocess_manager, t, container_name='FlowSolution#Average'):
     '''
@@ -172,9 +174,9 @@ def resumeFieldsAveraging(coprocess_manager, t, container_name='FlowSolution#Ave
 
     # adapt BC fields:
     tot = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet#Average')
-    Cmpi.barrier()
+    comm.barrier()
     old = _getDictofNodesBCFieldsPerZoneAtSkeleton(Skeleton, 'BCDataSet#Average', tot)
-    Cmpi.barrier()
+    comm.barrier()
     if cit == firstiter:
         ini = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet')
     for zone_name in tot:

@@ -22,10 +22,8 @@ comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
 NumberOfProcessors = comm.Get_size()
 
-import glob
-import shutil
-
 import mola.naming_conventions as names
+from mola.cfd.coprocess.io import load_skeleton
 
 def apply_to_solver(workflow):
 
@@ -51,7 +49,6 @@ def apply_to_solver(workflow):
         e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
         e.distribution = Distribution
     else:
-        from mola.cfd.coprocess.tools import load_skeleton
         coprocess_manager.skeleton = load_skeleton()
         e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
 

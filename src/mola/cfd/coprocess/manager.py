@@ -23,16 +23,16 @@ import timeit
 from treelab import cgns
 from mola.logging import MolaException, MolaAssertionError, MolaUserError
 import mola.naming_conventions as names
-from mola.cfd import apply_to_solver, call_solver_specific_function
+from mola.cfd import call_solver_specific_function
 
 from . import mola_logger, rank, comm
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
 from .user_interface import update_operations_from_user_signal
-from .tools import save, load_skeleton
+from .io import save
 
 
 AVAILABLE_SIMULATION_STATUS = [
-    'BEFORE_FIST_ITERATION',
+    'BEFORE_FIRST_ITERATION',
     'RUNNING', 
     'TO_STOP', 
     'TO_FINALIZE',
@@ -87,14 +87,17 @@ class CoprocessManager():
         if self.workflow.Numerics['NumberOfIterations'] == 0:
             raise MolaUserError('NumberOfIterations=0 => simulation cannot begin. Please change this value and submit again.')
 
-        self.signals = None
+        # TODO several containers, depending on requested extractions
+        self.signals = None  # TODO init with something like invokeArrays()
         self.extractions = None
         self.fields = None
+        # workflow.Extractions[0]['data'] = ...
+
         self.restart_fields = None
 
         self.operations_stack = OperationsStack()
         self.extractions_to_perform = []
-        self._status = 'BEFORE_FIST_ITERATION'
+        self._status = 'BEFORE_FIRST_ITERATION'
 
         self.skeleton = None
         
