@@ -37,7 +37,7 @@ class FakeWorkflow():
             Velocity = 10.0,
             Temperature = 288.15,
             Density = 1.225,
-            VelocityUsedForScalingAndTurbulence = 10.0,
+            VelocityForScalingAndTurbulence = 10.0,
             )
         
         self.Turbulence = dict(
@@ -94,7 +94,7 @@ def test_ExternalFlowGenerator():
         ),                   
         Temperature = 288.15,
         Velocity = 10,
-        VelocityUsedForScalingAndTurbulence = 10,
+        VelocityForScalingAndTurbulence = 10,
         ViscosityEddy = 1.7893800000000003e-06,
         ViscosityMolecular = 1.78938e-05,
     )

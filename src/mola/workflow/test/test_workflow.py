@@ -30,6 +30,102 @@ from mola import server as SV
 from mola.cfd.preprocess.write_cfd_files.write_cfd_files import set_default
 
 
+def get_workflow_dist():
+    from mpi4py import MPI
+    import maia
+    
+
+    MPI.COMM_WORLD.barrier()
+    mesh = None
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        x, y, z = np.meshgrid( np.linspace(0,1,21),
+                            np.linspace(0,1,21),
+                            np.linspace(0,1,21), indexing='ij')
+        mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'],
+                                                [ x,  y,  z ])
+        mesh = cgns.merge(mesh) # mesh must be CGNSTree_t for full_to_dist_tree
+
+
+    MPI.COMM_WORLD.barrier()
+    mesh = maia.factory.full_to_dist_tree(mesh, MPI.COMM_WORLD, owner=0)
+    mesh = cgns.castNode(mesh) 
+    MPI.COMM_WORLD.barrier()
+
+    w = Workflow(
+        RawMeshComponents=[
+            dict(
+                Name='cartesian',
+                Source=mesh,
+                Families=[
+                    dict(Name='Ground',
+                         Location='kmin'),
+                    dict(Name='Farfield',
+                         Location='remaining'),
+                ],
+                Positioning=[
+                    dict(
+                        Type='TranslationAndRotation',
+                        InitialFrame=dict(
+                            Point=[0,0,0],
+                            Axis1=[1,0,0],
+                            Axis2=[0,1,0],
+                            Axis3=[0,0,1]),
+                        RequestedFrame=dict(
+                            Point=[0,0,0],
+                            Axis1=[1,0,0],
+                            Axis2=[0,1,0],
+                            Axis3=[0,0,1]),
+                        ),
+                ],
+                Connection = [
+                    # dict(Type='Match', Tolerance=1e-8),
+                ],
+                )
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='maia', # or 'maia', 'PyPart' etc..
+            Distributor='maia', 
+            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            NumberOfProcessors=2, 
+            ),
+
+        Flow=dict(
+            Velocity = 100.,
+        ),
+
+        Turbulence = dict(
+            Model = 'SA',
+        ),
+
+        Solver=os.environ.get('MOLA_SOLVER'),
+
+        Numerics = dict(
+            CFL=1.,
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Ground', Type='Wall'),
+            dict(Family='Farfield', Type='Farfield'),
+        ],
+
+        ExtractionsDefaults=[dict(ReferenceParameter='File',File='signals.cgns',SavePeriod=69)],
+
+        Extractions=[
+            dict(Type='Integral', Name='AeroCoefs', Fields=['CL', 'std-CL']),
+            dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
+            dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
+            dict(Type='3D', Fields=['Mach', 'q_criterion']),
+            dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['normalvector', 'frictionvector']),
+            dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
+            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateY', IsoSurfaceValue=1.e-6, Fields=['Mach','cellN']),
+            ],
+
+
+        )
+    return w
+
 def get_workflow2():
 
     x, y, z = np.meshgrid( np.linspace(0,1,21),
@@ -170,6 +266,66 @@ def get_workflow_sphere_struct():
     
     return w
 
+
+def get_workflow_sphere_struct_dist():
+    w = Workflow(
+        RawMeshComponents=[
+            dict(
+                Name='sphere',
+                Source='/stck/mola/data/mesh/sphere/sphere_struct.cgns',
+                Families=[
+                    dict(Name='Wall', Location='kmin'),
+                    dict(Name='Farfield', Location='remaining'),
+                ],
+                )
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='maia', # or 'maia', 'PyPart' etc..
+            Distributor='maia', 
+            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            NumberOfProcessors=2, 
+            ),
+
+        Flow=dict(
+            Density = 0.2,
+            Temperature = 100.,
+            Velocity = 50.,
+                 ),
+
+        Turbulence = dict(
+            Model = 'SA',
+        ),
+
+        Solver=os.environ.get('MOLA_SOLVER'),
+
+        Numerics = dict(
+            NumberOfIterations=10,
+            CFL=1.,
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Wall', Type='Wall'),
+            dict(Family='Farfield', Type='Farfield'),
+        ],
+
+        Extractions=[
+            dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
+            dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
+            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1.e-6),
+            ],
+
+        RunManagement=dict(
+            # NumberOfProcessors=1,
+            RunDirectory=os.path.dirname(os.path.realpath(__file__)),
+            ),
+        )
+    
+    return w
+
+
+
 def get_workflow1():
 
     x, y, z = np.meshgrid( np.linspace(0,1,21),
@@ -230,7 +386,7 @@ def get_workflow1():
             # MaximumAllowedNodes=20,
             # MaximumNumberOfPointsPerNode=1e9,
             # CoresPerNode=48,
-            # DistributeExclusivelyOnFullNodes=True,
+            # DistributeOnlyOnFullNodes=True,
             ),
 
 
@@ -265,7 +421,16 @@ def test_submit():
 def test_write_tree():
     w = Workflow()
     w.write_tree('main.cgns')
-    os.unlink('main.cgns')
+    try: os.unlink('main.cgns')
+    except: pass
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_workflow_parameters_in_tree_mpi(filename=''):
+    w = get_workflow_sphere_struct_dist()
+    w.set_workflow_parameters_in_tree()
+    if filename: w.write_tree(filename)
 
 
 @pytest.mark.unit
@@ -283,8 +448,27 @@ def test_get_workflow_parameters_from_tree(filename=''):
     w.write_tree('test.cgns')
     w.tree = 'test.cgns'
     w.get_workflow_parameters_from_tree()
-    os.unlink('test.cgns')
+    try: os.unlink('test.cgns')
+    except: pass
     if filename: w.write_tree(filename)    
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_prepare_assemble_1():
+    w = get_workflow1()
+    w.assemble()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_prepare_assemble_2():
+    w = get_workflow2()
+    w.assemble()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_prepare_assemble_dist():
+    w = get_workflow_dist()
+    w.assemble()
 
 
 @pytest.mark.cost_level_1
@@ -296,8 +480,9 @@ def test_prepare_workflow1():
     w.connect()
     w.define_families()
     w.split_and_distribute()
-    w.tree.save('test.cgns')
-    os.unlink('test.cgns')
+    w.write_tree('test.cgns')
+    try: os.unlink('test.cgns')
+    except: pass
     
 @pytest.mark.integration
 @pytest.mark.cost_level_1
@@ -306,6 +491,16 @@ def test_prepare_workflow2():
     w.prepare()
     w.write_cfd_files()
     w.remove_cfd_files()
+
+
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_prepare_workflow_dist():
+    w = get_workflow_dist()
+    w.prepare()
+    w.write_cfd_files()
+    w.remove_cfd_files()
+
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
@@ -316,6 +511,17 @@ def test_workflow_sphere_struct_local():
     w.submit()
     w.simulation_status()
     w.remove_cfd_files()
+
+
+@pytest.mark.integration
+@pytest.mark.cost_level_3
+def test_workflow_sphere_struct_local_dist():
+    w = get_workflow_sphere_struct_dist()
+    w.prepare()
+    w.write_cfd_files()
+    # w.submit()
+    # w.simulation_status()
+    # w.remove_cfd_files()
 
 
 @pytest.mark.network_onera
@@ -394,4 +600,7 @@ def test_wip():
     
 
 if __name__ == '__main__':
-    test_workflow_sphere_struct_remote_sator()
+    test_workflow_sphere_struct_local_dist()
+    # test_workflow_sphere_struct_local()
+    # test_prepare_workflow_dist()
+    # test_set_workflow_parameters_in_tree_mpi()

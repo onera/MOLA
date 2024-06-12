@@ -19,6 +19,7 @@ import os
 import shutil 
 from treelab import cgns
 from mola import misc
+import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import server as SV
@@ -102,10 +103,10 @@ def write_data_files(workflow):
     # Save FILE_OUTPUT_3D with the 3D fields
     with redirect_streams_to_logger(mola_logger):
         if run_on_localhost:
-            os.makedirs(workflow.RunManagement['RunDirectory'], exist_ok=True)
-            t.save(os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER))
+            dst = os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER)
         else:
-            t.save(names.FILE_INPUT_SOLVER)
+            dst = names.FILE_INPUT_SOLVER
+        io.writer.write(workflow, t, dst)
     
     if not run_on_localhost:
         SV.copy_remote(
@@ -114,57 +115,6 @@ def write_data_files(workflow):
             destination_machine=workflow.RunManagement['Machine'],
             )
         SV.remove_path(names.FILE_INPUT_SOLVER, machine='localhost')
-
-# TODO Delete the following unused function when writing only main.cgns without links is validated
-# def write_data_files_OLD(workflow):
-
-#     run_on_localhost = SV.run_on_localhost(workflow.RunManagement['Machine'], workflow.RunManagement['RunDirectory'])
-
-#     t = workflow.tree
-
-#     # HACK required in order to avoid AssertionError at line 771 in
-#     # etc/pypart/PpartCGNS/LayoutsS.pxi, Layouts.splitBCDataSet 
-#     for node in t.group(Name='BCDataSet#Average', Type='BCDataSet'):
-#         node.setType('UserDefinedData')
-
-#     # Save FILE_OUTPUT_3D with the 3D fields
-#     with redirect_streams_to_logger(mola_logger):
-#         if run_on_localhost:
-#             os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT), exist_ok=True)
-#             t.save(os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D))
-#         else:
-#             os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
-#             t.save(os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D))
-
-#     # Save FILE_INPUT_SOLVER with links to FILE_OUTPUT_3D for 
-#     NodesToLink = t.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
-#     NodesToLink += t.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
-#     NodesToLink += t.group(Name='BCDataSet#Average') 
-    
-#     for FlowSolutionInit in NodesToLink:
-#         path = FlowSolutionInit.path()
-#         FlowSolutionInit.remove()
-#         t.addLink(path=path, target_file=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), target_path=path)
-        
-#     with redirect_streams_to_logger(mola_logger):
-#         if run_on_localhost:
-#             t.save(os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER))
-#         else:
-#             t.save(names.FILE_INPUT_SOLVER)
-    
-#     if not run_on_localhost:
-#         SV.copy_remote(
-#             source_path=names.FILE_INPUT_SOLVER, 
-#             destination_path=os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER), 
-#             destination_machine=workflow.RunManagement['Machine'],
-#             )
-#         SV.copy_remote(
-#             source_path=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), 
-#             destination_path=os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), 
-#             destination_machine=workflow.RunManagement['Machine'],
-#             )
-#         SV.remove_path(names.FILE_INPUT_SOLVER, machine='localhost')
-#         SV.remove_path(names.DIRECTORY_OUTPUT, machine='localhost', file_only=False)
 
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)

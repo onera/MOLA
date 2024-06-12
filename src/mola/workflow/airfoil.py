@@ -165,7 +165,7 @@ class WorkflowAirfoil(Workflow):
     def set_reference_values(self):
         self.ApplicationContext['FluxCoef'] = 1./ (self.Flow['PressureDynamic'] * self.ApplicationContext['Surface'])
         self.ApplicationContext['TorqueCoef'] = self.ApplicationContext['FluxCoef'] / self.ApplicationContext['Chord']
-        self.Flow['Reynolds'] = self.Flow['Density'] * self.Flow['VelocityUsedForScalingAndTurbulence'] * self.ApplicationContext['Chord'] / self.Flow['ViscosityMolecular']
+        self.Flow['Reynolds'] = self.Flow['Density'] * self.Flow['VelocityForScalingAndTurbulence'] * self.ApplicationContext['Chord'] / self.Flow['ViscosityMolecular']
 
     def set_TransitionZones(self):
         if self.Turbulence['TransitionMode'] is not None:

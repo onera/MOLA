@@ -28,6 +28,10 @@ def apply(workflow):
     apply_with_cassiopee(workflow)
         
 def apply_with_cassiopee(workflow):
+
+    from mpi4py import MPI
+    mpi_size = MPI.COMM_WORLD.Get_size()
+
     import Converter.PyTree as C
     import Connector.PyTree as X
 
@@ -36,13 +40,14 @@ def apply_with_cassiopee(workflow):
         base_name = base.name()
         base_dim = base.dim()
 
-        if 'Connection' not in component: 
-            continue
+        if 'Connection' not in component: continue
         _check_connections(component['Connection'])
 
         mola_logger.info(f'Connections for base {base_name}:')
 
         for operation in component['Connection']:
+            if mpi_size > 1:
+                raise MolaException('unable to connect mesh using MPI parallel mode and Cassiopee')
             ConnectionType = operation['Type']
             mola_logger.info(f'  > connecting type {ConnectionType}')
             try: 

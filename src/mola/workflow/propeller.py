@@ -78,9 +78,9 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         span = self.maximumSpan()
         omega = -Dir * RPM * np.pi / 30.
         TangentialVelocity = abs(omega)*span*ReferenceTurbulenceSetAtRelativeSpan
-        VelocityUsedForScalingAndTurbulence = np.sqrt(TangentialVelocity**2 + AxialVelocity**2)
+        VelocityForScalingAndTurbulence = np.sqrt(TangentialVelocity**2 + AxialVelocity**2)
         self.ReferenceValues['Velocity'] = UserParameters['AxialVelocity']
-        self.ReferenceValues['VelocityUsedForScalingAndTurbulence'] = VelocityUsedForScalingAndTurbulence
+        self.ReferenceValues['VelocityForScalingAndTurbulence'] = VelocityForScalingAndTurbulence
         
         RowTurboConfDict = {}
         for b in I.getBases(t):

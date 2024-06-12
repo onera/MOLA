@@ -44,7 +44,7 @@ class FakeWorkflow():
             PressureStagnation = 1e5,
             TemperatureStagnation = 300.,
             Temperature = 288.15,
-            VelocityUsedForScalingAndTurbulence = 10.0,
+            VelocityForScalingAndTurbulence = 10.0,
             )
         
         self.Turbulence = dict(
@@ -150,7 +150,7 @@ def test_InternalFlowGenerator():
                 'Temperature': 296.056908704829,
                 'TemperatureStagnation': 300.0,
                 'Velocity': 89.01198401827102,
-                'VelocityUsedForScalingAndTurbulence': 10.0,
+                'VelocityForScalingAndTurbulence': 10.0,
                 'ViscosityEddy': 1.8272827182289063e-06,
                 'ViscosityMolecular': 1.8272827182289062e-05}
 

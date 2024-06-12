@@ -16,12 +16,18 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+from treelab import cgns
+from .tools import (to_partitioned_if_distributed,
+                    to_distributed)
 
 def apply(workflow):
     if not all([('Positioning' in component) for component in workflow.RawMeshComponents]):
         return
     
     import Transform.PyTree as T
+
+    tree_was_distributed = bool(workflow.tree.get(':CGNS#Distribution'))
+    workflow.tree = to_partitioned_if_distributed(workflow.tree)
 
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
@@ -53,3 +59,5 @@ def apply(workflow):
                 # TODO BEWARE!! duplicate Component, and handle it properly! 
 
         for zone in base.zones(): T._makeDirect(zone)
+
+    if tree_was_distributed: workflow.tree = to_distributed(workflow.tree)
