@@ -28,14 +28,14 @@ def write(w, tree, dst):
     elif io_tool == 'cassiopee':
         import Converter.PyTree as C
         links = tree.getLinks()
-        for l in links: l[0] = '.' # HACK
+        for l in links: l[0] = '.' # HACK treelab 0.1.1
         C.convertPyTree2File(tree, dst, links=links)
 
     elif io_tool == 'cassiopee_mpi':
         import Converter.Mpi as Cmpi
         MPI.COMM_WORLD.barrier()
         links = tree.getLinks()
-        for l in links: l[0] = '.' # HACK
+        for l in links: l[0] = '.' # HACK treelab 0.1.1
         Cmpi.convertPyTree2File(tree,dst,links=links)
         MPI.COMM_WORLD.barrier()
 
@@ -49,30 +49,15 @@ def write(w, tree, dst):
 
         elif maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
 
-            # TODO https://gitlab.onera.net/numerics/mesh/maia/-/issues/108
-            # maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, single_file=True)
-
-            # temporary HACK: write with Cassiopee MPI
-            import Converter.PyTree as C
-            import Converter.Mpi as Cmpi
-            import Converter.Internal as I
             links = tree.getLinks()
-            for l in links: l[0] = '.' # HACK
-            Cmpi.barrier()
-            if Cmpi.rank == 0:
-                mola_logger.info(dst)
-            links_gathered = Cmpi.allgather(links)
-            links = []
-            for g_links in links_gathered: links.extend(g_links)
-            if links : links = [links[3]]
-            if Cmpi.rank == 0:
-                for l in links: mola_logger.info(l)
-            Cmpi.barrier()
-            skel = get_full_tree_skeleton_from_partitioned_tree(tree)
-            tree_w_skel = I.merge([skel,tree])
-            # if Cmpi.rank > 0: links = []
-            Cmpi.barrier()
-            Cmpi.convertPyTree2File(tree_w_skel,dst, links=links)
+            for l in links:
+                l[0] = '.' # HACK treelab 0.1.1
+                del l[4]   # HACK maia only supports 4 elements
+                # HACK maia requires no "/" root at CGNS links https://gitlab.onera.net/numerics/mesh/maia/-/issues/108#note_30623
+                if l[2].startswith('/'): l[2] = l[2][1:]
+                if l[3].startswith('/'): l[3] = l[3][1:]
+            MPI.COMM_WORLD.barrier()
+            maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links, single_file=True)
 
         else:
             dist_tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
