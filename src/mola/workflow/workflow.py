@@ -260,10 +260,12 @@ class Workflow(object):
 
     def get_workflow_parameters_from_tree(self, skip_attributes=['self','tree','workflow']):
         
-        self.tree = cgns.load(self.tree)
-        
-        workflow_parameters = self.tree.getParameters(
-            self._workflow_parameters_container_, transform_numpy_scalars=True)
+        if isinstance(self.tree, str):
+            workflow_parameters = cgns.load_workflow_parameters(self.tree)
+        elif isinstance(self.tree, cgns.Tree):
+            workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_, transform_numpy_scalars=True)
+        else:
+            raise MolaUserError(f'The given tree must be either a filename or a Tree read by treelab.')
         
         for parameter in workflow_parameters:
             setattr(self, parameter, workflow_parameters[parameter])
@@ -276,6 +278,11 @@ class Workflow(object):
                 setattr(self, attribute_name, expected_type())
 
         if self.SolverParameters is None: self.SolverParameters = dict()
+
+        if isinstance(self.tree, str):
+            from mola.cfd.preprocess.mesh.io import reader
+            self.tree = reader.read(self, self.tree)
+        
 
     def set_workflow_parameters_in_tree(self):
         if not self.tree: self.tree = cgns.Tree()

@@ -1,0 +1,233 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Lesser General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Lesser General Public License for more details.
+#
+#    You should have received a copy of the GNU Lesser General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+
+def read_with_pypart(src):
+    import os
+    import Converter.Internal as I
+    import etc.pypart.PyPart as PPA
+    import mola.naming_conventions as names
+    from mpi4py import MPI
+
+    PyPartBase = PPA.PyPart(src,
+                            lksearch=[names.DIRECTORY_OUTPUT, '.'],
+                            loadoption='partial',
+                            mpicomm=MPI.COMM_WORLD,
+                            LoggingInFile=False,
+                            LoggingFile=os.path.join(names.DIRECTORY_LOG, 'partTree'),
+                            LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+                            )
+    # reorder=[6, 2] is recommended, mostly for unstructured mesh.
+    # It is also mandatory to use lussorscawf on unstructured mesh.
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2])
+    PyPartBase.finalise(PartTree, savePpart=True, method=1)
+    Skeleton = PyPartBase.getPyPartSkeletonTree()
+
+    # t = I.merge([Skeleton, PartTree])
+
+    return PartTree, Skeleton
+
+
+def read_with_pypart_old(src):
+    '''
+    Use PyPart to split the mesh in :mola_name:`FILE_INPUT_SOLVER`. This function should be use
+    to prepare the mesh before calling ``elsAxdt.XdtCGNS()``.
+
+    .. note:: For more details on PyPart, see the dedicated pages on elsA
+        support:
+        `PyPart alone <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_alone.html>`_
+        and
+        `PyPart with elsA <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/etc_pypart_elsa.html>`_
+
+    .. important:: Dependence to ETC module
+
+    Returns
+    -------
+
+        t : PyTree
+            Split tree, merged with the skeleton. It will be the **tree**
+            argument of ``elsAxdt.XdtCGNS()``
+
+        Skeleton : PyTree
+            Skeleton tree to use in during coprocess
+
+        PyPartBase : PyPart object
+            PyPart objet that is mandatory to use its method mergeAndSave latter
+
+        Distribution : dict
+            Correspondence between zones and processors.
+
+    '''
+    import Converter.Internal as I
+    import Converter.Mpi as Cmpi
+    import etc.pypart.PyPart as PPA
+    from mola.cfd.coprocess.io import load_skeleton
+    import mola.naming_conventions as names
+    import os
+
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+
+    PyPartBase = PPA.PyPart(src,
+                            lksearch=[names.DIRECTORY_OUTPUT, '.'],
+                            loadoption='partial',
+                            mpicomm=comm,
+                            LoggingInFile=False,
+                            LoggingFile=os.path.join(names.DIRECTORY_LOG, 'partTree'),
+                            LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+                            )
+    # reorder=[6, 2] is recommended, mostly for unstructured mesh.
+    # It is also mandatory to use lussorscawf on unstructured mesh.
+    PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2])
+    PyPartBase.finalise(PartTree, savePpart=True, method=1)
+    Skeleton = PyPartBase.getPyPartSkeletonTree()
+    Distribution = PyPartBase.getDistribution()
+
+    # # Put Distribution into the Skeleton
+    # for zone in I.getZones(Skeleton):
+    #     zonePath = I.getPath(Skeleton, zone, pyCGNSLike=True)[1:]
+    #     Cmpi._setProc(zone, Distribution[zonePath])
+
+    t = I.merge([Skeleton, PartTree])
+
+    # Skeleton = load_skeleton(Skeleton, PartTree)
+    # # Add empty Coordinates for skeleton zones
+    # # Needed to make Cmpi.convert2PartialTree work
+    # for zone in I.getZones(Skeleton):
+    #     GC = I.getNodeFromType1(zone, 'GridCoordinates_t')
+    #     if not GC:
+    #         zone = cgns.castNode(zone)
+    #         zone.setParameters('GridCoordinates', childType='GridCoordinates_t',
+    #             CoordinateX=None, CoordinateY=None, CoordinateZ=None)
+    #     elif I.getZoneType(zone) == 2:
+    #         # For unstructured zone, correct the node NFaceElements/ElementConnectivity
+    #         # Problem with PyPart: see issue https://elsa-e.onera.fr/issues/9002
+    #         # C._convertArray2NGon(zone)
+    #         NFaceElements = I.getNodeFromName(zone, 'NFaceElements')
+    #         if NFaceElements:
+    #             node = I.getNodeFromName(NFaceElements, 'ElementConnectivity')
+    #             I.setValue(node, np.abs(I.getValue(node)))
+
+    return t, Skeleton, PyPartBase, Distribution
+
+
+def _gc_name_pypart_to_maia(zone):
+    import maia.pytree as PT
+
+    name_to_gc = {}
+    gc_nodes = PT.get_nodes_from_predicates(zone, 'ZoneGridConnectivity_t/GridConnectivity_t')
+    for gc in gc_nodes:
+        origin = PT.get_child_from_name(gc, 'OriginName')
+        if origin is not None:
+            try:
+                name_to_gc[PT.get_value(origin)].append(gc[0])
+            except KeyError:
+                name_to_gc[PT.get_value(origin)] = [gc[0]]
+    for gc in gc_nodes:
+        origin_n = PT.get_child_from_name(gc, 'OriginName')
+        if origin_n is not None:
+            origin = PT.get_value(origin_n)
+            pos = name_to_gc[origin].index(gc[0])
+            PT.set_name(gc, f"{origin}.{pos}")
+
+def pypart_to_maia(pypart_tree, pypart_skel_tree=None, recover_jn_donor=True):
+    """
+    Reorganise a Partitioned CGNS Tree comming from PyPart such that its looks
+    like to a Maia Partitioned tree.
+
+    If a skeleton tree is provided, also recover the families and the opposite joins
+    name (if recover_jn_donor == True)
+    
+    Ouput is a shallow copy of the input tree (data array are shared)
+    """
+    from mpi4py import MPI
+    import maia.pytree as PT
+    import maia.pytree.maia as MT
+
+    tree = PT.shallow_copy(pypart_tree)
+
+    # Get families from skeletton
+    if pypart_skel_tree is not None:
+        for base in PT.get_all_CGNSBase_t(tree):
+            skel_base = PT.get_child_from_name(pypart_skel_tree, PT.get_name(base))
+            for family in PT.get_children_from_label(skel_base, 'Family_t'):
+                PT.add_child(base, family)
+
+    # Compute jn donor name using Skeleton, who have all the data \o/
+    skel_tree = None
+    if pypart_skel_tree is not None and recover_jn_donor:
+        from maia.algo.dist.matching_jns_tools import add_joins_donor_name
+        skel_tree = PT.shallow_copy(pypart_skel_tree)
+        for zone in PT.get_all_Zone_t(skel_tree):
+            _gc_name_pypart_to_maia(zone)
+        add_joins_donor_name(skel_tree, MPI.COMM_SELF)
+
+    # Reorganise zone data
+    for zone in PT.get_all_Zone_t(tree):
+        PT.rm_children_from_name(zone, ":elsA#Hybrid")
+        PT.print_tree(zone)
+        vtx_lngn  = PT.get_node_from_path(zone, ':CGNS#Ppart/npVertexLNToGN')[1]
+        face_lngn = PT.get_node_from_path(zone, ':CGNS#Ppart/npFaceLNToGN')[1]
+        cell_lngn = PT.get_node_from_path(zone, ':CGNS#Ppart/npCellLNToGN')[1]
+
+        MT.newGlobalNumbering({'Vertex': vtx_lngn, 'Cell': cell_lngn}, zone)
+
+        ngon = PT.Zone.NGonNode(zone)
+        MT.newGlobalNumbering({'Element': face_lngn}, ngon)
+        nface = PT.Zone.NFaceNode(zone)
+        MT.newGlobalNumbering({'Element': cell_lngn}, nface)
+
+        bc_lngn_idx   = PT.get_node_from_path(zone, ':CGNS#Ppart/npFaceGroupIdx')[1]
+        bc_lngn       = PT.get_node_from_path(zone, ':CGNS#Ppart/npFaceGroupLNToGN')[1]
+        for i, bc in enumerate(PT.get_nodes_from_predicates(zone, 'ZoneBC_t/BC_t')):
+            PT.set_name(bc, MT.conv.get_part_prefix(PT.get_name(bc)))
+            _bc_lngn = bc_lngn[bc_lngn_idx[i]:bc_lngn_idx[i+1]].copy()
+            MT.newGlobalNumbering({'Index': _bc_lngn}, bc)
+        
+        _gc_name_pypart_to_maia(zone)
+        for gc in PT.iter_nodes_from_predicates(zone, 'ZoneGridConnectivity_t/GridConnectivity_t'):
+            remove_me = lambda n: PT.get_name(n) in ['minCur', 'maxCur', 'minOpp', 'maxOpp', 'Ordinal']
+            PT.rm_children_from_predicate(gc, remove_me)
+            origin_n = PT.get_child_from_name(gc, 'OriginName')
+            if origin_n is not None:
+                lngn_node = PT.get_child_from_name(gc, 'LnToGn')
+                MT.newGlobalNumbering({'Index': lngn_node[1]}, gc)
+                PT.rm_child(gc, lngn_node)
+                PT.rm_child(gc, origin_n)
+                if skel_tree is not None:
+                    skel_zone  = PT.get_node_from_name(skel_tree, PT.get_name(zone), depth=2)
+                    skel_join  = PT.get_node_from_name(skel_zone, PT.get_name(gc), depth=2)
+                    donor_name = PT.get_child_from_name(skel_join, f"GridConnectivityDonorName")
+                    PT.add_child(gc, donor_name)
+
+        nface_range  = PT.Element.Range(nface)
+        pe_node = PT.get_child_from_name(ngon,"ParentElements")
+        if pe_node:
+          pe = PT.get_value(pe_node)
+          pe_no_0 = pe[pe>0]
+          min_pe = pe_no_0.min()
+          max_pe = pe_no_0.max()
+          if not (min_pe==nface_range[0] and max_pe==nface_range[1]):
+            if min_pe!=1:
+              raise RuntimeError("ParentElements values are not SIDS-compliant, and they do not start at 1")
+            else:
+              pe += (nface_range[0]-1)*(pe>0)
+        
+        PT.rm_children_from_name(zone, 'Ordinal')
+        PT.rm_children_from_name(zone, ":CGNS#Ppart")
+
+    return tree

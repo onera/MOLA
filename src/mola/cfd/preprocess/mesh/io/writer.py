@@ -15,8 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola.logging import mola_logger, MolaUserError
-from .utils import get_io_tool, get_full_tree_skeleton_from_partitioned_tree
+from .utils import get_io_tool
 from treelab import cgns
 
 def write(w, tree, dst):
@@ -33,11 +32,11 @@ def write(w, tree, dst):
 
     elif io_tool == 'cassiopee_mpi':
         import Converter.Mpi as Cmpi
-        MPI.COMM_WORLD.barrier()
+        Cmpi.barrier()
         links = tree.getLinks()
         for l in links: l[0] = '.' # HACK treelab 0.1.1
         Cmpi.convertPyTree2File(tree,dst,links=links)
-        MPI.COMM_WORLD.barrier()
+        Cmpi.barrier()
 
     elif io_tool == 'maia':
         from mpi4py import MPI

@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from treelab import cgns
+from mola.logging import MolaUserError
 
 def is_using_mpi():
     try:
@@ -26,7 +27,7 @@ def is_using_mpi():
         return False
     
 
-def get_io_tool(w,src):
+def get_io_tool(w, src):
     using_mpi = is_using_mpi()
     is_cgns = src.endswith('.cgns') or src.endswith('.hdf')
 
@@ -35,7 +36,12 @@ def get_io_tool(w,src):
 
     else:
         if not is_cgns: return MolaUserError('parallel file load/write requires mesh in cgns format')
-        io_tool = 'maia' if w.Solver != 'fasts' else 'cassiopee_mpi'
+        if w.SplittingAndDistribution['Splitter'].lower() == 'pypart':
+            io_tool = 'pypart'
+        elif w.Solver == 'fasts':
+            io_tool = 'cassiopee_mpi'
+        else:
+            io_tool = 'maia'
 
     return io_tool
 
@@ -43,7 +49,6 @@ def get_full_tree_skeleton_from_partitioned_tree(tree : cgns.Tree):
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    import maia
     import maia.pytree as PT
 
     shallow = PT.shallow_copy(tree)

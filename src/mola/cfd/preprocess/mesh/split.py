@@ -670,7 +670,7 @@ def splitWithPyPart(comm=None):
 
     t = I.merge([Skeleton, PartTree])
 
-    # TODO This import should be there !! Preprocess should be linked to coprocess
+    # TODO This import should be there !! Preprocess should not be linked to coprocess
     from mola.cfd.coprocess.io import load_skeleton
     Skeleton = load_skeleton(Skeleton, PartTree)
     # Add empty Coordinates for skeleton zones

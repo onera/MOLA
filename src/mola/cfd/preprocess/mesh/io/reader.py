@@ -15,8 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola.logging import MolaUserError
-
+import numpy as np
 from treelab import cgns
 from .utils import get_io_tool
 
@@ -68,6 +67,10 @@ def read(w, src):
         mesh = cgns.castNode(mesh)
         MPI.COMM_WORLD.barrier()
 
+    elif io_tool == 'pypart':
+        from . import pypart
+        part_tree, skeleton = pypart.read_with_pypart(src)
+        mesh = pypart.pypart_to_maia(part_tree, skeleton)
+
     mesh = cgns.merge(mesh)
     return mesh
-
