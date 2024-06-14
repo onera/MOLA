@@ -22,6 +22,15 @@ def reader(w, component):
     
     mesh = read(w, component['Source'])
 
+    if isinstance(mesh, cgns.Zone):
+        base = cgns.Base(Name=component['Name'], Children=[mesh])
+        mesh = cgns.Tree()
+        mesh.addChild(base)
+    elif isinstance(mesh, cgns.Base):
+        mesh.setName(component['Name'])
+        t = cgns.Tree()
+        t.addChild(mesh)
+        mesh = t
     nb_of_bases = len(mesh.bases())
     if nb_of_bases != 1:
         msg = f"component {component['Name']} must have exactly 1 base (got {nb_of_bases})"

@@ -250,6 +250,9 @@ def split_with_auto_mode(workflow):
 
 def split_with_imposed_mode(workflow):
     NumberOfProcessors = workflow.SplittingAndDistribution['NumberOfProcessors']
+    if NumberOfProcessors == 1: # only distribute and return
+        for z in workflow.tree.zones(): z.setParameters('.Solver#Param',proc=0)
+        return
     splitter = workflow.SplittingAndDistribution['Splitter'].lower()
     if splitter == 'cassiopee':
         tRef = _splitAndDistributeUsingNProcsWithCassiopee(workflow, NumberOfProcessors, raise_error=True)[0]

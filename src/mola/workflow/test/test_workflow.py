@@ -88,7 +88,7 @@ def get_workflow_dist():
             Splitter='maia', # or 'maia', 'PyPart' etc..
             Distributor='maia', 
             ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=2, 
+            NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
             ),
 
         Flow=dict(
@@ -268,6 +268,8 @@ def get_workflow_sphere_struct():
 
 
 def get_workflow_sphere_struct_dist():
+    from mpi4py import MPI
+
     w = Workflow(
         RawMeshComponents=[
             dict(
@@ -285,7 +287,7 @@ def get_workflow_sphere_struct_dist():
             Splitter='maia', # or 'maia', 'PyPart' etc..
             Distributor='maia', 
             ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=2, 
+            NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
             ),
 
         Flow=dict(
@@ -427,6 +429,7 @@ def test_write_tree():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
+@pytest.mark.mpi
 def test_set_workflow_parameters_in_tree_mpi(filename=''):
     w = get_workflow_sphere_struct_dist()
     w.set_workflow_parameters_in_tree()
@@ -466,6 +469,7 @@ def test_prepare_assemble_2():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
+@pytest.mark.mpi
 def test_prepare_assemble_dist():
     w = get_workflow_dist()
     w.assemble()
@@ -495,6 +499,7 @@ def test_prepare_workflow2():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_1
+@pytest.mark.mpi
 def test_prepare_workflow_dist():
     w = get_workflow_dist()
     w.prepare()
@@ -515,13 +520,14 @@ def test_workflow_sphere_struct_local():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
+@pytest.mark.mpi
 def test_workflow_sphere_struct_local_dist():
     w = get_workflow_sphere_struct_dist()
     w.prepare()
     w.write_cfd_files()
-    # w.submit()
-    # w.simulation_status()
-    # w.remove_cfd_files()
+    w.submit()
+    w.simulation_status()
+    w.remove_cfd_files()
 
 
 @pytest.mark.network_onera
@@ -601,6 +607,4 @@ def test_wip():
 
 if __name__ == '__main__':
     test_workflow_sphere_struct_local_dist()
-    # test_workflow_sphere_struct_local()
     # test_prepare_workflow_dist()
-    # test_set_workflow_parameters_in_tree_mpi()

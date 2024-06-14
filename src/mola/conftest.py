@@ -39,6 +39,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "network_onera: test available on ONERA machines only")
 
+    config.addinivalue_line(
+        "markers", "mpi: test shall be run in mpi")
+
 def get_cost_marker(marker_container):
     for marker in marker_container:
         if marker in cost_levels:
