@@ -57,16 +57,10 @@ def add_global_convergence_history(workflow):
 def add_extractions_for_restart(workflow):
     workflow.tree.findAndRemoveNodes(Name='FlowSolution#EndOfRun', Type='FlowSolution')
 
-    Extraction = dict(
-            Type='Restart',
-            Container='FlowSolution#EndOfRun',
-            GridLocation='CellCenter',
-            Frame='relative',
-            Fields=list(workflow.Flow['ReferenceState']),
-            ExtractionPeriod=1e20, # Only done at the end of the simulation
-            SavePeriod=1e20,
-            )
-    workflow.Extractions.append(Extraction)
+    workflow._interface.add_to_Extractions_Restart(
+        Container='FlowSolution#EndOfRun', 
+        Fields=list(workflow.Flow['ReferenceState']),
+        )
 
 def process_extractions_3d(workflow):
 

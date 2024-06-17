@@ -458,6 +458,24 @@ class WorkflowInterface(object):
         '''
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_3D, self.repack_kwargs()))
+    
+    def add_to_Extractions_Restart(self,
+            Fields : list = None,
+            File : str = names.FILE_INPUT_SOLVER, 
+            ExtractionPeriod : int = 1000000000, # Only done at the end of the simulation
+            SavePeriod : int = 1000000000,
+            Frame : str = 'relative',
+            Container : str = None, # if None will define automatic container names
+            GridLocation : str = 'CellCenter',
+            GhostCells : bool = False,
+            *,
+            Type : str = 'Restart',
+            ):
+        '''
+        Fields used to restart a simulation 
+        '''
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_Restart, self.repack_kwargs()))
 
     def set_ExtractionsDefaults(self, user_list : list = None):
         self._set_by_user_list(self._method_name(), user_list)
