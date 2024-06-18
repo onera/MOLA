@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+#
+# Update workflow parameters
+
+import argparse
+
+from treelab import cgns
+import mola.naming_conventions as names
+
+parser = argparse.ArgumentParser('Update parser')
+parser.add_argument('-iter', '--NumberOfIterations',  type=int, help='Number of iterations')
+args = parser.parse_args()
+
+filename = names.FILE_INPUT_SOLVER
+
+try:
+    WorkflowParameters = cgns.load_from_path(filename, 'WorkflowParameters')
+except:
+    from mola.logging import MolaException
+    raise MolaException(f'Unable to read {filename}')
+
+for name in ['NumberOfIterations', 'niter']:
+    node = WorkflowParameters.get(Name=name)
+    node.setValue(args.NumberOfIterations)
+
+# FIXME works only with backend='cassiopee'. See https://github.com/Luispain/treelab/issues/8
+WorkflowParameters.saveThisNodeOnly(filename, backend='cassiopee')  
+
+print(f'NumberOfIterations has been updated to {args.NumberOfIterations}')
