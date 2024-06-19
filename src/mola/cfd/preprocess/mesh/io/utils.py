@@ -35,11 +35,13 @@ def get_io_tool(w, src):
         io_tool = 'treelab' if is_cgns else 'cassiopee'
 
     else:
-        if not is_cgns: return MolaUserError('parallel file load/write requires mesh in cgns format')
-        if w.SplittingAndDistribution['Splitter'].lower() == 'pypart':
-            io_tool = 'pypart'
-        elif w.Solver == 'fasts':
+        if not is_cgns: 
+            return MolaUserError('parallel file load/write requires mesh in cgns format')
+        
+        if w.Solver == 'fasts' or w.SplittingAndDistribution['Splitter'].lower() == 'cassiopee':
             io_tool = 'cassiopee_mpi'
+        elif w.SplittingAndDistribution['Splitter'].lower() == 'pypart':
+            io_tool = 'pypart'
         else:
             io_tool = 'maia'
 

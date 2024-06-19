@@ -49,13 +49,16 @@ def save(t, filename, coprocess_manager=None, tagWithIteration=False):
     '''
     mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
 
-    is_PyPart_used = coprocess_manager is not None and coprocess_manager.workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart'
-    is_3d_field_to_save = filename.endswith(names.FILE_OUTPUT_3D) or filename.endswith(names.FILE_OUTPUT_RESTART)
+    # is_PyPart_used = coprocess_manager is not None and coprocess_manager.workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart'
+    # is_3d_field_to_save = filename.endswith(names.FILE_OUTPUT_3D) or filename.endswith(names.FILE_OUTPUT_RESTART)
     
-    if  is_PyPart_used and is_3d_field_to_save:
-        save_with_pypart(t, filename, coprocess_manager.PyPartBase)
-    else:
-        save_with_cassiopee(t, filename)
+    # if  is_PyPart_used and is_3d_field_to_save:
+    #     save_with_pypart(t, filename, coprocess_manager.PyPartBase)
+    # else:
+    #     save_with_cassiopee(t, filename)
+
+    from mola.cfd.preprocess.mesh.io.writer import write
+    write(coprocess_manager.workflow, t, filename)
     
     mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
 

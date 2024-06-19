@@ -19,6 +19,7 @@ import os
 import glob
 import shutil
 import timeit
+import copy
 
 from treelab import cgns
 from mola.logging import MolaException, MolaAssertionError, MolaUserError
@@ -28,7 +29,6 @@ from mola.cfd import call_solver_specific_function
 from . import mola_logger, rank, comm
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
 from .user_interface import update_operations_from_user_signal
-from .io import save
 
 
 AVAILABLE_SIMULATION_STATUS = [
@@ -85,21 +85,21 @@ class CoprocessManager():
         self.iteration = self.workflow.Numerics['IterationAtInitialState'] - 1
         self.launch_time = timeit.default_timer()
         if self.workflow.Numerics['NumberOfIterations'] == 0:
-            raise MolaUserError('NumberOfIterations=0 => simulation cannot begin. Please change this value and submit again.')
+            err_msg = 'NumberOfIterations=0 => simulation cannot begin. Please change this value and submit again.'
+            mola_logger.error(err_msg, rank=0)
+            raise MolaUserError(err_msg)
 
-        # TODO several containers, depending on requested extractions
-        self.signals = None  # TODO init with something like invokeArrays()
-        self.extractions = None
-        self.fields = None
-        # workflow.Extractions[0]['data'] = ...
-
-        self.restart_fields = None
-
-        self.operations_stack = OperationsStack()
-        self.extractions_to_perform = []
+        # self.operations_stack = OperationsStack()
+        # self.extractions_to_perform = []
         self._status = 'BEFORE_FIRST_ITERATION'
 
         self.skeleton = None
+
+        # NOTE It is important to have a copy of Extractions
+        # because several keys will be added for each extraction: 
+        #   IsToExtract (bool), IsToSave (bool), Data (PyTree or other kind of volumic data)
+        # and these elements must not be saved when saving the workflow.
+        self.Extractions = copy.deepcopy(workflow.Extractions)
         
 
     @property
@@ -114,6 +114,12 @@ class CoprocessManager():
             raise MolaException(f"The value {value} is not among the AVAILABLE_SIMULATION_STATUS ({', '.join(AVAILABLE_SIMULATION_STATUS)})")
 
     def __del__(self):
+
+        # for extraction in self.workflow.Extractions:
+        #     for key in ['IsToExtract', 'IsToSave', 'Data']:
+        #         if key in extraction:
+        #             del extraction[key]
+
         if self.status != 'COMPLETED':
             mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
 
@@ -131,9 +137,12 @@ class CoprocessManager():
 
     def update_iteration(self):
         self.status = 'RUNNING'
-        self.operations_stack.clear()
-        self.extractions_to_perform.clear()
-        
+        # self.operations_stack.clear()
+        # self.extractions_to_perform.clear()
+        for extraction in self.Extractions:
+            extraction['IsToExtract'] = False
+            extraction['IsToSave'] = False
+
         self.iteration += 1
         mola_logger.info(f'iteration {self.iteration:d}', rank=0)
 
@@ -141,32 +150,51 @@ class CoprocessManager():
 
         # TODO add body-force in the operations_stack if needed
     
-    def update_extractions_to_perform(self):
-        for extraction in self.workflow.Extractions:
-            on_extraction_period = self.iteration % extraction['ExtractionPeriod'] == 0
-            ask_save_fields = 'SAVE_FIELDS' in self.operations_stack and extraction['Type'] in ['Restart', '3D']
-            ask_save_extractions = 'SAVE_EXTRACTIONS' in self.operations_stack and extraction['Type'] in ['BC', 'IsoSurface']
-            ask_save_signals = 'SAVE_SIGNALS' in self.operations_stack and extraction['Type'] in ['Integral', 'Probe']
+    def update_extractions_to_perform(self, force_extractions=False):
+        # for extraction in self.Extractions:
+        #     on_extraction_period = self.iteration % extraction['ExtractionPeriod'] == 0
+        #     ask_save_fields = 'SAVE_FIELDS' in self.operations_stack and extraction['Type'] in ['Restart', '3D']
+        #     ask_save_extractions = 'SAVE_EXTRACTIONS' in self.operations_stack and extraction['Type'] in ['BC', 'IsoSurface']
+        #     ask_save_signals = 'SAVE_SIGNALS' in self.operations_stack and extraction['Type'] in ['Integral', 'Probe']
 
-            if on_extraction_period or ask_save_fields or ask_save_extractions or ask_save_signals:
-                self.operations_stack.append('PERFORM_EXTRACTIONS')
-                self.extractions_to_perform.append(extraction)
+        #     if on_extraction_period or ask_save_fields or ask_save_extractions or ask_save_signals:
+        #         self.operations_stack.append('PERFORM_EXTRACTIONS')
+        #         self.extractions_to_perform.append(extraction)
 
-            if self.iteration % extraction['SavePeriod'] == 0:
-                if extraction['Type'] in ['Restart', '3D']:
-                    self.operations_stack.append('SAVE_FIELDS')
-                elif extraction['Type'] in ['BC', 'IsoSurface']:
-                    self.operations_stack.append('SAVE_EXTRACTIONS')
-                elif extraction['Type'] in ['Integral', 'Probe']:
-                    self.operations_stack.append('SAVE_SIGNALS')
-                else:
-                    mola_logger.warning(f"Unknown extraction type: {extraction['Type']}")
+        #     if self.iteration % extraction['SavePeriod'] == 0:
+        #         if extraction['Type'] in ['Restart', '3D']:
+        #             self.operations_stack.append('SAVE_FIELDS')
+        #         elif extraction['Type'] in ['BC', 'IsoSurface']:
+        #             self.operations_stack.append('SAVE_EXTRACTIONS')
+        #         elif extraction['Type'] in ['Integral', 'Probe']:
+        #             self.operations_stack.append('SAVE_SIGNALS')
+        #         else:
+        #             mola_logger.warning(f"Unknown extraction type: {extraction['Type']}")
+
+        for extraction in self.Extractions:
+            if self.iteration % extraction['ExtractionPeriod'] == 0 or force_extractions:
+                extraction['IsToExtract'] = True
+            if self.iteration % extraction['SavePeriod'] == 0 or force_extractions:
+                extraction['IsToSave'] = True
                     
     def apply_operations(self):
-        for operation in self.operations_stack:
-            mola_logger.debug(f'next operation if applicable: {operation}', rank=0)
-            method = getattr(self, operation.lower())
-            method()
+        # for operation in self.operations_stack:
+        #     mola_logger.debug(f'next operation if applicable: {operation}', rank=0)
+        #     method = getattr(self, operation.lower())
+        #     method()
+
+        if any([extraction['IsToExtract'] for extraction in self.Extractions]):
+            mola_logger.debug(f'Performing extractions..', rank=0)
+            self.perform_extractions()
+
+            if any([extraction['Type'] == 'Restart' and extraction['IsToExtract']  for extraction in self.Extractions]):
+                self._update_workflow_parameters_for_restart()
+            
+        comm.barrier()
+
+        if any([extraction['IsToSave'] for extraction in self.Extractions]):
+            mola_logger.debug(f'Saving data...', rank=0)
+            self.save_data()
     
     def end_simulation(self):
         if self.status == 'TO_STOP':
@@ -175,81 +203,89 @@ class CoprocessManager():
 
     def perform_extractions(self):
         call_solver_specific_function(self.workflow, 'perform_extractions', 3, self)
+
+    def save_data(self):
+
+        def sort_extractions_to_save_by_file():
+            files_to_save = dict()
+            for extraction in self.Extractions:
+                if extraction['IsToSave'] and extraction['Data'] is not None:
+                    if extraction['Type'] == 'Restart':
+                        filename = extraction['File']
+                    else:
+                        filename = os.path.join(names.DIRECTORY_OUTPUT, extraction['File'])
+                    files_to_save.setdefault(filename, [])
+                    files_to_save[filename].append(extraction['Data'])
+            return files_to_save
+        
+        def merge_data(data_pytrees):
+            import Converter.Internal as I
+            return cgns.castNode(I.merge(data_pytrees))
+            # if len(data_pytrees) > 1:
+            #     tree_to_save = data_pytrees[0].merge(data_pytrees[1:])
+            # else:
+            #     tree_to_save = data_pytrees[0]
+            # return tree_to_save
     
-    def compute_bodyforce(self):
-        ...
+        files_to_save = sort_extractions_to_save_by_file()
+        for filename, data_pytrees in files_to_save.items():
+            tree_to_save = merge_data(data_pytrees)
+            self.save(tree_to_save, filename)
 
-    def save_bodyforce(self):
-        ...
+    def save(self, data, filename, tag_with_iteration=False):
+        from mola.cfd.preprocess.mesh.io.writer import write
+        from mola.logging import CYAN, ENDC, GREEN
 
-    def save_signals(self):
-        if self.signals is not None:
-            save(self.signals, os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D), coprocess_manager=self)
+        if data is not None:
+            if tag_with_iteration:
+                f2cSplit = filename.split('.')
+                name = '.'.join(f2cSplit[:-1])
+                fmt = f2cSplit[-1]
+                filename = f'{name}_AfterIter{self.iteration}.{fmt}'
 
-    def save_extractions(self):
-        if self.extractions is not None:
-            save(self.extractions, os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D), coprocess_manager=self)
+            mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
+            write(self.workflow, data, filename)
+            mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
 
-    def save_fields(self):
-        if self.fields is not None:
-            save(self.fields, os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), coprocess_manager=self)
-    
-    def save_restart(self):
-        if self.restart_fields is not None:
-            save(self.restart_fields, os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_RESTART), coprocess_manager=self)
-
+            
     def finalize(self):
+        # mola_logger.info(f'>> finalize', rank=0)
+        # self.operations_stack.clear()
+        # self.operations_stack.extend(['SAVE_RESTART', 'SAVE_FIELDS', 'SAVE_EXTRACTIONS', 'SAVE_SIGNALS'])
+        # self.extractions_to_perform.clear()
+        # self.update_extractions_to_perform()
+
+        # self.apply_operations()
+
+        # self.update_and_save_workflow_for_restart()
+
+        # self.status = 'COMPLETED'
+        # moveLogFiles()
+        # check_stderr_and_create_COMPLETED()
+
         mola_logger.info(f'>> finalize', rank=0)
-        self.operations_stack.clear()
-        self.operations_stack.extend(['SAVE_RESTART', 'SAVE_FIELDS', 'SAVE_EXTRACTIONS', 'SAVE_SIGNALS'])
-        self.extractions_to_perform.clear()
-        self.update_extractions_to_perform()
+        self.update_extractions_to_perform(force_extractions=True)
 
         self.apply_operations()
 
-        self.update_and_save_workflow_for_restart()
+        # self.update_and_save_workflow_for_restart()
 
         self.status = 'COMPLETED'
         moveLogFiles()
         check_stderr_and_create_COMPLETED()
 
-    def update_and_save_workflow_for_restart(self):
-        self._update_workflow_parameters_for_restart()
-        self._update_workflow_tree_for_restart()
-        if self.workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
-            if rank == 0:
-                self.workflow.tree.save(names.FILE_INPUT_SOLVER)
-        else:
-            save(self.workflow.tree, names.FILE_INPUT_SOLVER, coprocess_manager=self)
-        if rank == 0:
-            try:
-                os.remove(os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_RESTART))
-            except:
-                pass
-
     def _update_workflow_parameters_for_restart(self):
-        self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
-        self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1
-        if 'TimeStep' in self.workflow.Numerics:
-            self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
-        self.workflow.set_workflow_parameters_in_tree()
-    
-    def _update_workflow_tree_for_restart(self):
-        # TODO For now there is an IO that should be avoided, but it requires a bit a work with PyPart...
         if rank == 0:
-        
-            self.restart_fields = cgns.load(os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_RESTART))
-            NodesToUpdate = self.restart_fields.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
-            NodesToUpdate += self.restart_fields.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
-            NodesToUpdate += self.restart_fields.group(Name='BCDataSet#Average') 
+            self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
+            self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1
+            if 'TimeStep' in self.workflow.Numerics:
+                self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
+            
+            from mola.cfd.preprocess.cfd_parameters import apply
+            apply(self.workflow)
 
-            for node in NodesToUpdate:
-                path = node.path()
-                node_to_update = self.workflow.tree.getAtPath(path)
-                parent = node_to_update.Parent
-                node_to_update.remove()
-                parent.addChild(node)
-
+            self.workflow.set_workflow_parameters_in_tree()
+    
 
 def moveLogFiles():
     if rank == 0:

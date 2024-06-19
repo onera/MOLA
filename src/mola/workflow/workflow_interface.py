@@ -443,7 +443,7 @@ class WorkflowInterface(object):
             SavePeriod : int = 5000,
             Frame : str = 'relative',
             Override : bool = True, # if False, will tag with iteration
-            Container : str = None, # if None will define automatic container names
+            Container : str = 'FlowSolution#Output', 
             GridLocation : str = 'CellCenter',
             GhostCells : bool = False,
             TimeAveragingFirstIteration : int = 1000,

@@ -41,14 +41,22 @@ def apply_to_solver(workflow):
     if not hasattr(workflow, '_FULL_CGNS_MODE'):
         set_parameters_in_elsa_objects(workflow.SolverParameters)
 
-    # FIXME FOr now, the main tree is read twice: 
-    # firstly loading the workflow, and secondly with PyPart, Maia or elsA
+    if workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation' \
+        and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia':
+
+        part_tree, skeleton_tree, distribution = split_with_maia(workflow.tree)
+        coprocess_manager.skeleton = skeleton_tree
+        e = elsAxdt.XdtCGNS(tree=part_tree, links=[], paths=[])
+        e.distribution = distribution
         
-    if workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation':
-        t, Distribution = split_mesh(workflow.SplittingAndDistribution['Splitter'], coprocess_manager)
-        e = elsAxdt.XdtCGNS(tree=t, links=[], paths=[])
-        e.distribution = Distribution
-    else:
+    else:      
+        # import Converter.Mpi as Cmpi
+        # import Distributor2.PyTree as D2
+        # # part_tree = workflow.tree
+        # part_tree = Cmpi.convert2PartialTree(workflow.tree)
+        # skeleton_tree = Cmpi.convert2SkeletonTree(workflow.tree)
+        # distribution = D2.getProcDict(workflow.tree, prefixByBase=True)
+
         coprocess_manager.skeleton = load_skeleton()
         e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
 
@@ -96,25 +104,19 @@ def set_cfl_function(elsA_user, Num, funDict):
         f_cfl.set(v,  funDict[v])
     Num.attach('cfl', function=f_cfl)
 
-def split_mesh(Splitter, coprocess_manager):
-    from mola.cfd.preprocess.mesh import split
+def split_with_maia(tree):
+    import maia4elsA
+    import maia
+    import Converter.Internal as I
 
-    if Splitter.lower() == 'pypart':
-        t, Skeleton, PyPartBase, Distribution = split.splitWithPyPart()
-        coprocess_manager.PyPartBase = PyPartBase
-        coprocess_manager.skeleton = Skeleton
+    part_tree = maia.factory.partition_dist_tree(tree, comm)
+    # maia.io.part_tree_to_file(part_tree, 'part_tree.cgns', comm)
+    maia4elsA.add_renumbering_data(part_tree)
+    skeleton_tree = maia4elsA.get_skeleton_tree(part_tree, comm)
+    distribution = maia4elsA.get_distribution(part_tree, comm)
+    part_tree = I.merge([skeleton_tree, part_tree])  # PT.union instead of I.merge ? 
 
-    elif Splitter.lower() == 'maia':
-        import maia4elsA
-        t, Distribution = split.splitWithMaia()
-        Skeleton = maia4elsA.get_skeleton_tree(t, comm)
-        Distribution = maia4elsA.get_distribution(t, comm)
-        coprocess_manager.skeleton = Skeleton
-
-    else:
-        raise Exception(f"Unkwown Splitter: {Splitter}")
-    
-    return t, Distribution
+    return part_tree, skeleton_tree, distribution
     
 def save_with_maia(DistTree, PartTree):
     # see https://elsa-doc.onera.fr/restricted/MU_MT_tuto/latest/Tutos/PreprocessTutorials/maia_tutorials.html#step-4-generating-output-tree-and-saving-overall-outputs

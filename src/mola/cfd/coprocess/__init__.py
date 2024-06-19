@@ -25,4 +25,4 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 NumberOfProcessors = comm.Get_size()
 
-mola_logger = MolaLogger(stream=False, filename=names.FILE_COLOG)
+mola_logger = MolaLogger(stream=False, filename=names.FILE_COLOG, level='DEBUG')

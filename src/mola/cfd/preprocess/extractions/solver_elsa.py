@@ -35,14 +35,11 @@ def apply_to_solver(workflow):
 
 def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():
-        workflow.Extractions.append(
-            dict(
-                Type      = '3D', 
-                Fields    = workflow.Flow['Conservatives'], 
-                Container = 'FlowSolution#EndOfRun#Relative', 
-                Frame     = 'relative'
+        workflow._interface.add_to_Extractions_3D(
+            Fields    = workflow.Flow['Conservatives'], 
+            Container = 'FlowSolution#Overset', 
+            Frame     = 'absolute'
             )
-        )
 
 def add_global_convergence_history(workflow):
     for base in workflow.tree.bases():
@@ -88,18 +85,13 @@ def is_zone_in_extraction_family(zone, Extraction):
         return True
 
 def add_3d_extraction_to_zone(zone, Extraction):
-
-    Container = Extraction.get('Container', 'FlowSolution#Output')
-    GridLocation = Extraction.get('GridLocation', 'CellCenter')
-    Frame = Extraction.get('Frame', 'relative')
-    Fields2Extract = Extraction['Fields']
-    OtherOptions = Extraction.get('OtherOptions', dict())
-
-    EoRnode = zone.get(Name=Container, Type='FlowSolution', Depth=1) 
+    EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
+    options = Extraction.get('OtherOptions', dict())
     if not EoRnode:
-        create_new_container_for_3d_extraction(zone, Fields2Extract, Container, GridLocation, Frame, OtherOptions)
+        create_new_container_for_3d_extraction(zone, Extraction['Fields'], Extraction['Container'], 
+                                               Extraction['GridLocation'], Extraction['Frame'], options)
     else:
-        add_3d_extraction_to_existing_container(EoRnode, Fields2Extract, GridLocation, Frame)
+        add_3d_extraction_to_existing_container(EoRnode, Extraction['Fields'], Extraction['GridLocation'], Extraction['Frame'])
 
 def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name, GridLocation, frame, OtherOptions):
     EoRnode = zone.setParameters(container_name, 

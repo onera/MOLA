@@ -54,7 +54,7 @@ export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 
-export ELSAVERSION=v5.2.03
+export ELSAVERSION=v5.3.01
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
