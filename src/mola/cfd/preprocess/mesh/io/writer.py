@@ -58,7 +58,6 @@ def write(w, tree, dst):
                 l[0] = '.' # HACK treelab 0.1.1
                 del l[4]   # HACK maia only supports 4 elements
                 # HACK maia requires no "/" root at CGNS links https://gitlab.onera.net/numerics/mesh/maia/-/issues/108#note_30623
-                if l[2].startswith('/'): l[2] = l[2][1:]
                 if l[3].startswith('/'): l[3] = l[3][1:]
             MPI.COMM_WORLD.barrier()
             maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links, single_file=True)

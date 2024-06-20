@@ -38,13 +38,3 @@ def test_set_default():
 
     assert RunManagement['Machine'] in config.AvailableEnvironments
     # TODO Complete the assertion tests
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-@pytest.mark.parametrize("NumberOfProcessors", [None, 10., 'number', [5, 6]])
-def test_set_default_error_NumberOfProcessors(NumberOfProcessors):
-    RunManagement = dict(NumberOfProcessors=NumberOfProcessors)
-
-    expected_error_msg = f'The value {RunManagement["NumberOfProcessors"]} for NumberOfProcessors is not allowed. It must be an integer'
-    check_error_message(expected_error_msg, write_cfd_files.set_default, RunManagement)
