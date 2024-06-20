@@ -45,19 +45,16 @@ def apply_to_solver(workflow):
         and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia':
 
         part_tree, skeleton_tree, distribution = split_with_maia(workflow.tree)
-        coprocess_manager.skeleton = skeleton_tree
+        workflow._Skeleton = skeleton_tree
         e = elsAxdt.XdtCGNS(tree=part_tree, links=[], paths=[])
         e.distribution = distribution
-        
-    else:      
-        # import Converter.Mpi as Cmpi
-        # import Distributor2.PyTree as D2
-        # # part_tree = workflow.tree
-        # part_tree = Cmpi.convert2PartialTree(workflow.tree)
-        # skeleton_tree = Cmpi.convert2SkeletonTree(workflow.tree)
-        # distribution = D2.getProcDict(workflow.tree, prefixByBase=True)
+    
+    elif workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
+        import Distributor2.PyTree as D2 
+        e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
+        e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
 
-        coprocess_manager.skeleton = load_skeleton()
+    else:      
         e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
 
     e.action=elsAxdt.COMPUTE

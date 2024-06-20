@@ -22,6 +22,7 @@ import Converter.Internal as I
 import Converter.Mpi as Cmpi
 import Converter.Filter as Filter
 
+from treelab import cgns
 import mola.naming_conventions as names
 
 from . import mola_logger, rank, comm
@@ -198,5 +199,5 @@ def load_skeleton(Skeleton=None, PartTree=None):
         if masks:
             replaceNodeValuesRecursively(masks, '/'.join([basename, masks[0]]))
 
-    return Skeleton
+    return cgns.castNode(Skeleton)
 

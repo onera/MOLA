@@ -15,11 +15,16 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import glob
 from .utils import get_io_tool
 from treelab import cgns
+import mola.naming_conventions as names
 
 def write(w, tree, dst):
     io_tool = get_io_tool(w, dst)
+    if io_tool == 'pypart' and not tree.get(Name=':CGNS#Ppart', Depth=3):
+        io_tool = 'cassiopee_mpi'
 
     if io_tool == 'treelab':
         cgns.save(tree, dst)
@@ -62,3 +67,19 @@ def write(w, tree, dst):
             dist_tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
             maia.io.dist_tree_to_file(dist_tree, dst, MPI.COMM_WORLD)
         MPI.COMM_WORLD.barrier()
+
+    elif io_tool == 'pypart':
+        import Converter.PyTree as C
+        import Converter.Mpi as Cmpi
+        Cmpi.barrier()
+        w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'))
+        Cmpi.barrier()
+        if Cmpi.rank == 0:
+            t_merged = C.convertFile2PyTree(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'))
+            C.convertPyTree2File(t_merged, dst)
+            for fn in glob.glob(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_*.hdf')):
+                try:
+                    os.remove(fn)
+                except:
+                    pass
+        Cmpi.barrier()

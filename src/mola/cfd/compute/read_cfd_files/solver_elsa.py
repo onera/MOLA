@@ -15,10 +15,102 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import mola.naming_conventions as names
+from mpi4py import MPI
+rank = MPI.COMM_WORLD.Get_rank()
 
-def read_with_pypart(src):
+from treelab import cgns
+
+import mola.naming_conventions as names
+from .read_cfd_files import split_with_maia
+
+def apply_to_solver(workflow):
+    import elsAxdt
+
+    if workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
+        tree = read_with_pypart(workflow)
+        e = elsAxdt.XdtCGNS(tree=tree, links=[], paths=[])
+        import Distributor2.PyTree as D2 
+        e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
+
+    elif False:
+        # For simulation with Chimera method      
+        e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
+    
+    else:
+
+        workflow.read_tree('maia')
+
+        is_to_split_with_maia = workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation' \
+            and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia'
+        
+        if is_to_split_with_maia:
+            part_tree, skeleton_tree, distribution = split_with_maia(workflow.tree)
+            workflow._Skeleton = skeleton_tree
+
+            e = elsAxdt.XdtCGNS(tree=part_tree, links=[], paths=[])
+            e.distribution = distribution
+
+
+def read_with_pypart(workflow):
+    part_tree, skeleton, PyPartBase = read_and_split_with_pypart(names.FILE_INPUT_SOLVER)
+    add_coordinates_in_skeleton(skeleton, part_tree)
+    workflow._Skeleton = cgns.castNode(skeleton)
+    workflow._PyPartBase = PyPartBase
+    # mesh = pypart.pypart_to_maia(part_tree, skeleton) # only possible for unstructured mesh
+    return cgns.merge(part_tree)
+
+def add_coordinates_in_skeleton(Skeleton, PartTree):
+    import Converter.Internal as I
+    import Converter.Mpi as Cmpi
+
+    I._rmNodesByName(Skeleton, 'FlowSolution*')
+
+    # Needed nodes are read from PartTree
+    def readNodesFromPaths(path):
+        split_path = path.split('/')
+        path_begining = '/'.join(split_path[:-1])
+        name = split_path[-1]
+        parent = I.getNodeFromPath(PartTree, path_begining)
+        return I.getNodesFromName(parent, name)
+        
+    def replaceNodeByName(parent, parentPath, name):
+        oldNode = I.getNodeFromName1(parent, name)
+        path = '{}/{}'.format(parentPath, name)
+        newNode = readNodesFromPaths(path)
+        I._rmNode(parent, oldNode)
+        I._addChild(parent, newNode)
+
+    def replaceNodeValuesRecursively(node_skel, node_path):
+        new_node = readNodesFromPaths(node_path)[0]
+        node_skel[1] = new_node[1]
+        for child in node_skel[2]:
+            replaceNodeValuesRecursively(child, node_path+'/'+child[0])
+        
+    # containers2read = ['FlowSolution#Height',
+    #                    ':CGNS#Ppart',
+    #                    'FlowSolution#DataSourceTerm',
+    #                    'FlowSolution#Average']
+
+    containers2read = [':CGNS#Ppart']
+    if not I.getNodeFromName1(PartTree, 'FlowSolution#EndOfRun#Coords'):
+        containers2read.append('GridCoordinates')
+    
+    for base in I.getBases(Skeleton):
+        basename = I.getName(base)
+        for zone in I.getNodesFromType1(base, 'Zone_t'):
+            # Only for local zones on proc
+            proc = I.getValue(I.getNodeFromName(zone, 'proc'))
+            if proc != Cmpi.rank: 
+                continue
+
+            zonePath = '{}/{}'.format(basename, I.getName(zone))
+            zoneInPartialTree = readNodesFromPaths(zonePath)[0]
+
+            for nodeName2read in containers2read:
+                if I.getNodeFromName1(zoneInPartialTree, nodeName2read):
+                    replaceNodeByName(zone, zonePath, nodeName2read)
+
+def read_and_split_with_pypart(src):
     import Converter.Internal as I
     import Converter.Mpi as Cmpi
     import etc.pypart.PyPart as PPA
@@ -67,7 +159,7 @@ def _gc_name_pypart_to_maia(zone):
             pos = name_to_gc[origin].index(gc[0])
             PT.set_name(gc, f"{origin}.{pos}")
 
-def pypart_to_maia(pypart_tree, pypart_skel_tree=None, recover_jn_donor=True):
+def pypart_to_maia_for_unstructured_mesh(pypart_tree, pypart_skel_tree=None, recover_jn_donor=True):
     """
     Reorganise a Partitioned CGNS Tree comming from PyPart such that its looks
     like to a Maia Partitioned tree.

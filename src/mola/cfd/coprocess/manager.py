@@ -93,8 +93,6 @@ class CoprocessManager():
         # self.extractions_to_perform = []
         self._status = 'BEFORE_FIRST_ITERATION'
 
-        self.skeleton = None
-
         # NOTE It is important to have a copy of Extractions
         # because several keys will be added for each extraction: 
         #   IsToExtract (bool), IsToSave (bool), Data (PyTree or other kind of volumic data)

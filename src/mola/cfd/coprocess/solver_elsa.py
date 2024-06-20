@@ -34,7 +34,7 @@ from mola.cfd.coprocess.io.utils import ravelBCDataSet, forceFamilyBCasFamilySpe
 
 
 def perform_extractions(workflow, coprocess_manager):
-    output_tree = get_elsa_output_tree(coprocess_manager.skeleton, coprocess_manager.iteration)
+    output_tree = get_elsa_output_tree(workflow._Skeleton, coprocess_manager.iteration)
     # C.convertPyTree2File(output_tree, f'output_tree_{rank}.cgns')
 
     families_to_bctype = C.getFamilyBCNamesDict(output_tree)
@@ -61,6 +61,10 @@ def perform_extractions(workflow, coprocess_manager):
         
         elif extraction['Type'] == 'Integral':
             extraction['Data'] = extract_residuals(output_tree)
+
+        
+        if extraction['Type'] not in ['Restart', '3D']:
+            extraction['Data'].findAndRemoveNodes(Name=':CGNS#Ppart', Depth=3)
 
         comm.barrier()
 
@@ -130,7 +134,7 @@ def update_restart_fields(workflow, output_tree):
 def extract_fields(output_tree, extraction):
 
     t = output_tree.copy()
-    t.findAndRemoveNodes(Type='UserDefinedData', Depth=1)
+    t.findAndRemoveNodes(Type='UserDefinedData', Depth=2)
     t.findAndRemoveNodes(Name='GlobalConvergenceHistory', Depth=2)
     t.findAndRemoveNodes(Type='IntegralData', Depth=2)
     t.findAndRemoveNodes(Name='ELSA_TRIGGER')
@@ -147,7 +151,8 @@ def extract_fields(output_tree, extraction):
             zone.remove()
             continue
             
-        zone.findAndRemoveNode(Type='ZoneBC', Depth=1)
+        # NOTE ZoneBC must be kept for to save tree with PyPart
+        zone.findAndRemoveNodes(Type='BCDataSet')
     
     return t
 
