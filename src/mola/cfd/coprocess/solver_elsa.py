@@ -29,7 +29,6 @@ from mola.logging import MolaException
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import mola_logger, rank, comm
-from mola.cfd.coprocess.io.utils import ravelBCDataSet, forceFamilyBCasFamilySpecified
 
 
 def perform_extractions(workflow, coprocess_manager):
@@ -336,3 +335,30 @@ def extract_residuals(output_tree):
     
     return t
      
+def ravelBCDataSet(t):
+    # HACK https://elsa.onera.fr/issues/11219
+    # HACK https://elsa-e.onera.fr/issues/10750
+    for zone in I.getZones(t):
+        for zbc in I.getNodesFromType1(zone,'ZoneBC_t'):
+            for bc in I.getNodesFromType1(zbc,'BC_t'):
+                for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
+                    for bcd in I.getNodesFromType1(bcds,'BCData_t'):
+                        for da in I.getNodesFromType1(bcd,'DataArray_t'):
+                            if da[1] is not None:
+                                da[1] = da[1].ravel(order='K')
+
+def forceFamilyBCasFamilySpecified(t):
+    # https://elsa.onera.fr/issues/10928
+    for base in I.getBases(t):
+        for zone in I.getZones(base):
+            for ZoneBC in I.getNodesFromType1(zone,'ZoneBC_t'):
+                for BC in I.getNodesFromType1(ZoneBC,'BC_t'):
+                    FamilyNameNode = I.getNodeFromType1(BC,'FamilyName_t')
+                    if FamilyNameNode is not None:
+                        I.setValue(BC,'FamilySpecified')
+                        FamilyName = I.getValue(FamilyNameNode)
+                        if not I.getNodeFromName1(base,FamilyName):
+                            FamilyAtBase = I.createNode(FamilyName,'Family_t',parent=base)
+                            I.createNode('FamilyBC','FamilyBC_t',value='UserDefined',parent=FamilyAtBase)
+                        continue
+
