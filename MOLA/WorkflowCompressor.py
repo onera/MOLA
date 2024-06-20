@@ -249,10 +249,10 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None,
         duplicate(t, row, rowParams['NumberOfBlades'],
                 nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
 
+    t = PRE.connectMesh(t, InputMeshes)
     if splitOptions is not None:
         t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
-    else:
-        t = PRE.connectMesh(t, InputMeshes)
+    
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(t, level=l)
 
