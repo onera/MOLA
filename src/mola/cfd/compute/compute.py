@@ -15,10 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mpi4py import MPI
-rank = MPI.COMM_WORLD.Get_rank()
-
-import mola.naming_conventions as names
 from mola.cfd import apply_to_solver
 
 def apply(workflow):

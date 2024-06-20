@@ -15,7 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import numpy as np
 from fnmatch import fnmatch
 
 import Converter.PyTree as C
@@ -34,9 +33,7 @@ from mola.cfd.coprocess.io.utils import ravelBCDataSet, forceFamilyBCasFamilySpe
 
 
 def perform_extractions(workflow, coprocess_manager):
-    output_tree = get_elsa_output_tree(workflow._Skeleton, coprocess_manager.iteration)
-    # C.convertPyTree2File(output_tree, f'output_tree_{rank}.cgns')
-
+    output_tree = get_elsa_output_tree(workflow._Skeleton)
     families_to_bctype = C.getFamilyBCNamesDict(output_tree)
     
     for extraction in coprocess_manager.Extractions:
@@ -68,7 +65,7 @@ def perform_extractions(workflow, coprocess_manager):
 
         comm.barrier()
 
-def get_elsa_output_tree(skeleton, iteration):
+def get_elsa_output_tree(skeleton):
     '''
     Extract the coupling CGNS PyTree from elsAxdt *OUTPUT_TREE* and make
     necessary adaptions, including migration of coordinates fields to
@@ -83,10 +80,8 @@ def get_elsa_output_tree(skeleton, iteration):
 
     '''
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
-    # adaptEndOfRun(t, iteration)
     for tree in [t, skeleton]: 
         ravelBCDataSet(tree) # HACK https://elsa.onera.fr/issues/11219
-    # resumeFieldsAveraging(coprocess_manager, t)
     t = I.merge([skeleton, t])
     t = cgns.castNode(t)
     t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
@@ -285,30 +280,6 @@ def update_elsa_input(new_tree):
 def end_simulation(workflow):
     elsAxdt.safeInterrupt()
 
-def adaptEndOfRun(output_tree, CurrentIteration):
-    '''
-    This function is used to make adaptations of the coupling trigger tree
-    provided by elsA. The following operations are performed:
-
-    * ``GridCoordinates`` node is created from ``FlowSolution#EndOfRun#Coords``
-    * adapt name of masking field (``cellnf`` is renamed as ``cellN``)
-    * rename ``FlowSolution#EndOfRun`` as ``FlowSolution#Init``
-
-    Parameters
-    ----------
-
-         to : PyTree
-            Coupling tree as obtained from function
-
-            >>> elsAxdt.get(elsAxdt.OUTPUT_TREE)
-
-            .. note:: tree **to** is modified
-    '''
-    # moveCoordsFromEndOfRunToGridCoords(output_tree)
-    # I._renameNode(output_tree, 'cellnf', 'cellN')
-    # I._renameNode(output_tree, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
-    # I._renameNode(output_tree, f'FlowSolution#EndOfRun{CurrentIteration-1:04d}', 'FlowSolution#Init-1')
-
 def moveCoordsFromEndOfRunToGridCoords(to):
     '''
     This function is used to make adaptations of the coupling trigger tree
@@ -340,165 +311,6 @@ def moveCoordsFromEndOfRunToGridCoords(to):
             I.rmNode(to, GridLocationNode)
             I.setType(GridCoordsNode, 'GridCoordinates_t')
     comm.barrier()
-
-def resumeFieldsAveraging(coprocess_manager, t, container_name='FlowSolution#Average'):
-    '''
-    use any pre-existing average fields contained in ``FlowSolution#Average``
-    nodes in order to resume the fields averaging process
-    '''
-    Skeleton  = coprocess_manager.skeleton
-    inititer = coprocess_manager.workflow.Numerics['IterationAtInitialState']
-    firstiter = coprocess_manager.workflow.ReferenceValues['CoprocessOptions']['FirstIterationForFieldsAveraging']
-    if firstiter is None: 
-        return
-    firstiter -= 1
-    cit = coprocess_manager.iteration
-
-    # adapt 3D fields:
-    old = _getDictofNodesFieldsPerZone(Skeleton, container_name)
-    tot = _getDictofNodesFieldsPerZone(t, container_name)
-    if cit == firstiter:
-        ini = _getDictofNodesFieldsPerZone(t, 'FlowSolution#Init')
-    for zone_name in tot:
-        for field_name in tot[zone_name]:
-            if field_name in ['cellN','indicm']: continue
-            avg_old = old[zone_name][field_name] # BEWARE this is a CGNS node
-            avg_tot = tot[zone_name][field_name] # BEWARE this is a CGNS node
-            
-            if cit == firstiter:
-                avg_old[1] = np.copy(avg_tot[1], order='F')
-                avg_tot[1] = np.copy(ini[zone_name][field_name][1], order='F')
-                continue
-
-            if cit < firstiter: 
-                avg_old[1] = None
-                avg_new    = None
-            
-            else:
-                if avg_old[1] is None or avg_tot[1] is None: continue
-                if inititer < firstiter:
-                    avg_new =  (avg_tot[1]*(cit-inititer+1) \
-                            -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
-                
-                else:
-                    avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
-                            +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
-
-                avg_tot[1] = avg_new # update of OUTPUT_TREE
-
-    if cit < firstiter: return
-
-    # adapt BC fields:
-    tot = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet#Average')
-    comm.barrier()
-    old = _getDictofNodesBCFieldsPerZoneAtSkeleton(Skeleton, 'BCDataSet#Average', tot)
-    comm.barrier()
-    if cit == firstiter:
-        ini = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet')
-    for zone_name in tot:
-        for bcfamily_name in tot[zone_name]:
-            for field_name in tot[zone_name][bcfamily_name]:
-                if field_name in ['cellN','indicm']: continue
-                try:
-                    avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
-                except KeyError:
-                    avg_old = [field_name,None,[],'DataArray_t']
-
-                avg_tot = tot[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
-                
-                if cit == firstiter:
-                    avg_old[1] = np.copy(avg_tot[1], order='F')
-                    avg_tot[1] = np.copy(ini[zone_name][bcfamily_name][field_name][1], order='F')
-                    continue
-
-                if cit < firstiter:
-                    avg_old[1] = None
-                    avg_new    = None
-                
-                else:
-                    if avg_old[1] is None or avg_tot[1] is None: continue
-                    if inititer < firstiter:
-                        avg_new =  (avg_tot[1]*(cit-inititer+1) \
-                                -avg_old[1]*(firstiter-inititer+1))/(cit-firstiter)
-                    
-                    else:
-                        avg_new =  (avg_old[1]*(inititer-(firstiter+1)) \
-                                +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
-
-                avg_tot[1] = avg_new # update of OUTPUT_TREE
-                avg_old[1] = avg_new # update of OUTPUT_TREE
-
-def _getDictofNodesFieldsPerZone(t, Container):
-    fields = dict()
-    for base in I.getNodesFromType1(t, 'CGNSBase_t'):
-        for zone in I.getNodesFromType1(base, 'Zone_t'):
-            zone_name = zone[0]
-            fields[zone_name] = dict()
-            fs = I.getNodeFromName1(zone, Container)
-            if not fs:
-                del fields[zone_name]
-                continue
-            for f in fs[2]:
-                if f[3] != 'DataArray_t': continue
-                fields[zone_name][f[0]] = f
-    return fields
-
-def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
-    fields = dict()
-    for base in I.getNodesFromType1(t, 'CGNSBase_t'):
-        for zone in I.getNodesFromType1(base, 'Zone_t'):
-            zone_name = zone[0]
-            fields[zone_name] = dict()
-            for bc in I.getNodesFromType(zone,'BC_t'):
-                bcfamily_name = bc[0]
-                if bcfamily_name not in fields[zone_name]:
-                    fields[zone_name][bcfamily_name] = dict()
-                bcds = I.getNodeFromName1(bc, Container)
-                if bcds:
-                    bcds[3] = 'BCDataSet_t'
-                    data = I.getNodeFromName1(bcds,'NeumannData')
-                    if data:
-                        for f in data[2]:
-                            if f[3] != 'DataArray_t': continue
-                            fields[zone_name][bcfamily_name][f[0]] = f
-                    else:
-                        try: fields_tot = tot[zone_name][bcfamily_name]
-                        except KeyError: continue
-                        if not fields_tot: continue
-                        nd = I.createUniqueChild(bcds,'NeumannData','BCData_t')
-                        for field_name, f in fields_tot.items():
-                            field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
-                            fields[zone_name][bcfamily_name][f[0]] = field_node
-                else:
-                    try: fields_tot = tot[zone_name][bcfamily_name]
-                    except KeyError: continue
-                    if not fields_tot: continue
-                    bcds = I.createUniqueChild(bc,Container,'BCDataSet_t')
-                    nd = I.createUniqueChild(bcds,'NeumannData','BCData_t')
-                    for field_name, f in fields_tot.items():
-                        field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
-                        fields[zone_name][bcfamily_name][f[0]] = field_node
-
-    return fields
-
-def _getDictofNodesBCFieldsPerZone(t, Container):
-    fields = dict()
-    for base in I.getNodesFromType1(t, 'CGNSBase_t'):
-        for zone in I.getNodesFromType1(base, 'Zone_t'):
-            zone_name = zone[0]
-            fields[zone_name] = dict()
-            for bc in I.getNodesFromType(zone,'BC_t'):
-                bcfamily_name = bc[0]
-                if bcfamily_name not in fields[zone_name]:
-                    fields[zone_name][bcfamily_name] = dict()
-                bcds = I.getNodeFromName1(bc, Container)
-                if bcds:
-                    data = I.getNodeFromName1(bcds,'NeumannData')
-                    if data:
-                        for f in data[2]:
-                            if f[3] != 'DataArray_t': continue
-                            fields[zone_name][bcfamily_name][f[0]] = f
-    return fields
 
 def removeEmptyBCDataSet(t):
     for z in I.getZones(t):

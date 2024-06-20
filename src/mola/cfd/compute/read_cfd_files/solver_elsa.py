@@ -15,26 +15,61 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from mpi4py import MPI
+comm = MPI.COMM_WORLD
 rank = MPI.COMM_WORLD.Get_rank()
 
-from treelab import cgns
+import maia
+import maia4elsA
 
+from treelab import cgns
 import mola.naming_conventions as names
-from .read_cfd_files import split_with_maia
+from mola.logging import MolaAssertionError
+
+import Distributor2.PyTree as D2 
 
 def apply_to_solver(workflow):
     import elsAxdt
 
     if workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
-        tree = read_with_pypart(workflow)
-        e = elsAxdt.XdtCGNS(tree=tree, links=[], paths=[])
-        import Distributor2.PyTree as D2 
+        part_tree, skeleton, PyPartBase = read_and_split_with_pypart(names.FILE_INPUT_SOLVER)
+        add_coordinates_in_skeleton(skeleton, part_tree)
+
+        workflow.tree = cgns.castNode(part_tree)
+        workflow._Skeleton = cgns.castNode(skeleton)
+        workflow._PyPartBase = PyPartBase
+
+        e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
         e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
 
-    elif False:
+    elif workflow.has_overset_component():
         # For simulation with Chimera method      
+
+        import Converter.Mpi as Cmpi
+        skeleton = Cmpi.convertFile2SkeletonTree(workflow.tree)
+        add_coordinates_in_skeleton(skeleton, workflow.tree)
+        workflow._Skeleton = cgns.castNode(skeleton)
+
         e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
+    
+    # elif workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee':
+    #     import Converter.Mpi as Cmpi
+
+    #     workflow.read_tree('cassiopee_mpi')
+    #     skeleton = Cmpi.convert2SkeletonTree(workflow.tree)
+    #     add_coordinates_in_skeleton(skeleton, workflow.tree)
+
+    #     workflow._Skeleton = cgns.castNode(skeleton)
+    #     Cmpi._convert2PartialTree(workflow.tree)
+    #     workflow.tree = cgns.castNode(workflow.tree)
+
+    #     # Cmpi.convertPyTree2File(workflow.tree, f'test.cgns')
+    #     import Converter.PyTree as C
+    #     C.convertPyTree2File(workflow.tree, f'test_{Cmpi.rank}.cgns')
+
+    #     e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
+    #     e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
     
     else:
 
@@ -43,21 +78,36 @@ def apply_to_solver(workflow):
         is_to_split_with_maia = workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation' \
             and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia'
         
+        was_to_split_with_cassiopee = workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess' \
+                and workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee'
+        
         if is_to_split_with_maia:
-            part_tree, skeleton_tree, distribution = split_with_maia(workflow.tree)
-            workflow._Skeleton = skeleton_tree
+            zone_to_parts = None
 
-            e = elsAxdt.XdtCGNS(tree=part_tree, links=[], paths=[])
-            e.distribution = distribution
+        elif was_to_split_with_cassiopee:
+            distribution = D2.getProcDict(workflow.tree, prefixByBase=True)   
+            zone_to_parts = dict((zone_proc[0], [1.]) for zone_proc in distribution.items() if zone_proc[1]==rank)     
 
+        else:
+            raise MolaAssertionError('The splitting strategy is not taken into account.')
 
-def read_with_pypart(workflow):
-    part_tree, skeleton, PyPartBase = read_and_split_with_pypart(names.FILE_INPUT_SOLVER)
-    add_coordinates_in_skeleton(skeleton, part_tree)
-    workflow._Skeleton = cgns.castNode(skeleton)
-    workflow._PyPartBase = PyPartBase
-    # mesh = pypart.pypart_to_maia(part_tree, skeleton) # only possible for unstructured mesh
-    return cgns.merge(part_tree)
+        part_tree, skeleton_tree, distribution = split_with_maia(workflow.tree, zone_to_parts=zone_to_parts)
+        workflow._Skeleton = skeleton_tree
+
+        e = elsAxdt.XdtCGNS(tree=part_tree, links=[], paths=[])
+        e.distribution = distribution
+        
+
+    return e
+
+def split_with_maia(tree, zone_to_parts=None):
+    part_tree = maia.factory.partition_dist_tree(tree, comm, zone_to_parts=zone_to_parts)
+    maia4elsA.add_renumbering_data(part_tree)
+    skeleton_tree = maia4elsA.get_skeleton_tree(part_tree, comm)
+    distribution = maia4elsA.get_distribution(part_tree, comm)
+    part_tree = maia.pytree.union(skeleton_tree, part_tree)  
+
+    return part_tree, skeleton_tree, distribution
 
 def add_coordinates_in_skeleton(Skeleton, PartTree):
     import Converter.Internal as I

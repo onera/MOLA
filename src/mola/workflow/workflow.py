@@ -278,11 +278,14 @@ class Workflow(object):
                 setattr(self, attribute_name, expected_type())
 
         if self.SolverParameters is None: self.SolverParameters = dict()
-
+    
+    def read_tree(self, io_tool=None):
+        if not hasattr(self, 'tree'):
+            raise MolaUserError('The attribute tree must be given to Workflow to use the method read_tree')
+        
         if isinstance(self.tree, str):
             from mola.cfd.preprocess.mesh.io import reader
-            self.tree = reader.read(self, self.tree)
-        
+            self.tree = reader.read(self, self.tree, io_tool=io_tool)
 
     def set_workflow_parameters_in_tree(self):
         if not self.tree: self.tree = cgns.Tree()

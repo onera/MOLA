@@ -21,10 +21,12 @@ from .utils import get_io_tool
 from treelab import cgns
 import mola.naming_conventions as names
 
-def write(w, tree, dst):
-    io_tool = get_io_tool(w, dst)
-    if io_tool == 'pypart' and not tree.get(Name=':CGNS#Ppart', Depth=3):
-        io_tool = 'cassiopee_mpi'
+def write(w, tree, dst, io_tool=None):
+    if tree.get(Name=':CGNS#Ppart', Depth=3):
+        io_tool = 'pypart'
+
+    if io_tool is None:
+        io_tool = get_io_tool(w, dst)
 
     if io_tool == 'treelab':
         cgns.save(tree, dst)

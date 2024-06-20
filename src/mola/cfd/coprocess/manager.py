@@ -242,47 +242,33 @@ class CoprocessManager():
                 filename = f'{name}_AfterIter{self.iteration}.{fmt}'
 
             mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
-            write(self.workflow, data, filename)
+            if self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
+                io_tool = 'cassiopee_mpi'
+            else:
+                io_tool = None
+            write(self.workflow, data, filename, io_tool=io_tool)
             mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
 
             
     def finalize(self):
-        # mola_logger.info(f'>> finalize', rank=0)
-        # self.operations_stack.clear()
-        # self.operations_stack.extend(['SAVE_RESTART', 'SAVE_FIELDS', 'SAVE_EXTRACTIONS', 'SAVE_SIGNALS'])
-        # self.extractions_to_perform.clear()
-        # self.update_extractions_to_perform()
-
-        # self.apply_operations()
-
-        # self.update_and_save_workflow_for_restart()
-
-        # self.status = 'COMPLETED'
-        # moveLogFiles()
-        # check_stderr_and_create_COMPLETED()
-
         mola_logger.info(f'>> finalize', rank=0)
         self.update_extractions_to_perform(force_extractions=True)
-
         self.apply_operations()
-
-        # self.update_and_save_workflow_for_restart()
 
         self.status = 'COMPLETED'
         moveLogFiles()
         check_stderr_and_create_COMPLETED()
 
     def _update_workflow_parameters_for_restart(self):
-        if rank == 0:
-            self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
-            self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1
-            if 'TimeStep' in self.workflow.Numerics:
-                self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
-            
-            from mola.cfd.preprocess.cfd_parameters import apply
-            apply(self.workflow)
+        self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
+        self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1
+        if 'TimeStep' in self.workflow.Numerics:
+            self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
+        
+        from mola.cfd.preprocess.cfd_parameters import apply
+        apply(self.workflow)
 
-            self.workflow.set_workflow_parameters_in_tree()
+        self.workflow.set_workflow_parameters_in_tree()
     
 
 def moveLogFiles():
