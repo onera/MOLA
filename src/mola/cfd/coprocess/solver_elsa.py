@@ -52,8 +52,7 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype)
         
         elif extraction['Type'] == 'IsoSurface':
-            mola_logger.warning('skip extraction of type IsoSurface (not implemented yet)', rank=0)
-            extraction['Data'] = None  # extract_isosurface(output_tree, extraction)
+            extraction['Data'] = extract_isosurface(output_tree, extraction)
         
         elif extraction['Type'] == 'Integral':
             extraction['Data'] = extract_residuals(output_tree)
@@ -82,11 +81,11 @@ def get_elsa_output_tree(skeleton):
     for tree in [t, skeleton]: 
         ravelBCDataSet(tree) # HACK https://elsa.onera.fr/issues/11219
     t = I.merge([skeleton, t])
-    t = cgns.castNode(t)
-    t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
     removeEmptyBCDataSet(t)
     forceFamilyBCasFamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
-    return cgns.castNode(t)
+    t = cgns.castNode(t)
+    t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
+    return t
 
 def update_restart_fields_maia(workflow, output_tree):    
     part_tree_restart = PT.shallow_copy(output_tree)
@@ -190,15 +189,42 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
     return SurfacesTree
 
 def extract_isosurface(output_tree, extraction):
-    isosurface = maia.algo.part.iso_surface(
-                output_tree, 
-                f"GridCoordinate/{extraction['IsoSurfaceField']}",
-                iso_val=extraction['IsoSurfaceValue'],
-                containers_name=[], 
-                comm=comm,
-                )
+    if output_tree.isUnstructured():
+
+        if len(extraction['IsoSurfaceField'].split('/')) == 1:
+            container = deduce_container_for_slicing(extraction['IsoSurfaceField'])
+            extraction['IsoSurfaceField'] = f"{container}/{extraction['IsoSurfaceField']}"
+
+        containers_name = [fs.name() for fs in output_tree.group(Type='FlowSolution')]
+
+        isosurface = maia.algo.part.iso_surface(
+                    output_tree, 
+                    extraction['IsoSurfaceField'],
+                    iso_val=extraction['IsoSurfaceValue'],
+                    containers_name=containers_name, 
+                    comm=comm,
+                    )
+        
+        isosurface = cgns.castNode(isosurface)
+
+    else:
+        mola_logger.warning('skip extraction of type IsoSurface (not implemented yet for structured mesh)', rank=0)
+        isosurface = cgns.Tree()
     
-    return cgns.castNode(isosurface)
+    return isosurface
+
+def deduce_container_for_slicing(IsoSurfaceField):
+    if IsoSurfaceField in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        return 'GridCoordinates'
+
+    elif IsoSurfaceField in ['Radius', 'radius', 'CoordinateR', 'Slice']:
+        return 'FlowSolution'
+
+    elif IsoSurfaceField == 'ChannelHeight':
+        return 'FlowSolution#Height'
+    
+    else:
+        return 'FlowSolution#EndOfRun'
     
 def addBase2SurfacesTree(SurfacesTree, basename, zones, CellDimension=3, PhysicalDimension=3):
     if not zones: 
@@ -249,7 +275,8 @@ def restore_families(surfaces, skeleton):
     family_nodes = skeleton.group(Type='Family', Depth=2) 
 
     for base in surfaces.bases():
-        base.addChild(ReferenceState)
+        if ReferenceState:
+            base.addChild(ReferenceState)
 
         families_in_base = []
         for zone in base.zones():

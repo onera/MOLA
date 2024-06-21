@@ -8,7 +8,7 @@ from treelab import cgns
 import mola.naming_conventions as names
 
 parser = argparse.ArgumentParser('Update parser')
-parser.add_argument('-iter', '--NumberOfIterations',  type=int, help='Number of iterations')
+parser.add_argument('-niter', '--NumberOfIterations',  type=int, help='Number of iterations')
 args = parser.parse_args()
 
 filename = names.FILE_INPUT_SOLVER

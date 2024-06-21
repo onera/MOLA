@@ -43,11 +43,13 @@ def apply_to_solver(workflow):
         e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
         e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
 
-    elif workflow.has_overset_component():
+    elif workflow.has_overset_component() \
+        or workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee':  # TODO change that
         # For simulation with Chimera method      
 
         import Converter.Mpi as Cmpi
         skeleton = Cmpi.convertFile2SkeletonTree(workflow.tree)
+        workflow.read_tree('cassiopee_mpi')
         add_coordinates_in_skeleton(skeleton, workflow.tree)
         workflow._Skeleton = cgns.castNode(skeleton)
 
@@ -93,6 +95,11 @@ def apply_to_solver(workflow):
 
         part_tree, skeleton_tree, distribution = split_with_maia(workflow.tree, zone_to_parts=zone_to_parts)
         workflow._Skeleton = skeleton_tree
+
+        # if was_to_split_with_cassiopee:
+        #     import Converter.Mpi as Cmpi
+        #     Cmpi._convert2PartialTree(part_tree)
+        #     Cmpi._setProc(part_tree, rank)
 
         e = elsAxdt.XdtCGNS(tree=part_tree, links=[], paths=[])
         e.distribution = distribution

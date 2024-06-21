@@ -42,7 +42,10 @@ def write(w, tree, dst, io_tool=None):
         Cmpi.barrier()
         links = tree.getLinks()
         for l in links: l[0] = '.' # HACK treelab 0.1.1
+        empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree)
         Cmpi.convertPyTree2File(tree,dst,links=links)
+        Cmpi.barrier()
+        restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes)        
         Cmpi.barrier()
 
     elif io_tool == 'maia':
@@ -84,3 +87,32 @@ def write(w, tree, dst, io_tool=None):
                 except:
                     pass
         Cmpi.barrier()
+
+
+def get_empty_FlowSolution_nodes(tree):
+    # Cmpi.convertPyTree2File does not write DataArray in FlowSolution
+    # if its value is None on all ranks, but this is a way for elsA to 
+    # ask extraction in a FlowSolution (for 3D fields)
+    # -> keep these nodes in a list
+    import Converter.Mpi as Cmpi
+    import copy
+
+    if Cmpi.rank == 0:
+        empty_FlowSolution_nodes = []
+        for FS in tree.group(Type='FlowSolution'):
+            if any([n.value() is None for n in FS.group(Type='DataArray')]):
+                empty_FlowSolution_nodes.append(copy.deepcopy(FS))
+    else:
+        empty_FlowSolution_nodes = []
+    
+    return empty_FlowSolution_nodes
+
+
+def restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes):
+    import Converter.Mpi as Cmpi
+
+    if Cmpi.rank == 0:
+        for FS in empty_FlowSolution_nodes:
+            saved_FS = cgns.readNode(dst, FS.path()) #, backend='cassiopee') # doesn't work with h5py2cgns, the file stays open
+            if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
+                FS.saveThisNodeOnly(dst, backend='pycgns')  # it does nothing with h5py2cgns, and it freezes with cassiopee
