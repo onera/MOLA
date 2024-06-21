@@ -37,6 +37,7 @@ def apply_to_solver(workflow):
         add_coordinates_in_skeleton(skeleton, part_tree)
 
         workflow.tree = cgns.castNode(part_tree)
+        remove_workflow_attributes_from_bases(workflow)
         workflow._Skeleton = cgns.castNode(skeleton)
         workflow._PyPartBase = PyPartBase
 
@@ -196,6 +197,18 @@ def read_and_split_with_pypart(src):
     PartTree = I.merge([Skeleton, PartTree])
 
     return PartTree, Skeleton, PyPartBase
+
+def remove_workflow_attributes_from_bases(workflow):
+    # Pypart put WorkflowParameters node, and all its children, bellow the Base
+    # This function removes them
+    from mola.cfd.coprocess import mola_logger
+    attributes_names = list(workflow.convert_to_dict())
+    mola_logger.warning(f'{attributes_names=}')
+    for base in workflow.tree.bases():
+        base.findAndRemoveNode(Name=workflow._workflow_parameters_container_, Depth=1)
+        for name in attributes_names:
+            base.findAndRemoveNode(Name=name, Depth=1)
+        
 
 def _gc_name_pypart_to_maia(zone):
     import maia.pytree as PT

@@ -79,6 +79,10 @@ def write(w, tree, dst, io_tool=None):
         w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'))
         Cmpi.barrier()
         if Cmpi.rank == 0:
+            if dst.endswith(names.FILE_INPUT_SOLVER):
+                # Bug PyPart: mergeAndSave does not write WorkflowParameters
+                workflow_name_node = cgns.load_from_path(dst, w._workflow_parameters_container_)
+
             t_merged = C.convertFile2PyTree(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'))
             C.convertPyTree2File(t_merged, dst)
             for fn in glob.glob(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_*.hdf')):
@@ -86,6 +90,10 @@ def write(w, tree, dst, io_tool=None):
                     os.remove(fn)
                 except:
                     pass
+
+            if dst.endswith(names.FILE_INPUT_SOLVER):
+                workflow_name_node.saveThisNodeOnly(dst)
+
         Cmpi.barrier()
 
 
@@ -113,6 +121,6 @@ def restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes):
 
     if Cmpi.rank == 0:
         for FS in empty_FlowSolution_nodes:
-            saved_FS = cgns.readNode(dst, FS.path()) #, backend='cassiopee') # doesn't work with h5py2cgns, the file stays open
+            saved_FS = cgns.readNode(dst, FS.path()) 
             if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
                 FS.saveThisNodeOnly(dst, backend='pycgns')  # it does nothing with h5py2cgns, and it freezes with cassiopee
