@@ -367,7 +367,7 @@ class WorkflowInterface(object):
     def add_to_Extractions_BC(self,
             Fields : list = None,
             File : str = names.FILE_OUTPUT_2D,
-            Name : str = None, # if None, will be based on Source
+            Name : str = 'ByFamily',  #None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration

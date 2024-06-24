@@ -126,15 +126,14 @@ def get_workflow_dist():
         )
     return w
 
-def get_workflow2():
+def get_workflow2_parameters():
 
     x, y, z = np.meshgrid( np.linspace(0,1,21),
                            np.linspace(0,1,21),
                            np.linspace(0,1,21), indexing='ij')
-    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'],
-                                            [ x,  y,  z ])
+    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
 
-    w = Workflow(
+    params = dict(
         RawMeshComponents=[
             dict(
                 Name='cartesian',
@@ -207,6 +206,11 @@ def get_workflow2():
 
 
         )
+    return params
+
+def get_workflow2():
+    params = get_workflow2_parameters()
+    w = Workflow(**params)
     return w
 
 def get_workflow_sphere_struct():
@@ -320,7 +324,7 @@ def get_workflow_sphere_struct_dist():
 
         RunManagement=dict(
             # NumberOfProcessors=1,
-            RunDirectory=os.path.dirname(os.path.realpath(__file__)),
+            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_struct_dist'),
             ),
         )
     

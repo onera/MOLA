@@ -36,10 +36,10 @@ def apply_to_solver(workflow):
 def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():
         workflow._interface.add_to_Extractions_3D(
-            Fields    = workflow.Flow['Conservatives'], 
+            Fields    = list(workflow.Flow['Conservatives']), 
             Container = 'FlowSolution#Overset', 
             Frame     = 'absolute'
-            )
+        )
 
 def add_global_convergence_history(workflow):
     for base in workflow.tree.bases():
