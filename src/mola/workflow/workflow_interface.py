@@ -505,7 +505,7 @@ class WorkflowInterface(object):
         Necessary     : bool  = False,
         Sufficient    : bool  = True,
         *,
-        Family        : str   = 'MyFamily',
+        ExtractionName: str   = 'MyFamily',
         Variable      : str   = 'std-MyVariable',
         Threshold     : float = 1e-3,
         ):

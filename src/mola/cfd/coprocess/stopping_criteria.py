@@ -51,12 +51,10 @@ def check_max_iteration(coprocess_manager):
 def check_convergence_criteria(coprocess_manager):
     has_done_enough_iterations = (coprocess_manager.iteration - coprocess_manager.workflow.Numerics['IterationAtInitialState']) > coprocess_manager.workflow.Numerics['MinimumNumberOfIterations'] 
     if has_done_enough_iterations and coprocess_manager.status == 'RUNNING':
-        if _is_converged(coprocess_manager.signals, coprocess_manager.workflow.ConvergenceCriteria):
+        if _is_converged(coprocess_manager.workflow.ConvergenceCriteria, coprocess_manager.Extractions, coprocess_manager.iteration):
             coprocess_manager.status = 'TO_STOP'
 
-
-
-def _is_converged(arraysTree, ConvergenceCriteria):
+def _is_converged(ConvergenceCriteria, Extractions, iteration):
     '''
     This method is used to determine if the current simulation is converged by
     looking at user-provided convergence criteria.
@@ -70,14 +68,14 @@ def _is_converged(arraysTree, ConvergenceCriteria):
             Each :py:class:`dict` corresponds to a criterion. Its has the
             following keys:
 
-            * ``Family``: Name of the zone to monitor (shall exist in
+            * ``ExtractionName``: Name of the zone to monitor (shall exist in
             ``arrays.cgns``)
 
-            * ``Variable``: Name of the variable to monitor on ``Family``
+            * ``Variable``: Name of the variable to monitor on ``ExtractionName``
 
             * ``Threshold``: Value of the threshold to consider. The current
             criterion is satisfied if the value of the last element of
-            ``Variable`` on ``Family`` in ``arrays.cgns`` is lower than
+            ``Variable`` on ``ExtractionName`` in ``arrays.cgns`` is lower than
             ``Threshold``.
 
             * ``Condition`` (optinal, 'Necessary' by default): logical
@@ -96,6 +94,18 @@ def _is_converged(arraysTree, ConvergenceCriteria):
     '''
     if not ConvergenceCriteria:
         return False
+    
+    def get_data_to_test_criterion(criterion, Extractions):
+        for extraction in Extractions:
+            if extraction['Type'] in ['Integral', 'Probe'] \
+                and extraction['Name'] == criterion['ExtractionName']:
+                try:
+                    return extraction['Data'].get(Name=criterion['Variable']).value()
+                except:
+                    pass
+                    # mola_logger.warning(f'Cannot evaluate convergence for criterion {criterion}, because the variable is not found in extracted data.')
+            
+        return 
 
     CONVERGED = False
     if rank == 0:
@@ -108,14 +118,13 @@ def _is_converged(arraysTree, ConvergenceCriteria):
             elif criterion['Condition'] == 'Sufficient':
                 OneSufficientCriterion = False
         try:
-            arraysZones = arraysTree.zones()
             for criterion in ConvergenceCriteria:
                 if OneSufficientCriterion and criterion['Condition'] == 'Sufficient':
                     continue
-                zone, = [z for z in arraysZones if z[0] == criterion['Family']]
-                Flux = zone.field(criterion['Variable'], BehaviorIfNotFound='pass')
+
+                Flux = get_data_to_test_criterion(criterion, Extractions)
                 if Flux is None and criterion['Condition'] == 'Necessary':
-                    mola_logger.warning(f"requested convergence variable {criterion['Variable']} not found in {criterion['Family']}", rank=0)
+                    mola_logger.warning(f"requested convergence variable {criterion['Variable']} not found in {criterion['ExtractionName']}", rank=0)
                     AllNecessaryCriteria = False
                     continue
                 criterion['FoundValue'] = Flux[-1]
@@ -128,14 +137,14 @@ def _is_converged(arraysTree, ConvergenceCriteria):
 
             CONVERGED = OneSufficientCriterion and AllNecessaryCriteria
             if CONVERGED:
-                MSG = 'CONVERGED at iteration {} since:'.format(self.iteration - 1)
+                MSG = 'CONVERGED at iteration {} since:'.format(iteration - 1)
                 for criterion in ConvergenceCriteria:
                     if criterion['Condition'] == 'Necessary' \
                         or criterion['Variable'] == OneSufficientCriterion:
                         MSG += '\n  {}={} < {} on {} ({})'.format(criterion['Variable'],
                                                             criterion['FoundValue'],
                                                             criterion['Threshold'],
-                                                            criterion['Family'],
+                                                            criterion['ExtractionName'],
                                                             criterion['Condition'])
                 txt = f'''{GREEN}*******************************************
 {MSG} 

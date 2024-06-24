@@ -39,44 +39,6 @@ AVAILABLE_SIMULATION_STATUS = [
     'COMPLETED', 
 ]
 
-SORTED_AVAILABLE_OPERATIONS = [
-    'PERFORM_EXTRACTIONS', 
-    'COMPUTE_BODYFORCE', 
-    'SAVE_BODYFORCE', 
-    'SAVE_SIGNALS', 
-    'SAVE_EXTRACTIONS', 
-    'SAVE_FIELDS',
-    'SAVE_RESTART',
-]
-
-class OperationsStack(list):
-
-    def check(self, value):
-        if value not in SORTED_AVAILABLE_OPERATIONS:
-            raise MolaAssertionError(f"Undefined operation '{value}' (must be among {', '.join(SORTED_AVAILABLE_OPERATIONS)})")
-    
-    def sort(self):
-        super().sort(key=lambda x: SORTED_AVAILABLE_OPERATIONS.index(x))
-
-    def __setitem__(self, index, value):
-        self.check(value)
-        if value not in self:
-            super()[index] = value
-            self.sort()
-
-    def insert(self, index, value):
-        self.check(value)
-        if value not in self:
-            super().insert(index, value)
-            self.sort()
-
-    def append(self, value):
-        self.check(value)
-        if value not in self:
-            super().append(value)
-            self.sort()
-
-
 class CoprocessManager():
 
     def __init__(self, workflow):
@@ -89,8 +51,6 @@ class CoprocessManager():
             mola_logger.error(err_msg, rank=0)
             raise MolaUserError(err_msg)
 
-        # self.operations_stack = OperationsStack()
-        # self.extractions_to_perform = []
         self._status = 'BEFORE_FIRST_ITERATION'
 
         # NOTE It is important to have a copy of Extractions
@@ -99,7 +59,6 @@ class CoprocessManager():
         # and these elements must not be saved when saving the workflow.
         self.Extractions = copy.deepcopy(workflow.Extractions)
         
-
     @property
     def status(self):
         return self._status
@@ -112,16 +71,9 @@ class CoprocessManager():
             raise MolaException(f"The value {value} is not among the AVAILABLE_SIMULATION_STATUS ({', '.join(AVAILABLE_SIMULATION_STATUS)})")
 
     def __del__(self):
-
-        # for extraction in self.workflow.Extractions:
-        #     for key in ['IsToExtract', 'IsToSave', 'Data']:
-        #         if key in extraction:
-        #             del extraction[key]
-
         if self.status != 'COMPLETED':
             mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
-
-                    
+                 
     def run_iteration(self):
         self.update_iteration()
         update_operations_from_user_signal(self)
@@ -135,8 +87,6 @@ class CoprocessManager():
 
     def update_iteration(self):
         self.status = 'RUNNING'
-        # self.operations_stack.clear()
-        # self.extractions_to_perform.clear()
         for extraction in self.Extractions:
             extraction['IsToExtract'] = False
             extraction['IsToSave'] = False
@@ -149,26 +99,6 @@ class CoprocessManager():
         # TODO add body-force in the operations_stack if needed
     
     def update_extractions_to_perform(self, force_extractions=False):
-        # for extraction in self.Extractions:
-        #     on_extraction_period = self.iteration % extraction['ExtractionPeriod'] == 0
-        #     ask_save_fields = 'SAVE_FIELDS' in self.operations_stack and extraction['Type'] in ['Restart', '3D']
-        #     ask_save_extractions = 'SAVE_EXTRACTIONS' in self.operations_stack and extraction['Type'] in ['BC', 'IsoSurface']
-        #     ask_save_signals = 'SAVE_SIGNALS' in self.operations_stack and extraction['Type'] in ['Integral', 'Probe']
-
-        #     if on_extraction_period or ask_save_fields or ask_save_extractions or ask_save_signals:
-        #         self.operations_stack.append('PERFORM_EXTRACTIONS')
-        #         self.extractions_to_perform.append(extraction)
-
-        #     if self.iteration % extraction['SavePeriod'] == 0:
-        #         if extraction['Type'] in ['Restart', '3D']:
-        #             self.operations_stack.append('SAVE_FIELDS')
-        #         elif extraction['Type'] in ['BC', 'IsoSurface']:
-        #             self.operations_stack.append('SAVE_EXTRACTIONS')
-        #         elif extraction['Type'] in ['Integral', 'Probe']:
-        #             self.operations_stack.append('SAVE_SIGNALS')
-        #         else:
-        #             mola_logger.warning(f"Unknown extraction type: {extraction['Type']}")
-
         for extraction in self.Extractions:
             if self.iteration % extraction['ExtractionPeriod'] == 0 or force_extractions:
                 extraction['IsToExtract'] = True
@@ -176,11 +106,6 @@ class CoprocessManager():
                 extraction['IsToSave'] = True
                     
     def apply_operations(self):
-        # for operation in self.operations_stack:
-        #     mola_logger.debug(f'next operation if applicable: {operation}', rank=0)
-        #     method = getattr(self, operation.lower())
-        #     method()
-
         if any([extraction['IsToExtract'] for extraction in self.Extractions]):
             mola_logger.debug(f'Performing extractions..', rank=0)
             self.perform_extractions()
@@ -248,8 +173,7 @@ class CoprocessManager():
                 io_tool = None
             write(self.workflow, data, filename, io_tool=io_tool)
             mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
-
-            
+         
     def finalize(self):
         mola_logger.info(f'>> finalize', rank=0)
         self.update_extractions_to_perform(force_extractions=True)

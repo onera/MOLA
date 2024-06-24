@@ -21,7 +21,6 @@ comm = MPI.COMM_WORLD
 rank = MPI.COMM_WORLD.Get_rank()
 
 import maia
-import maia4elsA
 
 from treelab import cgns
 import mola.naming_conventions as names
@@ -76,46 +75,39 @@ def apply_to_solver(workflow):
     
     else:
 
-        workflow.read_tree('maia')
+        import maia4elsA
 
         is_to_split_with_maia = workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation' \
             and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia'
         
-        was_to_split_with_cassiopee = workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess' \
-                and workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee'
+        was_already_split = workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess'  # whatever the splitter
         
         if is_to_split_with_maia:
-            zone_to_parts = None
+            workflow.read_tree('maia')
+            part_tree = maia.factory.partition_dist_tree(workflow.tree, comm)
 
-        elif was_to_split_with_cassiopee:
-            distribution = D2.getProcDict(workflow.tree, prefixByBase=True)   
-            zone_to_parts = dict((zone_proc[0], [1.]) for zone_proc in distribution.items() if zone_proc[1]==rank)     
+        elif was_already_split:
+            # distribution = D2.getProcDict(workflow.tree, prefixByBase=True)   
+            # zone_to_parts = dict((zone_proc[0], [1.]) for zone_proc in distribution.items() if zone_proc[1]==rank)     
+            part_tree = maia.io.file_to_part_tree(workflow.tree, comm) 
 
         else:
             raise MolaAssertionError('The splitting strategy is not taken into account.')
 
-        part_tree, skeleton_tree, distribution = split_with_maia(workflow.tree, zone_to_parts=zone_to_parts)
-        workflow._Skeleton = skeleton_tree
+        maia4elsA.add_renumbering_data(part_tree)
+        skeleton_tree = maia4elsA.get_skeleton_tree(part_tree, comm)
+        add_coordinates_in_skeleton(skeleton_tree, part_tree)
+        distribution = maia4elsA.get_distribution(part_tree, comm)
+        part_tree = maia.pytree.union(skeleton_tree, part_tree)  
 
-        # if was_to_split_with_cassiopee:
-        #     import Converter.Mpi as Cmpi
-        #     Cmpi._convert2PartialTree(part_tree)
-        #     Cmpi._setProc(part_tree, rank)
+        workflow.tree = cgns.castNode(part_tree)
+        workflow._Skeleton = cgns.castNode(skeleton_tree)
 
         e = elsAxdt.XdtCGNS(tree=part_tree, links=[], paths=[])
         e.distribution = distribution
         
 
     return e
-
-def split_with_maia(tree, zone_to_parts=None):
-    part_tree = maia.factory.partition_dist_tree(tree, comm, zone_to_parts=zone_to_parts)
-    maia4elsA.add_renumbering_data(part_tree)
-    skeleton_tree = maia4elsA.get_skeleton_tree(part_tree, comm)
-    distribution = maia4elsA.get_distribution(part_tree, comm)
-    part_tree = maia.pytree.union(skeleton_tree, part_tree)  
-
-    return part_tree, skeleton_tree, distribution
 
 def add_coordinates_in_skeleton(Skeleton, PartTree):
     import Converter.Internal as I
@@ -149,7 +141,7 @@ def add_coordinates_in_skeleton(Skeleton, PartTree):
     #                    'FlowSolution#DataSourceTerm',
     #                    'FlowSolution#Average']
 
-    containers2read = [':CGNS#Ppart']
+    containers2read = [':CGNS#Ppart', ':CGNS#Distribution', ':CGNS#GlobalNumbering']
     if not I.getNodeFromName1(PartTree, 'FlowSolution#EndOfRun#Coords'):
         containers2read.append('GridCoordinates')
     

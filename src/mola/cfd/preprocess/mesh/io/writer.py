@@ -64,7 +64,12 @@ def write(w, tree, dst, io_tool=None):
                 del l[4]   # HACK maia only supports 4 elements
                 # HACK maia requires no "/" root at CGNS links https://gitlab.onera.net/numerics/mesh/maia/-/issues/108#note_30623
                 if l[3].startswith('/'): l[3] = l[3][1:]
+            for zone in tree.zones():
+                if is_empty(zone):  # TODO transform this function into a Zone method in Treelab: zone.isEmpty()
+                    zone.remove()
             MPI.COMM_WORLD.barrier()
+            # TODO this function does not save UserDefinedData_t nodes under bases
+            # see https://gitlab.onera.net/numerics/mesh/maia/-/issues/112
             maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links, single_file=True)
 
         else:
@@ -96,6 +101,15 @@ def write(w, tree, dst, io_tool=None):
 
         Cmpi.barrier()
 
+def is_empty(zone):
+    GridCoordinates = zone.get(Type='GridCoordinates', Depth=1)
+    if GridCoordinates is None:
+        return True
+    coord = GridCoordinates.get(Type='DataArray')
+    if coord is None or coord.value() is None:
+        return True
+    
+    return False
 
 def get_empty_FlowSolution_nodes(tree):
     # Cmpi.convertPyTree2File does not write DataArray in FlowSolution

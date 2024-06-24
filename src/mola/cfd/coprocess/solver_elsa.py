@@ -26,6 +26,7 @@ import elsAxdt
 from treelab import cgns
 
 from mola.logging import MolaException
+import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import mola_logger, rank, comm
@@ -55,9 +56,13 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_isosurface(output_tree, extraction)
         
         elif extraction['Type'] == 'Integral':
-            extraction['Data'] = extract_residuals(output_tree)
+            if 'Residuals' in extraction['Fields']:
+                extraction['Data'] = extract_residuals(output_tree)
 
-        
+        elif extraction['Type'] == 'Probe':
+            extraction['Data'] = extract_probe(output_tree)
+
+        # Remove PyPart nodes for data that are not 3D (important to save them without PyPart)
         if extraction['Type'] not in ['Restart', '3D']:
             extraction['Data'].findAndRemoveNodes(Name=':CGNS#Ppart', Depth=3)
 
@@ -87,22 +92,6 @@ def get_elsa_output_tree(skeleton):
     t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
     return t
 
-def update_restart_fields_maia(workflow, output_tree):    
-    part_tree_restart = PT.shallow_copy(output_tree)
-
-    I._renameNode(part_tree_restart, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
-    # I._renameNode(part_tree_restart, f'FlowSolution#EndOfRun{iteration-1:04d}', 'FlowSolution#Init-1')
-    PT.rm_nodes_from_predicate(part_tree_restart, 
-                                lambda n: PT.get_label(n) == 'FlowSolution_t' \
-                                and not PT.get_name(n).startswith('FlowSolution#Init' \
-                                and not PT.get_name(n) == 'FlowSolution#Average')
-                                )
-    
-    maia.io.part_tree_to_file(part_tree_restart, 'part_tree.cgns', comm)
-
-    maia.transfer.part_tree_to_dist_tree_all(workflow.tree, part_tree_restart, comm)
-    workflow.tree = cgns.castNode(workflow.tree)
-
 def update_restart_fields(workflow, output_tree):
     output_tree = cgns.castNode(output_tree)
     for zone in output_tree.zones():
@@ -127,7 +116,8 @@ def update_restart_fields(workflow, output_tree):
 def extract_fields(output_tree, extraction):
 
     t = output_tree.copy()
-    t.findAndRemoveNodes(Type='UserDefinedData', Depth=2)
+    # HACK Pypart puts WorkflowParameters under the base... need to remove it
+    t.findAndRemoveNodes(Name=names.CONTAINER_WORKLFOW_PARAMETERS, Type='UserDefinedData', Depth=2) 
     t.findAndRemoveNodes(Name='GlobalConvergenceHistory', Depth=2)
     t.findAndRemoveNodes(Type='IntegralData', Depth=2)
     t.findAndRemoveNodes(Name='ELSA_TRIGGER')
@@ -350,6 +340,8 @@ def removeEmptyBCDataSet(t):
 def extract_residuals(output_tree):
     if rank == 0:
         residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
+        if not residuals:
+            return cgns.Tree()
         residuals = cgns.castNode(residuals)
         residuals.findAndRemoveNode(Name='.Solver#Output')
         t = cgns.Tree()
