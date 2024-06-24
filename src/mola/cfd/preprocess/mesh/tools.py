@@ -63,22 +63,26 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
 
     for zone in t.zones():
         zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
-        if not zone.isStructured(): continue
-        vertex_shape = zone.value()[:,0]
-        nvertex = np.sum(vertex_shape)
-        cell_shape = zone.value()[:,1]
-        ncell = np.sum(cell_shape)
-        for coord in zone.xyz():
-            coord.shape = vertex_shape
-
-        for field in zone.allFields(return_type='list'):
-            nfield = np.size(field)
-            if nfield == nvertex:
-                field.shape = vertex_shape
-            elif nfield == ncell:
-                field.shape = cell_shape
+        if zone.isStructured(): 
+            reshape_DataArray(zone)
+        
     t = cgns.castNode(t)
     return t
+
+def reshape_DataArray(zone):
+    vertex_shape = zone.value()[:,0]
+    nvertex = np.sum(vertex_shape)
+    cell_shape = zone.value()[:,1]
+    ncell = np.sum(cell_shape)
+    for coord in zone.xyz():
+        coord.shape = vertex_shape
+
+    for field in zone.allFields(return_type='list'):
+        nfield = np.size(field)
+        if nfield == nvertex:
+            field.shape = vertex_shape
+        elif nfield == ncell:
+            field.shape = cell_shape
 
 def to_distributed(tree : cgns.Tree):
     from mpi4py import MPI

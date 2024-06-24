@@ -353,6 +353,10 @@ def extract_residuals(output_tree):
         t = cgns.Tree()
     
     return t
+
+def extract_probes():
+    mola_logger.warning('skip extraction of type Probe (not implemented yet)', rank=0)
+    return cgns.Tree()
      
 def ravelBCDataSet(t):
     # HACK https://elsa.onera.fr/issues/11219

@@ -181,7 +181,7 @@ class CoprocessManager():
 
         self.status = 'COMPLETED'
         moveLogFiles()
-        check_stderr_and_create_COMPLETED()
+        check_simulation_end_and_create_COMPLETED(self.Extractions)
 
     def _update_workflow_parameters_for_restart(self):
         self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
@@ -215,8 +215,9 @@ def moveLogFiles():
 
     comm.barrier()
 
-def check_stderr_and_create_COMPLETED():
+def check_simulation_end_and_create_COMPLETED(Extractions):
     check_stderr()
+    check_output_files(Extractions)
     if rank == 0:
         with open(names.FILE_JOB_COMPLETED,'w') as f: 
             f.write(names.FILE_JOB_COMPLETED)
@@ -231,4 +232,16 @@ def check_stderr():
         except FileNotFoundError:
             pass
 
+def check_output_files(Extractions):
+    if rank == 0:
+        files_to_check = []
+        for extraction in Extractions:
+            if extraction['Type'] == 'Restart':
+                filename = extraction['File']
+            else:
+                filename = os.path.join(names.DIRECTORY_OUTPUT, extraction['File'])
+            files_to_check.append(filename)
 
+        for filename in files_to_check:
+            if not os.path.isfile(filename):
+                raise MolaAssertionError(f'The expected file {filename} was not found.')

@@ -295,12 +295,14 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
     scheduler.prepare()
     scheduler.submit()
 
-    for BCWall in ['WallViscous', 'WallInviscid']:
-        for velocity in [50., 20., 80.]:
-            COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', names.FILE_JOB_COMPLETED)
-            SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
+    # NOTE: do not wait for job to end, since that approach would provoke
+    # too important delays (waiting for resources of SLURM)
+    # for BCWall in ['WallViscous', 'WallInviscid']:
+    #     for velocity in [50., 20., 80.]:
+    #         COMPLETED_PATH = os.path.join(test_dir, BCWall, f'Velocity_{velocity}', names.FILE_JOB_COMPLETED)
+    #         SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
 
-    SV.remove_path(test_dir, machine='sator', file_only=False)
+    # SV.remove_path(test_dir, machine='sator', file_only=False)
 
 
 
