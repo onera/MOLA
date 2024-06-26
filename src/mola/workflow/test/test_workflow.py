@@ -214,11 +214,12 @@ def get_workflow_sphere_struct():
         RawMeshComponents=[
             dict(
                 Name='sphere',
-                Source='/stck/mola/data/mesh/sphere/sphere_struct.cgns',
+                Source='/stck/mola/data/mesh/sphere/sphere_struct_not_connected.cgns',
                 Families=[
                     dict(Name='Wall', Location='kmin'),
-                    dict(Name='Farfield', Location='remaining'),
+                    dict(Name='Farfield', Location='kmax'),
                 ],
+                Connection = [ dict(Type='Match', Tolerance=1e-8),],
                 )
         ],
 
@@ -277,7 +278,7 @@ def get_workflow_sphere_struct_dist():
                 Source='/stck/mola/data/mesh/sphere/sphere_struct.cgns',
                 Families=[
                     dict(Name='Wall', Location='kmin'),
-                    dict(Name='Farfield', Location='remaining'),
+                    dict(Name='Farfield', Location='kmax'),
                 ],
                 )
         ],
@@ -606,5 +607,5 @@ def test_wip():
     
 
 if __name__ == '__main__':
-    test_workflow_sphere_struct_local_dist()
-    # test_prepare_workflow_dist()
+    # test_workflow_sphere_struct_local_dist()
+    test_prepare_workflow2()

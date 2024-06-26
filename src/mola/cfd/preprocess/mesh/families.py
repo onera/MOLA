@@ -57,9 +57,7 @@ def apply(workflow):
                     raise ValueError(msg)
 
                 WindowTags = getWindowTagsAtPlane(zone, planeTag=location)
-
         appendFamiliesToBase(base)
-
 
     workflow.tree = cgns.castNode(t)
 
