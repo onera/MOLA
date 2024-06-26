@@ -69,6 +69,26 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
     t = cgns.castNode(t)
     return t
 
+def to_full_tree_at_rank_0(tree : cgns.Tree):
+    is_dist = bool(tree.get(':CGNS#Distribution'))
+    if not is_dist: raise MolaException('expected distributed tree')
+
+    from mpi4py import MPI
+    import maia
+    MPI.COMM_WORLD.barrier()
+    t = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
+    if t is not None:
+        t = cgns.castNode(t)
+
+        for zone in t.zones():
+            if zone.isStructured(): 
+                reshape_DataArray(zone)
+            
+        t = cgns.castNode(t)
+    MPI.COMM_WORLD.barrier()
+    return t
+
+
 def reshape_DataArray(zone):
     vertex_shape = zone.value()[:,0]
     nvertex = np.sum(vertex_shape)

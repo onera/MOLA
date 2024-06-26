@@ -66,6 +66,9 @@ def read(w, src, io_tool=None):
         MPI.COMM_WORLD.barrier()
         mesh = maia.io.file_to_dist_tree(src, MPI.COMM_WORLD)
         mesh = cgns.castNode(mesh)
+        # maia.io.dist_tree_to_file(mesh, "toto.cgns", MPI.COMM_WORLD)
+        # tree = maia.io.file_to_dist_tree("toto.cgns", MPI.COMM_WORLD)
+        # t = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
         MPI.COMM_WORLD.barrier()
 
     else:

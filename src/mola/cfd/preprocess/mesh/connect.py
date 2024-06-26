@@ -31,9 +31,18 @@ def apply_with_cassiopee(workflow):
 
     from mpi4py import MPI
     mpi_size = MPI.COMM_WORLD.Get_size()
+    rank = MPI.COMM_WORLD.Get_rank()
+    if mpi_size > 1:
+        from mola.cfd.preprocess.mesh.tools import (to_partitioned_if_distributed,
+                                                    to_full_tree_at_rank_0)
+        workflow.tree = to_partitioned_if_distributed(workflow.tree) # TODO when https://elsa.onera.fr/issues/11700 fixed
+        # workflow.tree = to_full_tree_at_rank_0(workflow.tree)
+
 
     import Converter.PyTree as C
     import Connector.PyTree as X
+    import Connector.Mpi as Xmpi
+    import Converter.Internal as I
 
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
@@ -46,8 +55,7 @@ def apply_with_cassiopee(workflow):
         mola_logger.info(f'Connections for base {base_name}:')
 
         for operation in component['Connection']:
-            if mpi_size > 1:
-                raise MolaException('unable to connect mesh using MPI parallel mode and Cassiopee')
+            # if mpi_size > 1: raise MolaException('unable to connect mesh using MPI parallel mode and Cassiopee')
             ConnectionType = operation['Type']
             mola_logger.info(f'  > connecting type {ConnectionType}')
             try: 
@@ -58,7 +66,8 @@ def apply_with_cassiopee(workflow):
             
             if ConnectionType == 'Match':
                 C._rmBCOfType(base,'BCMatch') # HACK https://elsa.onera.fr/issues/11400
-                base_out = X.connectMatch(base, tol=tolerance, dim=base_dim)
+                base_out = Xmpi.connectMatch(base, tol=tolerance, dim=base_dim)
+                
 
             elif ConnectionType == 'NearMatch':
                 try: 
@@ -66,7 +75,7 @@ def apply_with_cassiopee(workflow):
                 except KeyError:
                     ratio = 2
                     mola_logger.warning(f'    NearMatch ratio was not defined. Using ratio={ratio}')
-                base_out = X.connectNearMatch(base, ratio=ratio, tol=tolerance, dim=base_dim)
+                base_out = Xmpi.connectNearMatch(base, ratio=ratio, tol=tolerance, dim=base_dim)
 
             elif ConnectionType == 'PeriodicMatch':
                 rotationCenter = operation.get('RotationCenter', [0., 0., 0.])
@@ -76,7 +85,7 @@ def apply_with_cassiopee(workflow):
                 mola_logger.debug(f'    RotationAngle = {rotationAngle}')
                 mola_logger.debug(f'    Translation = {translation}')
 
-                base_out = X.connectMatchPeriodic(
+                base_out = Xmpi.connectMatchPeriodic(
                     base,
                     rotationCenter=rotationCenter,
                     rotationAngle=rotationAngle,

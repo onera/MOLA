@@ -108,9 +108,19 @@ def apply(workflow):
             new distributed *(and possibly split)* tree
 
     '''
-    
     if not workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess': 
         return
+
+    is_partitioned = bool(workflow.tree.get(':CGNS#GlobalNumbering'))
+    if is_partitioned:
+        from mpi4py import MPI
+        size = MPI.COMM_WORLD.Get_size()
+        nproc = workflow.SplittingAndDistribution['NumberOfProcessors']
+        if size>1 and size != nproc:
+            raise MolaException(f'MPI preprocess is being executed using {size} ranks, but it does not match the requested SplittingAndDistribution NumberOfProcessors ({nproc})')
+        mola_logger.info('mesh already split and distributed...')
+        return
+
 
     mola_logger.info('splitting and distributing mesh...')
     mode = get_and_check_splitting_mode(workflow.SplittingAndDistribution)
@@ -144,6 +154,8 @@ def get_and_check_splitting_mode(SplittingParameters):
 
     elif SplittingParameters['MinimumAllowedNodes'] < 1:
         raise MolaException('minimum_number_of_nodes must be at least equal to 1')
+
+    
 
     return 'auto'
 
