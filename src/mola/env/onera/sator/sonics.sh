@@ -18,7 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-source /tmp_user/sator/sonics/usr/sonics/2024-03-05/dsi-cfd6/source.sh
+source /tmp_user/sator/sonics/usr/sonics/$ONICSVERSION/dsi-cfd6/source.sh
 export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
 
 export PYTHONPATH=$MOLA:$PYTHONPATH

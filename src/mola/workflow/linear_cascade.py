@@ -33,13 +33,9 @@ class WorkflowLinearCascade(Workflow):
         if tree is not None:
             self.get_workflow_parameters_from_tree()
         else:
-            self.Extractions.extend([
-                dict(Type='BC', Source='BCWall*', Fields=['Pressure',
-                                                          'BoundaryLayer',
-                                                          'yPlus']),
-                dict(Type='BC', Source='BCInflow*', Fields=['MassFlow']),
-                dict(Type='BC', Source='BCOutflow*', Fields=['MassFlow']),
-            ])
+            self._interface.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
+            self._interface.add_to_Extractions_BC(Source='BCInflow*', Fields=['MassFlow'])
+            self._interface.add_to_Extractions_BC(Source='BCOutflow*', Fields=['MassFlow'])
 
     def get_periodic_direction(self):
         # Get periodic match connections

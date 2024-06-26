@@ -70,7 +70,7 @@ def get_workflow_rotor37():
 
         RunManagement=dict(
             JobName='rotor37',
-            RunDirectory=os.path.dirname(os.path.realpath(__file__)),
+            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_rotor37'),
             NumberOfProcessors=4,
             ),
 

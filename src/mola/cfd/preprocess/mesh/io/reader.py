@@ -15,9 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola.logging import MolaUserError
-
 from treelab import cgns
+from mola.logging import MolaException
 from .utils import get_io_tool
 
 def is_using_mpi():
@@ -29,11 +28,12 @@ def is_using_mpi():
         return False
     
 
-def read(w, src):
+def read(w, src, io_tool=None):
 
     if not isinstance(src,str): return src
 
-    io_tool = get_io_tool(w, src)
+    if io_tool is None:
+        io_tool = get_io_tool(w, src)
 
     if io_tool == 'treelab':
         mesh = cgns.load(src)
@@ -68,6 +68,8 @@ def read(w, src):
         mesh = cgns.castNode(mesh)
         MPI.COMM_WORLD.barrier()
 
-    mesh = cgns.merge(mesh)
+    else:
+        raise MolaException(f'unknown value for io_tool: {io_tool}')
+
     return mesh
 

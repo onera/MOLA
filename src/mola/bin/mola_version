@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+#
+# Display versions of modules loaded with MOLA
+
+python3 -c 'from mola.server import print_environment; print_environment()'

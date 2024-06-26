@@ -32,6 +32,11 @@ def apply_to_solver(workflow):
         add_elsa_keys_to_cgns(workflow)
 
     write_run_scripts(workflow)
+    # NOTE The following line is important to write the complete attribute RunManagement in the tree.
+    # Otherwise, this attribute is filled with the workflow defaults, without essential keys.
+    # It would be better to make a separate operation to set properly RunManagement, and then write or not the files...
+    # For now a large part of RunManagement is set in the function build_job_scheduler_header
+    workflow.set_workflow_parameters_in_tree()  
     write_data_files(workflow)
 
 def add_reference_state(workflow):
@@ -98,43 +103,18 @@ def write_data_files(workflow):
     # Save FILE_OUTPUT_3D with the 3D fields
     with redirect_streams_to_logger(mola_logger):
         if run_on_localhost:
-            os.makedirs(os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT), exist_ok=True)
-            dst = os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D)
-        else:
-            os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
-            dst = os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D)
-        io.writer.write(workflow, t, dst)
-
-    # Save FILE_INPUT_SOLVER with links to FILE_OUTPUT_3D for 
-    NodesToLink = t.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
-    NodesToLink += t.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
-    NodesToLink += t.group(Name='BCDataSet#Average') 
-    
-    for FlowSolutionInit in NodesToLink:
-        path = FlowSolutionInit.path()
-        FlowSolutionInit.remove()
-        t.addLink(path=path, target_file=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), target_path=path)
-        
-    with redirect_streams_to_logger(mola_logger):
-        if run_on_localhost:
             dst = os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER)
         else:
             dst = names.FILE_INPUT_SOLVER
         io.writer.write(workflow, t, dst)
-
+    
     if not run_on_localhost:
         SV.copy_remote(
             source_path=names.FILE_INPUT_SOLVER, 
             destination_path=os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER), 
             destination_machine=workflow.RunManagement['Machine'],
             )
-        SV.copy_remote(
-            source_path=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), 
-            destination_path=os.path.join(workflow.RunManagement['RunDirectory'], names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_3D), 
-            destination_machine=workflow.RunManagement['Machine'],
-            )
         SV.remove_path(names.FILE_INPUT_SOLVER, machine='localhost')
-        SV.remove_path(names.DIRECTORY_OUTPUT, machine='localhost', file_only=False)
 
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)
@@ -147,13 +127,13 @@ from mola.workflow import read_workflow
 import mola.naming_conventions as names
 
 workflow = read_workflow(names.FILE_INPUT_SOLVER)
-workflow.print()
 workflow.compute()
 '''
     SV.save_file_maybe_remote(names.FILE_COMPUTE, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 def write_coprocess(RunManagement):
-    SV.save_file_maybe_remote(names.FILE_COPROCESS, '# do nothing', RunManagement['RunDirectory'], machine=RunManagement['Machine'])
+    txt = '''workflow._coprocess_manager.run_iteration()'''
+    SV.save_file_maybe_remote(names.FILE_COPROCESS, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 def write_job_launcher(RunManagement):
 

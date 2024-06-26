@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from mola.logging import MolaAssertionError
+
 from .workflow_interface import WorkflowInterface
 from .workflow import Workflow 
 from .linear_cascade import WorkflowLinearCascade
@@ -29,9 +31,16 @@ from treelab import cgns
 
 def read_workflow(source):
     # Get the right class of Workflow
-    tree = cgns.load(source)
-    workflow_name = tree.get(Name='WorkflowParameters').get(Name='Name', Depth=1).value()
+    try:
+        workflow_name_node = cgns.load_from_path(source, 'WorkflowParameters/Name')
+    except: 
+        if not isinstance(source, str):
+            raise MolaAssertionError(f'The argument of read_workflow must be a filename (a string).')
+        else:
+            raise MolaAssertionError(f'Unable to load the workflow: the file {source} does not contain the node WorkflowParameters/Name')
+    workflow_name = workflow_name_node.value()
     PreviouslyUsedWorkflow = AVAILABLE_WORKFLOWS.get(workflow_name)
 
-    workflow = PreviouslyUsedWorkflow(tree=tree)
+    workflow = PreviouslyUsedWorkflow(tree=source)
+
     return workflow

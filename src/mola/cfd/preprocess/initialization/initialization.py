@@ -33,9 +33,7 @@ def apply(workflow):
         copy = initialize_flow_from_file_by_copy,
         interpolate = initialize_flow_from_file_by_interpolation,
     )
-
     initialize_flow_with_given_method = initialization_functions[workflow.Initialization['Method']]
-    initialize_flow_with_given_method(workflow)
 
     initialize_flow_with_given_method(workflow)
     check_initial_flow_is_in_all_zones(workflow)

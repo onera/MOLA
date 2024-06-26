@@ -65,7 +65,7 @@ def test_onera_get_job_text():
         "onera",
         RunManagement['Machine'],
         'fake_solver.sh')
-
+    
     assert job_text == f'''#!/bin/bash
 #SBATCH --time=15:00:00
 #SBATCH --constraint=csl
@@ -74,4 +74,5 @@ def test_onera_get_job_text():
 #SBATCH --error=error.%j.log
 #SBATCH --comment=myAER
 
-source {env}'''
+source {env}
+unset "${{!OMPI_@}}" "${{!MPI_@}}"'''

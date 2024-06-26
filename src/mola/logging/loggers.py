@@ -23,20 +23,53 @@ It should only contains class named <something>Logger
 import sys
 import os
 import logging
+import numpy as np
+
 from .formatters import CustomFormatter
 import mola.naming_conventions as names
+    
+class MaxLevelFilter(logging.Filter):
+
+    def __init__(self, max_level):
+        self.max_level = max_level
+        super().__init__()
+
+    def filter(self, record):
+        return record.levelno <= self.max_level
 
 class MolaLogger(logging.Logger):
     
     def __init__(self, name='mola_logger', level='INFO', stream=True, filename=None):
+        self._init_MPI()
         super().__init__(name, level)
         formatter = CustomFormatter()
         if stream:
             self.add_stream_handler(formatter)
         if filename:
-            if os.path.exists(filename):
-                os.remove(filename)
+            if self.rank == 0:
+                if os.path.exists(filename):
+                    os.remove(filename)
+            if self.NumberOfProcessors > 1:
+                self.comm.barrier()
             self.add_file_handler(formatter, filename)
+        
+    def _init_MPI(self):
+        try:
+            from mpi4py import MPI
+            self.comm = MPI.COMM_WORLD
+            self.rank = self.comm.Get_rank()
+            self.NumberOfProcessors = self.comm.Get_size()
+            self.comm.barrier()
+        except:
+            self.comm = None
+            self.rank = 0
+            self.NumberOfProcessors = 1
+            
+        if self.NumberOfProcessors > 1:
+            nbOfDigitsOfNProcs = int(np.ceil(np.log10(self.NumberOfProcessors+1)))
+            self.preffix = ('[{:0%d}]: '%nbOfDigitsOfNProcs).format(self.rank)
+        else:
+            self.preffix = ''
 
     def set_level(self, level):
         self.setLevel(level)
@@ -48,6 +81,7 @@ class MolaLogger(logging.Logger):
     def add_stream_handler(self, formatter):
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setFormatter(formatter)
+        stdout_handler.addFilter(MaxLevelFilter(logging.WARNING))
         self.addHandler(stdout_handler)
 
         stderr_handler = logging.StreamHandler(sys.stderr)
@@ -59,59 +93,29 @@ class MolaLogger(logging.Logger):
         file_handler = logging.FileHandler(filename)
         file_handler.setFormatter(formatter)
         self.addHandler(file_handler)
-    
 
-class ParallelLogger(MolaLogger):
-    '''
-    Replace function Coprocess.printCo() in MOLA v1.
-
-    Example
-    -------
-
-        >>> logger = ParallelLogger()
-        >>> logger.info('info', rank=0)
-
-    '''
-
-    def __init__(self, name='mola_logger.parallel', level='INFO', stream=False, filename=names.FILE_COLOG):
-        super().__init__(name, level=level, stream=stream, filename=filename)
-        try:
-            import numpy as np
-            from mpi4py import MPI
-            comm = MPI.COMM_WORLD
-            self.rank = comm.Get_rank()
-            NumberOfProcessors = comm.Get_size()
-            nbOfDigitsOfNProcs = int(np.ceil(np.log10(NumberOfProcessors+1)))
-            self.preffix = ('[{:0%d}]: '%nbOfDigitsOfNProcs).format(self.rank)
-        except:
-            raise Exception(f'Cannot initialize ParallelLogger {name}')
-    
-    def has_something_to_write(self, rank):
+    def _has_something_to_write(self, rank):
         return rank is None or rank == self.rank
-        
+
     def debug(self, msg, rank=None, *args, **kwargs):
-        if self.has_something_to_write(rank): 
+        if self._has_something_to_write(rank): 
             super().debug(self.preffix+msg, *args, **kwargs)
     
     def info(self, msg, rank=None, *args, **kwargs):
-        if self.has_something_to_write(rank): 
+        if self._has_something_to_write(rank): 
             super().info(self.preffix+msg, *args, **kwargs)
     
     def warning(self, msg, rank=None, *args, **kwargs):
-        if self.has_something_to_write(rank): 
+        if self._has_something_to_write(rank): 
             super().warning(self.preffix+msg, *args, **kwargs)
     
-    def error(self, msg, rank=None, exit=False, *args, **kwargs):
-        if self.has_something_to_write(rank): 
-            super().error(self.preffix+msg, exit=exit, *args, **kwargs)
-    
-    def exception(self, msg, rank=None, *args, **kwargs):
-        if self.has_something_to_write(rank): 
-            super().exception(self.preffix+msg, *args, **kwargs)
+    def error(self, msg, rank=None, *args, **kwargs):
+        if self._has_something_to_write(rank): 
+            super().error(self.preffix+msg, *args, **kwargs)
     
     def critical(self, msg, rank=None, *args, **kwargs):
-        if self.has_something_to_write(rank): 
+        if self._has_something_to_write(rank): 
             super().critical(self.preffix+msg, *args, **kwargs)
     
     fatal = critical
-
+    

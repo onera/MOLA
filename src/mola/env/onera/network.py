@@ -1,14 +1,31 @@
-AvailableEnvironments = ['ld', 'spiro', 'sator']
+AvailableEnvironments = ['ld', 'spiro', 'sator', 'juno']
 
 PatternsToEnvironments = {
     'ld*' : 'ld',
     'visung*' : 'ld',
     'spiro*' : 'spiro',
     'sator*' : 'sator',
-    'n*' : 'sator',
+    # 'n*' : 'sator',
+    'n03[3-9]' : 'sator',
+    'n0[4-9][0-9]' : 'sator',
+    'n1??' : 'sator',
+    'n????' : 'sator',
+    'f0[1-4]' : 'juno',
+    'v00[1-6]' : 'juno',  
+    # computation nodes on juno
+    # '^n0([0-2][0-9]|30|31|32)$' : 'juno',  # n[001-032]
+    'n00[1-9]' : 'juno',  
+    'n01[0-9]' : 'juno',  
+    'n02[0-9]' : 'juno',  
+    'n03[0-2]' : 'juno',  
+    'b00[1-2]$' : 'juno',  
+    'a00[1-4]$' : 'juno',  
+    'g00[1-2]$' : 'juno',  
 }
+
 
 PathsToEnvironments = {
     '/scratch*' : 'spiro',
     '/tmp_user/sator/*' : 'sator',
+    '/tmp_user/juno/*' : 'juno',
 }

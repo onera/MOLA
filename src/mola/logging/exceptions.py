@@ -24,6 +24,8 @@ Each class should inherit from the parent class MolaException.
 from typing import Union
 import inspect
 from .formatters import format_message_according_level, CYAN, BOLD, PINK, ENDC
+from .excepthook import enable_mpi_excepthook, disable_mpi_excepthook
+enable_mpi_excepthook()
 
 class MolaException(Exception):
 

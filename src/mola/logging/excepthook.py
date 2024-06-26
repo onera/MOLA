@@ -15,7 +15,29 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola.cfd import apply_to_solver
+import sys
 
-def apply(workflow):
-    apply_to_solver(workflow)
+sys_excepthook = sys.excepthook
+
+def mpi_excepthook(type, value, traceback):
+    from mpi4py import MPI
+
+    rank = MPI.COMM_WORLD.Get_rank()
+    err_mssg = f"Your application aborted because of an uncaught exception on rank {rank}:\n\n"
+
+    sys.stderr.write(err_mssg)
+    sys_excepthook(type, value, traceback)
+    sys.stderr.write('\n')
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    MPI.COMM_WORLD.Abort(1)
+
+def enable_mpi_excepthook():
+    try:
+        sys.excepthook = mpi_excepthook
+    except:
+        pass
+    
+def disable_mpi_excepthook():
+    sys.excepthook = sys_excepthook
