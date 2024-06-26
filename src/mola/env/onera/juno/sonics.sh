@@ -18,9 +18,22 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-source /tmp_user/juno/sonics/dist/socle_cfd6/source.sh
+# Treelab
+# NOTE installation hint:
+# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
+export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
-export PYTHONPATH=/tmp_user/juno/tbontemp/miles:$PYTHONPATH
+# source /tmp_user/juno/sonics/dist/socle_cfd6/source.sh
+source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh
+export PYTHONPATH=/tmp_user/juno/mola/miles:$PYTHONPATH
+
+# external python packages
+export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH
+export PATH=$MOLAext/spiro_el8/bin:$PATH
+export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH
