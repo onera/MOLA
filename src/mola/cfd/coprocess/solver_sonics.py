@@ -15,6 +15,22 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import maia
+import maia.pytree as PT
+
+from treelab import cgns
+
+from mola.logging import MolaException
+import mola.naming_conventions as names
+# no relative imports possible for the following line because the current file is called by
+# call_solver_specific_function in manager.py
+from mola.cfd.coprocess import mola_logger, rank, comm
+
+
+def perform_extractions(workflow, coprocess_manager):
+    mola_logger.warning('perform_extractions not impletemented for SoNICS!')
+    return
+
 def get_sonics_outputs():
     return
 

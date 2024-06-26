@@ -17,6 +17,7 @@
 
 from mola.logging import mola_logger
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
+from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
 
 BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
 
@@ -24,6 +25,11 @@ BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNam
 def function_generator(name):
     def set_bc(workflow, *args, **kwargs):
         import miles
+        if 'Motion' in kwargs:
+            # put elements of dict Motion directly in kwargs (remove the "level" Motion)
+            motion = kwargs.pop('Motion')
+            motion = translate_motion_to_sonics(motion)
+            kwargs['motion'] = motion
         miles.bcfactory(workflow.tree, name, *args, **kwargs)
     return set_bc
 

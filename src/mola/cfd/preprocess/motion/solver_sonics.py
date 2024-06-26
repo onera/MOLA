@@ -44,8 +44,9 @@ def apply_to_solver(workflow):
   
     for family, MotionOnFamily in workflow.Motion.items():
         mola_logger.debug(f'set motion on {family}: {MotionOnFamily}')
-        
-        miles.motionfactory(workflow.tree, family, MotionOnFamily)
+
+        motion = translate_motion_to_sonics(MotionOnFamily)
+        miles.motionfactory(workflow.tree, family, **motion)
 
     workflow.tree = cgns.castNode(workflow.tree)
 
@@ -61,7 +62,7 @@ def translate_motion_to_sonics(Motion):
         RotationAxisOriginX = Motion['RotationAxisOrigin'][0],
         RotationAxisOriginY = Motion['RotationAxisOrigin'][1], 
         RotationAxisOriginZ = Motion['RotationAxisOrigin'][2], 
-        TranslationSpeedX = Motion['ranslationSpeed'][0], 
+        TranslationSpeedX = Motion['TranslationSpeed'][0], 
         TranslationSpeedY = Motion['TranslationSpeed'][1],
         TranslationSpeedZ = Motion['TranslationSpeed'][2],
     )

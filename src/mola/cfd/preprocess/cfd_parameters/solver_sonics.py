@@ -18,7 +18,6 @@
 from mola.logging import mola_logger, MolaException
 
 from treelab import cgns
-from mola.cfd.preprocess.cfd_parameters import cfd_parameters
 
 # TODO Check the correspondance of models in SoNICS
 TURBULENCE_SONICS_KEYS = {
@@ -60,8 +59,7 @@ def apply_to_solver(workflow):
     from miles.solver import configuration_templates
 
     TurbulenceSetup = TURBULENCE_SONICS_KEYS[workflow.Turbulence['Model']]
-    TurbulenceCutOffSetup = cfd_parameters.get_turbulence_cutoff_setup(workflow.Turbulence)
-    TurbulenceSetup['cutvars'] = TurbulenceCutOffSetup.values()
+    TurbulenceSetup['cutvars'] = get_turbulence_cutoff_setup(workflow.Turbulence)
 
     my_config = miles.solver.config.Configuration(workflow.tree, pure_cgns_mode=False)
     my_config.add_template(configuration_templates.mobile)
@@ -75,7 +73,7 @@ def apply_to_solver(workflow):
             output_folder = ".",
             niter = workflow.Numerics['NumberOfIterations'],
             niter_period = 1,
-            extracts = {'*': ['conservatives', 'LaminarViscosity', 'TurbulentViscosity','TurbulentViscosity', 'TurbulentDistance',"Mach","primitives"]},
+            extracts = {'*': ['conservatives', 'LaminarViscosity', 'TurbulentViscosity','TurbulentViscosity', 'TurbulentDistance', 'Mach', 'primitives']},
             code_generation = "none",
             fcfl = workflow.Numerics['CFL'],
         )
@@ -95,3 +93,14 @@ def get_spatial_fluxes_template(Numerics):
     
     return template
 
+def get_turbulence_cutoff_setup(Turbulence):
+    # Definition of cut-off values for turbulence 
+    turbValues = list(Turbulence['Conservatives'].values())
+    if len(turbValues) == 7:  # RSM
+        cutoffs = [Turbulence['TurbulenceCutOffRatio'] * turbValues[i] for i in [0, 3, 5, 6]]
+    elif len(turbValues) > 4: # unsupported 
+        raise MolaException('Unsupported number of turbulent fields')
+    else:
+        cutoffs = [Turbulence['TurbulenceCutOffRatio'] * v for v in turbValues]
+
+    return cutoffs

@@ -21,4 +21,32 @@ from mola.logging import mola_logger, MolaException
 def apply_to_solver(workflow):
 
     mola_logger.warning('No custom extractions available with SoNICS for now.')
+    # workflow._pytriggers = []
+    # add_extractions_for_restart(workflow)
+    # process_extractions(workflow)
 
+def add_extractions_for_restart(workflow):
+    workflow._interface.add_to_Extractions_Restart(
+        # Container='FlowSolution#EndOfRun', 
+        Fields='conservatives',
+        )
+
+def process_extractions(workflow):
+    import sonics.toolkit.triggers as triggers
+
+    extractions_merged = []
+    for extraction in workflow.Extractions:
+        family = extraction.get('Family', '*')
+        if family not in extractions_merged:
+            extractions_merged[family] = extraction['Fields']
+        else:
+            extractions_merged[family] += extraction['Fields']
+
+    trigger = triggers.ExtractTrigger(
+        workflow.SolverParameters['configuration']['conf'], 
+        extractions_merged, 
+        workflow.SolverParameters['configuration']['hpc_conf']['hardware_target']
+        ) 
+    
+    workflow._pytriggers += trigger
+    

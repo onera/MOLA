@@ -211,7 +211,6 @@ def set_model(workflow):
 def set_numerics(workflow):
 
     TurbulenceCutOffSetup = get_turbulence_cutoff_setup(workflow.Turbulence)
-    TurbulenceCutOffSetup = dict((f't_cutvar{i+1}', value) for i, value in enumerate(TurbulenceCutOffSetup.values()))
 
     workflow.SolverParameters['numerics'] = dict(
         **get_spatial_fluxes(workflow.Numerics, workflow.tree, workflow.Flow),

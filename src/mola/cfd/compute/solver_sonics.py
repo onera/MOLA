@@ -22,46 +22,29 @@ comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
 NumberOfProcessors = comm.Get_size()
 
-import glob
-import shutil
-
 import mola.naming_conventions as names
 
 
 def apply_to_solver(workflow):
 
+    import sonics
+    from sonics.toolkit.execute.run_graph import get_default_iterators
+    from sonics.toolkit.execute.run_graph import get_default_pytriggers
+
+    import maia
+
     if rank==0:
         os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
 
-    launch_sonics_computation(workflow)
-    moveLogFiles()
-
-
-def launch_sonics_computation(workflow):
-
-    import sonics
-    import maia
-
     dist_tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
 
-    sonics.solver.run(workflow.SolverParameters['configuration'], dist_tree, comm)
+    # default_pytriggers = get_default_pytriggers(workflow.SolverParameters['configuration'], dist_tree, comm)
+    # pytriggers += default_pytriggers
+    # iterators = get_default_iterators(workflow.SolverParameters['configuration'], pytriggers, comm)
+
+    sonics.solver.run(workflow.SolverParameters['configuration'], dist_tree, comm) #, iterators=iterators)
 
     maia.algo.pe_to_nface(dist_tree, comm)
-    maia.io.dist_tree_to_file(dist_tree, f'solution.cgns', comm)
+    maia.io.dist_tree_to_file(dist_tree, 'solution.cgns', comm)
  
-def moveLogFiles():
-    if rank == 0:
-        try: os.makedirs(names.DIRECTORY_LOG)
-        except: pass
 
-        for fn in glob.glob('*.log'):
-            FilenameBase = fn[:-4]
-            i = 1
-            NewFilename = FilenameBase+'-%d'%i+'.log'
-            while os.path.isfile(os.path.join(names.DIRECTORY_LOG, NewFilename)):
-                i += 1
-                NewFilename = FilenameBase+'-%d'%i+'.log'
-
-            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, NewFilename))
-
-    comm.barrier()
