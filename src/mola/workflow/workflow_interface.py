@@ -317,6 +317,20 @@ class WorkflowInterface(object):
         for comp in DefaultComponents:
             if comp['ReferenceParameter'] in UserComponent: return copy.deepcopy(comp)
         return {}
+    
+    def add_to_Extractions_Residuals(self,
+            File : str = names.FILE_OUTPUT_1D,
+            ExtractionPeriod : int = 1,
+            SavePeriod : int = 100,
+            Override : bool = True, # if False, will tag with iteration
+            *,
+            Type : str = 'Residuals',
+            ):
+        '''
+        Extraction of global or local residuals
+        '''
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_Residuals, self.repack_kwargs()))
 
     def add_to_Extractions_Integral(self,
             Fields : list = None, # accepts prefix avg- or std-

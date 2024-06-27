@@ -31,7 +31,10 @@ def apply_to_solver(workflow):
     process_extractions_3d(workflow)
     process_extractions_2d(workflow)
     add_trigger(workflow.tree)
-    add_global_convergence_history(workflow)
+    for Extraction in workflow.Extractions: 
+        if Extraction['Type'] == 'Residuals':
+            add_global_convergence_history(workflow, Extraction['ExtractionPeriod'])
+            break
 
 def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():
@@ -41,12 +44,12 @@ def add_extractions_for_overset_components(workflow):
             Frame     = 'absolute'
         )
 
-def add_global_convergence_history(workflow):
+def add_global_convergence_history(workflow, ExtractionPeriod=1):
     for base in workflow.tree.bases():
         GlobalConvergenceHistory = cgns.Node(Parent=base, Name='GlobalConvergenceHistory', Value=0, Type='UserDefinedData')
         cgns.Node(Parent=GlobalConvergenceHistory, Name='NormDefinitions', Value='ConvergenceHistory', Type='Descriptor')
         GlobalConvergenceHistory.setParameters('.Solver#Output',
-                                        period=1,
+                                        period=ExtractionPeriod,
                                         writingmode=0,
                                         var='residual_cons residual_turb'
                                         )

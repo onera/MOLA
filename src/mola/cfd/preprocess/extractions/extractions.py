@@ -19,6 +19,7 @@ from mola.cfd import apply_to_solver
 
 def apply(workflow):
 
+    add_residuals_extraction(workflow)
     process_extractions_2d(workflow)
     apply_to_solver(workflow)
 
@@ -29,4 +30,7 @@ def process_extractions_2d(workflow):
             if isinstance(Extraction['Fields'], str):
                 Extraction['Fields'] = [Extraction['Fields']]
     
+def add_residuals_extraction(workflow):
+    if not any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
+        workflow._interface.add_to_Extractions_Residuals()
 

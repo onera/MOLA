@@ -54,10 +54,12 @@ def perform_extractions(workflow, coprocess_manager):
         
         elif extraction['Type'] == 'IsoSurface':
             extraction['Data'] = extract_isosurface(output_tree, extraction)
+
+        elif extraction['Type'] == 'Residuals':
+            extraction['Data'] = extract_residuals(output_tree)
         
         elif extraction['Type'] == 'Integral':
-            if 'Residuals' in extraction['Fields']:
-                extraction['Data'] = extract_residuals(output_tree)
+            extraction['Data'] = extract_integral(output_tree)
 
         elif extraction['Type'] == 'Probe':
             extraction['Data'] = extract_probe(output_tree)
