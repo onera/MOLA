@@ -65,7 +65,7 @@ def apply(workflow, selected_boundaries_conditions=None):
         selected_boundaries_conditions = workflow.BoundaryConditions
 
     if len(selected_boundaries_conditions) != 0:
-        mola_logger.info(f'Set boundary conditions:')
+        mola_logger.info(f'Set boundary conditions:', rank=0)
 
     for bc in selected_boundaries_conditions:
         
@@ -73,9 +73,9 @@ def apply(workflow, selected_boundaries_conditions=None):
         if bcName == 'InterfaceBetweenWorkflows':
             continue
         if 'LinkedFamily' in bc:
-            mola_logger.info(f'  > {bcName} between families {bc["Family"]} and {bc["LinkedFamily"]}')
+            mola_logger.info(f'  > {bcName} between families {bc["Family"]} and {bc["LinkedFamily"]}', rank=0)
         else:
-            mola_logger.info(f'  > {bcName} on family {bc["Family"]}')
+            mola_logger.info(f'  > {bcName} on family {bc["Family"]}', rank=0)
         
         if bcName in BoundaryConditionsNames:
             # Define in the main MOLA preprocess, lower in this file

@@ -57,6 +57,7 @@ def reader(w, component):
 
     mesh = read(w, component['Source'])
     clean_autogrid_log_bases(mesh)
+    rename_zones(mesh)
 
     # Join HUB and SHROUD families
     join_families(mesh, 'HUB')
@@ -100,6 +101,7 @@ def clean_family_properties(t):
     t.findAndRemoveNodes(Name='FamilyProperty')
 
 def rename_zones(t, zonesToRename=dict()):
+    import Converter.Internal as I
     for zone in t.zones():
         name = zone.name()
         if name in zonesToRename:
@@ -116,7 +118,7 @@ def rename_zones(t, zonesToRename=dict()):
 def update_Connection_from_mesh(mesh, component):
     # Only if grid connectivities are not already in the mesh
     # TODO: Test on the presence of GC
-    component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
+    # component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
 
     periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['Tolerance'])
     component['Connection'] += periodic_connections

@@ -118,11 +118,11 @@ def apply(workflow):
         nproc = workflow.SplittingAndDistribution['NumberOfProcessors']
         if size>1 and size != nproc:
             raise MolaException(f'MPI preprocess is being executed using {size} ranks, but it does not match the requested SplittingAndDistribution NumberOfProcessors ({nproc})')
-        mola_logger.info('mesh already split and distributed...')
+        mola_logger.info('mesh already split and distributed: skip splitting', rank=0)
         return
 
 
-    mola_logger.info('splitting and distributing mesh...')
+    mola_logger.info('splitting and distributing mesh...', rank=0)
     mode = get_and_check_splitting_mode(workflow.SplittingAndDistribution)
     if mode == 'auto':
         split_with_auto_mode(workflow)
@@ -573,7 +573,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=48):
         MSG += f'    Node {node} has {NPtsPerNode[node]} points\n'
     MSG += '  '+'-'*29 + '\n'
     MSG += f'  TOTAL NUMBER OF POINTS: {tNew.numberOfCells():,}'.replace(',',' ')
-    mola_logger.info(MSG)
+    mola_logger.info(MSG, rank=0)
 
     for p in range(ResultingNProc):
         if p not in ProcDistributed:
