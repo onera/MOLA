@@ -34,6 +34,9 @@ def apply_to_solver(workflow):
     for Extraction in workflow.Extractions: 
         if Extraction['Type'] == 'Residuals':
             add_global_convergence_history(workflow, Extraction['ExtractionPeriod'])
+            # In elsA, the extraction period is defined by add_global_convergence_history
+            # Hence, the update of residuals by MOLA can be done at SavePeriod (more is useless)
+            Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
             break
 
 def add_extractions_for_overset_components(workflow):

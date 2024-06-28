@@ -15,5 +15,16 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .extractions import extract_bc, iso_surface
-    
+import maia
+
+def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm):
+
+    containers_name = [fs.name() for fs in tree.group(Type='FlowSolution')]
+    surface = maia.algo.part.iso_surface(
+                        tree, 
+                        f"{IsoSurfaceContainer}/{IsoSurfaceField}",
+                        iso_val=IsoSurfaceValue,
+                        containers_name=containers_name, 
+                        comm=comm,
+                        )
+    return surface

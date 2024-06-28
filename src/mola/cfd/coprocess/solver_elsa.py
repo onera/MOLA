@@ -17,10 +17,7 @@
 
 from fnmatch import fnmatch
 
-import Converter.PyTree as C
 import Converter.Internal as I
-import maia
-import maia.pytree as PT
 import elsAxdt
 
 from treelab import cgns
@@ -30,11 +27,12 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import mola_logger, rank, comm
+import mola.cfd.postprocess as POST
 
 
 def perform_extractions(workflow, coprocess_manager):
     output_tree = get_elsa_output_tree(workflow._Skeleton)
-    families_to_bctype = C.getFamilyBCNamesDict(output_tree)
+    families_to_bctype = get_family_to_BCType(output_tree)
     
     for extraction in coprocess_manager.Extractions:
         if extraction['IsToExtract'] == False:
@@ -143,7 +141,6 @@ def extract_fields(output_tree, extraction):
 
 def extract_bc(output_tree, extraction, DictBCNames2Type):
     SurfacesTree = cgns.Tree()
-    CellDimension = output_tree.base().dim()
 
     for BCFamilyName in DictBCNames2Type:
         BCType = DictBCNames2Type[BCFamilyName]
@@ -159,49 +156,42 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
             continue
 
         mola_logger.debug(f'  {family=}', rank=0)
-        
-        zones = C.extractBCOfName(output_tree, f'FamilySpecified:{family}', extrapFlow=False)
-        
-        # zones = maia.algo.part.extract_part_from_family(output_tree, family, comm, 
-        #                                                containers_name=['BCDataSet'])
-        
-        if extraction['Name'] == 'ByFamily':
-            addBase2SurfacesTree(SurfacesTree, BCFamilyName, zones, CellDimension)
-        else:
-            raise MolaException(f'Not implemented yet: extraction "Name" must be "ByFamily" for "Type"="BC" (now, it is "{extraction["Name"]}")')
-
-    # Remove not needed FlowSolution nodes
-    for zone in SurfacesTree.zones():
-        for FS in zone.group(Type='FlowSolution', Depth=1):
-            if FS.name() != 'FlowSolution#Centers':
-                FS.remove()
     
-    restore_families(SurfacesTree, output_tree)
+        data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
+        SurfacesTree = I.merge([SurfacesTree, data_tree])
+        # SurfacesTree.merge(data_tree) # TODO This doesn't work. Need a new function in Treelab that makes what I.merge does.
+    
+    SurfacesTree = cgns.castNode(SurfacesTree)
+
+    if extraction['Name'] != 'ByFamily':
+        # merge all bases and rename the unique base
+        base0 =  SurfacesTree.bases()[0]
+        base0.setName(extraction['Name'])
+        i = 0
+        for zone in base0.zones():
+            zone.setName(f"{extraction['Name']}_R{rank}N{i}")
+            i += 1
+        for base in SurfacesTree.bases()[1:]:
+            for zone in base.zones():
+                zone.setName(f"{extraction['Name']}_R{rank}N{i}")
+                i += 1
+                zone.moveTo(base0)
+            base.remove()
 
     return SurfacesTree
 
 def extract_isosurface(output_tree, extraction):
-    if output_tree.isUnstructured():
+    if extraction['IsoSurfaceContainer'] == 'auto':
+        extraction['IsoSurfaceContainer'] = deduce_container_for_slicing(extraction['IsoSurfaceField'])
 
-        if len(extraction['IsoSurfaceField'].split('/')) == 1:
-            container = deduce_container_for_slicing(extraction['IsoSurfaceField'])
-            extraction['IsoSurfaceField'] = f"{container}/{extraction['IsoSurfaceField']}"
-
-        containers_name = [fs.name() for fs in output_tree.group(Type='FlowSolution')]
-
-        isosurface = maia.algo.part.iso_surface(
-                    output_tree, 
-                    extraction['IsoSurfaceField'],
-                    iso_val=extraction['IsoSurfaceValue'],
-                    containers_name=containers_name, 
-                    comm=comm,
-                    )
-        
-        isosurface = cgns.castNode(isosurface)
-
-    else:
-        mola_logger.warning('skip extraction of type IsoSurface (not implemented yet for structured mesh)', rank=0)
-        isosurface = cgns.Tree()
+    isosurface = POST.iso_surface(
+        output_tree, 
+        IsoSurfaceField = extraction['IsoSurfaceField'], 
+        IsoSurfaceValue = extraction['IsoSurfaceValue'], 
+        IsoSurfaceContainer = extraction['IsoSurfaceContainer'],
+        Name = extraction['Name'],
+        tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
+        )
     
     return isosurface
 
@@ -218,85 +208,19 @@ def deduce_container_for_slicing(IsoSurfaceField):
     else:
         return 'FlowSolution#EndOfRun'
     
-def addBase2SurfacesTree(SurfacesTree, basename, zones, CellDimension=3, PhysicalDimension=3):
-    if not zones: 
-        return
-    
-    base = SurfacesTree.get(Name=basename, Type='CGNSBase', Depth=1)
-    if not base:
-        # create that base
-        base = cgns.Base(Parent=SurfacesTree, Name=basename)
-        base.setCellDimension(CellDimension-1)
-        base.setPhysicalDimension(PhysicalDimension)
-
-    for i, zone in enumerate(zones):
-        zone = cgns.castNode(zone)
-        # The name of the parent zone is kept in a temporary node .parentZone, 
-        # that will be removed before saving
-        # There might be a \ in zone name if it is a result of C.ExtractBCOfType
-        zoneName = zone.name().split('/')[0]
-        cgns.Node(Name='.parentZone', Type='UserDefinedData_t', Value=zoneName, Parent=zone)
-        # Rename zones like the base
-        zone.setName(f'{basename}_R{rank}N{i}')
-        base.addChild(zone)
-
-    return base
-
-def restore_families(surfaces, skeleton):
-    '''
-    Restore families in the PyTree **surfaces** (e.g read from
-    ``'surfaces.cgns'``) based on information in **skeleton** (e.g read from
-    ``'main.cgns'``). Also add the ReferenceState to be able to use function
-    computeVariables from Cassiopee Post module.
-
-    .. tip:: **skeleton** may be a skeleton tree.
-
-    Parameters
-    ----------
-
-        surfaces : PyTree
-            tree where zone names are the same as in **skeleton** (or with a
-            suffix in '\\<bcname>'), but without information on families and
-            ReferenceState.
-
-        skeleton : PyTree
-            tree of the full 3D domain with zones, families and ReferenceState.
-            No data is needed so **skeleton** may be a skeleton tree.
-    '''
-    ReferenceState = skeleton.get(Type='ReferenceState', Depth=2) 
-    family_nodes = skeleton.group(Type='Family', Depth=2) 
-
-    for base in surfaces.bases():
-        if ReferenceState:
-            base.addChild(ReferenceState)
-
-        families_in_base = []
-        for zone in base.zones():
-            parentZone_node = zone.get(Name='.parentZone')
-            zone_name = parentZone_node.value()
-            zone_in_full_tree = skeleton.get(Name=zone_name, Type='Zone')
-            if zone_in_full_tree:  
-                fam = zone_in_full_tree.get(Type='FamilyName', Depth=1)
-                if fam:
-                    zone.addChild(fam)
-                    families_in_base.append(fam.value())
-            else:
-                # This is an extracted BC
-                fam = zone.get(Type='FamilyName', Depth=1)
-                if fam: 
-                    families_in_base.append(fam.value())
-
-            parentZone_node.remove()
-            
-        for family in family_nodes:
-            if family.name() in families_in_base:
-                base.addChild(family)
-    
 def update_elsa_input(new_tree):
     elsAxdt.xdt(elsAxdt.PYTHON,(elsAxdt.RUNTIME_TREE, new_tree, 1))
 
 def end_simulation(workflow):
     elsAxdt.safeInterrupt()
+
+def get_family_to_BCType(t):
+        families_to_bctype = dict()
+        for famnode in t.group(Type='Family', Depth=2):
+            bctype = famnode.get(Type='FamilyBC')
+            if bctype is not None:
+                families_to_bctype[famnode.name()] = bctype.value()
+        return families_to_bctype
 
 def moveCoordsFromEndOfRunToGridCoords(to):
     '''

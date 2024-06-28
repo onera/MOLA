@@ -15,5 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .extractions import extract_bc, iso_surface
-    
+import maia
+
+def extract_bc(tree, Family, comm):
+    surface = maia.algo.part.extract_part_from_family(tree, Family, comm, containers_name=['BCDataSet'])
+    return surface

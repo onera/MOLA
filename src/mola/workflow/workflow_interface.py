@@ -323,6 +323,7 @@ class WorkflowInterface(object):
             ExtractionPeriod : int = 1,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             *,
             Type : str = 'Residuals',
             ):
@@ -339,6 +340,7 @@ class WorkflowInterface(object):
             ExtractionPeriod : int = 1,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
             TimeAveragingIterations : int = 1000,
@@ -361,6 +363,7 @@ class WorkflowInterface(object):
             ExtractionPeriod : int = 1,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
             TimeAveragingIterations : int = 1000,
@@ -385,6 +388,7 @@ class WorkflowInterface(object):
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = False,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             GridLocation : str = 'CellCenter',
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
@@ -404,10 +408,11 @@ class WorkflowInterface(object):
     def add_to_Extractions_IsoSurface(self,
             Fields : list = None,
             File : str = names.FILE_OUTPUT_2D,
-            Name : str = None, # if None, will be based on Source
+            Name : str = 'auto', # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = False,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             GridLocation : str = 'Vertex',
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
@@ -418,6 +423,7 @@ class WorkflowInterface(object):
             Type : str = 'IsoSurface',
             IsoSurfaceField : str = 'CoordinateX', # a coordinate or a field or a Container/field
             IsoSurfaceValue : float = 0.0, 
+            IsoSurfaceContainer : str = 'auto', 
             ):
         '''
         Extraction using an iso-surface operation
@@ -433,6 +439,7 @@ class WorkflowInterface(object):
             SavePeriod : int = 100,
             InterpolationOrder : int = 0,
             Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = False,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             PostprocessOperations : list = None,
             OtherOptions : dict = None,
             *,
@@ -457,8 +464,9 @@ class WorkflowInterface(object):
             SavePeriod : int = 5000,
             Frame : str = 'relative',
             Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = False,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             Container : str = 'FlowSolution#Output', 
-            GridLocation : str = 'CellCenter',
+            GridLocation : str = 'Vertex',
             GhostCells : bool = False,
             TimeAveragingFirstIteration : int = 1000,
             TimeAveraging : bool = False,
@@ -478,6 +486,7 @@ class WorkflowInterface(object):
             File : str = names.FILE_INPUT_SOLVER, 
             ExtractionPeriod : int = 1000000000, # Only done at the end of the simulation
             SavePeriod : int = 1000000000,
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             Frame : str = 'relative',
             Container : str = None, # if None will define automatic container names
             GridLocation : str = 'CellCenter',
