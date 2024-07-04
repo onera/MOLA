@@ -56,7 +56,7 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
         HybridParameters.clear()
         return []
 
-    if isinstance(Mesh, str): Mesh = load(Mesh)
+    if isinstance(Mesh, str): Mesh = V.load(Mesh)
 
     import MOLA.Preprocess as PRE
     import Apps.Fast.MB as AppFastMB
@@ -171,8 +171,8 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
                 "nb_relax":1, # nbre de passages de newton
                 "epsi_newton":0.01, # residu a atteindre
             }
-    # t = load('tE01.5.cgns')
-    base, = I.getBases(t)
+    t = V.load('tE.cgns')
+    base = I.getBases(t)[0]
     base[0] = 'EulerianBase'
     basec, = I.getBases(tc)
     basec[0] = 'EulerianBaseCenter'
@@ -186,7 +186,7 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
     # I._rmNodesByName(tc0, 'CARTESIAN')
     # flagEulerianCells(tE, VPMParameters, HybridParameters)
     # computeEulerianVorticity(tE, removeVelocityGradients = True)
-    # for zone in I.getZones(getEulerianBase(tE)):
+    # for zone in I.getZones(V.getEulerianBase(tE)):
     #     zone0 = I.getNodeFromName(t0, zone[0])
     #     FlowSolution = I.getNodeFromName(zone, 'FlowSolution#Centers')
     #     if FlowSolution:
@@ -196,7 +196,7 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
     #                 Field = I.getNodeFromName(FlowSolution, Field0[0])
     #                 Field[1][:] = Field0[1][:]
 
-    # for zone in I.getZones(getEulerianBase(tE)):
+    # for zone in I.getZones(V.getEulerianBase(tE)):
     #     SolverParam = I.getNodeFromName1(zone, '.Solver#VPM')
     #     index = tuple(I.getNodeFromName1(SolverParam, 'GhostCellsIndices')[1])
     #     FlowSolution = I.getNodeFromName1(zone, 'FlowSolution#Centers')
@@ -207,7 +207,7 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
     # fillGhostCells(tE, V.vectorise('Vorticity'))
 
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Fast Warmup (0%) '))
-    n_warmup = 10000
+    n_warmup = 1
     for ite in range(n_warmup):
         computeFast(tE)
         V.deletePrintedLines()
@@ -216,7 +216,7 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
 
         # if ite%1000 == 0:
         #     print(np.max(I.getNodeFromName(tE, 'Temperature')[1]))
-        #     Fast.save(getEulerianBase(tE), 'tE01.cgns')
+        #     Fast.save(V.getEulerianBase(tE), 'tE01.cgns')
 
     V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Done '))
     # save(tE, 'tE0.cgns')
@@ -226,7 +226,7 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
     I.createUniqueChild(base, 'Iteration', 'DataArray_t', value = 0)
     I.createUniqueChild(base, 'Time', 'DataArray_t', value = 0)
     
-    # t, tc = getEulerianBases(tE)
+    # t, tc = V.getEulerianBases(tE)
     # Fast.save(t, 't.cgns')
     # Fast.save(tc, 'tc.cgns')
     # exit()
@@ -277,7 +277,7 @@ def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
             Hybrid Parameters.
     '''
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Flagging Cells '))
-    t, tc = getEulerianBases(tE)
+    t, tc = V.getEulerianBases(tE)
     Nvoid = 2#for the ghost cells
     Nbc = HybridParameters['NumberOfBCCells'][0]
     NOuter = HybridParameters['OuterDomainCellOffset'][0]
@@ -414,7 +414,7 @@ def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
                 I.createNode('OuterInterfaceIndex', 'DataArray_t', value = NOuter),
                 I.createNode('OuterInterfaceDistance', 'DataArray_t', value = dOuter)]
     I.addChild(parent, children)
-    if 'Resolution' in VPMParameters:
+    if VPMParameters['Resolution'][0]:
         VPMParameters['Resolution'][0] = min(h, VPMParameters['Resolution'][0])
         VPMParameters['Resolution'][1] = max(h, VPMParameters['Resolution'][1])
     else:
@@ -456,7 +456,7 @@ def generateHybridDomainInterfaces(tE = [], VPMParameters = {}, HybridParameters
         Interfaces : Zones
             Containes the BEM, Inner and Outer Interfaces.
     '''
-    t, tc = getEulerianBases(tE)
+    t, tc = V.getEulerianBases(tE)
     NBEM = I.getNodeFromName(t, 'BEMInterfaceIndex')[1][0] - 1
     NInner = I.getNodeFromName(t, 'InnerInterfaceIndex')[1][0] - 1
     NOuter = I.getNodeFromName(t, 'OuterInterfaceIndex')[1][0] - 1
@@ -510,7 +510,7 @@ def setDonorsIndex(Target = [], tE = [], DonorsName = 'Donors'):
         unique : numpy.ndarray
             Flag list of the unique donors.
     '''
-    t = getEulerianBase(tE)
+    t = V.getEulerianBase(tE)
     zones = I.getZones(t)
     for zone in zones:
         C._initVars(zone, 'centers:' + DonorsName, -1)
@@ -518,7 +518,7 @@ def setDonorsIndex(Target = [], tE = [], DonorsName = 'Donors'):
         Index = np.ravel(I.getNodeFromName(zone, 'Index')[1], order = 'F')
         Index[:] = np.arange(len(Index))
 
-    t_Ghostless, tc_Ghostless = getEulerianBases(rmGhostCells(V.getTrees(tE, 'Eulerian')))
+    t_Ghostless, tc_Ghostless = V.getEulerianBases(rmGhostCells(V.getTrees(tE, 'Eulerian')))
     zones_Ghostless = I.getZones(t_Ghostless)
     hook, indir = C.createGlobalHook(tc_Ghostless, function = 'nodes', indir = 1)
     nodes, dist = C.nearestNodes(hook, J.createZone('Zone', J.getxyz(Target), 'xyz'))
@@ -567,7 +567,7 @@ def getDonorsFields(tE = [], DonorsName = 'Donors', FieldNames = []):
         Fields : :py:class:`dict`
             Extracted fields from the donor mesh.
     '''
-    t, tc = getEulerianBases(tE)
+    t, tc = V.getEulerianBases(tE)
     Fields = {}
     Nh = np.sum([np.sum(-1 < I.getValue(I.getNodeFromName(zone, DonorsName))) for zone in
                                                                                      I.getZones(t)])
@@ -589,7 +589,7 @@ def getDonorsFields(tE = [], DonorsName = 'Donors', FieldNames = []):
 
     return Fields
 
-def getHybridSources(tL = [], tE = [], tH = []):
+def filterHybridSources(tL = [], tE = [], tH = []):
     '''
     Filters the Eulerian vorticity sources and selects the .
 
@@ -610,14 +610,13 @@ def getHybridSources(tL = [], tE = [], tH = []):
     '''
     _tL, _tE, _tH = V.getTrees([tL, tE, tH], ['Particles', 'Eulerian', 'Hybrid'])
     if not _tE or not _tH or not _tL: return
-
     h, lmbd, Nl, Nhl, it, Ramp = V.getParameters(_tL, ['Resolution', 'SmoothingRatio',
                                'NumberOfHybridLayers', 'MaximumSourcesPerLayer', 'CurrentIteration',
                                                                          'StrengthRampAtbeginning'])
     Ramp = np.sin(min((it[0] + 1)/Ramp[0], 1.)*np.pi/2.)
     Sigma0 = h[0]*lmbd[0]
     Fields = getDonorsFields(_tE, 'HybridDonorsIndices', V.vectorise('Vorticity'))
-    Layers = J.getVars(getHybridSources(_tH), ['Layers'])[0]
+    Layers = J.getVars(V.getHybridSources(_tH), ['Layers'])[0]
 
     w = np.linalg.norm(np.vstack([Fields['VorticityX'], Fields['VorticityY'],
                                                                    Fields['VorticityZ']]), axis = 0)
@@ -667,7 +666,7 @@ def generateHybridSources(tE = [], VPMParameters = {}, HybridParameters = {}):
     Nhl = HybridParameters['MaximumSourcesPerLayer'][0]
     Nh = VPMParameters['NumberOfHybridSources'][0]
     GenZones = HybridParameters['GenerationZones']
-    t, tc = getEulerianBases(tE)
+    t, tc = V.getEulerianBases(tE)
     CFDParam = I.getNodeFromName1(t, '.Solver#VPM')
     NInner = I.getValue(I.getNodeFromName1(CFDParam, 'InnerInterfaceIndex')) + 2#because of the ghost cells
     NOuter = I.getValue(I.getNodeFromName1(CFDParam, 'OuterInterfaceIndex')) - 2
@@ -753,7 +752,7 @@ def generateBEMParticles(tE = [], tH = [], VPMParameters = {}, HybridParameters 
     AllDonors = V.find_panel_clusters(Zone, Sigma0, 45) != 0
     AllIndex = np.array([-1]*len(AllDonors), dtype = np.int32)
     AllIndex[AllDonors] = np.arange(np.sum(AllDonors))
-    for zone in I.getZones(getEulerianBase(tE)):
+    for zone in I.getZones(V.getEulerianBase(tE)):
         Index = np.ravel(I.getNodeFromName(zone, 'BEMDonorsIndices')[1], order = 'F')
         Donors = -1 < Index
         Index[Donors] = AllIndex[Index[Donors].astype(np.int32)]
@@ -846,7 +845,7 @@ def generateImmersedParticles(tE = [], tH = [], VPMParameters = {}, HybridParame
     AllDonors = V.find_panel_clusters(Zone, Sigma0, 45) != 0
     AllIndex = np.array([-1]*len(AllDonors), dtype = np.int32)
     AllIndex[AllDonors] = np.arange(np.sum(AllDonors))
-    for zone in I.getZones(getEulerianBase(tE)):
+    for zone in I.getZones(V.getEulerianBase(tE)):
         Index = np.ravel(I.getNodeFromName(zone, 'CFDDonorsIndices')[1], order = 'F')
         Donors = -1 < Index
         Index[Donors] = AllIndex[Index[Donors].astype(np.int32)]
@@ -897,7 +896,7 @@ def generateEulerianBCZone(tE = []):
             Far field BC nodes.
     '''
     if not tE: return []
-    t, tc = getEulerianBases(tE)
+    t, tc = V.getEulerianBases(tE)
     zones = I.getZones(t)
     zonesc = I.getZones(tc)
     Nbc = np.sum([len(I.getNodeByName(zone, 'BCFarFieldIndices')[1][0]) for zone in zones])
@@ -974,7 +973,7 @@ def initialiseHybridParticles(tL = [], tE = [], tH = [], VPMParameters = {}, Hyb
     Nhl = HybridParameters['MaximumSourcesPerLayer']
     Sigma0 = VPMParameters['Resolution'][0]*VPMParameters['SmoothingRatio'][0]
     Fields = getDonorsFields(_tE, 'HybridDonorsIndices', V.vectorise('Vorticity'))
-    Layers = J.getVars(getHybridSources(_tH), ['Layers'])[0]
+    Layers = J.getVars(V.getHybridSources(_tH), ['Layers'])[0]
     w = np.linalg.norm(np.vstack([Fields['VorticityX'], Fields['VorticityY'],
                                                                    Fields['VorticityZ']]), axis = 0)
     flag = 0.01*np.max(w) < w
@@ -1059,7 +1058,7 @@ def eraseParticlesInHybridDomain(tL = [], tH = []):
     if not _tH or not _tL: return
     x, y, z = J.getxyz(V.getFreeParticles(_tL))
     flag = flagNodesInsideSurface(x, y, z, V.getHybridDomainOuterInterface(_tH))
-    flag[:getParameter(_tL, 'NumberOfLiftingLineSources')[0]] = False
+    flag[:V.getParameter(_tL, 'NumberOfLiftingLineSources')[0]] = False
     V.delete(_tL, flag)
     return np.sum(flag)
 
@@ -1102,7 +1101,7 @@ def solveHybridParticlesStrength(Sources = [], tL = []):
         tL : Tree
             Lagrangian field.
     '''
-    Method = V.Method_str2int[getParameter(tL, 'ParticleGenerationMethod')]
+    Method = V.Method_str2int[V.getParameter(tL, 'ParticleGenerationMethod')]
     eps, maxIte, eps_ratio = V.getParameters(tL, ['RelaxationThreshold',
                                                  'MaxHybridGenerationIteration', 'RelaxationRatio'])
     
@@ -1159,7 +1158,7 @@ def updateBEMSources(tL = [], tE = []):
         tE : Tree
             Eulerian field.
     '''
-    _tL, _tE = V.getTrees([tL, tE, tH], ['Particles', 'Eulerian'])
+    _tL, _tE = V.getTrees([tL, tE], ['Particles', 'Eulerian'])
     if not _tE or not _tL: return
 
     it, Ramp, Nbem, U0 = V.getParameters(_tL, ['CurrentIteration', 'StrengthRampAtbeginning',
@@ -1257,7 +1256,7 @@ def computeEulerianNextTimeStep(tL = [], tE = [], tH = []):
     ndt = int(round(dtL[0]/dtE[0]))
     if ndt < 1: raise ValueError(J.FAIL + 'The Eulerian timestep (%g s) can not be bigger '%dtE + \
                                                  'than the Lagrangian timestep (%g s)'%dtL + J.ENDC)
-    BCM1 = getEulerianBC(_tH)
+    BCM1 = V.getEulerianBC(_tH)
     BC = induceEulerianBC(_tL, _tE)
     for step in range(ndt):
         updateEulerianBC(_tE, interpolateEulerianBC(BC, BCM1, (step + 1)/ndt))
@@ -1292,7 +1291,7 @@ def shedVorticitySourcesFromHybridDomain(tL = [], tE = [], tH = []):
     HybridParameters = V.getHybridParameters(_tL)
     VPMParameters = V.getVPMParameters(_tL)
     Offset = VPMParameters['NumberOfLiftingLineSources'][0]
-    Sources = getHybridSources(_tL, _tE, _tH)
+    Sources = filterHybridSources(_tL, _tE, _tH)
     IterationInfo['Number of shed particles Eulerian'] = -eraseParticlesInHybridDomain(_tL, _tH)
     IterationInfo.update(solveHybridParticlesStrength(Sources, _tL))
     redistributeVorticitySources(Sources, _tL)
@@ -1314,7 +1313,7 @@ def updateEulerianBC(tE = [], BC = []):
     '''
     if not tE or not BC: return
 
-    t = getEulerianBase(tE)
+    t = V.getEulerianBase(tE)
     RefState = I.getNodeFromName1(t, 'ReferenceState')
     rhoL = I.getValue(I.getNodeFromName1(RefState, 'Density'))
     TL = I.getValue(I.getNodeFromName1(RefState, 'Temperature'))
@@ -1423,7 +1422,7 @@ def induceEulerianBC(tL = [], tE = []):
     if not _tE or not _tL: return {}
 
     xt, yt, zt = [], [], []
-    t, tc = getEulerianBases(_tE)
+    t, tc = V.getEulerianBases(_tE)
     zones = I.getZones(t)
     zonesc = I.getZones(tc)
     for zone, zonec in zip(zones, zonesc):
@@ -1451,7 +1450,7 @@ def computeFastMetrics(tE = []):
     _tE = V.getTrees([tE], ['Eulerian'])
     if not _tE: return
 
-    t, tc = getEulerianBases(_tE)
+    t, tc = V.getEulerianBases(_tE)
     FastC.HOOK = None
     (t, tc, V.FastMetrics[0]) = FastS.warmup(t, tc)
     V.deletePrintedLines(len(I.getZones(t)))
@@ -1475,7 +1474,7 @@ def computeFast(tE = []):#, SubIterations = 1):
     _tE = V.getTrees([tE], ['Eulerian'])
     if not _tE: return
 
-    t, tc = getEulerianBases(_tE)
+    t, tc = V.getEulerianBases(_tE)
     CurentIteration = I.getNodeFromName1(t, 'Iteration')
     time = I.getNodeFromName1(t, 'Time')
     dt = I.getNodeFromName(t, 'time_step')
@@ -1506,7 +1505,7 @@ def computeEulerianVorticity(tE = [], removeVelocityGradients = False):
     '''
     _tE = V.getTrees([tE], ['Eulerian'])
     if not _tE: return
-    t = getEulerianBase(_tE)
+    t = V.getEulerianBase(_tE)
     FastS._computeGrad(t, V.FastMetrics[0], V.vectorise('Velocity'), 2)
     C._initVars(t, '{centers:VorticityX}={centers:gradyVelocityZ} - {centers:gradzVelocityY}')
     C._initVars(t, '{centers:VorticityY}={centers:gradzVelocityX} - {centers:gradxVelocityZ}')
@@ -1534,7 +1533,7 @@ def computeEulerianVelocityGradients(tE = []):
     _tE = V.getTrees([tE], ['Eulerian'])
     if not _tE: return
 
-    t = getEulerianBase(_tE)
+    t = V.getEulerianBase(_tE)
     FastS._computeGrad(t, V.FastMetrics[0], V.vectorise('Velocity'), 2)
     for zone in I.getZones(t):
         SolverParam = I.getNodeFromName1(zone, '.Solver#VPM')
@@ -1572,7 +1571,7 @@ def fillGhostCells(tE = [], vars = None):#does not work a 100% ... the very last
     '''
     if vars == None: vars = ['Density', 'Temperature'] + V.vectorise('Velocity') + \
                                                                             V.vectorise('Vorticity')
-    t, tc = getEulerianBases(tE)
+    t, tc = V.getEulerianBases(tE)
     if not t or not tc: return
     if isinstance(vars, str): vars = [vars]
     for zc in I.getZones(tc):

@@ -477,13 +477,13 @@ def getImmersedParticles(t = []):
             Eulerian Immersed Particle Zone (if any).
     '''
     Particles = getParticles(t)
-    if Particles: return I.getNodeFromName1(Particles, 'CFDParticles')
+    if Particles: return I.getNodeFromName1(Particles, 'ImmersedParticles')
 
-    Particles = I.getNodeFromName1(t, 'CFDParticles')
+    Particles = I.getNodeFromName1(t, 'ImmersedParticles')
     if Particles: return Particles
 
     for z in I.getZones(t):
-        if z[0] == 'CFDParticles':
+        if z[0] == 'ImmersedParticles':
             return [z]
 
 def getParticlesTree(t = []):
@@ -1694,6 +1694,7 @@ def getAerodynamicCoefficientsOnLiftingLine(tLL = [], StdDeviationSample = 50, F
                                                             StdDeviationSample = StdDeviationSample)
             else: return getAerodynamicCoefficientsOnRotor(_tLL,
                                                             StdDeviationSample = StdDeviationSample)
+    return {}
 
 def getAerodynamicCoefficientsOnPropeller(tLL = [], StdDeviationSample = 50):
     '''
