@@ -16,14 +16,18 @@
 #    along with MOLA.  If not, see <http://www.gnV.org/licenses/>.
 
 import numpy as np
+import importlib.util
+
 import Converter.PyTree as C
 import Converter.Internal as I
 import Generator.PyTree as G
 import Transform.PyTree as T
 import Connector.PyTree as CX
-import Fast.PyTree as Fast
-import FastS.PyTree as FastS
-import FastC.PyTree as FastC
+
+if importlib.util.find_spec('Fast'):
+    import Fast.PyTree as Fast
+    import FastS.PyTree as FastS
+    import FastC.PyTree as FastC
 
 from .. import InternalShortcuts as J
 from . import Main as V
@@ -171,8 +175,8 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
                 "nb_relax":1, # nbre de passages de newton
                 "epsi_newton":0.01, # residu a atteindre
             }
-    t = V.load('tE.cgns')
-    base = I.getBases(t)[0]
+    # t = V.load('tE.cgns')
+    base, = I.getBases(t)
     base[0] = 'EulerianBase'
     basec, = I.getBases(tc)
     basec[0] = 'EulerianBaseCenter'

@@ -4,6 +4,7 @@
 import sys
 import os
 import numpy as np
+import importlib.util
 
 ####################################################################################################
 ##################################### Import CASSIOPEE Modules #####################################
@@ -19,9 +20,10 @@ import CPlot.PyTree as CPlot
 ####################################################################################################
 ######################################## Import FAST Modules #######################################
 ####################################################################################################
-import Fast.PyTree as Fast
-import FastS.PyTree as FastS
-import FastC.PyTree as FastC
+if importlib.util.find_spec('Fast'):
+    import Fast.PyTree as Fast
+    import FastS.PyTree as FastS
+    import FastC.PyTree as FastC
 
 ####################################################################################################
 ######################################## Import MOLA Modules #######################################
