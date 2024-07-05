@@ -122,8 +122,8 @@ defaultVPMParameters = {
         'IterationCounter'          : 0,
         'IterationTuningFMM'        : 50,
         'MaxParticlesPerCluster'    : 2**8,
-        'NearFieldOverlapingFactor' : 3,
-        'NearFieldSmoothingFactor'  : 2,
+        'NearFieldOverlapingFactor' : 2,
+        'NearFieldSmoothingFactor'  : 1,
         'NumberOfThreads'           : 'auto',
         'TimeFMM'                   : 0,
     ################################ Perturbation Field Parameters #################################
@@ -213,8 +213,8 @@ defaultLiftingLineParameters = {
         'NumberOfParticleSources'          : 100,
         'ParticleDistribution'             : dict(kind = 'tanhTwoSides', FirstSegmentRatio = 2.,
                                                        LastSegmentRatio = 0.5, Symmetrical = False),
-        'RPM'                              : 0.,
-        'VelocityTranslation'              : [0., 0., 0.],
+        'RPM'                              : None,
+        'VelocityTranslation'              : None,
 }
 
 LiftingLineParametersRange = {
@@ -2467,13 +2467,13 @@ def enablePrint():
     sys.stdout = sys.__stdout__
     printBlocked[0] = False
 
-def show(*msg):
+def show(*msg, end = '\n'):
     '''
     Overloads the print function and bypasses the global variable printBlocked.
     '''
     blocked = printBlocked[0]
     enablePrint()
-    print(*msg)#, sep=', ')
+    print(*msg, end = end)#, sep=', ')
     if blocked: blockPrint()
 
 def initialiseThreads(NumberOfThreads = 'auto'):

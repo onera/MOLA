@@ -56,7 +56,7 @@ def initialiseLiftingLines(tLL = [], VPMParameters = {}, LiftingLineParameters =
     if isinstance(tLL, str):
         V.show(f"{'||':>57}\r" + '||', end='')
         tLL = V.load(tLL)
-        deletePrintedLines
+        V.deletePrintedLines()
     
     tLL = C.newPyTree(['LiftingLines', I.getZones(tLL)])
     renameLiftingLinesTree(tLL)
@@ -359,10 +359,7 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
     if VPMParameters['TimeStep']: dt = VPMParameters['TimeStep'][0]
     else: dt = np.array([np.inf], order = 'F', dtype = np.float64)
 
-    if'MinNbShedParticlesPerLiftingLine' in LiftingLineParameters:
-        NLLmin = LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0]
-    else: NLLmin = 0
-
+    NLLmin = LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0]
     for LiftingLine in Zones:
         span = W.getLength(LiftingLine)
         LLParameters = J.get(LiftingLine, '.VPM#Parameters')
@@ -375,7 +372,7 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
 
         if 'ParticleDistribution' in LLParameters:
             ParticleDistribution = LLParameters['ParticleDistribution']
-        elif 'ParticleDistribution' in LiftingLineParameters:
+        elif isinstance(LiftingLineParameters['ParticleDistribution'], dict):
             ParticleDistribution = LiftingLineParameters['ParticleDistribution']
         else:
             ERRMSG = J.FAIL + ('Source particle distribution unspecified for ' + LiftingLine[0]
@@ -394,10 +391,7 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
                                                          'for ' + LiftingLine[0] + '.') + J.ENDC
                 raise AttributeError(ERRMSG)
 
-        if NLLmin:
-            NumberOfParticleSources = NLLmin
-            LocalResolution = span/NumberOfParticleSources
-        elif 'NumberOfParticleSources' in LLParameters:
+        if 'NumberOfParticleSources' in LLParameters:
             NumberOfParticleSources = LLParameters['NumberOfParticleSources'][0]
             LocalResolution = span/NumberOfParticleSources
         elif 'LocalResolution' in LLParameters:
@@ -405,7 +399,7 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
             NumberOfParticleSources = int(round(span/LocalResolution))
             LocalResolution = span/NumberOfParticleSources
         else:
-            NumberOfParticleSources = 26
+            NumberOfParticleSources = NLLmin
             LocalResolution = span/NumberOfParticleSources
 
         if ParticleDistribution['Symmetrical'] and NumberOfParticleSources%2:
@@ -478,9 +472,9 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
         LL.setConditions(LiftingLine, VelocityFreestream = VPMParameters['VelocityFreestream'],
                                       Density = VPMParameters['Density'],
                                       Temperature = VPMParameters['Temperature'])
-    if 'RPM' in LiftingLineParameters: LL.setRPM(Zones, LiftingLineParameters['RPM'])
+    if LiftingLineParameters['RPM']: LL.setRPM(Zones, LiftingLineParameters['RPM'])
 
-    if 'VelocityTranslation' in LiftingLineParameters:
+    if LiftingLineParameters['VelocityTranslation']:
         for LiftingLine in Zones:
             Kinematics = I.getNodeFromName(LiftingLine, '.Kinematics')
             VelocityTranslation = I.getNodeFromName(Kinematics, 'VelocityTranslation')

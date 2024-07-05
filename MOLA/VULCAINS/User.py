@@ -317,7 +317,7 @@ def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {
     try: os.makedirs(DIRECTORY_OUTPUT)
     except: pass
 
-    if isinstance(Polars, str): Polars = load(Polars)
+    if isinstance(Polars, str): Polars = V.load(Polars)
     V.buildPolarsInterpolator(Polars)
     V.addSafeZones(NoRedistributionZones)
     if RestartPath: t = restartComputation(path = RestartPath, VPMParameters = VPMParameters,
