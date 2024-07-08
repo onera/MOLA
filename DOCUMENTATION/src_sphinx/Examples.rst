@@ -490,7 +490,7 @@ Several VPM examples of wings, rotors and propellers are available here:
 
 .. code-block:: bash
 
-    $MOLA/EXAMPLES/VPM/LIFTING_LINE
+    $MOLA/EXAMPLES/VPM
 
 .. figure:: ../../EXAMPLES/VPM/QUADROTOR_KDE/flow_kde_quad.png
     :width: 80%

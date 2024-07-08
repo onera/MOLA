@@ -54,6 +54,18 @@ def setMaskParameters(t, InputMeshes):
     mask_params = dict(type='cart_elts', blanking_criteria='center_in',
                        dim1=100, dim2=100)
     
+    default_mask_axis = np.array([0.0, 0.0, 1.0])
+    for base in I.getBases(t):
+        MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
+        if not MasksInfo: continue
+        try:
+            default_mask_axis = np.array(meshInfo['Motion']['RequestedFrame']['RotationAxis'],dtype=float)
+            break
+        except:
+            pass
+
+
+
     for base in I.getBases(t):
         MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
         if not MasksInfo: continue
@@ -65,12 +77,14 @@ def setMaskParameters(t, InputMeshes):
             meshInfo = [m for m in InputMeshes if m['baseName']==MaskBase[0]][0]
             if 'UnsteadyMaskOptions' in meshInfo['OversetOptions']:
                 mask_params.update(meshInfo['OversetOptions']['UnsteadyMaskOptions'])
-            if mask_params['type'] == 'cart_elts':
-                try: a = np.array(meshInfo['Motion']['RotationAxis'],dtype=float)
-                except KeyError: a = np.array([0,0,1],dtype=float)
+            if mask_params['type'] == 'cart_elts' and 'proj_direction' not in mask_params:
+                if 'Motion' in meshInfo:
+                    a = np.array(meshInfo['Motion']['RequestedFrame']['RotationAxis'],dtype=float)
+                else: 
+                    a = default_mask_axis
                 alignment = [np.abs(a.dot(np.array([1.0,0.0,0.0]))),
-                                np.abs(a.dot(np.array([0.0,1.0,0.0]))),
-                                np.abs(a.dot(np.array([0.0,0.0,1.0])))]
+                             np.abs(a.dot(np.array([0.0,1.0,0.0]))),
+                             np.abs(a.dot(np.array([0.0,0.0,1.0])))]
                 mask_params['proj_direction'] = 'xyz'[np.argmax(alignment)]
 
             J.set(mask,'Parameters',**mask_params)
@@ -149,7 +163,6 @@ def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
         MaskedZones = _findMaskedZonesOfBase(BaseName, t, IntersectingZones)
         NeighbourDict[BaseName] = MaskedZones
     
-    print('updating MaskedZones of MOLA#Masks at base %s...'%BaseName)
     _updateMaskedZonesOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames)
 
 def removeOversetHolesOfUnsteadyMaskedGrids(t):
@@ -385,11 +398,14 @@ def _buildBoxesTrees(tR):
 def _updateMaskedZonesOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames):
     if not NeighbourDict: return
     for base in I.getBases(t):
+        print(f'updating MaskedZones of MOLA#Masks at base {base[0]}')
         MasksInfo = I.getNodeFromName1(base,'.MOLA#Masks')
         if not MasksInfo: continue
+        nodes_2_remove = []
         for mask in MasksInfo[2]:
+            mask_name = I.getValue(mask)
             if not mask[0].startswith(MOLA_MASK): continue
-            BodyName = I.getValue(mask).split('_by_')[-1]
+            BodyName = mask_name.split('_by_')[-1]
             # we suppose all patches belong to the same base
             mask_zone = I.getNodeFromName2(mask,'Zone')
             if not mask_zone: continue
@@ -402,9 +418,13 @@ def _updateMaskedZonesOfMasks(t, NeighbourDict, BlankingMatrix, BodyNames):
                 if BlankingMatrix[i,j] and baseNameOfNeighbour == base[0]:
                     Neighbours += [ baseZonePath ]
             if not Neighbours:
-                raise ValueError('empty MaskedZones for mask %s at base %s'%(BodyName,base[0]))
-            I.createUniqueChild(mask,'MaskedZones','DataArray_t',
+                msg = f'skip mask since {base[0]} does not intersect {MaskBaseName} at {BodyName}'
+                print(J.WARN+msg+J.ENDC)
+                nodes_2_remove += [mask]
+            else:
+                I.createUniqueChild(mask,'MaskedZones','DataArray_t',
                                     value=' '.join( Neighbours ))
+        for n in nodes_2_remove: I._rmNode(base, n)
 
 def _getBodyNumber(BodyName, BodyNames):
     for j, bn in enumerate(BodyNames):

@@ -121,7 +121,7 @@ if ENTER_COUPLING:
                        color=J.WARN, proc=0)
             CO.addArrays(arrays, 'TransitionInfo',
                         ['IterationNumber', 'XtrTop', 'XtrBottom'],
-                        [[it],[XtrTop], [XtrBottom]])
+                        [np.array([it]),np.array([XtrTop]), np.array([XtrBottom])])
         Cmpi.barrier()
 
 

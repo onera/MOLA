@@ -127,8 +127,7 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
                      ConvergenceCriteria = [dict(Family='AIRFOIL',
                                                  Variable='std-CL',
                                                  Threshold=CONVERGENCE_THRESHOLD)])
-
-
+                                                 
         AdditionalTransitionZones : dict
             values overriding the default
             set of ``TransitionZones``, which defines the regions for transition
@@ -144,8 +143,6 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
                                         BottomLaminarImposedUpTo = 0.10,
                                         BottomLaminarIfFailureUpTo = 0.50,
                                         BottomTurbulentImposedFrom = 0.95)
-
-            can be used as template
 
         ImposedWallFields : :py:class:`list` of :py:class:`dict`
             used to impose specific fields of intermittency or clim. For example:
@@ -189,8 +186,6 @@ def launchBasicStructuredPolars(FILE_GEOMETRY, machine,
                           sb           = 0.0,
                           ),
                     ]
-
-            can be used as template
 
         TransitionalModeReynoldsThreshold : float
             Reynolds number threshold
@@ -723,7 +718,7 @@ def computeReferenceValues(Reynolds, Mach, meshParams, FluidProperties,
         YawAxis=[0.,1.,0.], PitchAxis=[0.,0.,-1.],
         TurbulenceLevel=0.001,
         TurbulenceModel='Wilcox2006-klim', Viscosity_EddyMolecularRatio=0.1,
-        TurbulenceCutoff=1.0, TransitionMode=None,
+        TurbulenceCutoff=0.1, TransitionMode=None,
         WallDistance=None,
         CoprocessOptions={},
         FieldsAdditionalExtractions=[], BCExtractions=dict(

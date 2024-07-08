@@ -16,7 +16,7 @@ export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MAIAVERSION=1.2
-export TREELABVERSION=v0.1.0
+export TREELABVERSION=v0.1.1
 ###############################################################################
 
 

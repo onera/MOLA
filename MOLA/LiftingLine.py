@@ -962,8 +962,8 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
 
     return PropBase
 
-def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
-    RightHandRuleRotation = True, Symmetrical = False, Twist = {}, Sweep = {}, Dihedral = {}):
+def getLocalFramePerpendicularToLiftingLine(line = [0., 1.], RightHandRuleRotation = True,
+    Symmetrical = False, Twist = {}, Sweep = {}, Dihedral = {}, y = {}, z = {}):
     '''
     Builds the referential of each section perpendicular to the Lifting Line.
 
@@ -993,28 +993,33 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
             Determines if the Lifting Line is symmetrised. A symmetrical extention is added to the
             build Lifting Line.
 
-        Twist : dict
+        Twist : :py:class:`dict`
             Gives the distribution of twist (in degree) with the according interpolation law.
             For example:
-
             ::
-
                 Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
                                     Twist = [30.,  6.0, -7.0],
                              InterpolationLaw = 'akima')
 
-
-        Sweep : dict
+        Sweep : :py:class:`dict`
             Gives the distribution of sweep (in degree) with the according interpolation law.
 
-        Dihedral : dict
+        Dihedral : :py:class:`dict`
             Gives the distribution of dihedral (in degree) with the according interpolation law.
+
+        y : :py:class:`dict`
+            Gives the Lifting Line position along the Y axis.
+
+        z : :py:class:`dict`
+            Gives the Lifting Line position along the Z axis.
+
 
     Returns
     -------
 
-        Frame : dict
-            Contains the positions and vectors of the sections
+        Frame : :py:class:`dict`
+            Containes the positions and vectors of the sections
+
     '''
     
     Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)
@@ -1029,30 +1034,53 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
     if not Twist:
         print(J.WARN + 'WARNING: no Twist has been prescribed. Set to zero.' + J.ENDC)
         Twist = {'RelativeSpan': s, 'Twist': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
-    if not Sweep:
-        print(J.WARN + 'WARNING: no Sweep has been prescribed. Set to zero.' + J.ENDC)
-        Sweep = {'RelativeSpan': s, 'Sweep': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
-    if not Dihedral:
-        print(J.WARN + 'WARNING: no Dihedral has been prescribed. Set to zero.' + J.ENDC)
-        Dihedral = {'RelativeSpan': s, 'Dihedral': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
+
 
     #translates the angles into cooridnates
-    for dico, v in zip([Sweep, Dihedral], ['Sweep', 'Dihedral']):
-        if 'RelativeSpan' in dico: xs = np.array(dico['RelativeSpan'])*np.max(Span)
-        elif 'Abscissa' in dico:   xs = np.array(dico['Abscissa'])*np.max(Span)
-        else: raise AttributeError("Attribute " + v + " (dict) must contain 'RelativeSpan' or \
+    if Sweep:
+        if 'RelativeSpan' in Sweep:
+            xs = np.array(Sweep['RelativeSpan'])
+            y['RelativeSpan'] = xs
+        elif 'Abscissa' in Sweep:
+            xs = np.array(Sweep['Abscissa'])
+            y['Abscissa'] = xs
+        else: raise AttributeError("Attribute Sweep (dict) must contain 'RelativeSpan' or \
                                                                                     'Abscissa' key")
         dxs = np.append(np.append(xs[1] - xs[0], 0.5*(xs[2:] - xs[:-2])), xs[-1] - xs[-2])
         if not RightHandRuleRotation: dxs *= -1.
-        dl = dxs*np.tan(np.deg2rad(dico[v]))
+        dl = dxs*np.tan(np.deg2rad(Sweep['Sweep']))
         l = [0]
         for dli in dl: l.extend([l[-1] - dli])
     
-        dico[v] = l[1:]
+        y['y'] = np.array(l[1:])*np.max(Span)
+        y['InterpolationLaw'] = Sweep['InterpolationLaw']
+    elif not y:
+        y = {'RelativeSpan': s, 'y': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
+
+    if Dihedral:
+        if 'RelativeSpan' in Dihedral:
+            xs = np.array(Dihedral['RelativeSpan'])
+            z['RelativeSpan'] = xs
+        elif 'Abscissa' in Dihedral:
+            xs = np.array(Dihedral['Abscissa'])
+            z['Abscissa'] = xs
+        else: raise AttributeError("Attribute Dihedral (dict) must contain 'RelativeSpan' or \
+                                                                                    'Abscissa' key")
+        dxs = np.append(np.append(xs[1] - xs[0], 0.5*(xs[2:] - xs[:-2])), xs[-1] - xs[-2])
+        if not RightHandRuleRotation: dxs *= -1.
+        dl = dxs*np.tan(np.deg2rad(Dihedral['Dihedral']))
+        l = [0]
+        for dli in dl: l.extend([l[-1] - dli])
+    
+        z['z'] = np.array(l[1:])*np.max(Span)
+        z['InterpolationLaw'] = Dihedral['InterpolationLaw']
+    elif not z:
+        z = {'RelativeSpan': s, 'z': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
 
     Interp = {}
     #interpolates the twist and the coordinates
-    for dico, v in zip([Twist, Sweep, Dihedral], ['Twist', 'Sweep', 'Dihedral']):
+    for dico, v in zip([Twist, y, z], ['Twist', 'y', 'z']):
+
         if 'RelativeSpan' in dico:
             Interp[v] = J.interpolate__(RelSpan, dico['RelativeSpan'], dico[v],
                                                              dico['InterpolationLaw'], **dico)
@@ -1068,9 +1096,9 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
                                                                                              key"%v)
 
     x = Span[:]
-    y = Interp['Sweep'][:]
-    z = Interp['Dihedral'][:]
-
+    y = Interp['y'][:]
+    z = Interp['z'][:]
+    Twist = Interp['Twist'][:]
     #get the vectors
     import scipy
     Rotate = lambda v, theta, axis: scipy.spatial.transform.Rotation.from_rotvec(\
@@ -1090,7 +1118,7 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
     ChordwiseY = bxyz[1,:]
     ChordwiseZ = bxyz[2,:]
     for i in range(NumberOfSections):
-      Chordwise = Rotate(np.array([ChordwiseX[i], ChordwiseY[i], ChordwiseZ[i]]), Interp['Twist'][i],
+      Chordwise = Rotate(np.array([ChordwiseX[i], ChordwiseY[i], ChordwiseZ[i]]), Twist[i],
                                                np.array([SpanwiseX[i], SpanwiseY[i], SpanwiseZ[i]]))
       ChordwiseX[i] = Chordwise[0]
       ChordwiseY[i] = Chordwise[1]
@@ -4357,95 +4385,98 @@ def convertHOSTPolarFile2Dict(filename):
     with open(filename,'r') as f:
         lines = f.readlines()
 
-        Data = {'Cl':{}, 'Cd':{},'Cm':{},}
+    Data = {'Cl':{}, 'Cd':{},'Cm':{},}
 
-        AllowedVars = Data.keys()
+    Aliases = {"cl": "Cl", "cd": "Cd", "cm": "Cm", "cz": "Cl", "cx": "Cd"}
+    AllowedVars = [
+        k.lower() for k in {*Data.keys(), *Aliases.keys(), *Aliases.values()}
+    ]
 
-        LinesQty = len(lines)
+    LinesQty = len(lines)
 
-        Data['Title']='_'.join(lines[0].split()[1:])
+    Data['Title']='_'.join(lines[0].split()[1:])
 
-        # Read Allowed Variables:
+    # Read Allowed Variables:
 
-        for i in range(LinesQty):
-            lS = lines[i].split()
-            if (len(lS) >= 2) and (lS[1] in AllowedVars):
-                Var = lS[1]
+    for i in range(LinesQty):
+        lS = lines[i].split()
+        if (len(lS) >= 2) and (lS[1].lower() in AllowedVars):
+            Var = Aliases[lS[1].lower()]
 
-                AoAQty, MachQty = scan(lines[i+1],int)
+            AoAQty, MachQty = scan(lines[i+1],int)
 
-                # Get Angles of Attack
-                AoA = []
-                j = i+1
-                while len(AoA) < AoAQty:
+            # Get Angles of Attack
+            AoA = []
+            j = i+1
+            while len(AoA) < AoAQty:
+                j += 1
+                AoA += scan(lines[j],float)
+            Data[Var]['AoA'] = np.array(AoA,order='F')
+
+            # Get Mach numbers
+            Mach = []
+            while len(Mach) < MachQty:
+                j += 1
+                Mach += scan(lines[j],float)
+            Data[Var]['Mach'] = np.array(Mach,order='F')
+
+            # Get Variable
+            VarNumpy = np.empty((AoAQty,MachQty),order='F')
+            VarNumpy[:] = 1
+            for a in range(AoAQty):
+                VarLine = []
+                while len(VarLine) < MachQty:
                     j += 1
-                    AoA += scan(lines[j],float)
-                Data[Var]['AoA'] = np.array(AoA,order='F')
+                    VarLine += scan(lines[j],float)
+                VarNumpy[a,:] = np.array(VarLine,order='F')
+            Data[Var]['Array'] = VarNumpy
 
-                # Get Mach numbers
-                Mach = []
-                while len(Mach) < MachQty:
+            # Read big angles
+            j+=1
+            NextTag = lines[j].split()
+            SetOfBigAoA = []
+            SetOfBigAoAValues = []
+            while len(NextTag) == 1:
+                BigAoA, BigAoAValues = [], []
+                BigAoAQty = int(NextTag[0])
+                while len(BigAoA) < BigAoAQty:
                     j += 1
-                    Mach += scan(lines[j],float)
-                Data[Var]['Mach'] = np.array(Mach,order='F')
-
-                # Get Variable
-                VarNumpy = np.empty((AoAQty,MachQty),order='F')
-                VarNumpy[:] = 1
-                for a in range(AoAQty):
-                    VarLine = []
-                    while len(VarLine) < MachQty:
-                        j += 1
-                        VarLine += scan(lines[j],float)
-                    VarNumpy[a,:] = np.array(VarLine,order='F')
-                Data[Var]['Array'] = VarNumpy
-
-                # Read big angles
+                    BigAoA += scan(lines[j],float)
+                while len(BigAoAValues) < BigAoAQty:
+                    j += 1
+                    BigAoAValues += scan(lines[j],float)
+                SetOfBigAoA += BigAoA
+                SetOfBigAoAValues += BigAoAValues
                 j+=1
-                NextTag = lines[j].split()
-                SetOfBigAoA = []
-                SetOfBigAoAValues = []
-                while len(NextTag) == 1:
-                    BigAoA, BigAoAValues = [], []
-                    BigAoAQty = int(NextTag[0])
-                    while len(BigAoA) < BigAoAQty:
-                        j += 1
-                        BigAoA += scan(lines[j],float)
-                    while len(BigAoAValues) < BigAoAQty:
-                        j += 1
-                        BigAoAValues += scan(lines[j],float)
-                    SetOfBigAoA += BigAoA
-                    SetOfBigAoAValues += BigAoAValues
-                    j+=1
-                    try:
-                        NextTag = lines[j].split()
-                    except IndexError:
-                        break
+                try:
+                    NextTag = lines[j].split()
+                except IndexError:
+                    break
 
 
-                SortInd = np.argsort(SetOfBigAoA)
-                SetOfBigAoA= np.array([SetOfBigAoA[i] for i in SortInd], order='F')
-                SetOfBigAoAValues= np.array([SetOfBigAoAValues[i] for i in SortInd], order='F')
+            SortInd = np.argsort(SetOfBigAoA)
+            SetOfBigAoA= np.array([SetOfBigAoA[i] for i in SortInd], order='F')
+            SetOfBigAoAValues= np.array([SetOfBigAoAValues[i] for i in SortInd], order='F')
 
-                Data[Var]['BigAoA'] = SetOfBigAoA
-                Data[Var]['BigAoAValues'] = SetOfBigAoAValues
-            elif '(C*L/NU)I0' in lines[i]:
-                j=i
-                ReynoldsOverMach = scan(lines[j],float)
-                Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
-                Data['Cl']['Reynolds'] = Data['ReynoldsOverMach']*Data['Cl']['Mach']
-            elif (len(lS) == 2) and (lS[1] == 'Reynolds'):
-                # Get Reynolds
-                j = i+1
-                ReynoldsQty = scan(lines[j],int)[0]
-                if ReynoldsQty != MachQty:
-                    raise ValueError('ReynoldsQty (%g) is not equal to MachQty (%g). Check your HOST file.'%(ReynoldsQty,MachQty))
-                Reynolds = []
-                while len(Reynolds) < ReynoldsQty:
-                    j += 1
-                    Reynolds += scan(lines[j],float)
-                for Var in AllowedVars:
-                    Data[Var]['Reynolds'] = np.array(Reynolds,order='F')
+            Data[Var]['BigAoA'] = SetOfBigAoA
+            Data[Var]['BigAoAValues'] = SetOfBigAoAValues
+        elif '(C*L/NU)I0' in lines[i]:
+            j=i
+            ReynoldsOverMach = scan(lines[j],float)
+            Data['ReynoldsOverMach'] = ReynoldsOverMach[-1]
+            Data['Cl']['Reynolds'] = Data['ReynoldsOverMach']*Data['Cl']['Mach']
+        elif (len(lS) == 2) and (lS[1] == 'Reynolds'):
+            # Get Reynolds
+            j = i+1
+            ReynoldsQty = scan(lines[j],int)[0]
+            if ReynoldsQty != MachQty:
+                raise ValueError('ReynoldsQty (%g) is not equal to MachQty (%g). Check your HOST file.'%(ReynoldsQty,MachQty))
+            Reynolds = []
+            while len(Reynolds) < ReynoldsQty:
+                j += 1
+                Reynolds += scan(lines[j],float)
+            for Var in AllowedVars:
+                Data[Var]['Reynolds'] = np.array(Reynolds,order='F')
     Data['PyZonePolarKind'] = 'Struct_AoA_Mach'
 
     return Data

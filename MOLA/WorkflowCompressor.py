@@ -1412,7 +1412,8 @@ def getReferenceSurface(t, BoundaryConditions, TurboConfiguration):
     '''
     # Get inflow BCs
     InflowBCs = [bc for bc in BoundaryConditions \
-        if bc['type'] == 'InflowStagnation' or bc['type'].startswith('inj') or bc['type'] == 'InflowGiles']
+        #if bc['type'] == 'InflowStagnation' or bc['type'] == 'InflowStagnationWithRotation' or bc['type'].startswith('inj') or bc['type'] == 'InflowGiles']
+        if bc['type'].startswith('Inflow') or bc['type'].startswith('inj')]
     # Check unicity
     if len(InflowBCs) != 1:
         MSG = 'Please provide a reference surface as "Surface" in '
@@ -1714,6 +1715,8 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
 
                   * InflowStagnation
 
+                  * InflowStagnationWithRotation
+
                   * InflowMassFlow
 
                   * OutflowPressure
@@ -1769,7 +1772,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     setBC_Walls, setBC_walladia, setBC_wallisoth, setBC_wallslip, setBC_sym,
     setBC_nref,
     setBC_inj1, setBC_inj1_uniform, setBC_inj1_imposeFromFile,
-    setBC_outpres, setBC_outmfr2,
+    setBC_outpres, setBC_outpres_imposeFromFile, setBC_outmfr2,
     setBC_outradeq, setBC_outradeqhyb,
     setBC_stage_mxpl, setBC_stage_mxpl_hyb,
     setBC_stage_red, setBC_stage_red_hyb,
@@ -1925,6 +1928,7 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
     PreferedBoundaryConditions = dict(
         Farfield                     = 'nref',
         InflowStagnation             = 'inj1',
+        InflowStagnationWithRotation = 'injrot',
         InflowMassFlow               = 'injmfr1',
         OutflowPressure              = 'outpres',
         OutflowMassFlow              = 'outmfr2',
@@ -1991,13 +1995,40 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
                 print('set BC inj1 on {}'.format(J.CYAN, BCparam['FamilyName'], J.ENDC))
                 setBC_inj1(t, ReferenceValues, **BCkwargs)
 
+        elif BCparam['type'] == 'injrot':
+            print(J.CYAN + 'set BC injrot on ' + BCparam['FamilyName'] + J.ENDC)
+            
+            # add the node FamilyBC_t in the Family Node
+            FamilyNode = I.getNodeFromNameAndType(t, BCparam['FamilyName'], 'Family_t')
+            I._rmNodesByName(FamilyNode, '.Solver#BC')
+            I._rmNodesByType(FamilyNode, 'FamilyBC_t')
+            I.newFamilyBC(value='BCInflowSubsonic', parent=FamilyNode)
+
+            injrot_type = BCparam['injrot_type']
+            filename = BCparam['filename']
+
+            for bc in C.getFamilyBCs(t,BCparam['FamilyName']):
+                setBC_injrot(t, bc, injrot_type, filename)
+
         elif BCparam['type'] == 'injmfr1':
             print(J.CYAN + 'set BC injmfr1 on ' + BCparam['FamilyName'] + J.ENDC)
             setBC_injmfr1(t, FluidProperties, ReferenceValues, **BCkwargs)
 
         elif BCparam['type'] == 'outpres':
-            print(J.CYAN + 'set BC outpres on ' + BCparam['FamilyName'] + J.ENDC)
-            setBC_outpres(t, **BCkwargs)
+
+            if 'option' not in BCparam:
+                if 'filename' in BCkwargs:
+                    BCparam['option'] = 'file'
+                else:
+                    BCparam['option'] = 'uniform'
+
+            if BCparam['option'] == 'uniform':
+                print(J.CYAN + 'set BC outpres (uniform) on ' + BCparam['FamilyName'] + J.ENDC)
+                setBC_outpres(t, **BCkwargs)
+
+            elif BCparam['option'] == 'file':
+                print(J.CYAN + 'set BC outpres (file) on ' + BCparam['FamilyName'] + J.ENDC)
+                setBC_outpres_imposeFromFile(t, **BCkwargs)
 
         elif BCparam['type'] == 'outmfr2':
             print(J.CYAN + 'set BC outmfr2 on ' + BCparam['FamilyName'] + J.ENDC)
@@ -2792,7 +2823,7 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
     '''
     if isinstance(Pressure, dict):
         assert 'Pressure' in Pressure or 'pressure' in Pressure
-        assert len(Pressure.keys() == 1)
+        assert len(Pressure.keys()) == 1
         ImposedVariables = Pressure
     else:
         ImposedVariables = dict(Pressure=Pressure)
@@ -2804,6 +2835,74 @@ def setBC_outpres(t, FamilyName, Pressure, bc=None, variableForInterpolation='Ch
     else:
         setBCwithImposedVariables(t, FamilyName, ImposedVariables,
                                 FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
+
+def setBC_outpres_imposeFromFile(t, FamilyName, filename, fileformat=None):
+    '''
+    Set a Boundary Condition ``outpres`` using the field map in the file
+    **filename**. It is expected to be a surface with the following variables
+    defined at cell centers (in the container 'FlowSolution#Centers'):
+
+        * the coordinates
+
+        * the static pressure ``'Pressure'``
+
+    Field variables are just read in **filename** and written in
+    BCs of **t** attached to the family **FamilyName**.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        ReferenceValues : dict
+            as obtained from :py:func:`computeReferenceValues`
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        filename : str
+            name of the input filename
+
+        fileformat : optional, str
+            format of the input file to be passed to Converter.convertFile2PyTree
+            Cassiopee function.
+
+            .. note:: see `available file formats <http://elsa.onera.fr/Cassiopee/Converter.html?highlight=initvars#fileformats>`_
+
+    See also
+    --------
+
+    setBC_outpres
+
+    '''
+
+    var2interp = ['Pressure']
+ 
+    donor_tree = C.convertFile2PyTree(filename, format=fileformat)
+    inlet_BC_nodes = C.extractBCOfName(t, f'FamilySpecified:{FamilyName}', reorder=False)
+
+    I._adaptZoneNamesForSlash(inlet_BC_nodes)
+    I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
+    J.migrateFields(donor_tree, inlet_BC_nodes)
+
+    for w in inlet_BC_nodes:
+        bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
+        zname, wname = bcLongName.split('\\')
+        znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
+        bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
+        ImposedVariables = dict()
+        for var in var2interp:
+            FS = I.getNodeFromName(w, I.__FlowSolutionCenters__)
+            varNode = I.getNodeFromName(FS, var) 
+            if varNode:
+                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode))
+            else:
+                raise TypeError('variable {} not found in {}'.format(var, filename))
+
+        setBC_outpres(t, FamilyName, ImposedVariables, bc=bcnode)
+
+
 
 def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     '''
@@ -2917,6 +3016,62 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     # set the BC with keys
     J.set(bc, '.Solver#BC',**DictKeysGilesOutlet)
 
+def setBC_injrot(t, bc, injrot_type, filename):
+    '''
+    Impose a Boundary Condition ``injrot``.
+
+       Parameters
+    ----------
+
+            t : PyTree
+                Tree to modify
+
+            bc : CGNS node of type BC_t
+                 BC node attached to the family in the which the boundary condition is applied
+
+            injrot_type : string
+                 type of injrot formulation : 'rel_direction' or 'tangential_comp'
+            
+            filename: string ('*.cgns')
+                 filename of the CGNS file containing the inlet data suitable for injrot
+
+
+            kwargs : dict
+                Parameters defined by the user: filename (mandatory)
+
+
+    '''
+
+    DictKeysInjrot={}
+    DictKeysInjrot['type'] = 'injrot'
+    DictKeysInjrot['injrot_type'] = injrot_type             # 'rel_direction' or 'tangential_comp' - prescribed variables must be adapted 
+
+    # get the data from the file
+    bnd_data = C.convertFile2PyTree(filename)
+
+    # get Node FlowSolutionCenters
+    # we suppose here that the variable names are correctly set for Giles inj1
+    FS = I.getNodeFromName(bnd_data, I.__FlowSolutionCenters__)
+
+    # store data in a dictionnary
+    ImposedVariables = dict()
+    for child in I.getChildren(FS):
+        childname = I.getName(child)            
+        if childname != 'GridLocation':
+            ImposedVariables[childname] = np.asfortranarray(I.getValue(child))
+
+    #print(ImposedVariables)
+    
+    # build node for BCDataSet
+    BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
+        gridLocation='FaceCenter', parent=bc)
+    
+    # add the data in BCDataSet
+    J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
+
+    # set the BC with keys
+    J.set(bc, '.Solver#BC',**DictKeysInjrot)
+
 
 
 def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwargs):
@@ -2985,7 +3140,7 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
     DictKeysGilesInlet['monitoring_flag'] = kwargs['GilesMonitoringFlag']                                # automatically computed
 
     # keys relative to the inlet BC
-    DictKeysGilesInlet['nscbc_in_type'] = 'htpt'                                                         # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesInlet['nscbc_in_type'] = kwargs.get('nscbc_in_type','htpt')                             # 'htpt', 'htpt_reldir', 'htpt_tangcomp' 
     # - numerics -
     DictKeysGilesInlet['nscbc_relaxi1'] = kwargs.get('nscbc_relaxi1',  500.)                             # recommended value
     DictKeysGilesInlet['nscbc_relaxi2'] = kwargs.get('nscbc_relaxi2',  500.)                             # recommended value
@@ -4110,8 +4265,10 @@ def setRotorStatorFamilyBC(t, left, right):
 
     leftFamily = I.getNodeFromNameAndType(t, left, 'Family_t')
     rightFamily = I.getNodeFromNameAndType(t, right, 'Family_t')
-    I.newFamilyBC(value='BCOutflow', parent=leftFamily)
-    I.newFamilyBC(value='BCInflow', parent=rightFamily)
+
+    # for extractions Mxpl
+    I.newFamilyBC(value='BCOutflowSubsonic', parent=leftFamily)
+    I.newFamilyBC(value='BCInflowSubsonic', parent=rightFamily)
 
 
 def computeGlobborderPoswin(tree, win):
