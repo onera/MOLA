@@ -36,8 +36,9 @@ def apply_to_solver(workflow):
         add_coordinates_in_skeleton(skeleton, part_tree)
 
         workflow.tree = cgns.castNode(part_tree)
-        remove_workflow_attributes_from_bases(workflow)
         workflow._Skeleton = cgns.castNode(skeleton)
+        remove_workflow_attributes_from_bases(workflow, workflow.tree)
+        remove_workflow_attributes_from_bases(workflow, workflow._Skeleton)
         workflow._PyPartBase = PyPartBase
 
         e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
@@ -97,6 +98,14 @@ def apply_to_solver(workflow):
 
         else:
             raise MolaAssertionError('The splitting strategy is not taken into account.')
+        
+        part_tree = cgns.castNode(part_tree)
+        for zone in part_tree.zones():
+            SolverParam = zone.get(Name='.Solver#Param')
+            if not SolverParam:
+                zone.setParameters('.Solver#Param', proc=rank)
+            else:
+                cgns.Node(Name='proc', Value=rank, Type='DataArray', Parent=SolverParam)
 
         maia4elsA.add_renumbering_data(part_tree)
         skeleton_tree = maia4elsA.get_skeleton_tree(part_tree, comm)
@@ -107,7 +116,7 @@ def apply_to_solver(workflow):
         workflow.tree = cgns.castNode(part_tree)
         workflow._Skeleton = cgns.castNode(skeleton_tree)
 
-        e = elsAxdt.XdtCGNS(tree=part_tree, links=[], paths=[])
+        e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
         e.distribution = distribution
         
 
@@ -194,13 +203,11 @@ def read_and_split_with_pypart(src):
 
     return PartTree, Skeleton, PyPartBase
 
-def remove_workflow_attributes_from_bases(workflow):
+def remove_workflow_attributes_from_bases(workflow, tree):
     # Pypart put WorkflowParameters node, and all its children, bellow the Base
     # This function removes them
-    from mola.cfd.coprocess import mola_logger
     attributes_names = list(workflow.convert_to_dict())
-    mola_logger.warning(f'{attributes_names=}')
-    for base in workflow.tree.bases():
+    for base in tree.bases():
         base.findAndRemoveNode(Name=workflow._workflow_parameters_container_, Depth=1)
         for name in attributes_names:
             base.findAndRemoveNode(Name=name, Depth=1)

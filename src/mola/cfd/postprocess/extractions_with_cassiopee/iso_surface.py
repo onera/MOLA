@@ -1,0 +1,135 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Lesser General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Lesser General Public License for more details.
+#
+#    You should have received a copy of the GNU Lesser General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+import Converter.PyTree as C
+import Converter.Internal as I
+import Converter.Mpi as Cmpi
+import Transform.PyTree as T
+import Post.PyTree as P
+
+from .tools import *
+
+def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
+    '''
+    This is a multi-container wrapper of Cassiopee Post.isoSurfMC function, as
+    requested in https://elsa.onera.fr/issues/11221.
+
+    .. attention::
+        all zones contained in **t** must have the same containers. If this is
+        not your case, you may want to first select the zones with same containers
+        before using this function (see :py:func:`MOLA.InternalShortcuts.selectZones`)
+
+    Parameters
+    ----------
+
+        t : PyTree
+            input tree where iso-surface will be performed
+
+        fieldname : str
+            name of the field used for making the iso-surface. It can be the
+            coordinates names such as ``'CoordinateX'``, ``'CoordinateY'`` or 
+            ``'CoordinateZ'`` (in such cases, parameter **container** is ignored)
+
+        value : float
+            value used for computing the iso-surface of field **fieldname**
+
+        container : str
+            name of the *FlowSolution_t* CGNS container where the field
+            **fieldname** is contained. This parameter is ignored if **fieldname**
+            is a coordinate.
+
+    Returns
+    -------
+
+        surfaces : :py:class:`list` of Zone_t
+            list of zones with fields arranged at multiple containers following
+            the original data structure.
+
+    '''
+    # HACK https://elsa.onera.fr/issues/11221
+    t = Cmpi.convert2PartialTree(t, rank=Cmpi.rank)
+
+    bases_children_except_zones = []
+    for base in I.getBases(t):
+        for n in base[2]:
+            if n[3] != 'Zone_t': 
+                bases_children_except_zones.append( n )
+    if not t or not I.getNodeFromType3(t,'Zone_t'): return
+    tPrev = I.copyRef(t)
+    t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                           FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
+
+    isosurfs = []
+    for zone in I.getZones(t):
+
+        # NOTE slicing will provoque all containers to be located at Vertex
+        tags_containers = I.getNodeFromName1(zone, 'tags_containers')
+        locations_node = I.getNodeFromName1(tags_containers, 'locations')
+
+        containers_names = I.getNodeFromName1(tags_containers, 'containers_names')
+        if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+            fieldnameWithTag = None
+            for cn in containers_names[2]:
+                container_name = I.getValue(cn)
+                tag = cn[0]
+                if container_name == container:
+                    fieldnameWithTag = fieldname + tag
+                    break
+            if fieldnameWithTag is None:
+                from mpi4py import MPI
+                rank = MPI.COMM_WORLD.Get_rank()
+                C.convertPyTree2File(tPrev,f'debug_tPrev_{rank}.cgns')
+                C.convertPyTree2File(zone,f'debug_zone_{rank}.cgns')
+                raise ValueError(f'could not find tag <-> container "{container}" correspondance')
+        else:
+            fieldnameWithTag = fieldname
+
+        for n in containers_names[2]:
+            tag = n[0]
+            loc = I.getValue(I.getNodeFromName1(locations_node, tag))
+            if loc == 'CellCenter':
+                cont_name = I.getValue(n)
+                I.setValue(n,cont_name+'V') # https://gitlab.onera.net/numerics/mola/-/issues/146#note_20639
+
+        for n in I.getNodeFromName1(tags_containers, 'locations')[2]:
+            if I.getValue(n) == 'CellCenter':
+                I.setValue(n,'Vertex')
+
+        # HACK https://elsa.onera.fr/issues/11255
+        if I.getZoneType(zone) == 2: # unstructured zone
+            if I.getNodeFromName1(zone,I.__FlowSolutionCenters__):
+                fieldnames = C.getVarNames(zone, excludeXYZ=True, loc='centers')[0]
+                for f in fieldnames:
+                    C._center2Node__(zone,f,0)
+                I._rmNodesByName1(zone,I.__FlowSolutionCenters__)
+
+            # HACK https://gitlab.onera.net/numerics/mola/-/issues/111
+            # HACK https://elsa.onera.fr/issues/10997#note-6
+            zone = T.breakElements(zone)
+
+        surfs = P.isoSurfMC(zone, fieldnameWithTag, value)
+        for surf in I.getZones(surfs):
+            surf[2] += [ tags_containers ]
+            isosurfs += [ recoverContainers(surf) ]
+
+    t_merged = C.newPyTree(['Base', isosurfs])
+    base = I.getBases(t_merged)[0]
+    base[2].extend( bases_children_except_zones )
+    surfs = I.getZones(t_merged)
+    
+    return surfs
+

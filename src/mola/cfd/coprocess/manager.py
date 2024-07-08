@@ -98,11 +98,11 @@ class CoprocessManager():
 
         # TODO add body-force in the operations_stack if needed
     
-    def update_extractions_to_perform(self, force_extractions=False):
+    def update_extractions_to_perform(self):
         for extraction in self.Extractions:
-            if self.iteration % extraction['ExtractionPeriod'] == 0 or force_extractions:
+            if self.iteration % extraction['ExtractionPeriod'] == 0:
                 extraction['IsToExtract'] = True
-            if self.iteration % extraction['SavePeriod'] == 0 or force_extractions:
+            if self.iteration % extraction['SavePeriod'] == 0:
                 extraction['IsToSave'] = True
                     
     def apply_operations(self):
@@ -176,7 +176,11 @@ class CoprocessManager():
          
     def finalize(self):
         mola_logger.info(f'>> finalize', rank=0)
-        self.update_extractions_to_perform(force_extractions=True)
+        for extraction in self.Extractions:
+            if extraction['ExtractAtEndOfRun']:
+                extraction['IsToExtract'] = True
+                extraction['IsToSave'] = True
+        self.update_extractions_to_perform()
         self.apply_operations()
 
         self.status = 'COMPLETED'
@@ -217,7 +221,6 @@ def moveLogFiles():
 
 def check_simulation_end_and_create_COMPLETED(Extractions):
     check_stderr()
-    check_output_files(Extractions)
     if rank == 0:
         with open(names.FILE_JOB_COMPLETED,'w') as f: 
             f.write(names.FILE_JOB_COMPLETED)
@@ -232,16 +235,3 @@ def check_stderr():
         except FileNotFoundError:
             pass
 
-def check_output_files(Extractions):
-    if rank == 0:
-        files_to_check = []
-        for extraction in Extractions:
-            if extraction['Type'] == 'Restart':
-                filename = extraction['File']
-            else:
-                filename = os.path.join(names.DIRECTORY_OUTPUT, extraction['File'])
-            files_to_check.append(filename)
-
-        for filename in files_to_check:
-            if not os.path.isfile(filename):
-                raise MolaAssertionError(f'The expected file {filename} was not found.')
