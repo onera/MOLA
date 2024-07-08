@@ -40,7 +40,6 @@ def apply_to_solver(workflow):
         workflow : Workflow object
 
     '''
-  
     for family, MotionOnFamily in workflow.Motion.items():
         famNode = workflow.tree.get(Name=family, Type='Family', Depth=2)
 

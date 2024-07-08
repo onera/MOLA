@@ -31,9 +31,18 @@ def apply_with_cassiopee(workflow):
 
     from mpi4py import MPI
     mpi_size = MPI.COMM_WORLD.Get_size()
+    rank = MPI.COMM_WORLD.Get_rank()
+    if mpi_size > 1:
+        from mola.cfd.preprocess.mesh.tools import (to_partitioned_if_distributed,
+                                                    to_full_tree_at_rank_0)
+        workflow.tree = to_partitioned_if_distributed(workflow.tree) # TODO when https://elsa.onera.fr/issues/11700 fixed
+        # workflow.tree = to_full_tree_at_rank_0(workflow.tree)
+
 
     import Converter.PyTree as C
     import Connector.PyTree as X
+    import Connector.Mpi as Xmpi
+    import Converter.Internal as I
 
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
@@ -43,13 +52,12 @@ def apply_with_cassiopee(workflow):
         if 'Connection' not in component: continue
         _check_connections(component['Connection'])
 
-        mola_logger.info(f'Connections for base {base_name}:')
+        mola_logger.info(f'Connections for base {base_name}:', rank=0)
 
         for operation in component['Connection']:
-            if mpi_size > 1:
-                raise MolaException('unable to connect mesh using MPI parallel mode and Cassiopee')
+            # if mpi_size > 1: raise MolaException('unable to connect mesh using MPI parallel mode and Cassiopee')
             ConnectionType = operation['Type']
-            mola_logger.info(f'  > connecting type {ConnectionType}')
+            mola_logger.info(f'  > connecting type {ConnectionType}', rank=0)
             try: 
                 tolerance = operation['Tolerance']
             except KeyError:
@@ -58,7 +66,8 @@ def apply_with_cassiopee(workflow):
             
             if ConnectionType == 'Match':
                 C._rmBCOfType(base,'BCMatch') # HACK https://elsa.onera.fr/issues/11400
-                base_out = X.connectMatch(base, tol=tolerance, dim=base_dim)
+                base_out = Xmpi.connectMatch(base, tol=tolerance, dim=base_dim)
+                
 
             elif ConnectionType == 'NearMatch':
                 try: 
@@ -66,7 +75,7 @@ def apply_with_cassiopee(workflow):
                 except KeyError:
                     ratio = 2
                     mola_logger.warning(f'    NearMatch ratio was not defined. Using ratio={ratio}')
-                base_out = X.connectNearMatch(base, ratio=ratio, tol=tolerance, dim=base_dim)
+                base_out = Xmpi.connectNearMatch(base, ratio=ratio, tol=tolerance, dim=base_dim)
 
             elif ConnectionType == 'PeriodicMatch':
                 rotationCenter = operation.get('RotationCenter', [0., 0., 0.])
@@ -75,7 +84,10 @@ def apply_with_cassiopee(workflow):
                 mola_logger.debug(f'    RotationCenter = {rotationCenter}')
                 mola_logger.debug(f'    RotationAngle = {rotationAngle}')
                 mola_logger.debug(f'    Translation = {translation}')
-
+                if mpi_size > 1:
+                    msg = ('cannot make periodic match using Cassiopee and MPI parallel execution:\n'
+                           'https://elsa.onera.fr/issues/11706')
+                    raise MolaException(msg)
                 base_out = X.connectMatchPeriodic(
                     base,
                     rotationCenter=rotationCenter,
@@ -88,6 +100,15 @@ def apply_with_cassiopee(workflow):
                 raise MolaException(f'  Connection type {ConnectionType} not implemented')
             
             base[2] = base_out[2]
+            
+    try:
+        import maia
+        from maia.io.fix_tree import fix_point_ranges
+        if rank==0:print("\033[93m", end='')
+        fix_point_ranges(workflow.tree)
+        if rank==0:print("\033[0m", end='')
+    except ModuleNotFoundError:
+        mola_logger.warning("could not import maia, will not fix PointRange")
 
     workflow.tree = cgns.castNode(workflow.tree)
 
@@ -95,7 +116,7 @@ def apply_with_maia(workflow):
     component = workflow.RawMeshComponents[0]
     for operation in component['Connection']:
         ConnectionType = operation['Type']
-        mola_logger.info(f'  > connecting type {ConnectionType}')
+        mola_logger.info(f'  > connecting type {ConnectionType}', rank=0)
         try: 
             tolerance = operation['Tolerance']
         except KeyError:

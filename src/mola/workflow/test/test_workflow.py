@@ -218,11 +218,12 @@ def get_workflow_sphere_struct():
         RawMeshComponents=[
             dict(
                 Name='sphere',
-                Source='/stck/mola/data/mesh/sphere/sphere_struct.cgns',
+                Source='/stck/mola/data/mesh/sphere/sphere_struct_not_connected.cgns',
                 Families=[
                     dict(Name='Wall', Location='kmin'),
-                    dict(Name='Farfield', Location='remaining'),
+                    dict(Name='Farfield', Location='kmax'),
                 ],
+                Connection = [ dict(Type='Match', Tolerance=1e-8),],
                 )
         ],
 
@@ -230,7 +231,7 @@ def get_workflow_sphere_struct():
             Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
             Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
             Distributor='Cassiopee', 
-            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            ComponentsToSplit=None, # 'all', or None or ['first', 'second'...]
             NumberOfProcessors=1, 
             ),
 
@@ -271,6 +272,66 @@ def get_workflow_sphere_struct():
     return w
 
 
+def get_workflow_sphere_struct_mpi_to_connect():
+    from mpi4py import MPI
+    w = Workflow(
+        RawMeshComponents=[
+            dict(
+                Name='sphere',
+                Source='/stck/mola/data/mesh/sphere/sphere_struct_not_connected.cgns',
+                Families=[
+                    dict(Name='Wall', Location='kmin'),
+                    dict(Name='Farfield', Location='kmax'),
+                ],
+                Connection = [ dict(Type='Match', Tolerance=1e-8),],
+                )
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='maia', # or 'maia', 'PyPart' etc..
+            ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
+            NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
+            ),
+
+        Flow=dict(
+            Density = 0.2,
+            Temperature = 100.,
+            Velocity = 50.,
+                 ),
+
+        Turbulence = dict(
+            Model = 'SA',
+        ),
+
+        Solver=os.environ.get('MOLA_SOLVER'),
+
+        Numerics = dict(
+            NumberOfIterations=10,
+            CFL=1.,
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Wall', Type='Wall'),
+            dict(Family='Farfield', Type='Farfield'),
+        ],
+
+        Extractions=[
+            dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
+            dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
+            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1.e-6),
+            ],
+
+        RunManagement=dict(
+            NumberOfProcessors=MPI.COMM_WORLD.Get_size(),
+            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_struct'),
+            ),
+        )
+    
+    return w
+
+
+
 def get_workflow_sphere_struct_dist():
     from mpi4py import MPI
 
@@ -281,7 +342,7 @@ def get_workflow_sphere_struct_dist():
                 Source='/stck/mola/data/mesh/sphere/sphere_struct.cgns',
                 Families=[
                     dict(Name='Wall', Location='kmin'),
-                    dict(Name='Farfield', Location='remaining'),
+                    dict(Name='Farfield', Location='kmax'),
                 ],
                 )
         ],
@@ -323,7 +384,7 @@ def get_workflow_sphere_struct_dist():
             ],
 
         RunManagement=dict(
-            # NumberOfProcessors=1,
+            NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
             RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_struct_dist'),
             ),
         )
@@ -521,6 +582,17 @@ def test_workflow_sphere_struct_local():
     w.simulation_status()
     w.remove_cfd_files()
 
+@pytest.mark.integration
+@pytest.mark.cost_level_3
+@pytest.mark.mpi
+def test_workflow_sphere_struct_local_cassiopee_mpi():
+    w = get_workflow_sphere_struct_mpi_to_connect()
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+    w.simulation_status()
+    w.remove_cfd_files()
+
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
@@ -610,5 +682,6 @@ def test_wip():
     
 
 if __name__ == '__main__':
-    test_workflow_sphere_struct_local_dist()
-    # test_prepare_workflow_dist()
+    # test_workflow_sphere_struct_local_dist()
+    test_workflow_sphere_struct_local_cassiopee_mpi()
+    # test_prepare_workflow1()

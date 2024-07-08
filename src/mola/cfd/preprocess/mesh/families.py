@@ -24,44 +24,62 @@ structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 def apply(workflow):
     if not all([('Families' in component) for component in workflow.RawMeshComponents]):
         return
-    
+
     t = workflow.tree
-    for base in t.bases():
-        component = workflow.get_component(base.name())
+    from mpi4py import MPI
+    mpi_size = MPI.COMM_WORLD.Get_size()
+    rank = MPI.COMM_WORLD.Get_rank()
+    if mpi_size > 1:
+        import maia
+        is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
+        if is_dist:
+            from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
+            t = to_full_tree_at_rank_0(workflow.tree)  
+            if rank==0:
+                t = cgns.castNode(t)          
 
-        if 'Families' not in component: 
-            continue
-        
-        import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
 
-        for operation in component['Families']:
-            FamilyName = operation['Name']
-            location   = operation['Location']
-            mola_logger.info(f'setting Family {FamilyName} in base {base.name()}')
+    if rank == 0:
+        for base in t.bases():
+            component = workflow.get_component(base.name())
+
+            if 'Families' not in component: 
+                continue
             
-            if location in structured_locations:
-                for zone in base.zones():
-                    C._addBC2Zone(zone, FamilyName,
-                                  'FamilySpecified:'+FamilyName,
-                                  location)
+            import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
 
-            elif location == 'remaining':
-                C._fillEmptyBCWith(base, FamilyName,
-                    'FamilySpecified:'+FamilyName,dim=base.dim())
+            for operation in component['Families']:
+                FamilyName = operation['Name']
+                location   = operation['Location']
+                mola_logger.info(f'setting Family {FamilyName} in base {base.name()}')
+                
+                if location in structured_locations:
+                    for zone in base.zones():
+                        C._addBC2Zone(zone, FamilyName,
+                                    'FamilySpecified:'+FamilyName,
+                                    location)
 
-            elif location.startswith('plane'):
-                if not base.isStructured():
-                    msg = f'component "{base.name()}" is not composed exclusively of '
-                    msg+= f'structured zones: hence, BC family "{FamilyName}" cannot '
-                    msg+= f'be applied at requested location "{location}"'
-                    raise ValueError(msg)
+                elif location == 'remaining':
+                    C._fillEmptyBCWith(base, FamilyName,
+                        'FamilySpecified:'+FamilyName,dim=base.dim())
 
-                WindowTags = getWindowTagsAtPlane(zone, planeTag=location)
+                elif location.startswith('plane'):
+                    if not base.isStructured():
+                        msg = f'component "{base.name()}" is not composed exclusively of '
+                        msg+= f'structured zones: hence, BC family "{FamilyName}" cannot '
+                        msg+= f'be applied at requested location "{location}"'
+                        raise ValueError(msg)
 
-        appendFamiliesToBase(base)
+                    WindowTags = getWindowTagsAtPlane(zone, planeTag=location)
+            appendFamiliesToBase(base)
 
+    if mpi_size > 1:
+        MPI.COMM_WORLD.barrier()
+        workflow.tree = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=0)
+        workflow.tree = cgns.castNode(workflow.tree)
+        MPI.COMM_WORLD.barrier()
+    
 
-    workflow.tree = cgns.castNode(t)
 
 def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
     '''

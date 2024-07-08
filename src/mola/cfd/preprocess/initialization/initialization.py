@@ -42,7 +42,7 @@ def apply(workflow):
     apply_to_solver(workflow)
 
 def initialize_flow_with_reference_state(workflow):
-    mola_logger.info('Initialize FlowSolution with uniform reference values')
+    mola_logger.info('Initialize FlowSolution with uniform reference values',rank=0)
     workflow.tree.newFields(workflow.Flow['ReferenceState'], Container='FlowSolution#Init')
 
 def initialize_flow_from_file_by_interpolation(workflow):
@@ -57,9 +57,9 @@ def initialize_flow_from_file_by_interpolation(workflow):
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
     if isinstance(workflow.Initialization['Source'], str):
-        mola_logger.info(f"Initialize FlowSolution by interpolation from {workflow.Initialization['Source']}")
+        mola_logger.info(f"Initialize FlowSolution by interpolation from {workflow.Initialization['Source']}", rank=0)
     else:
-        mola_logger.info(f"Initialize FlowSolution by interpolation from the given tree")
+        mola_logger.info(f"Initialize FlowSolution by interpolation from the given tree", rank=0)
     
     raise Exception('Not yet implemented')
 
@@ -75,9 +75,9 @@ def initialize_flow_from_file_by_copy(workflow):
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
     if isinstance(workflow.Initialization['Source'], str):
-        mola_logger.info(f"Initialize FlowSolution by copy of {workflow.Initialization['Source']}")
+        mola_logger.info(f"Initialize FlowSolution by copy of {workflow.Initialization['Source']}",rank=0)
     else:
-        mola_logger.info(f"Initialize FlowSolution by copy of the given tree")
+        mola_logger.info(f"Initialize FlowSolution by copy of the given tree",rank=0)
 
     keepTurbulentDistance = workflow.Initialization.get('KeepTurbulentDistance', False)
 
