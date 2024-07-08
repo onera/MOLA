@@ -1953,8 +1953,20 @@ def setBoundaryConditions(t, BoundaryConditions, TurboConfiguration,
             BCparam['type'] = PreferedBoundaryConditions[BCparam['type']]
 
         if BCparam['type'] == 'nref':
-            print(J.CYAN + 'set BC nref on ' + BCparam['FamilyName'] + J.ENDC)
-            setBC_nref(t, **BCkwargs)
+            if 'option' not in BCparam:
+                if 'filename' in BCkwargs:
+                    BCparam['option'] = 'file'
+                else:
+                    BCparam['option'] = 'uniform'
+
+            if BCparam['option'] == 'uniform':
+                print(J.CYAN + 'set BC nref on ' + BCparam['FamilyName'] + J.ENDC)
+                setBC_nref(t, **BCkwargs)
+
+            elif BCparam['option'] == 'file':
+                print('{}set BC nref (from file {}) on {}{}'.format(J.CYAN,
+                    BCparam['filename'], BCparam['FamilyName'], J.ENDC))
+                setBC_nref_imposeFromFile(t, ReferenceValues, **BCkwargs)
 
         elif BCparam['type'] == 'inj1':
 
@@ -2387,6 +2399,44 @@ def setBC_nref(t, FamilyName):
     I._rmNodesByName(farfield, '.Solver#BC')
     I._rmNodesByType(farfield, 'FamilyBC_t')
     I.newFamilyBC(value='BCFarfield', parent=farfield)
+
+def setBC_nref_imposeFromFile(t, ReferenceValues, FamilyName, filename, fileformat=None):
+
+    def setBC_nref_on_bc(t, FamilyName, ImposedVariables, bc=None):
+        if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
+            for bc in C.getFamilyBCs(t, FamilyName):
+                setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+                    FamilyBC='BCFarfield', BCType='nref', bc=bc)
+        else:
+            setBCwithImposedVariables(t, FamilyName, ImposedVariables,
+                FamilyBC='BCFarfield', BCType='nref', bc=bc)
+            
+    var2interp = ['Density', 'MomentumX', 'MomentumY', 'MomentumZ', 'EnergyStagnationDensity']
+    var2interp += ReferenceValues['FieldsTurbulence']
+
+    donor_tree = C.convertFile2PyTree(filename, format=fileformat)
+    inlet_BC_nodes = C.extractBCOfName(t, f'FamilySpecified:{FamilyName}', reorder=False)
+
+    I._adaptZoneNamesForSlash(inlet_BC_nodes)
+    I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
+    J.migrateFields(donor_tree, inlet_BC_nodes)
+
+    for w in inlet_BC_nodes:
+        bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
+        zname, wname = bcLongName.split('\\')
+        znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
+        bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
+        ImposedVariables = dict()
+        for var in var2interp:
+            FS = I.getNodeFromName(w, I.__FlowSolutionCenters__)
+            varNode = I.getNodeFromName(FS, var) 
+            if varNode:
+                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode))
+            else:
+                raise TypeError('variable {} not found in {}'.format(var, filename))
+        
+        setBC_nref_on_bc(t, FamilyName, ImposedVariables, bc=bcnode)
+
 
 def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
     '''
