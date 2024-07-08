@@ -1,10 +1,39 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Lesser General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Lesser General Public License for more details.
+#
+#    You should have received a copy of the GNU Lesser General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+'''
+VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible Navier-Stokes)
+
+This Vortex Particle Method solver can be used to simulate isolated vortex structures or 3D solids
+with the Lifting Line module of MOLA or the FAST CFD solver.
+
+Version:
+0.5
+
+Author:
+Johan VALENTIN
+'''
+
 ####################################################################################################
 ####################################### Import Python Modules ######################################
 ####################################################################################################
-import sys
-import os
 import numpy as np
-import importlib.util
+import os
+import sys
 
 ####################################################################################################
 ##################################### Import CASSIOPEE Modules #####################################
@@ -20,10 +49,12 @@ import CPlot.PyTree as CPlot
 ####################################################################################################
 ######################################## Import FAST Modules #######################################
 ####################################################################################################
-if importlib.util.find_spec('Fast'):
+try:
     import Fast.PyTree as Fast
     import FastS.PyTree as FastS
     import FastC.PyTree as FastC
+except:
+    pass
 
 ####################################################################################################
 ######################################## Import MOLA Modules #######################################
@@ -210,9 +241,10 @@ defaultLiftingLineParameters = {
         'IntegralLaw'                      : 'linear',
         'MaxLiftingLineSubIterations'      : 100,
         'MinNbShedParticlesPerLiftingLine' : 26,
-        'NumberOfParticleSources'          : 100,
+        'NumberOfParticleSources'          : 50,
         'ParticleDistribution'             : dict(kind = 'tanhTwoSides', FirstSegmentRatio = 2.,
                                                        LastSegmentRatio = 0.5, Symmetrical = False),
+        'LocalResolution'                  : None,
         'RPM'                              : None,
         'VelocityTranslation'              : None,
 }
@@ -227,7 +259,8 @@ LiftingLineParametersRange = {
                                                                                            'ratio'],
         'MaxLiftingLineSubIterations'      : [0, +np.inf],
         'MinNbShedParticlesPerLiftingLine' : [0, +np.inf],
-        'NumberOfParticleSources'          : [0, +np.inf],
+        'NumberOfParticleSources'          : [26, +np.inf],
+        'LocalResolution'                  : [0, +np.inf],
         'RPM'                              : [-np.inf, +np.inf],
         'VelocityTranslation'              : [-np.inf, +np.inf],
 }
@@ -372,7 +405,7 @@ def vectorise(names = '', capital = True):
 
 def buildEmptyVPMTree(Np = 0, FieldsNames = None):
     '''
-    Build a particle tree.
+    Builds a particle tree.
 
     Parameters
     ----------
@@ -383,7 +416,7 @@ def buildEmptyVPMTree(Np = 0, FieldsNames = None):
     Returns
     -------
         t : Tree
-            CGNS Tree a base of particles.
+            CGNS Tree or Base of particles.
     '''
     if FieldsNames == None: FieldsNames = VPM_FlowSolution
     Particles = C.convertArray2Node(D.line((0., 0., 0.), (0., 0., 0.), 2))
@@ -577,7 +610,7 @@ def getBEMParticlesNumber(t = [], pointer = False):
     Parameters
     ----------
         t : Tree
-            Containes the free VPM parameters named 'BEMParticles'.
+            Containes the free VPM parameters named BEMParticles.
         pointer : :py:class:`bool`
             States whether the pointer or the value of the size of the zone is returned.
 
@@ -611,7 +644,7 @@ def getImmersedParticlesNumber(t = [], pointer = False):
 def addSafeZones(Zones):
     '''
     Adds zones to the global variable SafeZones. Particles within SafeZones are not redistributed
-                                                                                        nor deleted.
+    nor deleted.
 
     Parameters
     ----------
@@ -623,7 +656,7 @@ def addSafeZones(Zones):
 def emptySafeZones():
     '''
     Empties the Zones within the global variable SafeZones. Particles within SafeZones are not
-                                                                          redistributed nor deleted.
+    redistributed nor deleted.
     '''
     SafeZones[0] = []
 
@@ -757,385 +790,471 @@ def checkParameters(VPMParameters = {}, LiftingLineParameters = {}, HybridParame
     '''
     Imposes the types of the parameters in each dictionnary used by VULCAINS. If a parameter is not
     provided, a default value will be prescribed. Parameters are modified (if necessary) to fit in
-                                                                            their operability range.
+    their operability range.
 
     Parameters
     ----------
         VPMParameters : :py:class:`dict`
             List of the parameters linked to the VPM solver or the perturbation field. These
             parameters are:
-        ############################################################################################
-        ###################################### VPM Parameters ######################################
-        ############################################################################################
 
-        ##################################### Fluid Parameters #####################################
-            Density : :py:class:`float`
-                ]0., +inf[, fluid density at infinity, in kg.m^-3.
+                .. note::  Fluid Parameters
+
+            * Density : :py:class:`float`
+                \]0., +\inf\[, fluid density at infinity, in kg.m^-3.
+                
                 Default value: 1.225
-            EddyViscosityConstant : :py:class:`float`
-                [0., +inf[, constant for the eddy viscosity model.
+            * EddyViscosityConstant : :py:class:`float`
+                \[0., +\inf\[, constant for the eddy viscosity model.
+                
                 Default value: 0.15
-            EddyViscosityModel : :py:class:`str`
+            * EddyViscosityModel : :py:class:`str`
                 Mansour, Mansour2, Smagorinsky, Vreman or None, select a LES model to compute the
-                                                                                     eddy viscosity.
+                eddy viscosity.
+                
                 Default value: 'Vreman'
-            KinematicViscosity : :py:class:`float`
-                [0., +inf[, fluid kinematic viscosity at infinity, in m^2.s^-1.
+            * KinematicViscosity : :py:class:`float`
+                \[0., +\inf\[, fluid kinematic viscosity at infinity, in m^2.s^-1.
+                
                 Default value: 1.46e-5
-            Temperature : :py:class:`float`
-                ]0., +inf[, fluid temperature at infinity, in K.
+            * Temperature : :py:class:`float`
+                \]0., +\inf\[, fluid temperature at infinity, in K.
+                
                 Default value: 288.15
-            Time : :py:class:`float`
-                [0., +inf[, physical time, in s.
+            * Time : :py:class:`float`
+                \[0., +\inf\[, physical time, in s.
+                
                 Default value: 0
-            VelocityFreestream : numpy.ndarray of :py:class:`float`
-                ]-inf, +inf[^3, fluid velocity at infinity, in m.s-1.
+            * VelocityFreestream : numpy.ndarray of :py:class:`float`
+                \]-\inf, +\inf\[^3, fluid velocity at infinity, in m.s-1.
+                
                 Default value: [0., 0., 0.]
 
-        ################################### Numerical Parameters ###################################
-            AntiDiffusion : :py:class:`float`
-                [0. 1.], vortex diffusion either modifies only the particle strength.
+                .. note::  Numerical Parameters
+
+            * AntiDiffusion : :py:class:`float`
+                \[0. 1.\], vortex diffusion either modifies only the particle strength.
                 (AntiStretching = 0), or the particle size (AntiStretching = 1)
+                
                 Default value: 0
-            AntiStretching : :py:class:`float`
-                [0. 1.], vortex stretching either modifies only the particle strength.
+            * AntiStretching : :py:class:`float`
+                \[0. 1.\], vortex stretching either modifies only the particle strength.
                 (AntiStretching = 0), or the particle size (AntiStretching = 1)
+                
                 Default value: 0
-            CurrentIteration : :py:class:`int`
-                [|0, +inf[|, follows the current iteration.
+            * CurrentIteration : :py:class:`int`
+                \[\|0, +\inf\[\|, follows the current iteration.
+                
                 Default value: 0
-            DiffusionScheme : :py:class:`str`
+            * DiffusionScheme : :py:class:`str`
                 DVM, PSE, CSM or None, gives the scheme used to compute the diffusion term of the
-                                                                                 vorticity equation.
+                vorticity equation.
+                
                 Default value: 'DVM'
-            IntegrationOrder : :py:class:`int`
-                [|1, 4|], 1st, 2nd, 3rd or 4th order Runge Kutta.
+            * IntegrationOrder : :py:class:`int`
+                \[\|1, 4\|\], 1st, 2nd, 3rd or 4th order Runge Kutta.
+                
                 Default value: 1
-            LowStorageIntegration : :py:class:`int`
-                [|0, 1|], states if the classical or the low-storage Runge Kutta is used.
+            * LowStorageIntegration : :py:class:`int`
+                \[\|0, 1\|\], states if the classical or the low-storage Runge Kutta is used.
+                
                 Default value: 1
-            MachLimitor : :py:class:`float`
-                [0, +inf[, sets the maximum induced velocity a particle can have. Does not take into
-                                                                     account the VelocityFreestream.
+            * MachLimitor : :py:class:`float`
+                \[0, +\inf\[, sets the maximum induced velocity a particle can have. Does not take into
+                account the VelocityFreestream.
+                
                 Default value: 0.5
-            NumberOfBEMSources : :py:class:`int`
-                [|0, +inf[|, total number of embedded Boundary Element Method particles on the
-                                                                                   solid boundaries.
+            * NumberOfBEMSources : :py:class:`int`
+                \[\|0, +\inf\[\|, total number of embedded Boundary Element Method particles on the
+                solid boundaries.
+                
                 Default value: 0
-            NumberOfCFDSources : :py:class:`int`
-                [|0, +inf[|, total number of embedded Eulerian Immersed particles on the Hybrid
-                                                                                    Inner Interface.
+            * NumberOfCFDSources : :py:class:`int`
+                \[\|0, +\inf\[\|, total number of embedded Eulerian Immersed particles on the Hybrid
+                Inner Interface.
+                
                 Default value: 0
-            NumberOfHybridSources : :py:class:`int`
-                [|0, +inf[|, total number of hybrid particles generated in the Hybrid Domain.
+            * NumberOfHybridSources : :py:class:`int`
+                \[\|0, +\inf\[\|, total number of hybrid particles generated in the Hybrid Domain.
+                
                 Default value: 0
-            NumberOfLiftingLines : :py:class:`int`
-                [|0, +inf[|, number of LiftingLines.
+            * NumberOfLiftingLines : :py:class:`int`
+                \[\|0, +\inf\[\|, number of LiftingLines.
+                
                 Default value: 0
-            NumberOfLiftingLineSources : :py:class:`int`
-                [|0, +inf[|, total number of embedded source particles on the LiftingLines.
+            * NumberOfLiftingLineSources : :py:class:`int`
+                \[\|0, +\inf\[\|, total number of embedded source particles on the LiftingLines.
+                
                 Default value: 0
-            NumberOfNodes : :py:class:`int`
-                [|0, +inf[|, total number of nodes in the velocity perturbation field grid.
+            * NumberOfNodes : :py:class:`int`
+                \[\|0, +\inf\[\|, total number of nodes in the velocity perturbation field grid.
+                
                 Default value: 0
-            ParticleSizeVariationLimitor : :py:class:`float`
-                [1, +inf[, gives the maximum a particle can grow/shrink during an iteration.
+            * ParticleSizeVariationLimitor : :py:class:`float`
+                \[1, +\inf\[, gives the maximum a particle can grow/shrink during an iteration.
+                
                 Default value: 1.1
-            Resolution : numpy.ndarray of :py:class:`float`
-                ]0., +inf[^2, minimum and maximum resolution scale of the VPM.
+            * Resolution : numpy.ndarray of :py:class:`float`
+                \]0., +\inf\[^2, minimum and maximum resolution scale of the VPM.
+                
                 Default value: np.array([TimeStep*np.linalg.norm(VelocityFreestream)]*2)
-            Sigma0 : numpy.ndarray of :py:class:`float`
-                ]0., +inf[^2, initial minimum and maximum size of the particles.
+            * Sigma0 : numpy.ndarray of :py:class:`float`
+                \]0., +\inf\[^2, initial minimum and maximum size of the particles.
+                
                 Default value: Resolution*SmoothingRatio
-            SmoothingRatio : :py:class:`float`
-                [0., 5.], smoothes the particle interactions to avoid inducing singularities.
+            * SmoothingRatio : :py:class:`float`
+                \[0., 5.\], smoothes the particle interactions to avoid inducing singularities.
+                
                 Default value: 2.
-            StrengthVariationLimitor : :py:class:`float`
-                [1, +inf[, gives the maximum variation the strength of a particle can have during an
-                                                                                          iteration.
+            * StrengthVariationLimitor : :py:class:`float`
+                \[1, +\inf\[, gives the maximum variation the strength of a particle can have during an
+                iteration.
+                
                 Default value: 2
-            TimeStep : :py:class:`float`
-                ]0., +inf[, time step of the VPM, ins s.
+            * TimeStep : :py:class:`float`
+                \]0., +\inf\[, time step of the VPM, ins s.
+                
                 Default value: np.min(Resolution)/np.linalg.norm(VelocityFreestream)
-            VorticityEquationScheme : :py:class:`str`
+            * VorticityEquationScheme : :py:class:`str`
                 Transpose, Classical or Mixed, The schemes used to compute the vstretching term of
-                                                                             the vorticity equation.
+                the vorticity equation.
+                
                 Default value: 'Transpose'
 
-        ##################################### Particles Control ####################################
-            CutoffXmin : :py:class:`float`
-                ]-inf, +inf[, particles beyond this spatial Cutoff are deleted, in m.
+                .. note::  Particle Control
+
+            * CutoffXmin : :py:class:`float`
+                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
+                
                 Default value: -np.inf
-            CutoffXmax : :py:class:`float`
-                ]-inf, +inf[, particles beyond this spatial Cutoff are deleted, in m.
+            * CutoffXmax : :py:class:`float`
+                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
+                
                 Default value: +np.inf
-            CutoffYmin : :py:class:`float`
-                ]-inf, +inf[, particles beyond this spatial Cutoff are deleted, in m.
+            * CutoffYmin : :py:class:`float`
+                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
+                
                 Default value: -np.inf
-            CutoffYmax : :py:class:`float`
-                ]-inf, +inf[, particles beyond this spatial Cutoff are deleted, in m.
+            * CutoffYmax : :py:class:`float`
+                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
+                
                 Default value: +np.inf
-            CutoffZmin : :py:class:`float`
-                ]-inf, +inf[, particles beyond this spatial Cutoff are deleted, in m.
+            * CutoffZmin : :py:class:`float`
+                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
+                
                 Default value: -np.inf
-            CutoffZmax : :py:class:`float`
-                ]-inf, +inf[, particles beyond this spatial Cutoff are deleted, in m.
+            * CutoffZmax : :py:class:`float`
+                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
+                
                 Default value: +np.inf
-            ForcedDissipation : :py:class:`float`
-                [0, +inf[, gives the % of strength the particles loose per sec, in %/s
+            * ForcedDissipation : :py:class:`float`
+                \[0, +\inf\[, gives the % of strength the particles loose per sec, in %/s
+                
                 Default value: 0
-            MaximumAgeAllowed : :py:class:`int`
-                [|0, +inf[|, particles older than MaximumAgeAllowed iterations are deleted. If
-                                                       MaximumAgeAllowed == 0, they are not deleted.
+            * MaximumAgeAllowed : :py:class:`int`
+                \[\|0, +\inf\[\|, particles older than MaximumAgeAllowed iterations are deleted. If
+                MaximumAgeAllowed == 0, they are not deleted.
+                
                 Default value: 0
-            MaximumAngleForMerging : :py:class:`float`
-                [0., 180.[, maximum angle allowed between two particles to be merged, in deg.
+            * MaximumAngleForMerging : :py:class:`float`
+                \[0., 180.\[, maximum angle allowed between two particles to be merged, in deg.
+                
                 Default value: 90
-            MaximumMergingVorticityFactor : :py:class:`float`
-                [0, +inf[, particles that have their strength above (resp. below)
+            * MaximumMergingVorticityFactor : :py:class:`float`
+                \[0, +\inf\[, particles that have their strength above (resp. below)
                 MaximumMergingVorticityFactor times the maximum particle strength of the Lifting
                 Line embedded particles and the hybrid particles combined are split (resp. merged),
-                                                                                               in %.
+                in %.
+                
                 Default value: 100
-            MinimumOverlapForMerging : :py:class:`float`
-                [0., +inf[, particles are merged if their distance is below their size (Sigma) times
-                                                                           MinimumOverlapForMerging.
+            * MinimumOverlapForMerging : :py:class:`float`
+                \[0., +\inf\[, particles are merged if their distance is below their size (Sigma) times
+                MinimumOverlapForMerging.
+                
                 Default value: 3
-            MinimumVorticityFactor : :py:class:`float`
-                [0., +inf[, particles that have their strength below MinimumVorticityFactor times
+            * MinimumVorticityFactor : :py:class:`float`
+                \[0., +\inf\[, particles that have their strength below MinimumVorticityFactor times
                 the maximum particle strength of the Lifting Line embedded particles and the hybrid
-                                                               particles combined are deleted, in %.
+                particles combined are deleted, in %.
+                
                 Default value: 0.001
-            RedistributeParticlesBeyond : :py:class:`float`
-                [0., +inf[, do not split/merge particles if closer than 
-                      RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
+            * RedistributeParticlesBeyond : :py:class:`float`
+                \[0., +\inf\[, do not split/merge particles if closer than 
+                RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
+                
                 Default value: 0
-            RedistributionPeriod : :py:class:`int`
-                [|0, +inf[|, iteration frequency at which particles are tested for
-                                       splitting/merging. If 0 the particles are never split/merged.
+            * RedistributionPeriod : :py:class:`int`
+                \[\|0, +\inf\[\|, iteration frequency at which particles are tested for
+                splitting/merging. If 0 the particles are never split/merged.
+                
                 Default value: 1
-            RealignmentRelaxationFactor : :py:class:`float`
-                [0., +inf[, filters the particles direction to realign the particles with their
-                                                  vorticity to have divergence-free vorticity field.
+            * RealignmentRelaxationFactor : :py:class:`float`
+                \[0., +\inf\[, filters the particles direction to realign the particles with their
+                vorticity to have divergence-free vorticity field.
+                
                 Default value: 0.
-            MagnitudeRelaxationFactor : :py:class:`float`
-                [0., +inf[, filters the particles strength magnitude to have divergence-free
-                                                                                    vorticity field.
+            * MagnitudeRelaxationFactor : :py:class:`float`
+                \[0., +\inf\[, filters the particles strength magnitude to have divergence-free
+                vorticity field.
+                
                 Default value: 0.
-            EddyViscosityRelaxationFactor : :py:class:`float`
-                [0., 1.[, modifies the EddyViscosityConstant of every particles by
+            * EddyViscosityRelaxationFactor : :py:class:`float`
+                \[0., 1.\[, modifies the EddyViscosityConstant of every particles by
                 EddyViscosityRelaxationFactor at each iteration according to the local loss of
-                                                                         Enstrophy of the particles.
+                Enstrophy of the particles.
+                
                 Default value: 0.005
-            RemoveWeakParticlesBeyond : :py:class:`float`
-                [0., +inf[, do not remove weak particles if closer than 
-                      RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
+            * RemoveWeakParticlesBeyond : :py:class:`float`
+                \[0., +\inf\[, do not remove weak particles if closer than 
+                RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
+                
                 Default value: 0
-            ResizeParticleFactor : :py:class:`float`
-                [0, +inf[, resize particles that grow/shrink past ResizeParticleFactor their
-                 original size (given by Sigma0). If ResizeParticleFactor == 0, no resizing is done.
+            * ResizeParticleFactor : :py:class:`float`
+                \[0, +\inf\[, resize particles that grow/shrink past ResizeParticleFactor their
+                original size (given by Sigma0). If ResizeParticleFactor == 0, no resizing is done.
+                
                 Default value: 3
-            StrengthRampAtbeginning : :py:class:`int`
-                [|0, +inf[|, put a sinusoidal ramp on the magnitude of the vorticity shed for the
-                                         StrengthRampAtbeginning first iterations of the simulation.
+            * StrengthRampAtbeginning : :py:class:`int`
+                \[\|0, +\inf\[\|, put a sinusoidal ramp on the magnitude of the vorticity shed for the
+                StrengthRampAtbeginning first iterations of the simulation.
+                
                 Default value: 50
-            EnstrophyControlRamp : :py:class:`int`
-                [|0, +inf[|, put a sinusoidal ramp on the Enstrophy filter applied to the particles
-                 for the EnstrophyControlRamp first iterations after the shedding of each particles.
+            * EnstrophyControlRamp : :py:class:`int`
+                \[\|0, +\inf\[\|, put a sinusoidal ramp on the Enstrophy filter applied to the particles
+                for the EnstrophyControlRamp first iterations after the shedding of each particles.
+                
                 Default value: 100
 
-        ############################# Fast Multipole Method Parameters #############################
-            ClusterSizeFactor : :py:class:`float`
-                [|0, +inf[|, FMM clusters smaller than Resolution*ClusterSizeFactor cannot be
-                                                                      divided into smaller clusters.
+                .. note::   Fast Multipole Method Parameters
+
+            * ClusterSizeFactor : :py:class:`float`
+                \[\|0, +\inf\[\|, FMM clusters smaller than Resolution*ClusterSizeFactor cannot be
+                divided into smaller clusters.
+                
                 Default value: 10
-            FarFieldPolynomialOrder : :py:class:`int`
-                [|4, 12|], order of the polynomial which approximates the long distance particle
-                          interactions by the FMM, the higher the more accurate and the more costly.
+            * FarFieldPolynomialOrder : :py:class:`int`
+                \[\|4, 12\|\], order of the polynomial which approximates the long distance particle
+                interactions by the FMM, the higher the more accurate and the more costly.
+                
                 Default value: 8
-            IterationCounter : :py:class:`int`
-            [|0, +inf[|, keeps track of how many iteration past since the last IterationTuningFMM.
+            * IterationCounter : :py:class:`int`
+                [\|0, +\inf\[\|, keeps track of how many iteration past since the last IterationTuningFMM.
+                
                 Default value: 0
-            IterationTuningFMM : :py:class:`int`
-                [|0, +inf[|, frequency at which the FMM is compared to the direct computation,
-                                          shows the relative L2 error made by the FMM approximation.
+            * IterationTuningFMM : :py:class:`int`
+                \[\|0, +\inf\[\|, frequency at which the FMM is compared to the direct computation,
+                shows the relative L2 error made by the FMM approximation.
+                
                 Default value: 50
-            MaxParticlesPerCluster : :py:class:`int`
-                [1, +inf[, FMM clusters with less than MaxParticlesPerCluster particles cannot be
-                                                                      divided into smaller clusters.
+            * MaxParticlesPerCluster : :py:class:`int`
+                \[1, +\inf\[, FMM clusters with less than MaxParticlesPerCluster particles cannot be
+                divided into smaller clusters.
+                
                 Default value: 2**8
-            NearFieldOverlapingFactor : :py:class:`float`
-                [1., +inf[, particle interactions are approximated by the FMM as soon as two
+            * NearFieldOverlapingFactor : :py:class:`float`
+                \[1., +\inf\[, particle interactions are approximated by the FMM as soon as two
                 clusters of particles are separated by at least NearFieldOverlapingFactor the size
-                  of the particles in the cluster, the higher the more accurate and the more costly.
+                of the particles in the cluster, the higher the more accurate and the more costly.
+                
                 Default value: 3
-            NearFieldSmoothingFactor : :py:class:`float`
-                [1., NearFieldOverlapingFactor], particle interactions are smoothed as soon as two
+            * NearFieldSmoothingFactor : :py:class:`float`
+                \[1., NearFieldOverlapingFactor\], particle interactions are smoothed as soon as two
                 clusters of particles are separated by at most NearFieldSmoothingFactor the size of
-                     the particles in the cluster, the higher the more accurate and the more costly.
+                the particles in the cluster, the higher the more accurate and the more costly.
+                
                 Default value: 2
-            NumberOfThreads : :py:class:`int`
-                [|1, OMP_NUM_THREADS|], number of threads of the machine used. If 'auto', the
-                                                                    highest number of threads is set
+            * NumberOfThreads : :py:class:`int`
+                \[\|1, OMP_NUM_THREADS\|\], number of threads of the machine used. If 'auto', the
+                highest number of threads is set
+                
                 Default value: 'auto'
-            TimeFMM : :py:class:`float`
-                [0, +inf[, keeps track of the CPU time spent by the FMM for the computation of the
+            * TimeFMM : :py:class:`float`
+                \[0, +\inf\[, keeps track of the CPU time spent by the FMM for the computation of the
                 particle interactions, in s.
+                
                 Default value: 0
 
-        ############################## Perturbation Field Parameters ###############################
-            FMMPerturbationOverlappingRatio : :py:class:`float`
-                [1., +inf[, perturbation grid interpolations are approximated by the FMM as soon as
+                .. note::   Perturbation Field Parameters
+            
+            * FMMPerturbationOverlappingRatio : :py:class:`float`
+                \[1., +\inf\[, perturbation grid interpolations are approximated by the FMM as soon as
                 two clusters of cells are separated by at least NearFieldOverlapingFactor the size
-                                   of the cluster, the higher the more accurate and the more costly.
+                of the cluster, the higher the more accurate and the more costly.
+                
                 Default value: 3
-            TimeVelocityPerturbation : :py:class:`float`
-                [0, +inf[, keeps track of the CPU time spent by the FMM for the interpolation of the
+            * TimeVelocityPerturbation : :py:class:`float`
+                \[0, +\inf\[, keeps track of the CPU time spent by the FMM for the interpolation of the
                 perturbation mesh, in s.
+                
                 Default value: 0
 
         LiftingLineParameters : :py:class:`dict`
             List of the parameters linked to the Lifting Lines. These parameters are only imposed if
-            they not already present in the .VPM#Parameters of the Lifting Lines. Each Lifting Line
-            can have its own set of parameters. These parameters are:
-        ############################################################################################
-        ################################# Lifting Lines Parameters #################################
-        ############################################################################################
-            CirculationThreshold : :py:class:`float`
-                ]0., 1], convergence criteria for the circulation sub-iteration process to shed the
-                                                                   particles from the Lifting Lines.
+            they are not already present in the .VPM#Parameters of the Lifting Lines. Each Lifting
+            Line can have its own set of parameters. These parameters are:
+
+            * CirculationThreshold : :py:class:`float`
+                \]0., 1\], convergence criteria for the circulation sub-iteration process to shed the
+                particles from the Lifting Lines.
+                
                 Default value: 1e-4
-            CirculationRelaxationFactor : :py:class:`float`
-                ]0., 1.], relaxation parameter of the circulation sub-iterations, the more unstable
-                                                             the simulation, the lower it should be.
+            * CirculationRelaxationFactor : :py:class:`float`
+                \]0., 1.\], relaxation parameter of the circulation sub-iterations, the more unstable
+                the simulation, the lower it should be.
+                
                 Default value: 1./3.
-            IntegralLaw : :py:class:`str`
+            * IntegralLaw : :py:class:`str`
                 linear, uniform, tanhOneSide, tanhTwoSides or ratio, gives the type of interpolation
                 of the circulation from the Lifting Lines sections onto the particles sources
-                                                                      embedded on the Lifting Lines.
+                embedded on the Lifting Lines.
+                
                 Default value: 'linear`
-            MaxLiftingLineSubIterations : :py:class:`int`
-                [|0, +inf[|, max number of sub-iteration when sheding the particles from the Lifting
-                                                                                              Lines.
+            * MaxLiftingLineSubIterations : :py:class:`int`
+                \[\|0, +\inf\[\|, max number of sub-iteration when sheding the particles from the Lifting
+                Lines.
+                
                 Default value: 100
-            MinNbShedParticlesPerLiftingLine : :py:class:`int`
-                [|0, +inf[|, Lifting Lines cannot have less than MinNbShedParticlesPerLiftingLine
+            * MinNbShedParticlesPerLiftingLine : :py:class:`int`
+                \[\|0, +\inf\[\|, Lifting Lines cannot have less than MinNbShedParticlesPerLiftingLine
                 particle sources. This parameter is imposed indiscriminately on all the Lifting
-                                                                                              Lines.
+                Lines.
+                
                 Default value: 26
-            NumberOfParticleSources : :py:class:`int`
-                [|0, +inf[|, number of particle sources on the Lifting Lines.
-                Default value: 100
-            ParticleDistribution : :py:class:`dict`
+            * NumberOfParticleSources : :py:class:`int`
+                \[\|26, +\inf\[\|, number of particle sources on the Lifting Lines. Will impose
+                :py:class:`LocalResolution` as:
+                :: LocalResolution = MOLA.Wireframe.getLength(LiftingLine)/NumberOfParticleSources
+                
+                Default value: 50
+            * ParticleDistribution : :py:class:`dict`
                 Provides with the repartition of the particle sources on the Lifting Lines.
+                
                 Default value: dict(kind = 'tanhTwoSides', FirstSegmentRatio = 2.,
-                                                        LastSegmentRatio = 0.5, Symmetrical = False)
-                    kind : :py:class:`str`
+                    LastSegmentRatio = 0.5, Symmetrical = False)
+
+                    * kind : :py:class:`str`
                         uniform, tanhOneSide, tanhTwoSides or ratio, repatition law of the particle.
+                        
                         Default value: 'tanhTwoSides'
-                    FirstSegmentRatio : :py:class:`float`
-                        ]0., +inf[, particles at the root of the Lifting Line are spaced by
-                                                   FirstSegmentRatio times their size, i.e., Sigma0.
+                    * FirstSegmentRatio : :py:class:`float`
+                        \]0., +\inf\[, particles at the root of the Lifting Line are spaced by
+                        FirstSegmentRatio times the LocalResolution.
+                        
                         Default value: 2.
-                    LastSegmentRatio : :py:class:`float`
-                        ]0., +inf[, particles at the tip of the Lifting Line are spaced by
-                                                   LastSegmentRatio times their size, i.e., Sigma0.
+                    * LastSegmentRatio : :py:class:`float`
+                        \]0., +\inf\[, particles at the tip of the Lifting Line are spaced by
+                        LastSegmentRatio times the LocalResolution.
+                        
                         Default value: 0.5
-                    Symmetrical : :py:class:`bool`
-                        [|0, 1|], forces or not the symmetry of the particle sources on the Lifting
-                                                                                              Lines.
-            RPM : :py:class:`float`
-                [0, +inf], revolution per minute of the Lifting Lines, rev.min-1
-                Default value: 0.
-            VelocityTranslation : numpy.ndarray of :py:class:`float`
-            ]-inf, +inf[^3, translation velocity of the Lifting Lines.
-                Default value: [0., 0., 0.]
+                    * Symmetrical : :py:class:`bool`
+                        \[\|0, 1\|\], forces or not the symmetry of the particle sources on the Lifting
+                        Lines.
+            * LocalResolution : :py:class:`float`
+                \]0, +\inf\[, resolution of the Lifting Line, i.e., mean distance between the
+                particle sources. If undefined, :py:class:`NumberOfParticleSources` is imposed as:
+                :: NumberOfParticleSources = int(round(MOLA.Wireframe.getLength(LiftingLine)/LocalResolution))
+            * RPM : :py:class:`float`
+                \[0, +\inf\], revolution per minute of the Lifting Lines, rev.min-1
+            * VelocityTranslation : numpy.ndarray of :py:class:`float`
+                ]-\inf, +\inf\[^3, translation velocity of the Lifting Lines.
 
         HybridParameters : :py:class:`dict`
             List of the parameters linked to the Eulerian-Lagrangian hybridisation. These parameters
-                                                                                                are:
-        ############################################################################################
-        ##################################### Hybrid Parameters ####################################
-        ############################################################################################
-            EulerianSubIterations : :py:class:`int`
-                [|0, +inf[|, number of sub-iterations for the Eulerian solver
+            are:
+
+            * EulerianSubIterations : :py:class:`int`
+                \[\|0, +\inf\[\|, number of sub-iterations for the Eulerian solver
+                
                 Default value: 30
-            EulerianTimeStep : :py:class:`float`
-                ]0., +inf[, timestep for the Eulerian solver, in s.
+            * EulerianTimeStep : :py:class:`float`
+                \]0., +\inf\[, timestep for the Eulerian solver, in s.
+                
                 Default value: TimeStep
-            GenerationZones : list of :py:class:`list` or list of numpy.ndarray of :py:class:`float`
+            * GenerationZones : list of :py:class:`list` or list of numpy.ndarray of :py:class:`float`
                 The Eulerian vorticity sources are only considered if within GenerationZones, in m.
+                
                 Default value: np.array([[-np.inf, -np.inf, -np.inf, np.inf, np.inf, np.inf]])
-            HybridDomainSize : :py:class:`float`
-                ]0., +inf[, size of the Hybrid Domain contained between the Outer and Inner
-                                                                                         Interfaces.
-                Default value: 0                                                                                         
-            HybridRedistributionOrder : :py:class:`int`
-            [|1, 5|], order of the polynomial used to redistribute the generated particles on a
-                                                                             regular cartesian grid.
+            * HybridDomainSize : :py:class:`float`
+                \]0., +\inf\[, size of the Hybrid Domain contained between the Outer and Inner
+                Interfaces.
+            * HybridRedistributionOrder : :py:class:`int`
+                \[\|1, 5\|\], order of the polynomial used to redistribute the generated particles on a
+                regular cartesian grid.
+                
                 Default value: 2
-            InnerDomainCellLayer : :py:class:`int`
-                |]0, +inf[|, gives the position of the beginning of the Hybrid Domain, i.e., the
+            * InnerDomainCellLayer : :py:class:`int`
+                \|\]0, +\inf\[\|, gives the position of the beginning of the Hybrid Domain, i.e., the
                 position of the Inner Interface. The Hybrid Domain is thus starts 2 ghost cells +
                 NumberOfBCCells + OuterDomainCellOffset + InnerDomainCellLayer layers of cells from
                 the exterior boundary of the Eulerian mesh.
+                
                 Default value: 0
-            MaxHybridGenerationIteration : :py:class:`int`
-                [|0, +inf[|, max number of sub-iterations for the iterative particle generation
-                                                                                             method.
+            * MaxHybridGenerationIteration : :py:class:`int`
+                \[\|0, +\inf\[\|, max number of sub-iterations for the iterative particle generation
+                method.
+                
                 Default value: 50
-            MaximumSourcesPerLayer : :py:class:`int`
-                [|0, +inf[|, max number of vorticity sources in each layer of the Hybrid Domain.
+            * MaximumSourcesPerLayer : :py:class:`int`
+                \[\|0, +\inf\[\|, max number of vorticity sources in each layer of the Hybrid Domain.
+                
                 Default value: 1000
-            MinimumSplitStrengthFactor : :py:class:`float`
-                [0., +inf[, in %, sets the minimum particle strength kept per layer after generation
+            * MinimumSplitStrengthFactor : :py:class:`float`
+                \[0., +\inf\[, in %, sets the minimum particle strength kept per layer after generation
                 of the hybrid particles. The strength threshold is set as a percentage of the
-                             maximum strength in the hybrid domain times MinimumSplitStrengthFactor.
+                maximum strength in the hybrid domain times MinimumSplitStrengthFactor.
+                
                 Default value: 1.
-            NumberOfBCCells : :py:class:`int`
-                |]0, +inf[|, number of layers cells on which the BC farfield is imposed by the VPM.
+            * NumberOfBCCells : :py:class:`int`
+                \|\]0, +\inf\[\|, number of layers cells on which the BC farfield is imposed by the VPM.
+                
                 Default value: 1
-            NumberOfBEMUnknown : :py:class:`int`
-                [|0, 3|], number of unknown for the BEM. If NumberOfBEMUnknown == 0: sources and
+            * NumberOfBEMUnknown : :py:class:`int`
+                \[\|0, 3\|\], number of unknown for the BEM. If NumberOfBEMUnknown == 0: sources and
                 vortex sheets are given with an initial guess but not solved. If NumberOfBEMUnknown
                 == 1: only sources are solved. If NumberOfBEMUnknown == 2: only vortex sheets are
-                      solved. If NumberOfBEMUnknown == 3: both sources and vortex sheets are solved.
+                solved. If NumberOfBEMUnknown == 3: both sources and vortex sheets are solved.
+                
                 Default value: 0
-            NumberOfHybridLayers : :py:class:`int`
-                |]0, +inf[|, number of layers dividing the Hybrid Domain.
+            * NumberOfHybridLayers : :py:class:`int`
+                \|\]0, +\inf\[\|, number of layers dividing the Hybrid Domain.
+                
                 Default value: 5
-            OuterDomainCellOffset : :py:class:`int`
-                |]0, +inf[|, offsets the position of the Hybrid Domain by OuterDomainCellOffset from
+            * OuterDomainCellOffset : :py:class:`int`
+                \|\]0, +\inf\[\|, offsets the position of the Hybrid Domain by OuterDomainCellOffset from
                 the far field BC imposed by the VPM. The Hybrid Domain thus ends 2 ghost cells +
                 NumberOfBCCells + OuterDomainCellOffset layers of cells from the exterior boundary
-                                                                               of the Eulerian mesh.
+                of the Eulerian mesh.
+                
                 Default value: 2
-            ParticleGenerationMethod : :py:class:`str`
+            * ParticleGenerationMethod : :py:class:`str`
                 GMRES, BiCGSTAB, CG or Direct, gives the iterative methode to compute the strength
                 of the hybrid particles fom the Euerian vorticity sources. Selects the Generalized
                 Minimal Residual, Bi-Conjugate Gradient Stabilised, Conjugate Gradient or Direct
-                                                                            Resolution from LAPACKE.
+                Resolution from LAPACKE.
+                
                 Default value: 'BiCGSTAB'
-            RelaxationRatio : :py:class:`float`
-                [|0, +inf[|, dynamically updates the iterative method convergence criteria for the
+            * RelaxationRatio : :py:class:`float`
+                \[\|0, +\inf\[\|, dynamically updates the iterative method convergence criteria for the
                 relative error of the vorticity induced by the generated particles to be as close as
-                                                                    possible to RelaxationThreshold.
+                possible to RelaxationThreshold.
+                
                 Default value: 1
-            RelaxationThreshold : :py:class:`float`
-                [0, +inf[ in m^3.s^-1, gives the convergence criteria for the iterative particle
-                                                                                  generation method.
+            * RelaxationThreshold : :py:class:`float`
+                \[0, +\inf\[ in m^3.s^-1, gives the convergence criteria for the iterative particle
+                generation method.
+                
                 Default value: 1e-3
 
         VortexParameters : :py:class:`dict`
             List of the parameters linked to the free flow configurations. These parameters are:
-        ############################################################################################
-        ################################## Vortex Rings parameters #################################
-        ############################################################################################
-            Intensity : :py:class:`float`
-                [0., +inf[, vortex intensity, in m^2.s-1.
+
+            * Intensity : :py:class:`float`
+                \[0., +\inf\[, vortex intensity, in m^2.s-1.
+                
                 Default value: 1.
-            NumberLayers : :py:class:`int`
-                [|1., +inf[|, number of layers of particles composing the vortex structure.
+            * NumberLayers : :py:class:`int`
+                \[\|1., +\inf\[\|, number of layers of particles composing the vortex structure.
+                
                 Default value: 6
     '''
     defaultParameters = [defaultVPMParameters, defaultLiftingLineParameters,
@@ -2188,14 +2307,12 @@ def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude',
                                  'StrengthMagnitude=({AlphaX}**2 + {AlphaY}**2 + {AlphaZ}**2)**0.5')
         elif ParticlesColorField == 'VelocityMagnitude':
             U0 = getParameter(Particles, 'VelocityFreestream')
-            C._initVars(Particles, 'U0X', U0[0])
-            C._initVars(Particles, 'U0Y', U0[1])
-            C._initVars(Particles, 'U0Z', U0[2])
             C._initVars(Particles, 'VelocityMagnitude=(\
-          ({UX0}+{VelocityInducedX}+{VelocityPerturbationX}+{VelocityBEMX}+{VelocityInterfaceX})**2\
-         +({UY0}+{VelocityInducedY}+{VelocityPerturbationY}+{VelocityBEMY}+{VelocityInterfaceY})**2\
-         +({UZ0}+{VelocityInducedZ}+{VelocityPerturbationZ}+{VelocityBEMZ}+{VelocityInterfaceZ})**2\
-                                                                                            )**0.5')
+             (%g+{VelocityInducedX}+{VelocityPerturbationX}+{VelocityBEMX}+{VelocityInterfaceX})**2\
+            +(%g+{VelocityInducedY}+{VelocityPerturbationY}+{VelocityBEMY}+{VelocityInterfaceY})**2\
+            +(%g+{VelocityInducedZ}+{VelocityPerturbationZ}+{VelocityBEMZ}+{VelocityInterfaceZ})**2\
+                                                                                            )**0.5'%
+                                                                              (U0[0], U0[1], U0[2]))
         elif ParticlesColorField == 'rotU':
             C._initVars(Particles, 'rotU=(({gradyVelocityZ} - {gradzVelocityY})**2 + \
                 ({gradzVelocityX} - {gradxVelocityZ})**2 + ({gradxVelocityY} - {gradyVelocityX})**2\
@@ -2206,13 +2323,8 @@ def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude',
     for zone in LiftingLines:
         CPlot._addRender2Zone(zone, material = 'Flat', color = 'White', blending = 0.2)
 
-    if addLiftingLineSurfaces:
-        if not AirfoilPolars:
-            ERRMSG = J.FAIL + ('production of surfaces from lifting-line requires'
-                ' attribute AirfoilPolars') + J.ENDC
-            raise AttributeError(ERRMSG)
+    if addLiftingLineSurfaces and AirfoilPolars:
         LiftingLineSurfaces = []
-
         for ll in LiftingLines:
             surface = LL.postLiftingLine2Surface(ll, AirfoilPolars)
             surface[0] = ll[0] + '.surf'

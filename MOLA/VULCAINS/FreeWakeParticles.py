@@ -15,6 +15,18 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+'''
+VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible Navier-Stokes)
+
+This module enables the simulation of 3D viscous unsteady incompressible flow using the Vortex
+
+Version:
+0.5
+
+Author:
+Johan VALENTIN
+'''
+
 import numpy as np
 import Converter.Internal as I
 
@@ -29,9 +41,9 @@ from . import Main as V
 def initialiseVPM(tE = [], tH = [], tLL = [], VPMParameters = {}, HybridParameters = {},
     LiftingLineParameters = {}, PerturbationFieldParameters = {}):
     '''
-    Creates a Tree initialised with the given checked and updated parameters and initialise the
-    particles according to the given Lifting Lines or Eulerian Mesh. Also generate Hybrid
-    Domains and/or Lifting Lines in the Tree.
+    Creates a Tree initialised with the given parameters and initialise the particles according to
+    the given Lifting Lines or Eulerian Mesh. Also generate Hybrid Domains and/or Lifting Lines in
+    the Tree.
 
     Parameters
     ----------

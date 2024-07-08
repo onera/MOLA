@@ -15,6 +15,18 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+'''
+VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible Navier-Stokes)
+
+This module serves as the primary user interface for the launching of VULCAINS simulations.
+
+Version:
+0.5
+
+Author:
+Johan VALENTIN
+'''
+
 import os
 import numpy as np
 import Converter.PyTree as C
@@ -265,7 +277,7 @@ def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {
             VelocityInduced, VelocityPerturbation, VelocityDiffusion, gradxVelocity, gradyVelocity,
             gradzVelocity, PSE, Vorticity, Alpha, Stretching, rotU, Velocity, Age, Sigma, Cvisq, Nu,
             divUd, Enstrophyf, Enstrophy, EnstrophyM1, StrengthMagnitude, VelocityMagnitude and
-                                                                                 VorticityMagnitude.
+            VorticityMagnitude.
 
         VisualisationOptions : :py:class:`dict`
             CPlot options for the visualisation (if any).
@@ -508,7 +520,7 @@ def computeVortexRing(VPMParameters = {}, VortexParameters = {}, NumberOfIterati
             VelocityInduced, VelocityPerturbation, VelocityDiffusion, gradxVelocity, gradyVelocity,
             gradzVelocity, PSE, Vorticity, Alpha, Stretching, rotU, Velocity, Age, Sigma, Cvisq, Nu,
             divUd, Enstrophyf, Enstrophy, EnstrophyM1, StrengthMagnitude, VelocityMagnitude and
-                                                                                 VorticityMagnitude.
+            VorticityMagnitude.
 
         SaveFields : :py:class:`bool`
             States whether an isolated, or two leap-frogging vortex rings are to be simulated.
@@ -589,13 +601,13 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
             Number of nodes where the solution approximated by the FMM is checked.
 
         FarFieldPolynomialOrder : :py:class:`int`
-            [|4, 12|], order of the polynomial which approximates the long distance particle
-                          interactions by the FMM, the higher the more accurate and the more costly.
+            \[\|4, 12\|\], order of the polynomial which approximates the long distance particle
+            interactions by the FMM. The higher the more accurate and the more costly.
 
         NearFieldOverlapingFactor : :py:class:`float`
-            [1., +inf[, particle interactions are approximated by the FMM as soon as two
+            \[1., +\inf\[, particle interactions are approximated by the FMM as soon as two
             clusters of particles are separated by at least NearFieldOverlapingFactor the size
-              of the particles in the cluster, the higher the more accurate and the more costly.
+            of the particles in the cluster. The higher the more accurate and the more costly.
     '''
     #initialise targets
     if not Targets: return

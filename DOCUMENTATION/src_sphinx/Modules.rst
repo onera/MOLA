@@ -20,6 +20,7 @@ Modules
   RotatoryWings
   PropellerAnalysis
   LiftingLine
+  VULCAINS
   BodyForceTurbomachinery
   Visu
   XFoil
