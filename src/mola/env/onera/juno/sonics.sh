@@ -28,7 +28,8 @@ export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # source /tmp_user/juno/sonics/dist/socle_cfd6/source.sh
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh
-export PYTHONPATH=/tmp_user/juno/mola/miles:$PYTHONPATH
+# source /stck/tbontemp/softs/sonics/build/source.sh
+# export PYTHONPATH=/tmp_user/juno/mola/miles:$PYTHONPATH
 
 # external python packages
 export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH

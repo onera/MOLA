@@ -42,9 +42,28 @@ def apply_to_solver(workflow):
     # pytriggers += default_pytriggers
     # iterators = get_default_iterators(workflow.SolverParameters['configuration'], pytriggers, comm)
 
+    # NOTE Finally, sonics.solver.run will take only dist_tree (the configuration will be read inside the tree)
+    workflow.SolverParameters['configuration'] = get_configuration_from_tree(dist_tree, workflow)
     sonics.solver.run(workflow.SolverParameters['configuration'], dist_tree, comm) #, iterators=iterators)
 
     maia.algo.pe_to_nface(dist_tree, comm)
     maia.io.dist_tree_to_file(dist_tree, 'solution.cgns', comm)
  
+def get_configuration_from_tree(tree, workflow):
+    import miles
+    import copy
 
+    configuration = copy.copy(workflow.SolverParameters['configuration'])
+
+    my_config = miles.solver.config.Configuration(tree, pure_cgns_mode=False)
+    my_config.add_template(configuration['conf'])
+    my_config.set_numerics(CFL=workflow.Numerics['CFL'])
+    
+    conf = my_config.apply()
+    configuration.update(conf)
+    if rank==0:
+        # print(my_config.spl_product)
+        from pprint import pprint 
+        pprint(configuration)
+    
+    return configuration

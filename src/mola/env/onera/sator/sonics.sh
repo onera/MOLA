@@ -18,7 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-export MOLAext=/tmp_user/sator/mola/v1.17/ext
+export MOLAext=/tmp_user/sator/mola/future_v2/ext
 
 # Treelab
 # NOTE installation hint:
