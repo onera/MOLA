@@ -76,9 +76,10 @@ float_Params = ['Density', 'EddyViscosityConstant', 'KinematicViscosity', 'Tempe
     'MagnitudeRelaxationFactor', 'EddyViscosityRelaxationFactor', 'RemoveWeakParticlesBeyond',
     'ResizeParticleFactor', 'ClusterSizeFactor', 'NearFieldOverlapingFactor',
     'NearFieldSmoothingFactor', 'TimeFMM', 'FMMPerturbationOverlappingRatio',
-    'TimeVelocityPerturbation', 'CirculationThreshold', 'CirculationRelaxationFactor', 'RPM',
-    'VelocityTranslation', 'EulerianTimeStep', 'GenerationZones', 'HybridDomainSize',
-                'MinimumSplitStrengthFactor', 'RelaxationRatio', 'RelaxationThreshold', 'Intensity']
+    'TimeVelocityPerturbation', 'CirculationThreshold', 'CirculationRelaxationFactor', 
+    'LocalResolution', 'RPM', 'VelocityTranslation', 'EulerianTimeStep', 'GenerationZones',
+    'HybridDomainSize', 'MinimumSplitStrengthFactor', 'RelaxationRatio', 'RelaxationThreshold',
+                                                                                        'Intensity']
                                                                                         
 int_Params = ['CurrentIteration', 'IntegrationOrder', 'LowStorageIntegration',
     'NumberOfLiftingLines', 'NumberOfLiftingLineSources', 'NumberOfBEMSources',
@@ -450,6 +451,7 @@ def getParticles(t = []):
         Particles : Base
             Particle Base (if any).
     '''
+    if t and t[0] == 'Particles': return t
     return I.getNodeFromName1(t, 'Particles')
 
 def getFreeParticles(t = []):
@@ -465,6 +467,7 @@ def getFreeParticles(t = []):
         Particles : Zone
             Free Particle Zone (if any).
     '''
+    if t and t[0] == 'FreeParticles': return t
     Particles = getParticles(t)
     if Particles: return I.getNodeFromName1(Particles, 'FreeParticles')
 
@@ -473,7 +476,7 @@ def getFreeParticles(t = []):
 
     for z in I.getZones(t):
         if z[0] == 'FreeParticles':
-            return [z]
+            return z
 
 def getBEMParticles(t = []):
     '''
@@ -488,6 +491,7 @@ def getBEMParticles(t = []):
         Particles : Zone
             BEM Particle Zone (if any).
     '''
+    if t and t[0] == 'BEMParticles': return t
     Particles = getParticles(t)
     if Particles: return I.getNodeFromName1(Particles, 'BEMParticles')
 
@@ -496,7 +500,7 @@ def getBEMParticles(t = []):
 
     for z in I.getZones(t):
         if z[0] == 'BEMParticles':
-            return [z]
+            return z
 
 def getImmersedParticles(t = []):
     '''
@@ -511,6 +515,7 @@ def getImmersedParticles(t = []):
         Particles : Zone
             Eulerian Immersed Particle Zone (if any).
     '''
+    if t and t[0] == 'ImmersedParticles': return t
     Particles = getParticles(t)
     if Particles: return I.getNodeFromName1(Particles, 'ImmersedParticles')
 
@@ -519,7 +524,7 @@ def getImmersedParticles(t = []):
 
     for z in I.getZones(t):
         if z[0] == 'ImmersedParticles':
-            return [z]
+            return z
 
 def getParticlesTree(t = []):
     '''
@@ -550,6 +555,7 @@ def getPerturbationField(t = []):
         PerturbationField : Base
             PerturbationField Base (if any).
     '''
+    if t and t[0] == 'PerturbationField': return t
     return I.getNodeFromName1(t, 'PerturbationField')
 
 def getPerturbationFieldTree(t = []):
@@ -2101,7 +2107,7 @@ def getHybridDomainOuterInterface(t = []):
 
     for z in I.getZones(t):
         if z[0] == 'OuterInterface':
-            return [z]
+            return z
 
     #return []
 
@@ -2126,7 +2132,7 @@ def getHybridDomainInnerInterface(t = []):
 
     for z in I.getZones(t):
         if z[0] == 'InnerInterface':
-            return [z]
+            return z
 
     #return []
 
@@ -2151,7 +2157,7 @@ def getHybridDomainBEMInterface(t = []):
 
     for z in I.getZones(t):
         if z[0] == 'BEMInterface':
-            return [z]
+            return z
 
     #return []
 
@@ -2176,7 +2182,7 @@ def getHybridSources(t = []):
 
     for z in I.getZones(t):
         if z[0] == 'HybridSources':
-            return [z]
+            return z
 
     #return []
 
@@ -2453,6 +2459,52 @@ def checkSaveFields(SaveFields = ['all']):
     FieldNames += vectorise('Alpha') + ['Age', 'Sigma', 'Nu', 'Cvisq', 'EnstrophyM1']
     return np.unique(FieldNames)
 
+def checkTreeStructure(t = [], name = ''):
+    '''
+    Checks and updates the types of the nodes of the given entry.
+    
+    Parameters
+    ----------
+        t : Tree, base(s), Zone(s)
+            Container to check and update.
+    Returns
+    -------
+        t : Tree
+            Checked tree.
+    '''
+    TypeOfInput = I.isStdNode(t)
+    ERRMSG = J.FAIL + 't must be a tree, a list of bases or a list of zones' + J.ENDC
+    if TypeOfInput == -1:# is a standard CGNS node
+        if I.isTopTree(t):
+            Bases = I.getBases(t)
+            if len(Bases) == 1 and Bases[0][0] == 'Base' and name:
+                Bases[0][0] = name
+        elif t[3] == 'CGNSBase_t':
+            LiftingLineBase = t
+            if LiftingLineBase[0] == 'Base' and name: LiftingLineBase[0] = name
+            t = C.newPyTree([])
+            t[2] = [LiftingLineBase]
+        elif t[3] == 'Zone_t':
+            if name: t = C.newPyTree([name, [t]])
+            else: t = C.newPyTree([t])
+        else:
+            raise AttributeError(ERRMSG)
+    elif TypeOfInput == 0:# is a list of CGNS nodes
+        if t[0][3] == 'CGNSBase_t':
+            Bases = I.getBases(t)
+            t = C.newPyTree([])
+            t[2] = Bases
+        elif t[0][3] == 'Zone_t':
+            Zones = I.getZones(t)
+            if name: t = C.newPyTree([name, Zones])
+            else: t = C.newPyTree([Zones])
+        else:
+            raise AttributeError(ERRMSG)
+    else:
+        raise AttributeError(ERRMSG)
+
+    return t
+
 def save(t = [], filename = '', VisualisationOptions = {}, SaveFields = checkSaveFields()):
     '''
     Saves the CGNS file designated by the user. If the CGNS containes particles, the VPM field
@@ -2471,13 +2523,12 @@ def save(t = [], filename = '', VisualisationOptions = {}, SaveFields = checkSav
         SaveFields : :py:class:`list` or numpy.ndarray of :py:class:`str`
             Particles fields to save (if any). if 'all', then they are all saved.
     '''
-    tref = I.copyRef(t)
+    tref = checkTreeStructure(I.copyRef(t))
     if VisualisationOptions:
         setVisualization(tref, **VisualisationOptions)
         SaveFields = np.append(SaveFields, ['radius'])
 
     Particles = getFreeParticles(tref)
-    # I.printTree(Particles)
     if I.getZones(Particles):
         I._rmNodesByName(Particles, 'BEMMatrix')
         if 'VelocityX' in SaveFields:

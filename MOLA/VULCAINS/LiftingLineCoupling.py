@@ -70,8 +70,7 @@ def initialiseLiftingLines(tLL = [], VPMParameters = {}, LiftingLineParameters =
         tLL = V.load(tLL)
         V.deletePrintedLines()
     
-    tLL = C.newPyTree(['LiftingLines', I.getZones(tLL)])
-    renameLiftingLinesTree(tLL)
+    tLL = V.checkTreeStructure(tLL, 'LiftingLines')
     updateLiftingLinesParameters(tLL, VPMParameters, LiftingLineParameters)
     updateParametersFromLiftingLines(tLL, VPMParameters)
     return tLL
@@ -404,11 +403,11 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
                 raise AttributeError(ERRMSG)
 
         if 'NumberOfParticleSources' in LLParameters:
-            NumberOfParticleSources = LLParameters['NumberOfParticleSources'][0]
+            NumberOfParticleSources = max(NLLmin, LLParameters['NumberOfParticleSources'][0])
             LocalResolution = span/NumberOfParticleSources
         elif 'LocalResolution' in LLParameters:
             LocalResolution = LLParameters['LocalResolution'][0]
-            NumberOfParticleSources = int(round(span/LocalResolution))
+            NumberOfParticleSources = max(int(round(span/LocalResolution)), NLLmin)
             LocalResolution = span/NumberOfParticleSources
         else:
             NumberOfParticleSources = NLLmin
