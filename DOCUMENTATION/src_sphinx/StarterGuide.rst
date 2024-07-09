@@ -14,6 +14,8 @@ MOLA environment is available on the following ONERA machines:
 
 * visung (only CentOS 8)
 
+* juno
+
 * spiro (partition ``spiro-daaa``)
 
 
