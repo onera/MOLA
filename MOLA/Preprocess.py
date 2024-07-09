@@ -635,7 +635,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 def tag_zones_with_sourceterm(t):
     '''
     Add node xdt_nature='sourceterm' that is mandatory to use body force.
-    See https://elsa.onera.fr/issues/11496#note-6
+    See `elsA issue #11496 message 6 <https://elsa.onera.fr/issues/11496#note-6>`__
     '''
     if I.getNodeFromName(t, 'FlowSolution#DataSourceTerm'):
         zones = [z for z in I.getZones(t) if I.getNodeFromName1(z, 'FlowSolution#DataSourceTerm')]
@@ -1830,7 +1830,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             ``ID_*`` nodes.
 
             .. danger::
-                beware of elsA bug `10545 <https://elsa.onera.fr/issues/10545>`_
+                beware of `elsA bug 10545 <https://elsa.onera.fr/issues/10545>`__
         
         CHECK_OVERSET : bool
             if :py:obj:`True`, then make an extrapolated-orphan cell diagnosis
@@ -2810,7 +2810,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
             computation, expressed in [m]
 
         TurbulenceModel : str
-            Some `NASA's conventional turbulence model <https://turbmodels.larc.nasa.gov/>`_
+            Some `NASA's conventional turbulence model <https://turbmodels.larc.nasa.gov/>`__
             available in elsA are included:
             ``'SA'``, ``'Wilcox2006-klim'``, ``'Wilcox2006-klim-V'``,
             ``'Wilcox2006'``, ``'Wilcox2006-V'``, ``'SST-2003'``, 
@@ -5847,7 +5847,7 @@ def renameNodes(t, rename_dict={}):
 
 def adaptFamilyBCNamesToElsA(t):
     '''
-    Due to https://elsa.onera.fr/issues/11090
+    Due to `elsA issue #11090 <https://elsa.onera.fr/issues/11090>`__
     '''
     for n in I.getNodesFromType(t, 'FamilyBC_t'):
         n[0] = 'FamilyBC'
@@ -5957,7 +5957,7 @@ def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
 def addBC2Zone(*args, **kwargs):
     '''
     Workaround of Converter._addBC2Zone (in-place) function in order to circumvent 
-    https://elsa.onera.fr/issues/11236
+    `elsA Issue #11236 <https://elsa.onera.fr/issues/11236>`__
 
     TODO remove for elsA > v5.2.03
 
@@ -6008,8 +6008,8 @@ def _convert_mesh_to_ngon(filename_in, filename_out):
 
 def _hackChimGroupFamilies(t):
     '''
-    This is a HACK for circumventing https://elsa.onera.fr/issues/11552
-    also check https://gitlab.onera.net/numerics/mola/-/issues/196
+    This is a HACK for circumventing `elsA Issue #11552`__
+    also check `MOLA Issue #196 <https://gitlab.onera.net/numerics/mola/-/issues/196>`__
     '''
     for family_name_node in I.getNodesFromType(t,'FamilyName_t'):
         if family_name_node[0].startswith('ChimGroup'):
@@ -6027,8 +6027,8 @@ def hasMOLAMotion(t):
 
 def avoidSameFamilyBCNameAsBase(t):
     '''
-    This is a HACK for preventing from problem https://elsa.onera.fr/issues/11552
-    Also check https://gitlab.onera.net/numerics/mola/-/issues/198
+    This is a HACK for preventing from problem `elsA Issue #11552 <https://elsa.onera.fr/issues/11552>`__
+    Also check `MOLA Issue #198 <https://gitlab.onera.net/numerics/mola/-/issues/198>`__
     '''
     for base in I.getBases(t):
         for family in I.getNodesFromType1(base,'Family_t'):

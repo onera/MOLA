@@ -3,32 +3,14 @@
 VULCAINS
 ========
 
-VULCAINS.Main
--------------
-
-.. automodule:: MOLA.VULCAINS.Main
+.. automodule:: MOLA.VULCAINS
   :members:
 
-VULCAINS.User
--------------
+.. toctree::
+    :maxdepth: 2
 
-.. automodule:: MOLA.VULCAINS.User
-  :members:
-
-VULCAINS.FreeWakeParticles
---------------------------
-
-.. automodule:: MOLA.VULCAINS.FreeWakeParticles
-  :members:
-
-VULCAINS.LiftingLineCoupling
-----------------------------
-
-.. automodule:: MOLA.VULCAINS.LiftingLineCoupling
-  :members:
-
-VULCAINS.EulerianCoupling
--------------------------
-
-.. automodule:: MOLA.VULCAINS.EulerianCoupling
-  :members:
+    VulcainsUser
+    VulcainsMain
+    VulcainsLiftingLineCoupling
+    VulcainsFreeWakeParticles
+    VulcainsEulerianCoupling

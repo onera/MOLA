@@ -2910,27 +2910,28 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
 
     .. note::
     
-        see theoretical report: /home/bfrancoi/NSCBC/RapportsONERA/SONICE-TF-S2.1.4.1.2_NSCBCgilesInletSteadyStructured_Final3.pdf
+        see theoretical report SONICE-TF-S2.1.4.1.2
 
     Parameters
     ----------
 
-            t : PyTree
-                Tree to modify
+        t : PyTree
+            Tree to modify
 
-            bc : CGNS node of type BC_t
-                 BC node attached to the family in the which the boundary condition is applied
+        bc : CGNS node of type BC_t
+                BC node attached to the family in the which the boundary condition is applied
 
-            FamilyName : str
-                Name of the family on which the boundary condition will be imposed
-            
-            kwargs : dict
-                Parameters defined by the user: FamilyName, Pressure, NbModesFourierGiles, monitoring_flag, option
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+        
+        kwargs : dict
+            Parameters defined by the user: FamilyName, Pressure, NbModesFourierGiles, monitoring_flag, option
 
-            TO DO: 
-               1. keep a similar structure as outpres and outradeq
-               2. add cartography
     '''
+
+    # TODO: 
+    #     1. keep a similar structure as outpres and outradeq
+    #     2. add cartography
 
     # creation of dictionnary of keys for Giles outlet BC  
     DictKeysGilesOutlet = {}
@@ -3020,25 +3021,20 @@ def setBC_injrot(t, bc, injrot_type, filename):
     '''
     Impose a Boundary Condition ``injrot``.
 
-       Parameters
+    Parameters
     ----------
 
-            t : PyTree
-                Tree to modify
+        t : PyTree
+            Tree to modify
 
-            bc : CGNS node of type BC_t
-                 BC node attached to the family in the which the boundary condition is applied
+        bc : node
+            BC CGNS node attached to the family in the which the boundary condition is applied
 
-            injrot_type : string
-                 type of injrot formulation : 'rel_direction' or 'tangential_comp'
-            
-            filename: string ('*.cgns')
-                 filename of the CGNS file containing the inlet data suitable for injrot
-
-
-            kwargs : dict
-                Parameters defined by the user: filename (mandatory)
-
+        injrot_type : str
+            type of injrot formulation : ``'rel_direction'`` or ``'tangential_comp'``
+        
+        filename : str
+            filename of the CGNS file containing the inlet data suitable for injrot
 
     '''
 

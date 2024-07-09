@@ -163,6 +163,427 @@ defaultVPMParameters = {
         'TimeVelocityPerturbation'        : 0,
 }
 
+
+def getDefaultVPMParameters(
+    ####################################### Fluid Parameters #######################################
+    Density = 1.225,
+    EddyViscosityConstant = 0.15,
+    EddyViscosityModel    = 'Vreman',
+    KinematicViscosity    = 1.46e-5,
+    Temperature           = 288.15,
+    Time                  = 0,
+    VelocityFreestream    = np.array([0., 0., 0.]),
+    ##################################### Numerical Parameters #####################################
+    AntiDiffusion         = 0,
+    AntiStretching        = 0,
+    CurrentIteration      = 0,
+    DiffusionScheme       = 'DVM',
+    IntegrationOrder      = 1,
+    LowStorageIntegration = 1,
+    MachLimitor           = 0.5,
+    NumberOfBEMSources    = 0,
+    NumberOfCFDSources    = 0,
+    NumberOfHybridSources = 0,
+    NumberOfLiftingLines  = 0,
+    NumberOfLiftingLineSources  =0,
+    NumberOfNodes         = 0,
+    ParticleSizeVariationLimitor=1.1,
+    Resolution            = [None, None],
+    Sigma0                = [None, None],
+    SmoothingRatio        = 2.,
+    StrengthVariationLimitor    =2,
+    TimeStep              = None,
+    VorticityEquationScheme     ='Transpose',
+    ####################################### Particles Control ######################################
+    CutoffXmin             = -np.inf,
+    CutoffXmax             = +np.inf,
+    CutoffYmin             = -np.inf,
+    CutoffYmax             = +np.inf,
+    CutoffZmin             = -np.inf,
+    CutoffZmax             = +np.inf,
+    ForcedDissipation      = 0,
+    MaximumAgeAllowed      = 0,
+    MaximumAngleForMerging = 90,
+    MaximumMergingVorticityFactor=100,
+    MinimumOverlapForMerging     =3,
+    MinimumVorticityFactor       =0.001,
+    RedistributeParticlesBeyond  =0,
+    RedistributionPeriod         =1,
+    RealignmentRelaxationFactor  =0.,
+    MagnitudeRelaxationFactor    =0.,
+    EddyViscosityRelaxationFactor=0.005,
+    RemoveWeakParticlesBeyond    =0,
+    ResizeParticleFactor         =3,
+    StrengthRampAtbeginning      =50,
+    EnstrophyControlRamp         =100,
+    ############################### Fast Multipole Method Parameters ###############################
+    ClusterSizeFactor        =10.,
+    FarFieldPolynomialOrder  =8,
+    IterationCounter         =0,
+    IterationTuningFMM       =50,
+    MaxParticlesPerCluster   =2**8,
+    NearFieldOverlapingFactor=2,
+    NearFieldSmoothingFactor =1,
+    NumberOfThreads          ='auto',
+    TimeFMM                  =0,
+    ################################ Perturbation Field Parameters #################################
+    FMMPerturbationOverlappingRatio=3,
+    TimeVelocityPerturbation       =0):
+    '''
+    Get a :py:class:`dict` containing all the relevant VPM parameters
+
+    Fluid Parameters
+    ----------------
+    
+    * Density : :py:class:`float`
+        :math:`\in (0, +\infty)` fluid density at infinity :math:`(kg \cdot m^{-3})`.
+    
+    * EddyViscosityConstant : :py:class:`float`
+        :math:`\in (0, +\infty)` constant for the eddy viscosity model.
+    
+    * EddyViscosityModel : :py:class:`str` or :py:obj:`None`
+        Selects the eddy viscosity model. Possible options:
+
+        * ``'Mansour'``
+
+        * ``'Mansour2'``
+
+        * ``'Smagorinsky'``
+
+        * ``'Vreman'``
+
+        * :py:obj:`None`
+    
+    * KinematicViscosity : :py:class:`float`
+        :math:`\in (0, +\infty)` fluid kinematic viscosity at freestream
+        :math:`(m^2 \cdot s^{-1})`
+    
+    * Temperature : :py:class:`float`
+        :math:`\in (0, +\infty)` fluid temperature at freestream :math:`(K)`.
+            
+    * Time : :py:class:`float`
+        :math:`\in (0, +\infty)` physical time :math:`(s)`.
+            
+    * VelocityFreestream : :py:class:`numpy.ndarray` of 3 :py:class:`float`
+        :math:`\in (-\infty, +\infty)`, fluid velocity at freestream in :math:`(m \cdot s^{-1})`
+        
+    Numerical Parameters
+    --------------------
+        
+    * AntiDiffusion : :py:class:`float`
+        :math:`\in [0, 1]` vortex diffusion either modifying only the particle strength
+        (AntiStretching = 0) or the particle size (AntiStretching = 1)
+    
+    * AntiStretching : :py:class:`float`
+        :math:`\in [0, 1]` vortex stretching either modifying only the particle strength
+        (AntiStretching = 0) or the particle size (AntiStretching = 1)
+    
+    * CurrentIteration : :py:class:`int`
+        :math:`\in (0, +\infty)` the current iteration (at restart)
+    
+    * DiffusionScheme : :py:class:`str`
+        Provides the scheme used to compute the diffusion term of the vorticity equation.
+        
+        * ``'DVM'``
+
+        * ``'PSE'``
+
+        * ``'CSM'``
+
+        * :py:obj:`None`
+    
+    
+    * IntegrationOrder : :py:class:`int`
+        :math:`\in [1, 4]` 1st, 2nd, 3rd or 4th order Runge Kutta for time-marching precision
+            
+    * LowStorageIntegration : :py:class:`bool`
+        states if the classical (:py:obj:`False`) or the low-storage :py:obj:`True` Runge Kutta is used.
+    
+    * MachLimitor : :py:class:`float`
+        :math:`\in (0, +\infty)` sets the maximum induced velocity a particle can have.
+        Does not take into account the VelocityFreestream.
+    
+    * NumberOfBEMSources : :py:class:`int`
+        :math:`\in (0, +\infty)` total number of embedded Boundary Element Method particles on the
+        solid boundaries.
+    
+    * NumberOfCFDSources : :py:class:`int`
+        :math:`\in (0, +\infty)` total number of embedded Eulerian Immersed particles on the Hybrid
+        Inner Interface.
+        
+    * NumberOfHybridSources : :py:class:`int`
+        :math:`\in (0, +\infty)` total number of hybrid particles generated in the Hybrid Domain.
+            
+    * NumberOfLiftingLines : :py:class:`int`
+        :math:`\in (0, +\infty)` number of LiftingLines.
+    
+    * NumberOfLiftingLineSources : :py:class:`int`
+        :math:`\in (0, +\infty)` total number of embedded source particles on the LiftingLines.
+    
+    * NumberOfNodes : :py:class:`int`
+        :math:`\in (0, +\infty)` total number of nodes in the velocity perturbation field grid.
+    
+    * ParticleSizeVariationLimitor : :py:class:`float`
+        :math:`\in [1, +\infty)` gives the maximum a particle can grow/shrink during an iteration.
+    
+    * Resolution : :py:class:`numpy.ndarray` of 2 :py:class:`float` (or :py:obj:`None`)
+        :math:`\in (0, +\infty)` Respectively minimum and maximum resolution scale of the VPM.
+        It is usually noted :math:`h`.
+        
+        .. danger::
+            NOT A USER PARAMETER
+
+    * Sigma0 : :py:class:`numpy.ndarray` of 2 :py:class:`float` (or :py:obj:`None`)
+        :math:`\in (0, +\infty)` initial minimum and maximum size of the
+        particles, :math:`\sigma_0`
+        
+        .. danger::
+            NOT A USER PARAMETER
+    
+    * SmoothingRatio : :py:class:`float`
+        :math:`\in [0, 5]` sets the ratio between Resolution and core size 
+        (:math:`\sigma_0/h`). Big values smooth the particle interactions, avoiding
+        singularities at induction, but deteriorates precision
+    
+    * StrengthVariationLimitor : :py:class:`float`
+        :math:`\in [1, +\infty)` gives the maximum variation the strength of a 
+        particle can have during an iteration (:math:`\max(\Delta ||\\alpha|| / \Delta t)`)
+        (:math:`\max(||\\alpha||^{t+\Delta t} - ||\\alpha||^{t} / ||\\alpha||^{t})`)
+    
+    * TimeStep : :py:class:`float`
+        :math:`\in (0, +\infty)` time step :math:`\Delta t` of the VPM :math:`(s)`
+        
+        .. hint::
+            To help you in deciding the timestep, you may use 
+            :py:func:`setTimeStepFromBladeRotationAngle` or :py:func:`setTimeStepFromShedParticles`
+    
+    * VorticityEquationScheme : :py:class:`str`
+        The schemes used to compute the vortex stretching term of
+        the vorticity equation. May be one of:
+
+        * ``'Transpose'``
+
+        * ``'Clasical'``
+
+        * ``'Mixed'``
+
+
+    Particle Population Control Parameters
+    --------------------------------------
+    
+    * CutoffXmin : :py:class:`float`
+        :math:`\in (-\infty, +\infty)` particles below this spatial Cutoff are deleted :math:`(m)`.
+    
+    * CutoffXmax : :py:class:`float`
+        :math:`\in (-\infty, +\infty)` particles beyond this spatial Cutoff are deleted :math:`(m)`.
+    
+    * CutoffYmin : :py:class:`float`
+        :math:`\in (-\infty, +\infty)` particles below this spatial Cutoff are deleted :math:`(m)`.
+    
+    * CutoffYmax : :py:class:`float`
+        :math:`\in (-\infty, +\infty)` particles beyond this spatial Cutoff are deleted :math:`(m)`.
+        
+    * CutoffZmin : :py:class:`float`
+        :math:`\in (-\infty, +\infty)` particles below this spatial Cutoff are deleted :math:`(m)`.
+        
+    * CutoffZmax : :py:class:`float`
+        :math:`\in (-\infty, +\infty)` particles beyond this spatial Cutoff are deleted :math:`(m)`.
+    
+    * ForcedDissipation : :py:class:`float`
+        :math:`\in [0, +\infty)` sets the percentage of strength the particles loose per second :math:`(%/s)`
+        
+    * MaximumAgeAllowed : :py:class:`int`
+        :math:`\in [0, +\infty)` particles older than MaximumAgeAllowed iterations are deleted. If
+        ``MaximumAgeAllowed == 0``, they are not deleted (disabling this feature).
+    
+    * MaximumAngleForMerging : :py:class:`float`
+        :math:`\in [0, 180)` maximum angle allowed between two particles to be merged, in deg.
+    
+    * MaximumMergingVorticityFactor : :py:class:`float`
+        :math:`\in [0, +\infty)` particles that have their strength above (resp. below)
+        MaximumMergingVorticityFactor times the maximum particle strength of the Lifting
+        Line embedded particles and the hybrid particles combined are split (resp. merged),
+        in %.
+            
+    * MinimumOverlapForMerging : :py:class:`float`
+        :math:`\in [0, +\infty)` particles are merged if their distance is below their size (:math:`\sigma`) times
+        **MinimumOverlapForMerging**.
+    
+    * MinimumVorticityFactor : :py:class:`float`
+        :math:`\in [0, +\infty)` particles that have their strength below MinimumVorticityFactor times
+        the maximum particle strength of the Lifting Line embedded particles and the hybrid
+        particles combined are deleted, in %.
+    
+    * RedistributeParticlesBeyond : :py:class:`float`
+        :math:`\in [0, +\infty)` do not split/merge particles if closer than 
+        ``RedistributeParticlesBeyond*Resolution`` from any Lifting Line or Hybrid Domain.
+    
+    * RedistributionPeriod : :py:class:`int`
+        :math:`\in [0, +\infty)` iteration frequency at which particles are tested for
+        splitting/merging. If 0 the particles are never split/merged.
+    
+    * RealignmentRelaxationFactor : :py:class:`float`
+        :math:`\in [0, +\infty)` filters the particles direction to realign the particles with their
+        vorticity to have divergence-free vorticity field.
+            
+    * MagnitudeRelaxationFactor : :py:class:`float`
+        :math:`\in [0, +\infty)` filters the particles strength magnitude to have divergence-free
+        vorticity field.
+    
+    * EddyViscosityRelaxationFactor : :py:class:`float`
+        :math:`\in [0, 1)` modifies the EddyViscosityConstant of every particle by
+        EddyViscosityRelaxationFactor at each iteration according to the local loss of
+        Enstrophy of the particles.
+    
+    * RemoveWeakParticlesBeyond : :py:class:`float`
+        :math:`\in [0, +\infty)` do not remove weak particles if closer than 
+        RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
+    
+    * ResizeParticleFactor : :py:class:`float`
+        :math:`\in [0, +\infty)` resize particles that grow/shrink past ResizeParticleFactor their
+        original size (given by Sigma0). If ``ResizeParticleFactor == 0``, no resizing is done.
+    
+    StrengthRampAtbeginning : :py:class:`int`
+        :math:`\in [0, +\infty)` put a sinusoidal ramp on the magnitude of the vorticity shed for the
+        StrengthRampAtbeginning first iterations of the simulation.
+            
+    EnstrophyControlRamp : :py:class:`int`
+        :math:`\in [0, +\infty)` put a sinusoidal ramp on the Enstrophy filter applied to the particles
+        for the EnstrophyControlRamp first iterations after the shedding of each particles.
+
+    Fast Multipole Method Parameters
+    --------------------------------
+        
+    * ClusterSizeFactor : :py:class:`float`
+        :math:`\in [0, +\infty)` FMM clusters smaller than Resolution*ClusterSizeFactor cannot be
+        divided into smaller clusters.
+        
+    * FarFieldPolynomialOrder : :py:class:`int`
+        :math:`\in [4, 12)` order of the polynomial which approximates the long distance particle
+        interactions by the FMM, the higher the more accurate and the more costly.
+    
+    * IterationCounter : :py:class:`int`
+        :math:`\in [0, +\infty)` keeps track of how many iteration past since the last IterationTuningFMM.
+    
+    * IterationTuningFMM : :py:class:`int`
+        :math:`\in [0, +\infty)` period at which the FMM is compared to the direct computation,
+        shows the relative L2 error made by the FMM approximation.
+    
+    * MaxParticlesPerCluster : :py:class:`int`
+        :math:`\in [1, +\infty)` FMM clusters with less than MaxParticlesPerCluster particles cannot be
+        divided into smaller clusters.
+    
+    * NearFieldOverlapingFactor : :py:class:`float`
+        :math:`\in [1, +\infty)` particle interactions are approximated by the FMM as soon as two
+        clusters of particles are separated by at least NearFieldOverlapingFactor the size
+        of the particles in the cluster, the higher the more accurate and the more costly.
+    
+    * NearFieldSmoothingFactor : :py:class:`float`
+        :math:`\in [1, +\mathrm{NearFieldOverlapingFactor}]` particle interactions are smoothed as soon as two
+        clusters of particles are separated by at most NearFieldSmoothingFactor the size of
+        the particles in the cluster, the higher the more accurate and the more costly.
+    
+    * NumberOfThreads : :py:class:`int` or ``'auto'``
+        :math:`\geq 1`, number of threads of the machine used. If ``'auto'``, the
+        highest number of threads is set.
+    
+    * TimeFMM : :py:class:`float`
+        \[0, +\inf\[, keeps track of the CPU time spent by the FMM for the computation of the
+        particle interactions, in s.
+        
+        .. danger::
+            NOT A USER PARAMETER
+
+    Perturbation Field Parameters
+    -----------------------------        
+        
+    * FMMPerturbationOverlappingRatio : :py:class:`float`
+        :math:`\in [1, +\infty)` perturbation grid interpolations are approximated by the FMM as soon as
+        two clusters of cells are separated by at least NearFieldOverlapingFactor the size
+        of the cluster, the higher the more accurate and the more costly.
+            
+    * TimeVelocityPerturbation : :py:class:`float`
+        \[0, +\inf\[, keeps track of the CPU time spent by the FMM for the interpolation of the
+        perturbation mesh, in s.
+
+        .. danger::
+            NOT A USER PARAMETER
+                
+    Returns
+    -------
+
+        defaultVPMParameters : dict
+            default VPM Parameters
+    
+    '''
+    defaultVPMParameters = dict(
+    ####################################### Fluid Parameters #######################################
+    Density =Density,
+    EddyViscosityConstant =EddyViscosityConstant,
+    EddyViscosityModel    =EddyViscosityModel,
+    KinematicViscosity    =KinematicViscosity,
+    Temperature           =Temperature,
+    Time                  =Time,
+    VelocityFreestream    =VelocityFreestream,
+    ##################################### Numerical Parameters #####################################
+    AntiDiffusion         =AntiDiffusion,
+    AntiStretching        =AntiStretching,
+    CurrentIteration      =CurrentIteration,
+    DiffusionScheme       =DiffusionScheme,
+    IntegrationOrder      =IntegrationOrder,
+    LowStorageIntegration =int(LowStorageIntegration),
+    MachLimitor           =MachLimitor,
+    NumberOfBEMSources    =NumberOfBEMSources,
+    NumberOfCFDSources    =NumberOfCFDSources,
+    NumberOfHybridSources =NumberOfHybridSources,
+    NumberOfLiftingLines  =NumberOfLiftingLines,
+    NumberOfLiftingLineSources  =NumberOfLiftingLineSources,
+    NumberOfNodes         =NumberOfNodes,
+    ParticleSizeVariationLimitor=ParticleSizeVariationLimitor,
+    Resolution            =Resolution,
+    Sigma0                =Sigma0,
+    SmoothingRatio        =SmoothingRatio,
+    StrengthVariationLimitor    =StrengthVariationLimitor,
+    TimeStep              =TimeStep,
+    VorticityEquationScheme     =VorticityEquationScheme,
+    ####################################### Particles Control ######################################
+    CutoffXmin             =CutoffXmin,
+    CutoffXmax             =CutoffXmax,
+    CutoffYmin             =CutoffYmin,
+    CutoffYmax             =CutoffYmax,
+    CutoffZmin             =CutoffZmin,
+    CutoffZmax             =CutoffZmax,
+    ForcedDissipation      =ForcedDissipation,
+    MaximumAgeAllowed      =MaximumAgeAllowed,
+    MaximumAngleForMerging =MaximumAngleForMerging,
+    MaximumMergingVorticityFactor=MaximumMergingVorticityFactor,
+    MinimumOverlapForMerging     =MinimumOverlapForMerging,
+    MinimumVorticityFactor       =MinimumVorticityFactor,
+    RedistributeParticlesBeyond  =RedistributeParticlesBeyond,
+    RedistributionPeriod         =RedistributionPeriod,
+    RealignmentRelaxationFactor  =RealignmentRelaxationFactor,
+    MagnitudeRelaxationFactor    =MagnitudeRelaxationFactor,
+    EddyViscosityRelaxationFactor=EddyViscosityRelaxationFactor,
+    RemoveWeakParticlesBeyond    =RemoveWeakParticlesBeyond,
+    ResizeParticleFactor         =ResizeParticleFactor,
+    StrengthRampAtbeginning      =StrengthRampAtbeginning,
+    EnstrophyControlRamp         =EnstrophyControlRamp,
+    ############################### Fast Multipole Method Parameters ###############################
+    ClusterSizeFactor        =ClusterSizeFactor,
+    FarFieldPolynomialOrder  =FarFieldPolynomialOrder,
+    IterationCounter         =IterationCounter,
+    IterationTuningFMM       =IterationTuningFMM,
+    MaxParticlesPerCluster   =MaxParticlesPerCluster,
+    NearFieldOverlapingFactor=NearFieldOverlapingFactor,
+    NearFieldSmoothingFactor =NearFieldSmoothingFactor,
+    NumberOfThreads          =NumberOfThreads,
+    TimeFMM                  =TimeFMM,
+    ################################ Perturbation Field Parameters #################################
+    FMMPerturbationOverlappingRatio=FMMPerturbationOverlappingRatio,
+    TimeVelocityPerturbation       =TimeVelocityPerturbation,)
+
+    return defaultVPMParameters
+
 VPMParametersRange = {
     ################################################################################################
     ######################################## VPM Parameters ########################################
@@ -383,12 +804,13 @@ from VULCAINS.__init__ import __version__, __author__
 ####################################################################################################
 def vectorise(names = '', capital = True):
     '''
-    Repeats all the input strings with  the axis coordinates 'X', 'Y' and 'Z' added at the end.
+    Repeats all the input strings with  the axis coordinates ``'X'``, ``'Y'``
+    and ``'Z'`` added at the end.
 
     Parameters
     ----------
         names : :py:class:`str` or list of :py:class:`str`
-            Containes strings to vectorise.
+            contains strings to vectorise.
         capital : :py:class:`bool`
             States whether this axis coordinates letters are in capitals or not.
     Returns
@@ -445,7 +867,7 @@ def getParticles(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a Base of particles named 'Particles'.
+            contains a Base of particles named ``Particles``.
     Returns
     -------
         Particles : Base
@@ -461,7 +883,7 @@ def getFreeParticles(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a Zone of particles named 'FreeParticles'.
+            contains a Zone of particles named ``FreeParticles``.
     Returns
     -------
         Particles : Zone
@@ -485,7 +907,7 @@ def getBEMParticles(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a Zone of particles named 'BEMParticles'.
+            contains a Zone of particles named ``BEMParticles``.
     Returns
     -------
         Particles : Zone
@@ -509,7 +931,7 @@ def getImmersedParticles(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a Zone of particles named 'ImmersedParticles'.
+            contains a Zone of particles named ``ImmersedParticles``.
     Returns
     -------
         Particles : Zone
@@ -533,7 +955,7 @@ def getParticlesTree(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a Base named 'Particles'.
+            contains a Base named ``Particles``.
     Returns
     -------
         Particles : Tree
@@ -549,7 +971,7 @@ def getPerturbationField(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a Base named 'PerturbationField'.
+            contains a Base named 'PerturbationField'.
     Returns
     -------
         PerturbationField : Base
@@ -565,7 +987,7 @@ def getPerturbationFieldTree(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a Base named 'PerturbationField'.
+            contains a Base named ``PerturbationField``.
     Returns
     -------
         PerturbationField : Tree
@@ -581,7 +1003,7 @@ def getVPMParameters(t = []):
     Parameters
     ----------
         t : Tree
-            Containes the VPM parameters named '.VPM#Parameters'.
+            contains the VPM parameters named '.VPM#Parameters'.
 
     Returns
     -------
@@ -597,7 +1019,7 @@ def getParticlesNumber(t = [], pointer = False):
     Parameters
     ----------
         t : Tree
-            Containes the free VPM parameters named 'FreeParticles'.
+            contains the free VPM parameters named 'FreeParticles'.
         pointer : :py:class:`bool`
             States whether the pointer or the value of the size of the zone is returned.
 
@@ -616,7 +1038,7 @@ def getBEMParticlesNumber(t = [], pointer = False):
     Parameters
     ----------
         t : Tree
-            Containes the free VPM parameters named BEMParticles.
+            contains the free VPM parameters named BEMParticles.
         pointer : :py:class:`bool`
             States whether the pointer or the value of the size of the zone is returned.
 
@@ -635,7 +1057,7 @@ def getImmersedParticlesNumber(t = [], pointer = False):
     Parameters
     ----------
         t : Tree
-            Containes the free VPM parameters named 'ImmersedParticles'.
+            contains the free VPM parameters named 'ImmersedParticles'.
         pointer : :py:class:`bool`
             States whether the pointer or the value of the size of the zone is returned.
 
@@ -655,7 +1077,7 @@ def addSafeZones(Zones):
     Parameters
     ----------
         Zones : list of Zones.
-            Containes Zones of Coordinates.
+            contains Zones of Coordinates.
     '''
     SafeZones[0] += I.getZones(Zones)
 
@@ -673,13 +1095,13 @@ def extractperturbationField(Targets = [], tL = [], tP = []):
     Parameters
     ----------
         Targets : Tree
-            Containes the Coordinates onto wich the Perturbation velocity fields are interpolated.
+            contains the Coordinates onto wich the Perturbation velocity fields are interpolated.
 
         tL : Tree
-            Containes the VPM parameters.
+            contains the VPM parameters.
 
         tP : Tree
-            Containes the PerturbationFields.
+            contains the PerturbationFields.
     '''
     for var in vectorise('VelocityPerturbation'): C._initVars(Targets, var, 0.)
     _tL, _tP = getTrees([tL, tP], ['Particles', 'Perturbation'])
@@ -696,18 +1118,18 @@ def extractperturbationField(Targets = [], tL = [], tP = []):
 ####################################################################################################
 def checkTrees(t = [], VPMParameters = {}, HybridParameters = {}):
     '''
-    Checks if the minimum recquirements are met within the Bases in t to launch VULCAINS
+    Checks if the minimum requirements are met within the Bases in t to launch VULCAINS
     computations. The necessary parameters and fields are initialised if missing. Allready existing 
     parameters are updated with the default parameters and the parameters inputs.
 
     Parameters
     ----------
         t : Tree
-            Countainers to check.
+            containers to check.
         VPMParameters : :py:class:`dict`
-            Containes the VPM parameters to put in the checked countainers.
+            contains the VPM parameters to put in the checked containers.
         HybridParameters : :py:class:`dict`
-            Containes the Hybrid parameters to put in the checked countainers.
+            contains the Hybrid parameters to put in the checked containers.
     '''
     tL, tLL, tE, tH, tP = getTrees([t], ['Particles', 'LiftingLines', 'Eulerian', 'Hybrid',
                                                                                     'Perturbation'])
@@ -723,9 +1145,7 @@ def checkTrees(t = [], VPMParameters = {}, HybridParameters = {}):
     J.invokeFieldsDict(Particles, RequiredFlowSolution)
     I._sortByName(Particles)
 
-    newVPMParameters = defaultVPMParameters.copy()
-    newVPMParameters.update(getVPMParameters(tL))
-    newVPMParameters.update(VPMParameters)
+    newVPMParameters = getDefaultVPMParameters(**getVPMParameters(tL))
     checkParameters(VPMParameters = newVPMParameters)
     J.set(Particles, '.VPM#Parameters', **newVPMParameters)
     I._sortByName(I.getNodeFromName1(Particles, '.VPM#Parameters'))
@@ -744,17 +1164,17 @@ def checkTrees(t = [], VPMParameters = {}, HybridParameters = {}):
 
 def getTrees(Trees = [], TreeNames = [], fillEmptyTrees = False):
     '''
-    Checks if the minimum recquirements are met within the Bases in t to launch VULCAINS
+    Checks if the minimum requirements are met within the Bases in t to launch VULCAINS
     computations. The necessary parameters and fields are initialised if missing.
 
     Parameters
     ----------
         Targets : Tree
-            Containes the Coordinates onto wich the Perturbation velocity fields are interpolated.
+            contains the Coordinates onto which the Perturbation velocity fields are interpolated.
         tL : Tree
-            Containes the VPM parameters.
+            contains the VPM parameters.
         tP : Tree
-            Containes the PerturbationFields.
+            contains the PerturbationFields.
     '''
 
     def getTree(Tree = [], function = getParticlesTree(), BackUpTree = [], fillEmptyTrees = False):
@@ -800,299 +1220,9 @@ def checkParameters(VPMParameters = {}, LiftingLineParameters = {}, HybridParame
 
     Parameters
     ----------
+        
         VPMParameters : :py:class:`dict`
-            List of the parameters linked to the VPM solver or the perturbation field. These
-            parameters are:
-
-                .. note::  Fluid Parameters
-
-            * Density : :py:class:`float`
-                \]0., +\inf\[, fluid density at infinity, in kg.m^-3.
-                
-                Default value: 1.225
-            * EddyViscosityConstant : :py:class:`float`
-                \[0., +\inf\[, constant for the eddy viscosity model.
-                
-                Default value: 0.15
-            * EddyViscosityModel : :py:class:`str`
-                Mansour, Mansour2, Smagorinsky, Vreman or None, select a LES model to compute the
-                eddy viscosity.
-                
-                Default value: 'Vreman'
-            * KinematicViscosity : :py:class:`float`
-                \[0., +\inf\[, fluid kinematic viscosity at infinity, in m^2.s^-1.
-                
-                Default value: 1.46e-5
-            * Temperature : :py:class:`float`
-                \]0., +\inf\[, fluid temperature at infinity, in K.
-                
-                Default value: 288.15
-            * Time : :py:class:`float`
-                \[0., +\inf\[, physical time, in s.
-                
-                Default value: 0
-            * VelocityFreestream : numpy.ndarray of :py:class:`float`
-                \]-\inf, +\inf\[^3, fluid velocity at infinity, in m.s-1.
-                
-                Default value: [0., 0., 0.]
-
-                .. note::  Numerical Parameters
-
-            * AntiDiffusion : :py:class:`float`
-                \[0. 1.\], vortex diffusion either modifies only the particle strength.
-                (AntiStretching = 0), or the particle size (AntiStretching = 1)
-                
-                Default value: 0
-            * AntiStretching : :py:class:`float`
-                \[0. 1.\], vortex stretching either modifies only the particle strength.
-                (AntiStretching = 0), or the particle size (AntiStretching = 1)
-                
-                Default value: 0
-            * CurrentIteration : :py:class:`int`
-                \[\|0, +\inf\[\|, follows the current iteration.
-                
-                Default value: 0
-            * DiffusionScheme : :py:class:`str`
-                DVM, PSE, CSM or None, gives the scheme used to compute the diffusion term of the
-                vorticity equation.
-                
-                Default value: 'DVM'
-            * IntegrationOrder : :py:class:`int`
-                \[\|1, 4\|\], 1st, 2nd, 3rd or 4th order Runge Kutta.
-                
-                Default value: 1
-            * LowStorageIntegration : :py:class:`int`
-                \[\|0, 1\|\], states if the classical or the low-storage Runge Kutta is used.
-                
-                Default value: 1
-            * MachLimitor : :py:class:`float`
-                \[0, +\inf\[, sets the maximum induced velocity a particle can have. Does not take into
-                account the VelocityFreestream.
-                
-                Default value: 0.5
-            * NumberOfBEMSources : :py:class:`int`
-                \[\|0, +\inf\[\|, total number of embedded Boundary Element Method particles on the
-                solid boundaries.
-                
-                Default value: 0
-            * NumberOfCFDSources : :py:class:`int`
-                \[\|0, +\inf\[\|, total number of embedded Eulerian Immersed particles on the Hybrid
-                Inner Interface.
-                
-                Default value: 0
-            * NumberOfHybridSources : :py:class:`int`
-                \[\|0, +\inf\[\|, total number of hybrid particles generated in the Hybrid Domain.
-                
-                Default value: 0
-            * NumberOfLiftingLines : :py:class:`int`
-                \[\|0, +\inf\[\|, number of LiftingLines.
-                
-                Default value: 0
-            * NumberOfLiftingLineSources : :py:class:`int`
-                \[\|0, +\inf\[\|, total number of embedded source particles on the LiftingLines.
-                
-                Default value: 0
-            * NumberOfNodes : :py:class:`int`
-                \[\|0, +\inf\[\|, total number of nodes in the velocity perturbation field grid.
-                
-                Default value: 0
-            * ParticleSizeVariationLimitor : :py:class:`float`
-                \[1, +\inf\[, gives the maximum a particle can grow/shrink during an iteration.
-                
-                Default value: 1.1
-            * Resolution : numpy.ndarray of :py:class:`float`
-                \]0., +\inf\[^2, minimum and maximum resolution scale of the VPM.
-                
-                Default value: np.array([TimeStep*np.linalg.norm(VelocityFreestream)]*2)
-            * Sigma0 : numpy.ndarray of :py:class:`float`
-                \]0., +\inf\[^2, initial minimum and maximum size of the particles.
-                
-                Default value: Resolution*SmoothingRatio
-            * SmoothingRatio : :py:class:`float`
-                \[0., 5.\], smoothes the particle interactions to avoid inducing singularities.
-                
-                Default value: 2.
-            * StrengthVariationLimitor : :py:class:`float`
-                \[1, +\inf\[, gives the maximum variation the strength of a particle can have during an
-                iteration.
-                
-                Default value: 2
-            * TimeStep : :py:class:`float`
-                \]0., +\inf\[, time step of the VPM, ins s.
-                
-                Default value: np.min(Resolution)/np.linalg.norm(VelocityFreestream)
-            * VorticityEquationScheme : :py:class:`str`
-                Transpose, Classical or Mixed, The schemes used to compute the vstretching term of
-                the vorticity equation.
-                
-                Default value: 'Transpose'
-
-                .. note::  Particle Control
-
-            * CutoffXmin : :py:class:`float`
-                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
-                
-                Default value: -np.inf
-            * CutoffXmax : :py:class:`float`
-                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
-                
-                Default value: +np.inf
-            * CutoffYmin : :py:class:`float`
-                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
-                
-                Default value: -np.inf
-            * CutoffYmax : :py:class:`float`
-                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
-                
-                Default value: +np.inf
-            * CutoffZmin : :py:class:`float`
-                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
-                
-                Default value: -np.inf
-            * CutoffZmax : :py:class:`float`
-                \]-\inf, +\inf\[, particles beyond this spatial Cutoff are deleted, in m.
-                
-                Default value: +np.inf
-            * ForcedDissipation : :py:class:`float`
-                \[0, +\inf\[, gives the % of strength the particles loose per sec, in %/s
-                
-                Default value: 0
-            * MaximumAgeAllowed : :py:class:`int`
-                \[\|0, +\inf\[\|, particles older than MaximumAgeAllowed iterations are deleted. If
-                MaximumAgeAllowed == 0, they are not deleted.
-                
-                Default value: 0
-            * MaximumAngleForMerging : :py:class:`float`
-                \[0., 180.\[, maximum angle allowed between two particles to be merged, in deg.
-                
-                Default value: 90
-            * MaximumMergingVorticityFactor : :py:class:`float`
-                \[0, +\inf\[, particles that have their strength above (resp. below)
-                MaximumMergingVorticityFactor times the maximum particle strength of the Lifting
-                Line embedded particles and the hybrid particles combined are split (resp. merged),
-                in %.
-                
-                Default value: 100
-            * MinimumOverlapForMerging : :py:class:`float`
-                \[0., +\inf\[, particles are merged if their distance is below their size (Sigma) times
-                MinimumOverlapForMerging.
-                
-                Default value: 3
-            * MinimumVorticityFactor : :py:class:`float`
-                \[0., +\inf\[, particles that have their strength below MinimumVorticityFactor times
-                the maximum particle strength of the Lifting Line embedded particles and the hybrid
-                particles combined are deleted, in %.
-                
-                Default value: 0.001
-            * RedistributeParticlesBeyond : :py:class:`float`
-                \[0., +\inf\[, do not split/merge particles if closer than 
-                RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
-                
-                Default value: 0
-            * RedistributionPeriod : :py:class:`int`
-                \[\|0, +\inf\[\|, iteration frequency at which particles are tested for
-                splitting/merging. If 0 the particles are never split/merged.
-                
-                Default value: 1
-            * RealignmentRelaxationFactor : :py:class:`float`
-                \[0., +\inf\[, filters the particles direction to realign the particles with their
-                vorticity to have divergence-free vorticity field.
-                
-                Default value: 0.
-            * MagnitudeRelaxationFactor : :py:class:`float`
-                \[0., +\inf\[, filters the particles strength magnitude to have divergence-free
-                vorticity field.
-                
-                Default value: 0.
-            * EddyViscosityRelaxationFactor : :py:class:`float`
-                \[0., 1.\[, modifies the EddyViscosityConstant of every particles by
-                EddyViscosityRelaxationFactor at each iteration according to the local loss of
-                Enstrophy of the particles.
-                
-                Default value: 0.005
-            * RemoveWeakParticlesBeyond : :py:class:`float`
-                \[0., +\inf\[, do not remove weak particles if closer than 
-                RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
-                
-                Default value: 0
-            * ResizeParticleFactor : :py:class:`float`
-                \[0, +\inf\[, resize particles that grow/shrink past ResizeParticleFactor their
-                original size (given by Sigma0). If ResizeParticleFactor == 0, no resizing is done.
-                
-                Default value: 3
-            * StrengthRampAtbeginning : :py:class:`int`
-                \[\|0, +\inf\[\|, put a sinusoidal ramp on the magnitude of the vorticity shed for the
-                StrengthRampAtbeginning first iterations of the simulation.
-                
-                Default value: 50
-            * EnstrophyControlRamp : :py:class:`int`
-                \[\|0, +\inf\[\|, put a sinusoidal ramp on the Enstrophy filter applied to the particles
-                for the EnstrophyControlRamp first iterations after the shedding of each particles.
-                
-                Default value: 100
-
-                .. note::   Fast Multipole Method Parameters
-
-            * ClusterSizeFactor : :py:class:`float`
-                \[\|0, +\inf\[\|, FMM clusters smaller than Resolution*ClusterSizeFactor cannot be
-                divided into smaller clusters.
-                
-                Default value: 10
-            * FarFieldPolynomialOrder : :py:class:`int`
-                \[\|4, 12\|\], order of the polynomial which approximates the long distance particle
-                interactions by the FMM, the higher the more accurate and the more costly.
-                
-                Default value: 8
-            * IterationCounter : :py:class:`int`
-                [\|0, +\inf\[\|, keeps track of how many iteration past since the last IterationTuningFMM.
-                
-                Default value: 0
-            * IterationTuningFMM : :py:class:`int`
-                \[\|0, +\inf\[\|, frequency at which the FMM is compared to the direct computation,
-                shows the relative L2 error made by the FMM approximation.
-                
-                Default value: 50
-            * MaxParticlesPerCluster : :py:class:`int`
-                \[1, +\inf\[, FMM clusters with less than MaxParticlesPerCluster particles cannot be
-                divided into smaller clusters.
-                
-                Default value: 2**8
-            * NearFieldOverlapingFactor : :py:class:`float`
-                \[1., +\inf\[, particle interactions are approximated by the FMM as soon as two
-                clusters of particles are separated by at least NearFieldOverlapingFactor the size
-                of the particles in the cluster, the higher the more accurate and the more costly.
-                
-                Default value: 3
-            * NearFieldSmoothingFactor : :py:class:`float`
-                \[1., NearFieldOverlapingFactor\], particle interactions are smoothed as soon as two
-                clusters of particles are separated by at most NearFieldSmoothingFactor the size of
-                the particles in the cluster, the higher the more accurate and the more costly.
-                
-                Default value: 2
-            * NumberOfThreads : :py:class:`int`
-                \[\|1, OMP_NUM_THREADS\|\], number of threads of the machine used. If 'auto', the
-                highest number of threads is set
-                
-                Default value: 'auto'
-            * TimeFMM : :py:class:`float`
-                \[0, +\inf\[, keeps track of the CPU time spent by the FMM for the computation of the
-                particle interactions, in s.
-                
-                Default value: 0
-
-                .. note::   Perturbation Field Parameters
-            
-            * FMMPerturbationOverlappingRatio : :py:class:`float`
-                \[1., +\inf\[, perturbation grid interpolations are approximated by the FMM as soon as
-                two clusters of cells are separated by at least NearFieldOverlapingFactor the size
-                of the cluster, the higher the more accurate and the more costly.
-                
-                Default value: 3
-            * TimeVelocityPerturbation : :py:class:`float`
-                \[0, +\inf\[, keeps track of the CPU time spent by the FMM for the interpolation of the
-                perturbation mesh, in s.
-                
-                Default value: 0
+            VPM parameters as set in :py:func:`getDefaultVPMParameters`
 
         LiftingLineParameters : :py:class:`dict`
             List of the parameters linked to the Lifting Lines. These parameters are only imposed if
@@ -1335,7 +1465,7 @@ def delete(t = [], mask = []):
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         mask : :py:class:`list` or numpy.ndarray of :py:class:`bool`
             List of booleans of the same size as the particle zone. A true flag will delete a 
@@ -1361,7 +1491,7 @@ def extend(t = [], ExtendSize = 0, Offset = 0, ExtendAtTheEnd = True):
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         ExtendSize : :py:class:`int`
             Number of particles to add.
@@ -1405,7 +1535,7 @@ def addParticlesToTree(t, NewX = [], NewY = [], NewZ = [], NewAX = [], NewAY = [
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         NewX : :py:class:`list` or numpy.ndarray
             Positions along the x axis of the particles to add.
@@ -1457,7 +1587,7 @@ def trim(t = [], NumberToTrim = 0, Offset = 0, TrimAtTheEnd = True):
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         NumberToTrim : :py:class:`int`
             Number of particles to remove.
@@ -1494,7 +1624,7 @@ def adjustTreeSize(t = [], NewSize = 0, OldSize = -1, Offset = 0, AtTheEnd = Tru
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         NewSize : :py:class:`int`
             New number of particles.
@@ -1524,7 +1654,7 @@ def roll(t = [], PivotNumber = 0):
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         PivotNumber : :py:class:`int`
             Position of the new first particle
@@ -1548,7 +1678,7 @@ def getPerturbationFieldParameters(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a node of parameters named '.PerturbationField#Parameters'.
+            contains a node of parameters named '.PerturbationField#Parameters'.
 
     Returns
     -------
@@ -1564,7 +1694,7 @@ def getParameter(t = [], Name = ''):
     Parameters
     ----------
         t : Tree
-            Containes a node of parameters where one of them is named Name.
+            contains a node of parameters where one of them is named Name.
 
         Name : :py:class:`str`
             Name of the parameter to get.
@@ -1590,7 +1720,7 @@ def getParameters(t = [], Names = []):
     Parameters
     ----------
         t : Tree
-            Containes a node of parameters with their names in Names.
+            contains a node of parameters with their names in Names.
 
         Names : :py:class:`list` or numpy.ndarray of :py:class:`str`
             List of parameter names
@@ -1626,7 +1756,7 @@ def getLiftingLines(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
     Returns
     -------
         LiftingLines : list of Zones
@@ -1647,7 +1777,7 @@ def getLiftingLinesTree(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a Base named 'LiftingLines'.
+            contains a Base named 'LiftingLines'.
     Returns
     -------
         LiftingLines : Tree
@@ -1703,6 +1833,8 @@ def setTimeStepFromShedParticles(tL = [], tLL = [], NumberParticlesShedAtTip = 5
         VPMParameters = getVPMParameters(tL)
         VPMParameters['TimeStep'] = NumberParticlesShedAtTip*Resolution/Urel
 
+    return VPMParameters['TimeStep']
+
 def setTimeStepFromBladeRotationAngle(tL = [], tLL = [], BladeRotationAngle = 5.):
     '''
     Sets the VPM TimeStep so that the fastest moving Lifting Line rotates by the user-given
@@ -1711,7 +1843,7 @@ def setTimeStepFromBladeRotationAngle(tL = [], tLL = [], BladeRotationAngle = 5.
     Parameters
     ----------
         tL : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         tLL : Tree
             Lifting Lines.
@@ -1732,6 +1864,8 @@ def setTimeStepFromBladeRotationAngle(tL = [], tLL = [], BladeRotationAngle = 5.
     else:
         VPMParameters = getVPMParameters(tL)
         VPMParameters['TimeStep'] = 1./6.*BladeRotationAngle/RPM
+
+    return VPMParameters['TimeStep']
 
 def setMinNbShedParticlesPerLiftingLine(tLL = [], Parameters = {}, NumberParticlesShedAtTip = 5):
     '''
@@ -1777,7 +1911,7 @@ def getLiftingLineParameters(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a node of parameters named '.LiftingLine#Parameters'.
+            contains a node of parameters named '.LiftingLine#Parameters'.
 
     Returns
     -------
@@ -1832,11 +1966,11 @@ def getAerodynamicCoefficientsOnPropeller(tLL = [], StdDeviationSample = 50):
         tLL : Tree
             Lifting Lines.
 
-        StdDeviationSample : :py:class:`int`
+        StdDeviationSample : int
             Number of samples for the standard deviation.
     Returns
     -------
-        Loads : :py:class:`dict`
+        Loads : dict
             Aerodynamic coefficients, loads and standard deviation.
     '''
     if not tLL: tLL = getLiftingLinesTree(tL)
@@ -2060,7 +2194,7 @@ def getHybridDomain(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a zone named 'HybridDomain'.
+            contains a zone named 'HybridDomain'.
     Returns
     -------
         HybridDomain : Base
@@ -2076,7 +2210,7 @@ def getHybridDomainTree(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a zone named 'HybridDomain'.
+            contains a zone named 'HybridDomain'.
     Returns
     -------
         HybridDomain : Tree
@@ -2093,7 +2227,7 @@ def getHybridDomainOuterInterface(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a zone named 'HybridDomain'.
+            contains a zone named 'HybridDomain'.
     Returns
     -------
         OuterInterface : Zone
@@ -2118,7 +2252,7 @@ def getHybridDomainInnerInterface(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a zone named 'HybridDomain'.
+            contains a zone named 'HybridDomain'.
     Returns
     -------
         InnerInterface : Zone
@@ -2143,7 +2277,7 @@ def getHybridDomainBEMInterface(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a zone named 'HybridDomain'.
+            contains a zone named 'HybridDomain'.
     Returns
     -------
         BEMInterface : Zone
@@ -2168,7 +2302,7 @@ def getHybridSources(t = []):
     Parameters
     ----------
         t : Tree
-            Containes a zone named 'HybridDomain'.
+            contains a zone named 'HybridDomain'.
     Returns
     -------
         HybridInterface : Zone
@@ -2193,7 +2327,7 @@ def getEulerianTree(t = []):
     Parameters
     ----------
         t : Tree
-            Containes the Eulerian Bases.
+            contains the Eulerian Bases.
     Returns
     -------
         tE : Tree
@@ -2239,7 +2373,7 @@ def getEulerianBases(tE = []):
     Parameters
     ----------
         tÈ : Tree
-            Containes the Eulerian Bases.
+            contains the Eulerian Bases.
     Returns
     -------
         tE : Tree
@@ -2254,7 +2388,7 @@ def getHybridParameters(t = []):
     Parameters
     ----------
         t : Tree
-            Containes the Hybrid parameters named '.Hybrid#Parameters'.
+            contains the Hybrid parameters named '.Hybrid#Parameters'.
 
     Returns
     -------
@@ -2276,7 +2410,7 @@ def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude',
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         ParticlesColorField : :py:class:`list`
             VPM field to color.
@@ -2356,7 +2490,7 @@ def saveImage(t = [], ShowInScreen = False, ImagesDirectory = 'FRAMES', **Displa
     Parameters
     ----------
         t : Tree
-            Containes a zone of particles named 'FreeParticles'.
+            contains a zone of particles named 'FreeParticles'.
 
         ShowInScreen : :py:class:`bool`
             CPlot option.
@@ -2403,7 +2537,7 @@ def saveImage(t = [], ShowInScreen = False, ImagesDirectory = 'FRAMES', **Displa
 
 def load(filename = ''):
     '''
-    Opens the CGNS file designated by the user. If the CGNS containes particles, the VPM field
+    Opens the CGNS file designated by the user. If the CGNS contains particles, the VPM field
     is updated.
 
     Parameters
@@ -2507,7 +2641,7 @@ def checkTreeStructure(t = [], name = ''):
 
 def save(t = [], filename = '', VisualisationOptions = {}, SaveFields = checkSaveFields()):
     '''
-    Saves the CGNS file designated by the user. If the CGNS containes particles, the VPM field
+    Saves the CGNS file designated by the user. If the CGNS contains particles, the VPM field
     saved are the one given by the user.
 
     Parameters
