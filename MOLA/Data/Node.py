@@ -297,7 +297,7 @@ class Node(list):
 
     def save(self, filename, verbose=True):
         '''
-        Save into a `CGNS`_ file the node and their children keeping **exactly**
+        Save into a CGNS file the node and their children keeping **exactly**
         the same hierarchy as defined by their :py:meth:`~MOLA.Data.Node.Node.path`
 
         Parameters

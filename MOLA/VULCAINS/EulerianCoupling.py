@@ -15,8 +15,19 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnV.org/licenses/>.
 
+'''
+VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible Navier-Stokes)
+
+This module enables the coupling of the VPM with the FAST CFD solver.
+
+Version:
+0.5
+
+Author:
+Johan VALENTIN
+'''
+
 import numpy as np
-import importlib.util
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -24,10 +35,12 @@ import Generator.PyTree as G
 import Transform.PyTree as T
 import Connector.PyTree as CX
 
-if importlib.util.find_spec('Fast'):
+try:
     import Fast.PyTree as Fast
     import FastS.PyTree as FastS
     import FastC.PyTree as FastC
+except:
+    pass
 
 from .. import InternalShortcuts as J
 from . import Main as V
@@ -44,7 +57,7 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
     Parameters
     ----------
         Mesh : Tree
-            Containes the mesh.
+            Containes the Eulerian mesh.
 
         VPMParameters : :py:class:`dict`
             VPM Parameters.

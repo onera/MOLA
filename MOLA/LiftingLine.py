@@ -967,39 +967,31 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.], RightHandRuleRotati
     '''
     Builds the referential of each section perpendicular to the Lifting Line.
 
-
     .. important:: The native canonical lifting line location is set towards:
-
         :math:`+X` spanwise
-
         :math:`-Y` sweepwise
-
         :math:`+Z` dihedralwise
-
         and centered at :math:`(0,0,0)`
-
 
     Parameters
     ----------
-
         Line : zone or :py:class:`float`
             Discretisation of the Lifting Line. Starts and ends with the Lifting Line geometry.
         
-        RightHandRuleRotation : bool
+        RightHandRuleRotation : :py:class:`bool`
             Determines wether the LiftingLine is taken as a rotating blade 
             following the right-hand-rule rotation or not.
         
-        Symmetrical : bool
+        Symmetrical : :py:class:`bool`
             Determines if the Lifting Line is symmetrised. A symmetrical extention is added to the
             build Lifting Line.
 
         Twist : :py:class:`dict`
             Gives the distribution of twist (in degree) with the according interpolation law.
             For example:
-            ::
-                Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
-                                    Twist = [30.,  6.0, -7.0],
-                             InterpolationLaw = 'akima')
+
+            :: Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
+                                    Twist = [30.,  6.0, -7.0], InterpolationLaw = 'akima')
 
         Sweep : :py:class:`dict`
             Gives the distribution of sweep (in degree) with the according interpolation law.
@@ -1012,14 +1004,10 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.], RightHandRuleRotati
 
         z : :py:class:`dict`
             Gives the Lifting Line position along the Z axis.
-
-
     Returns
     -------
-
         Frame : :py:class:`dict`
             Containes the positions and vectors of the sections
-
     '''
     
     Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)

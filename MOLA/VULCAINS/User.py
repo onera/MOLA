@@ -28,6 +28,229 @@ from . import Main as V
 ############################################## Solver ##############################################
 ####################################################################################################
 ####################################################################################################
+
+def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {},
+    PerturbationFieldParameters = {}, Polars  = [], EulerianMesh = None, PerturbationField = [],
+    LiftingLines = [], NumberOfIterations = 1000, RestartPath = None,
+    DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'], StdDeviationSample = 50,
+    VisualisationOptions = {'addLiftingLineSurfaces':True}, SaveVPMPeriod = 100, Verbose = True,
+    SaveImageOptions={}, Surface = 0., FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf,
+    SaveImagePeriod = np.inf, NoRedistributionZones = []):
+    '''
+    Launches the VPM solver.
+
+    Parameters
+    ----------
+
+        VPMParameters : dict
+            User-provided parameters for the VPM solver as established in
+            :py:func:`~MOLA.VULCAINS.Main.getDefaultVPMParameters`
+
+        HybridParameters : dict
+            User-provided parameters for the Hybrid Fast-VPM solver as established
+            in :py:func:`~MOLA.VULCAINS.Main.checkParameters`
+
+        LiftingLineParameters : dict
+            User-provided parameters for the Lifting-Lines as established in
+            :py:func:`~MOLA.VULCAINS.Main.checkParameters`
+
+        PerturbationFieldParameters : dict
+            User-provided parameters for the Perturbation Velocity Field (if any)
+            as established in as established in :py:func:`~MOLA.VULCAINS.Main.checkParameters`
+
+        Polars : :py:class:`list` of :py:class:`~MOLA.Data.Zone.Zone` or :py:class:`str`
+            Enhanced **Polars** for each airfoil, containing also foilwise
+            distributions fields (``Cp``, ``theta``, ``delta1``...).
+            As provided by :py:func:`MOLA.WorkflowAirfoil.buildPolar` or
+            :py:func:`MOLA.LiftingLine.convertHOSTPolarFile2PyZonePolar`
+
+            .. note::
+              if input type is a :py:class:`str`, then **Polars** is
+              interpreted as a CGNS file name containing the airfoil polars data
+
+        EulerianMesh : :py:class:`~MOLA.Data.Tree.Tree` or :py:class:`str` or :py:obj:`None`
+            Eulerian mesh or its file path.
+
+        PerturbationField : :py:class:`~MOLA.Data.Tree.Tree` or :py:class:`str` or :py:obj:`None`
+            Perturbation field or its file path. Must contain
+
+        LiftingLines : :py:class:`~MOLA.Data.Tree.Tree` or :py:class:`str` or :py:obj:`None`
+            Lifting Lines or its file path.
+
+        NumberOfIterations : int
+            Number of time iteration to perform.
+
+        RestartPath : :py:class:`str` or :py:obj:`None`
+            File path of the complete VULCAINS tree from where the simulation must
+            start from (if any). if ``RestartPath == None``, a new simulation is launched.
+
+        DIRECTORY_OUTPUT : str
+            Directory path where the simulation CGNS output files will be written.
+
+        SaveFields : :py:class:`list` of :py:class:`str`, or :py:class:`str`
+            Fields to save at each particle.
+            If ``'all'``, then they are all saved.
+            Possible fields are:
+
+            * ``VelocityInduced``
+                description
+
+            * ``VelocityPerturbation``
+                description
+
+            * ``VelocityDiffusion``
+                description
+
+            * ``gradxVelocity``
+                description
+
+            * ``gradyVelocity``
+                description
+
+            * ``gradzVelocity``
+                description
+
+            * ``PSE``
+                description
+
+            * ``Vorticity``
+                description
+
+            * ``Alpha``
+                description
+
+            * ``Stretching``
+                description
+
+            * ``rotU``
+                description
+
+            * ``Velocity``
+                description
+
+            * ``Age``
+                description
+
+            * ``Sigma``
+                description
+
+            * ``Cvisq``
+                description
+
+            * ``Nu``
+                description
+
+            * ``divUd``
+                description
+
+            * ``Enstrophyf``
+                description
+
+            * ``Enstrophy``
+                description
+
+            * ``EnstrophyM1``
+                description
+
+            * ``StrengthMagnitude``
+                description
+
+            * ``VelocityMagnitude`` 
+                description
+
+            * ``VorticityMagnitude``
+                description
+
+            .. hint::
+                Use *SaveFields* = ``"all"`` for saving all fields
+
+        VisualisationOptions : dict
+            Keyword-argument parameters provided to :py:func:`~MOLA.VULCAINS.Main.setVisualization`,
+            used for setting the scene of the visualisation
+
+        StdDeviationSample : int
+            Number of iterations for computing the standard deviation.
+
+        SaveVPMPeriod : :py:class:`int`
+            Period for saving the entire VPM tree.
+
+        Verbose : bool
+            States whether the VPM solver prompts the VPM information during the simulation.
+
+        SaveImageOptions : dict
+            Keyword-argument parameters provided to :py:func:`~MOLA.VULCAINS.Main.setVisualization`
+            used for creating the images (see also **VisualisationOptions** argument)
+
+        Surface : float
+            Surface of Lifting Line wing for the computation of its aerodynamic coefficients (if 
+            any).
+
+        FieldsExtractionGrid : Tree
+            Probes of the VPM field. Will extract the simulation fields onto the given grids,
+            surfaces, points...
+
+        SaveFieldsPeriod : int
+            Period at which the **FieldsExtractionGrid** is extracted and saved.
+
+        SaveImagePeriod : :py:class:`int`
+            Frequency at which an image of the VPM simulation is saved (see **SaveImageOptions** argument).
+
+        NoRedistributionZones: :py:class:`list` of :py:class:`~MOLA.Data.Zone.Zone`
+            Particles cannot be deleted or redistributed within the coordinates of the zones in
+            NoRedistributionZones. These zones must be rectangular parallelepipeds.
+    '''
+    if Verbose: V.enablePrint()
+    else: V.blockPrint()
+
+    if not V.printedlogo[0]:
+        # V.show(logo)
+        V.printedlogo[0] = True
+    
+    try: os.makedirs(DIRECTORY_OUTPUT)
+    except: pass
+
+    if isinstance(Polars, str): Polars = V.load(Polars)
+    V.buildPolarsInterpolator(Polars)
+    V.addSafeZones(NoRedistributionZones)
+    if RestartPath: t = restartComputation(path = RestartPath, VPMParameters = VPMParameters,
+                                          PerturbationFieldParameters = PerturbationFieldParameters,
+                                                                HybridParameters = HybridParameters)
+    else: t = initialiseComputation(VPMParameters = VPMParameters,
+                 LiftingLineParameters = LiftingLineParameters, HybridParameters = HybridParameters,
+             PerturbationFieldParameters = PerturbationFieldParameters, EulerianMesh = EulerianMesh,
+                         LiftingLines = LiftingLines, PerturbationField = PerturbationField)
+
+
+    SaveFields = V.checkSaveFields(SaveFields)
+
+    it = V.getParameter(t, 'CurrentIteration')
+    if Polars: VisualisationOptions['AirfoilPolars'] = Polars
+    else: VisualisationOptions['addLiftingLineSurfaces'] = False
+    filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it[0])
+    V.save(t, filename, VisualisationOptions, SaveFields)
+    J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
+    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+    V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Begin VPM Computation '))
+    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+
+    iterateVPM(t, SaveFields, NumberOfIterations, DIRECTORY_OUTPUT,
+        VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
+                                                  StdDeviationSample, FieldsExtractionGrid, Surface)
+    if FieldsExtractionGrid:
+        extractFields(t, FieldsExtractionGrid, 5300)
+        filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
+        V.save(FieldsExtractionGrid, filename, SaveFields)
+        V.save(FieldsExtractionGrid, 'fields.cgns', SaveFields)
+
+    filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
+    V.save(t, filename, VisualisationOptions, SaveFields)
+    V.save(t, DIRECTORY_OUTPUT + '.cgns', VisualisationOptions, SaveFields)
+    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+    V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' End of VPM computation '))
+    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+
+    return t
+
 def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = []):
     '''
     Runs one VULCAINS iteration.
@@ -35,13 +258,13 @@ def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = []):
     Parameters
     ----------
         tL : Tree
-            Lagrangian field.
+            Lagrangian (particles) field.
 
         tLL : Tree
             Lifting Lines.
 
         tE : Tree
-            Eulerian field.
+            Eulerian (Fast CFD) field.
 
         tH : Tree
             Hybrid Domain.
@@ -50,7 +273,7 @@ def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = []):
             Perturbation field
     Returns
     -------
-        IterationInfo : :py:class:`dict`
+        IterationInfo : dict
             VULCAINS information on the current iteration.
     '''
     IterationInfo = {}
@@ -101,7 +324,7 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
             Perturbation field.
 
         SaveFields : list or numpy.ndarray of :py:class:`str`
-            Names of the Lagrangian FlowSolution fields to save.
+            Names of the Lagrangian FlowSolution fields to save, as in :py:func:`compute`
 
         NumberOfIterations : :py:class:`int`
             Number of iterations
@@ -203,162 +426,6 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
     
     return t
 
-def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {},
-    PerturbationFieldParameters = {}, Polars  = [], EulerianMesh = None, PerturbationField = [],
-    LiftingLines = [], NumberOfIterations = 1000, RestartPath = None,
-    DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'], StdDeviationSample = 50,
-    VisualisationOptions = {'addLiftingLineSurfaces':True}, SaveVPMPeriod = 100, Verbose = True,
-    SaveImageOptions={}, Surface = 0., FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf,
-    SaveImagePeriod = np.inf, NoRedistributionZones = []):
-    '''
-    Launches the VPM solver.
-
-    Parameters
-    ----------
-        .. note::
-            Details on the parameters in :py:class:`VPMParameters`, :py:class:`HybridParameters`,
-            :py:class:`LiftingLineParameters` and :py:class:`PerturbationFieldParameters` can be
-            found in :py:func:`MOLA.VULCAINS.Main.checkParameters`.
-
-        VPMParameters : :py:class:`dict`
-            Containes user given parameters for the VPM solver (if any).
-
-        HybridParameters : :py:class:`dict`
-            Containes user given parameters for the Hybrid solver (if any).
-
-        LiftingLineParameters : :py:class:`dict`
-            :py:class:`str`
-            Containes user given parameters for the Lifting Line(s) (if any). 
-
-        PerturbationFieldParameters : :py:class:`dict`
-            Containes user given parameters for the Perturbation Velocity Field (if any).
-
-        Polars : :py:func:`list` of :py:func:`zone` or :py:class:`str`
-            Enhanced **Polars** for each airfoil, containing also foilwise
-            distributions fields (``Cp``, ``theta``, ``delta1``...).
-
-            .. note::
-              if input type is a :py:class:`str`, then **Polars** is
-              interpreted as a CGNS file name containing the airfoil polars data
-
-        EulerianMesh : Tree
-            Eulerian mesh or its location (if any).
-
-        PerturbationField : Tree
-            Perturbation field or its location (if any).
-
-        LiftingLines : Tree
-            Lifting Lines or its location (if any).
-
-        NumberOfIterations : :py:class:`int`
-            Number of time iteration to do.
-
-        RestartPath : :py:class:`str`
-            Location of the VULCAINS tree from where the simulation must start from (if any). if
-            RestartPath == None, a new simulation is launched.
-
-        DIRECTORY_OUTPUT : :py:class:`str`
-            Location where the simulation CGNS are written.
-
-        SaveFields : :py:class:`list` or numpy.ndarray of :py:class:`str`
-            Fields to save. if 'all', then they are all saved. The fields are:
-            VelocityInduced, VelocityPerturbation, VelocityDiffusion, gradxVelocity, gradyVelocity,
-            gradzVelocity, PSE, Vorticity, Alpha, Stretching, rotU, Velocity, Age, Sigma, Cvisq, Nu,
-            divUd, Enstrophyf, Enstrophy, EnstrophyM1, StrengthMagnitude, VelocityMagnitude and
-                                                                                 VorticityMagnitude.
-
-        VisualisationOptions : :py:class:`dict`
-            CPlot options for the visualisation (if any).
-
-            addLiftingLineSurfaces : :py:class:`bool`
-                States whether the Lifting Line(s) surfaces are to be visualised. Requires to
-                give the Polars.
-
-            Polars : :py:func:`list` of :py:func:`zone` or :py:class:`str`
-                Polars for addLiftingLineSurfaces.
-
-        StdDeviationSample : :py:class:`int`
-            Number of iterations for the standard deviation.
-
-        SaveVPMPeriod : :py:class:`int`
-            Saving frequency of the VPM simulation.
-
-        Verbose : :py:class:`bool`
-            States whether the VPM solver prompts the VPM information during the simulation.
-
-        SaveImageOptions : :py:class:`dict`
-            CPlot visualisation options (if any).
-
-        Surface : :py:class:`float`
-            Surface of Lifting Line wing for the computation of its aerodynamic coefficients (if 
-            any).
-
-        FieldsExtractionGrid : Tree
-            Probes of the VPM field. Will extract the simulation fields onto the given grids,
-            surfaces, points ...
-
-        SaveFieldsPeriod : :py:class:`int`
-            Frequency at which the FieldsExtractionGrid is extracted and saved.
-
-        SaveImagePeriod : :py:class:`int`
-            Frequency at which an image of the VPM simulation is saved.
-
-        NoRedistributionZones: list of Zones
-            Particles cannot be deleted or redistributed within the coordinates of the zones in
-            NoRedistributionZones. These zones must be rectangular parallelepipeds.
-    '''
-    if Verbose: V.enablePrint()
-    else: V.blockPrint()
-
-    if not V.printedlogo[0]:
-        # V.show(logo)
-        V.printedlogo[0] = True
-    
-    try: os.makedirs(DIRECTORY_OUTPUT)
-    except: pass
-
-    if isinstance(Polars, str): Polars = V.load(Polars)
-    V.buildPolarsInterpolator(Polars)
-    V.addSafeZones(NoRedistributionZones)
-    if RestartPath: t = restartComputation(path = RestartPath, VPMParameters = VPMParameters,
-                                          PerturbationFieldParameters = PerturbationFieldParameters,
-                                                                HybridParameters = HybridParameters)
-    else: t = initialiseComputation(VPMParameters = VPMParameters,
-                 LiftingLineParameters = LiftingLineParameters, HybridParameters = HybridParameters,
-             PerturbationFieldParameters = PerturbationFieldParameters, EulerianMesh = EulerianMesh,
-                         LiftingLines = LiftingLines, PerturbationField = PerturbationField)
-
-
-    SaveFields = V.checkSaveFields(SaveFields)
-
-    it = V.getParameter(t, 'CurrentIteration')
-    if Polars: VisualisationOptions['AirfoilPolars'] = Polars
-    else: VisualisationOptions['addLiftingLineSurfaces'] = False
-    filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it[0])
-    V.save(t, filename, VisualisationOptions, SaveFields)
-    J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
-    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
-    V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Begin VPM Computation '))
-    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
-
-    iterateVPM(t, SaveFields, NumberOfIterations, DIRECTORY_OUTPUT,
-        VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
-                                                  StdDeviationSample, FieldsExtractionGrid, Surface)
-    if FieldsExtractionGrid:
-        extractFields(t, FieldsExtractionGrid, 5300)
-        filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
-        V.save(FieldsExtractionGrid, filename, SaveFields)
-        V.save(FieldsExtractionGrid, 'fields.cgns', SaveFields)
-
-    filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
-    V.save(t, filename, VisualisationOptions, SaveFields)
-    V.save(t, DIRECTORY_OUTPUT + '.cgns', VisualisationOptions, SaveFields)
-    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
-    V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' End of VPM computation '))
-    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
-
-    return t
-
 def initialiseComputation(VPMParameters = {}, LiftingLineParameters = {}, HybridParameters = {},
     PerturbationFieldParameters = {}, LiftingLines = [], EulerianMesh = [],
                                                                             PerturbationField = []):
@@ -367,32 +434,27 @@ def initialiseComputation(VPMParameters = {}, LiftingLineParameters = {}, Hybrid
 
     Parameters
     ----------
-        .. note::
-            Details on the parameters in :py:class:`VPMParameters`, :py:class:`HybridParameters`,
-            :py:class:`LiftingLineParameters` and :py:class:`PerturbationFieldParameters` can be
-            found in :py:func:`MOLA.VULCAINS.Main.checkParameters`.
 
         VPMParameters : :py:class:`dict`
-            Containes user given parameters for the VPM solver (if any).
+            like in :py:func:`compute`
 
         HybridParameters : :py:class:`dict`
-            Containes user given parameters for the Hybrid solver (if any).
+            like in :py:func:`compute`
 
         LiftingLineParameters : :py:class:`dict`
-            :py:class:`str`
-            Containes user given parameters for the Lifting Line(s) (if any). 
+            like in :py:func:`compute`
 
         PerturbationFieldParameters : :py:class:`dict`
-            Containes user given parameters for the Perturbation Velocity Field (if any).
+            like in :py:func:`compute`
 
         EulerianMesh : Tree
-            Eulerian mesh or its location (if any).
+            like in :py:func:`compute`
 
         PerturbationField : Tree
-            Perturbation field or its location (if any).
+            like in :py:func:`compute`
 
         LiftingLines : Tree
-            Lifting Lines or its location (if any).
+            like in :py:func:`compute`
     Returns
     -------
         t : Tree
@@ -428,25 +490,19 @@ def restartComputation(path = 'OUTPUT.cgns', VPMParameters = {}, HybridParameter
     Parameters
     ----------
         path : Tree or :py:class:`str`
-            Restart tree or its location.
-
-        .. note::
-            Details on the parameters in :py:class:`VPMParameters`, :py:class:`HybridParameters`,
-            :py:class:`LiftingLineParameters` and :py:class:`PerturbationFieldParameters` can be
-            found in :py:func:`MOLA.VULCAINS.Main.checkParameters`.
+            Restart tree (VPM) or its file path
 
         VPMParameters : :py:class:`dict`
-            Containes user given parameters for the VPM solver (if any).
+            like in :py:func:`compute`
 
         HybridParameters : :py:class:`dict`
-            Containes user given parameters for the Hybrid solver (if any).
+            like in :py:func:`compute`
 
         LiftingLineParameters : :py:class:`dict`
-            :py:class:`str`
-            Containes user given parameters for the Lifting Line(s) (if any). 
+            like in :py:func:`compute`
 
         PerturbationFieldParameters : :py:class:`dict`
-            Containes user given parameters for the Perturbation Velocity Field (if any).
+            like in :py:func:`compute`
     Returns
     -------
         t : Tree
@@ -484,34 +540,29 @@ def computeVortexRing(VPMParameters = {}, VortexParameters = {}, NumberOfIterati
 
     Parameters
     ----------
-        .. note::
-            Details on the parameters in :py:class:`VPMParameters` and :py:class:`VortexParameters`
-            can be found in :py:func:`MOLA.VULCAINS.Main.checkParameters`.
 
         VPMParameters : :py:class:`dict`
-            Containes user given parameters for the VPM solver (if any).
+            same as in :py:func:`compute`
 
         VortexParameters : :py:class:`dict`
-            Containes user given parameters for the Vortex Rings (if any).
+            same as in :py:func:`compute`
 
         NumberOfIterations : :py:class:`int`
-            Number of time iteration to do.
+            same as in :py:func:`compute`
 
         DIRECTORY_OUTPUT : :py:class:`str`
-            Location where the simulation CGNS are written.
+            same as in :py:func:`compute`
 
         SaveVPMPeriod : :py:class:`int`
-            Saving frequency of the VPM simulation.
+            same as in :py:func:`compute`
 
         SaveFields : :py:class:`list` or numpy.ndarray of :py:class:`str`
-            Fields to save. if 'all', then they are all saved. The fields are:
-            VelocityInduced, VelocityPerturbation, VelocityDiffusion, gradxVelocity, gradyVelocity,
-            gradzVelocity, PSE, Vorticity, Alpha, Stretching, rotU, Velocity, Age, Sigma, Cvisq, Nu,
-            divUd, Enstrophyf, Enstrophy, EnstrophyM1, StrengthMagnitude, VelocityMagnitude and
-                                                                                 VorticityMagnitude.
+            same as in :py:func:`compute`
 
-        SaveFields : :py:class:`bool`
-            States whether an isolated, or two leap-frogging vortex rings are to be simulated.
+        LeapFrog : :py:class:`bool`
+            States whether an isolated (:py:obj:`False`), or two leap-frogging
+            (:py:obj:`True`) vortex rings are to be simulated.
+
     Returns
     -------
         t : Tree
@@ -568,8 +619,9 @@ def computeVortexRing(VPMParameters = {}, VortexParameters = {}, NumberOfIterati
 def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrder = 12,
     NearFieldOverlapingFactor = 4, NbOfParticlesForPrecisionEvaluation = 1000):
     '''
-    Extract fields from a VULCAINS simulation onto given grids, surfaces, nodes ... If a Hybrid
-    case is given, the solution is interpolated on the overlapping regions between tL and tE.
+    Extract fields from a VULCAINS simulation onto given grids, surfaces,
+    points... If a Hybrid case is given, the solution is interpolated on the
+    overlapping regions between tL and tE.
 
     Parameters
     ----------
@@ -588,14 +640,19 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
         NbOfParticlesForPrecisionEvaluation : :py:class:`int`
             Number of nodes where the solution approximated by the FMM is checked.
 
-        FarFieldPolynomialOrder : :py:class:`int`
-            [|4, 12|], order of the polynomial which approximates the long distance particle
-                          interactions by the FMM, the higher the more accurate and the more costly.
+        FarFieldPolynomialOrder : int
+            must be :math:`\in [4, 12]`. It is the order of the polynomial which
+            approximates the long distance particle interactions by the FMM.
+            The higher it is, the more accurate and the more costly the extraction
+            becomes.
 
         NearFieldOverlapingFactor : :py:class:`float`
-            [1., +inf[, particle interactions are approximated by the FMM as soon as two
-            clusters of particles are separated by at least NearFieldOverlapingFactor the size
-              of the particles in the cluster, the higher the more accurate and the more costly.
+            must be :math:`[1, +\infty)`. The particle interactions are
+            approximated by the FMM as soon as two clusters of particles are
+            separated by at least **NearFieldOverlapingFactor** the size
+            of the particles in the cluster.
+            The higher it is, the more accurate and the more costly the extraction
+            becomes.
     '''
     #initialise targets
     if not Targets: return

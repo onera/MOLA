@@ -10,7 +10,8 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 export MOLAVER=Dev
 export MOLA=/stck/lbernard/MOLA/$MOLAVER
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
-export VPMVERSION=v0.4
+export MOLAJUNO=/tmp_user/juno/lbernard/MOLA/$MOLAVER
+export VPMVERSION=v0.5
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
@@ -41,6 +42,9 @@ MAC0=$(echo $KC | grep 'sator'); if [ "$MAC0" != "" ]; then export MAC="sator"; 
 MAC0=$(echo $KC | grep 'ld'); if [ "$MAC0" != "" ]; then export MAC="ld"; fi
 MAC0=$(echo $KC | grep 'eos'); if [ "$MAC0" != "" ]; then export MAC="ld"; fi
 MAC0=$(echo $KC | grep 'spiro'); if [ "$MAC0" != "" ]; then export MAC="spiro"; fi
+MAC0=$(echo $KC | grep 'f0'); if [ "$MAC0" != "" ]; then export MAC="juno"; fi
+MAC0=$(echo $KC | grep 'n0'); if [ "$MAC0" != "" ]; then export MAC="juno"; fi
+MAC0=$(echo $KC | grep 'v0'); if [ "$MAC0" != "" ]; then export MAC="juno"; fi
 MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export MAC="visung"; fi
 MAC0=$(echo $KC | grep 'topaze'); if [ "$MAC0" != "" ]; then export MAC="topaze"; fi
 
@@ -229,6 +233,36 @@ elif [ "$MAC" = "ld" ]; then
       okular "$1" &
       export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
     }
+
+elif [ "$MAC" = "juno" ]; then
+    source /tmp_user/juno/elsa/Public/$ELSAVERSION/Dist/bin/juno_mpi/.env_elsA &>/dev/null
+    unset I_MPI_PMI_LIBRARY
+    export MOLA=$MOLAJUNO
+
+    # # maia
+    # module use --append /tmp_user/sator/sonics/usr/modules/
+    # module load maia/$MAIAVERSION-dsi-cfd5_idx32
+
+    # VPM
+    export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
+    export PATH=$VPMPATH:$PATH
+    export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
+    export PYTHONPATH=$VPMPATH:$PYTHONPATH
+    export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
+
+    # # turbo
+    # export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+
+    # # ErstaZ
+    # export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
+    # export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
+
+    # NOTE installation hint:
+    # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+    export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/sator_elsA
+    export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+    export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
 elif [ "$MAC" = "topaze" ]; then
     source /ccc/work/cont001/saelsa/saelsa/Public/$ELSAVERSION/Dist/bin/topaze/.env_elsA

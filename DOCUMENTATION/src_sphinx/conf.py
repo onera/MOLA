@@ -36,6 +36,8 @@ extensions = [
 'sphinx.ext.autosummary',
 ]
 
+suppress_warnings = ['autosectionlabel.*'] # to get rid of duplicate label warning
+
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'numpy': ('https://numpy.org/doc/stable/', None),

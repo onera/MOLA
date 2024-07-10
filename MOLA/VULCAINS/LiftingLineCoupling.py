@@ -15,6 +15,18 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+'''
+VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible Navier-Stokes)
+
+This module enables the coupling of the VPM with the Lifting Line module of MOLA.
+
+Version:
+0.5
+
+Author:
+Johan VALENTIN
+'''
+
 import numpy as np
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -58,8 +70,7 @@ def initialiseLiftingLines(tLL = [], VPMParameters = {}, LiftingLineParameters =
         tLL = V.load(tLL)
         V.deletePrintedLines()
     
-    tLL = C.newPyTree(['LiftingLines', I.getZones(tLL)])
-    renameLiftingLinesTree(tLL)
+    tLL = V.checkTreeStructure(tLL, 'LiftingLines')
     updateLiftingLinesParameters(tLL, VPMParameters, LiftingLineParameters)
     updateParametersFromLiftingLines(tLL, VPMParameters)
     return tLL
@@ -147,7 +158,7 @@ def rotateLiftingLineSections(tLL = []):
 def renameLiftingLinesTree(tLL = []):
     '''
     Checks and updates the types of the nodes of the Lifting Lines.
-    .
+    
     Parameters
     ----------
         tLL : Tree
@@ -392,11 +403,11 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
                 raise AttributeError(ERRMSG)
 
         if 'NumberOfParticleSources' in LLParameters:
-            NumberOfParticleSources = LLParameters['NumberOfParticleSources'][0]
+            NumberOfParticleSources = max(NLLmin, LLParameters['NumberOfParticleSources'][0])
             LocalResolution = span/NumberOfParticleSources
         elif 'LocalResolution' in LLParameters:
             LocalResolution = LLParameters['LocalResolution'][0]
-            NumberOfParticleSources = int(round(span/LocalResolution))
+            NumberOfParticleSources = max(int(round(span/LocalResolution)), NLLmin)
             LocalResolution = span/NumberOfParticleSources
         else:
             NumberOfParticleSources = NLLmin
