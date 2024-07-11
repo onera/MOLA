@@ -2468,7 +2468,6 @@ def setBC_nref_imposeFromFile(t, ReferenceValues, FamilyName, filename, fileform
         
         setBC_nref_on_bc(t, FamilyName, ImposedVariables, bc=bcnode)
 
-
 def setBC_inj1(t, FamilyName, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
@@ -2714,6 +2713,57 @@ def setBC_inj1_imposeFromFile(t, FluidProperties, ReferenceValues, FamilyName, f
         
         setBC_inj1(t, FamilyName, ImposedVariables, bc=bcnode)
 
+def setBC_injrot(t, bc, injrot_type, filename):
+    '''
+    Impose a Boundary Condition ``injrot``.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        bc : node
+            BC CGNS node attached to the family in the which the boundary condition is applied
+
+        injrot_type : str
+            type of injrot formulation : ``'rel_direction'`` or ``'tangential_comp'``
+        
+        filename : str
+            filename of the CGNS file containing the inlet data suitable for injrot
+
+    '''
+
+    DictKeysInjrot={}
+    DictKeysInjrot['type'] = 'injrot'
+    DictKeysInjrot['injrot_type'] = injrot_type             # 'rel_direction' or 'tangential_comp' - prescribed variables must be adapted 
+
+    # get the data from the file
+    bnd_data = C.convertFile2PyTree(filename)
+
+    # get Node FlowSolutionCenters
+    # we suppose here that the variable names are correctly set for Giles inj1
+    FS = I.getNodeFromName(bnd_data, I.__FlowSolutionCenters__)
+
+    # store data in a dictionnary
+    ImposedVariables = dict()
+    for child in I.getChildren(FS):
+        childname = I.getName(child)            
+        if childname != 'GridLocation':
+            ImposedVariables[childname] = np.asfortranarray(I.getValue(child))
+
+    #print(ImposedVariables)
+    
+    # build node for BCDataSet
+    BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
+        gridLocation='FaceCenter', parent=bc)
+    
+    # add the data in BCDataSet
+    J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
+
+    # set the BC with keys
+    J.set(bc, '.Solver#BC',**DictKeysInjrot)
+
 def setBC_injmfr1(t, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
     Set a Boundary Condition ``injmfr1`` with uniform inflow values. These values
@@ -2902,8 +2952,6 @@ def setBC_outpres_imposeFromFile(t, FamilyName, filename, fileformat=None):
 
         setBC_outpres(t, FamilyName, ImposedVariables, bc=bcnode)
 
-
-
 def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
     '''
     Impose a Boundary Condition ``giles_out``.
@@ -2977,11 +3025,12 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
         DictKeysGilesOutlet['monitoring_pressure'] = kwargs.get('Pressure',None)                      # given by the user
 
         # Case for Valve Law
-        valve_ref_type = kwargs.get('valve_ref_type',0)
+        valve_ref_type = kwargs.get('valve_ref_type', 0)
+        valve_relax = kwargs.get('valve_relax', 0.1)
         if valve_ref_type!=0:
             DictKeysGilesOutlet['monitoring_valve_ref_type'] = valve_ref_type
-            DictKeysGilesOutlet['monitoring_valve_ref_pres'] = valve_ref_pres
-            DictKeysGilesOutlet['monitoring_valve_ref_mflow'] = valve_ref_mflow
+            DictKeysGilesOutlet['monitoring_valve_ref_pres'] = kwargs['valve_ref_pres']
+            DictKeysGilesOutlet['monitoring_valve_ref_mflow'] = kwargs['valve_ref_mflow']
             DictKeysGilesOutlet['monitoring_valve_relax'] = valve_relax
             
     # imposed cartography from a CGNS file
@@ -3016,59 +3065,6 @@ def setBC_giles_outlet(t, bc, FamilyName,**kwargs):
 
     # set the BC with keys
     J.set(bc, '.Solver#BC',**DictKeysGilesOutlet)
-
-def setBC_injrot(t, bc, injrot_type, filename):
-    '''
-    Impose a Boundary Condition ``injrot``.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        bc : node
-            BC CGNS node attached to the family in the which the boundary condition is applied
-
-        injrot_type : str
-            type of injrot formulation : ``'rel_direction'`` or ``'tangential_comp'``
-        
-        filename : str
-            filename of the CGNS file containing the inlet data suitable for injrot
-
-    '''
-
-    DictKeysInjrot={}
-    DictKeysInjrot['type'] = 'injrot'
-    DictKeysInjrot['injrot_type'] = injrot_type             # 'rel_direction' or 'tangential_comp' - prescribed variables must be adapted 
-
-    # get the data from the file
-    bnd_data = C.convertFile2PyTree(filename)
-
-    # get Node FlowSolutionCenters
-    # we suppose here that the variable names are correctly set for Giles inj1
-    FS = I.getNodeFromName(bnd_data, I.__FlowSolutionCenters__)
-
-    # store data in a dictionnary
-    ImposedVariables = dict()
-    for child in I.getChildren(FS):
-        childname = I.getName(child)            
-        if childname != 'GridLocation':
-            ImposedVariables[childname] = np.asfortranarray(I.getValue(child))
-
-    #print(ImposedVariables)
-    
-    # build node for BCDataSet
-    BCDataSet = I.newBCDataSet(name='BCDataSet#Init', value='Null',
-        gridLocation='FaceCenter', parent=bc)
-    
-    # add the data in BCDataSet
-    J.set(BCDataSet, 'DirichletData', childType='BCData_t', **ImposedVariables)
-
-    # set the BC with keys
-    J.set(bc, '.Solver#BC',**DictKeysInjrot)
-
-
 
 def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwargs):
     '''
@@ -3191,8 +3187,6 @@ def setBC_giles_inlet(t, bc, FluidProperties, ReferenceValues, FamilyName, **kwa
 
     # set the BC with keys
     J.set(bc, '.Solver#BC',**DictKeysGilesInlet)
-
-
 
 def setBC_outmfr2(t, FamilyName, MassFlow=None, groupmassflow=1, ReferenceValues=None, TurboConfiguration=None):
     '''
