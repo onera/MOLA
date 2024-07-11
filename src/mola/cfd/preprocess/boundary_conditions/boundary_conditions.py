@@ -68,6 +68,8 @@ def apply(workflow, selected_boundaries_conditions=None):
         mola_logger.info(f'Set boundary conditions:', rank=0)
 
     for bc in selected_boundaries_conditions:
+
+        _check_family_exists(workflow.tree, bc['Family'])
         
         bcName = bc['Type']
         if bcName == 'InterfaceBetweenWorkflows':
@@ -95,6 +97,10 @@ def apply(workflow, selected_boundaries_conditions=None):
             raise MolaException(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
         else:
             solverSpecificFunction(workflow, *args, **kwargs)
+
+def _check_family_exists(tree, family_name):
+    if not tree.get(Name=family_name, Type='Family', Depth=2):
+        raise MolaException(f'Cannot apply a boundary condition on family {family_name}: This family does not exist in the mesh.')
 
 def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
     '''

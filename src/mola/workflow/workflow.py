@@ -56,8 +56,6 @@ class Workflow(object):
         if tree is not None: self.get_workflow_parameters_from_tree()
         
     def prepare(self):
-        import maia 
-        from mpi4py import MPI
         self.assemble() # distributed from here 
         self.positioning()
         self.define_families() # possibly partitioned from here

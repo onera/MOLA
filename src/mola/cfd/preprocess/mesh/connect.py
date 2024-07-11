@@ -66,8 +66,15 @@ def apply_with_cassiopee(workflow):
             
             if ConnectionType == 'Match':
                 C._rmBCOfType(base,'BCMatch') # HACK https://elsa.onera.fr/issues/11400
-                base_out = Xmpi.connectMatch(base, tol=tolerance, dim=base_dim)
-                
+                # HACK Xmpi.connectMatch works only for structured mesh, 
+                # whereas X.connectMatch works also for unstructured mesh.
+                # See https://elsa-e.onera.fr/issues/11719
+                if base.isStructured():
+                    base_out = Xmpi.connectMatch(base, tol=tolerance, dim=base_dim) 
+                elif mpi_size == 1:
+                    base_out = X.connectMatch(base, tol=tolerance, dim=base_dim)  
+                else:
+                    raise MolaAssertionError('connectMatch in parallel works only for structured mesh.')
 
             elif ConnectionType == 'NearMatch':
                 try: 
