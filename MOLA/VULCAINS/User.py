@@ -90,7 +90,10 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
             Eulerian mesh or its file path.
 
         PerturbationField : :py:class:`~MOLA.Data.Tree.Tree` or :py:class:`str` or :py:obj:`None`
-            Perturbation field or its file path. Must contain
+            Perturbation field or its file path. Must contain grid coordinates and
+            corresponding fields located at vertex (``FlowSolution`` container)
+            named ``VelocityPerturbationX``, ``VelocityPerturbationY`` and
+            ``VelocityPerturbationZ``
 
         LiftingLines : :py:class:`~MOLA.Data.Tree.Tree` or :py:class:`str` or :py:obj:`None`
             Lifting Lines or its file path.
