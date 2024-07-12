@@ -253,8 +253,8 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
     if FieldsExtractionGrid:
         extractFields(t, FieldsExtractionGrid, 5300)
         filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
-        V.save(FieldsExtractionGrid, filename, SaveFields)
-        V.save(FieldsExtractionGrid, 'fields.cgns', SaveFields)
+        V.save(FieldsExtractionGrid, filename, VisualisationOptions, SaveFields)
+        V.save(FieldsExtractionGrid, 'fields.cgns', VisualisationOptions, SaveFields)
 
     filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_It%d.cgns'%it)
     V.save(t, filename, VisualisationOptions, SaveFields)
