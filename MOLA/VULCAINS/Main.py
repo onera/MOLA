@@ -75,7 +75,7 @@ float_Params = ['Density', 'EddyViscosityConstant', 'KinematicViscosity', 'Tempe
     'MinimumVorticityFactor', 'RedistributeParticlesBeyond', 'RealignmentRelaxationFactor',
     'MagnitudeRelaxationFactor', 'EddyViscosityRelaxationFactor', 'RemoveWeakParticlesBeyond',
     'ResizeParticleFactor', 'ClusterSizeFactor', 'NearFieldOverlapingFactor',
-    'NearFieldSmoothingFactor', 'TimeFMM', 'FMMPerturbationOverlappingRatio',
+    'NearFieldSmoothingFactor', 'TimeFMM', 'PerturbationOverlappingFactor',
     'TimeVelocityPerturbation', 'CirculationThreshold', 'CirculationRelaxationFactor', 
     'LocalResolution', 'RPM', 'VelocityTranslation', 'EulerianTimeStep', 'GenerationZones',
     'HybridDomainSize', 'MinimumSplitStrengthFactor', 'RelaxationRatio', 'RelaxationThreshold',
@@ -93,588 +93,666 @@ int_Params = ['CurrentIteration', 'IntegrationOrder', 'LowStorageIntegration',
 
 str_Params = ['EddyViscosityModel', 'DiffusionScheme', 'VorticityEquationScheme', 'IntegralLaw',
                                                                          'ParticleGenerationMethod']
-defaultVPMParameters = {
-    ################################################################################################
-    ######################################## VPM Parameters ########################################
-    ################################################################################################
-    ####################################### Fluid Parameters #######################################
-        'Density'                      : 1.225,
-        'EddyViscosityConstant'        : 0.15,
-        'EddyViscosityModel'           : 'Vreman',
-        'KinematicViscosity'           : 1.46e-5,
-        'Temperature'                  : 288.15,
-        'Time'                         : 0,
-        'VelocityFreestream'           : np.array([0., 0., 0.]),
-    ##################################### Numerical Parameters #####################################
-        'AntiDiffusion'                : 0,
-        'AntiStretching'               : 0,
-        'CurrentIteration'             : 0,
-        'DiffusionScheme'              : 'DVM',
-        'IntegrationOrder'             : 1,
-        'LowStorageIntegration'        : 1,
-        'MachLimitor'                  : 0.5,
-        'NumberOfBEMSources'           : 0,
-        'NumberOfCFDSources'           : 0,
-        'NumberOfHybridSources'        : 0,
-        'NumberOfLiftingLines'         : 0,
-        'NumberOfLiftingLineSources'   : 0,
-        'NumberOfNodes'                : 0,
-        'ParticleSizeVariationLimitor' : 1.1,
-        'Resolution'                   : [None, None],
-        'Sigma0'                       : [None, None],
-        'SmoothingRatio'               : 2.,
-        'StrengthVariationLimitor'     : 2,
-        'TimeStep'                     : None,
-        'VorticityEquationScheme'      : 'Transpose',
-    ####################################### Particles Control ######################################
-        'CutoffXmin'                    : -np.inf,
-        'CutoffXmax'                    : +np.inf,
-        'CutoffYmin'                    : -np.inf,
-        'CutoffYmax'                    : +np.inf,
-        'CutoffZmin'                    : -np.inf,
-        'CutoffZmax'                    : +np.inf,
-        'ForcedDissipation'             : 0,
-        'MaximumAgeAllowed'             : 0,
-        'MaximumAngleForMerging'        : 90,
-        'MaximumMergingVorticityFactor' : 100,
-        'MinimumOverlapForMerging'      : 3,
-        'MinimumVorticityFactor'        : 0.001,
-        'RedistributeParticlesBeyond'   : 0,
-        'RedistributionPeriod'          : 1,
-        'RealignmentRelaxationFactor'   : 0.,
-        'MagnitudeRelaxationFactor'     : 0.,
-        'EddyViscosityRelaxationFactor' : 0.005,
-        'RemoveWeakParticlesBeyond'     : 0,
-        'ResizeParticleFactor'          : 3,
-        'StrengthRampAtbeginning'       : 50,
-        'EnstrophyControlRamp'          : 100,
-    ############################### Fast Multipole Method Parameters ###############################
-        'ClusterSizeFactor'         : 10.,
-        'FarFieldPolynomialOrder'   : 8,
-        'IterationCounter'          : 0,
-        'IterationTuningFMM'        : 50,
-        'MaxParticlesPerCluster'    : 2**8,
-        'NearFieldOverlapingFactor' : 2,
-        'NearFieldSmoothingFactor'  : 1,
-        'NumberOfThreads'           : 'auto',
-        'TimeFMM'                   : 0,
-    ################################ Perturbation Field Parameters #################################
-        'FMMPerturbationOverlappingRatio' : 3,
-        'TimeVelocityPerturbation'        : 0,
-}
 
-
-def getDefaultVPMParameters(
-    ####################################### Fluid Parameters #######################################
-    Density = 1.225,
-    EddyViscosityConstant = 0.15,
-    EddyViscosityModel    = 'Vreman',
-    KinematicViscosity    = 1.46e-5,
-    Temperature           = 288.15,
-    Time                  = 0,
-    VelocityFreestream    = np.array([0., 0., 0.]),
-    ##################################### Numerical Parameters #####################################
-    AntiDiffusion         = 0,
-    AntiStretching        = 0,
-    CurrentIteration      = 0,
-    DiffusionScheme       = 'DVM',
-    IntegrationOrder      = 1,
-    LowStorageIntegration = 1,
-    MachLimitor           = 0.5,
-    NumberOfBEMSources    = 0,
-    NumberOfCFDSources    = 0,
-    NumberOfHybridSources = 0,
-    NumberOfLiftingLines  = 0,
-    NumberOfLiftingLineSources  =0,
-    NumberOfNodes         = 0,
-    ParticleSizeVariationLimitor=1.1,
-    Resolution            = [None, None],
-    Sigma0                = [None, None],
-    SmoothingRatio        = 2.,
-    StrengthVariationLimitor    =2,
-    TimeStep              = None,
-    VorticityEquationScheme     ='Transpose',
-    ####################################### Particles Control ######################################
-    CutoffXmin             = -np.inf,
-    CutoffXmax             = +np.inf,
-    CutoffYmin             = -np.inf,
-    CutoffYmax             = +np.inf,
-    CutoffZmin             = -np.inf,
-    CutoffZmax             = +np.inf,
-    ForcedDissipation      = 0,
-    MaximumAgeAllowed      = 0,
-    MaximumAngleForMerging = 90,
-    MaximumMergingVorticityFactor=100,
-    MinimumOverlapForMerging     =3,
-    MinimumVorticityFactor       =0.001,
-    RedistributeParticlesBeyond  =0,
-    RedistributionPeriod         =1,
-    RealignmentRelaxationFactor  =0.,
-    MagnitudeRelaxationFactor    =0.,
-    EddyViscosityRelaxationFactor=0.005,
-    RemoveWeakParticlesBeyond    =0,
-    ResizeParticleFactor         =3,
-    StrengthRampAtbeginning      =50,
-    EnstrophyControlRamp         =100,
-    ############################### Fast Multipole Method Parameters ###############################
-    ClusterSizeFactor        =10.,
-    FarFieldPolynomialOrder  =8,
-    IterationCounter         =0,
-    IterationTuningFMM       =50,
-    MaxParticlesPerCluster   =2**8,
-    NearFieldOverlapingFactor=2,
-    NearFieldSmoothingFactor =1,
-    NumberOfThreads          ='auto',
-    TimeFMM                  =0,
-    ################################ Perturbation Field Parameters #################################
-    FMMPerturbationOverlappingRatio=3,
-    TimeVelocityPerturbation       =0):
+def setType(val, dtype):
     '''
-    Get a :py:class:`dict` containing all the relevant VPM parameters
+    Impose the type of the given variable and returns a 1D numpy array pointer.
 
-    Fluid Parameters
-    ----------------
-    
-    * Density : :py:class:`float`
-        :math:`\in (0, +\infty)` fluid density at infinity :math:`(kg \cdot m^{-3})`.
-    
-    * EddyViscosityConstant : :py:class:`float`
-        :math:`\in (0, +\infty)` constant for the eddy viscosity model.
-    
-    * EddyViscosityModel : :py:class:`str` or :py:obj:`None`
-        Selects the eddy viscosity model. Possible options:
+    Parameters
+    ----------
 
-        * ``'Mansour'``
+        val : :py:class:`float`, :py:class:`int`, :py:class:`dict` or :py:class:`str`
+            Value on wich to impose the type.
 
-        * ``'Mansour2'``
-
-        * ``'Smagorinsky'``
-
-        * ``'Vreman'``
-
-        * :py:obj:`None`
-    
-    * KinematicViscosity : :py:class:`float`
-        :math:`\in (0, +\infty)` fluid kinematic viscosity at freestream
-        :math:`(m^2 \cdot s^{-1})`
-    
-    * Temperature : :py:class:`float`
-        :math:`\in (0, +\infty)` fluid temperature at freestream :math:`(K)`.
-            
-    * Time : :py:class:`float`
-        :math:`\in (0, +\infty)` physical time :math:`(s)`.
-            
-    * VelocityFreestream : :py:class:`numpy.ndarray` of 3 :py:class:`float`
-        :math:`\in (-\infty, +\infty)`, fluid velocity at freestream in :math:`(m \cdot s^{-1})`
-        
-    Numerical Parameters
-    --------------------
-        
-    * AntiDiffusion : :py:class:`float`
-        :math:`\in [0, 1]` vortex diffusion either modifying only the particle strength
-        (AntiStretching = 0) or the particle size (AntiStretching = 1)
-    
-    * AntiStretching : :py:class:`float`
-        :math:`\in [0, 1]` vortex stretching either modifying only the particle strength
-        (AntiStretching = 0) or the particle size (AntiStretching = 1)
-    
-    * CurrentIteration : :py:class:`int`
-        :math:`\in (0, +\infty)` the current iteration (at restart)
-    
-    * DiffusionScheme : :py:class:`str`
-        Provides the scheme used to compute the diffusion term of the vorticity equation.
-        
-        * ``'DVM'``
-
-        * ``'PSE'``
-
-        * ``'CSM'``
-
-        * :py:obj:`None`
-    
-    
-    * IntegrationOrder : :py:class:`int`
-        :math:`\in [1, 4]` 1st, 2nd, 3rd or 4th order Runge Kutta for time-marching precision
-            
-    * LowStorageIntegration : :py:class:`bool`
-        states if the classical (:py:obj:`False`) or the low-storage :py:obj:`True` Runge Kutta is used.
-    
-    * MachLimitor : :py:class:`float`
-        :math:`\in (0, +\infty)` sets the maximum induced velocity a particle can have.
-        Does not take into account the VelocityFreestream.
-    
-    * NumberOfBEMSources : :py:class:`int`
-        :math:`\in (0, +\infty)` total number of embedded Boundary Element Method particles on the
-        solid boundaries.
-    
-    * NumberOfCFDSources : :py:class:`int`
-        :math:`\in (0, +\infty)` total number of embedded Eulerian Immersed particles on the Hybrid
-        Inner Interface.
-        
-    * NumberOfHybridSources : :py:class:`int`
-        :math:`\in (0, +\infty)` total number of hybrid particles generated in the Hybrid Domain.
-            
-    * NumberOfLiftingLines : :py:class:`int`
-        :math:`\in (0, +\infty)` number of LiftingLines.
-    
-    * NumberOfLiftingLineSources : :py:class:`int`
-        :math:`\in (0, +\infty)` total number of embedded source particles on the LiftingLines.
-    
-    * NumberOfNodes : :py:class:`int`
-        :math:`\in (0, +\infty)` total number of nodes in the velocity perturbation field grid.
-    
-    * ParticleSizeVariationLimitor : :py:class:`float`
-        :math:`\in [1, +\infty)` gives the maximum a particle can grow/shrink during an iteration.
-    
-    * Resolution : :py:class:`numpy.ndarray` of 2 :py:class:`float` (or :py:obj:`None`)
-        :math:`\in (0, +\infty)` Respectively minimum and maximum resolution scale of the VPM.
-        It is usually noted :math:`h`.
-        
-        .. danger::
-            NOT A USER PARAMETER
-
-    * Sigma0 : :py:class:`numpy.ndarray` of 2 :py:class:`float` (or :py:obj:`None`)
-        :math:`\in (0, +\infty)` initial minimum and maximum size of the
-        particles, :math:`\sigma_0`
-        
-        .. danger::
-            NOT A USER PARAMETER
-    
-    * SmoothingRatio : :py:class:`float`
-        :math:`\in [0, 5]` sets the ratio between Resolution and core size 
-        (:math:`\sigma_0/h`). Big values smooth the particle interactions, avoiding
-        singularities at induction, but deteriorates precision
-    
-    * StrengthVariationLimitor : :py:class:`float`
-        :math:`\in [1, +\infty)` gives the maximum variation the strength of a 
-        particle can have during an iteration (:math:`\max(\Delta ||\\alpha|| / \Delta t)`)
-        (:math:`\max(||\\alpha||^{t+\Delta t} - ||\\alpha||^{t} / ||\\alpha||^{t})`)
-    
-    * TimeStep : :py:class:`float`
-        :math:`\in (0, +\infty)` time step :math:`\Delta t` of the VPM :math:`(s)`
-        
-        .. hint::
-            To help you in deciding the timestep, you may use 
-            :py:func:`setTimeStepFromBladeRotationAngle` or :py:func:`setTimeStepFromShedParticles`
-    
-    * VorticityEquationScheme : :py:class:`str`
-        The schemes used to compute the vortex stretching term of
-        the vorticity equation. May be one of:
-
-        * ``'Transpose'``
-
-        * ``'Clasical'``
-
-        * ``'Mixed'``
-
-
-    Particle Population Control Parameters
-    --------------------------------------
-    
-    * CutoffXmin : :py:class:`float`
-        :math:`\in (-\infty, +\infty)` particles below this spatial Cutoff are deleted :math:`(m)`.
-    
-    * CutoffXmax : :py:class:`float`
-        :math:`\in (-\infty, +\infty)` particles beyond this spatial Cutoff are deleted :math:`(m)`.
-    
-    * CutoffYmin : :py:class:`float`
-        :math:`\in (-\infty, +\infty)` particles below this spatial Cutoff are deleted :math:`(m)`.
-    
-    * CutoffYmax : :py:class:`float`
-        :math:`\in (-\infty, +\infty)` particles beyond this spatial Cutoff are deleted :math:`(m)`.
-        
-    * CutoffZmin : :py:class:`float`
-        :math:`\in (-\infty, +\infty)` particles below this spatial Cutoff are deleted :math:`(m)`.
-        
-    * CutoffZmax : :py:class:`float`
-        :math:`\in (-\infty, +\infty)` particles beyond this spatial Cutoff are deleted :math:`(m)`.
-    
-    * ForcedDissipation : :py:class:`float`
-        :math:`\in [0, +\infty)` sets the percentage of strength the particles loose per second :math:`(%/s)`
-        
-    * MaximumAgeAllowed : :py:class:`int`
-        :math:`\in [0, +\infty)` particles older than MaximumAgeAllowed iterations are deleted. If
-        ``MaximumAgeAllowed == 0``, they are not deleted (disabling this feature).
-    
-    * MaximumAngleForMerging : :py:class:`float`
-        :math:`\in [0, 180)` maximum angle allowed between two particles to be merged, in deg.
-    
-    * MaximumMergingVorticityFactor : :py:class:`float`
-        :math:`\in [0, +\infty)` particles that have their strength above (resp. below)
-        MaximumMergingVorticityFactor times the maximum particle strength of the Lifting
-        Line embedded particles and the hybrid particles combined are split (resp. merged),
-        in %.
-            
-    * MinimumOverlapForMerging : :py:class:`float`
-        :math:`\in [0, +\infty)` particles are merged if their distance is below their size (:math:`\sigma`) times
-        **MinimumOverlapForMerging**.
-    
-    * MinimumVorticityFactor : :py:class:`float`
-        :math:`\in [0, +\infty)` particles that have their strength below MinimumVorticityFactor times
-        the maximum particle strength of the Lifting Line embedded particles and the hybrid
-        particles combined are deleted, in %.
-    
-    * RedistributeParticlesBeyond : :py:class:`float`
-        :math:`\in [0, +\infty)` do not split/merge particles if closer than 
-        ``RedistributeParticlesBeyond*Resolution`` from any Lifting Line or Hybrid Domain.
-    
-    * RedistributionPeriod : :py:class:`int`
-        :math:`\in [0, +\infty)` iteration frequency at which particles are tested for
-        splitting/merging. If 0 the particles are never split/merged.
-    
-    * RealignmentRelaxationFactor : :py:class:`float`
-        :math:`\in [0, +\infty)` filters the particles direction to realign the particles with their
-        vorticity to have divergence-free vorticity field.
-            
-    * MagnitudeRelaxationFactor : :py:class:`float`
-        :math:`\in [0, +\infty)` filters the particles strength magnitude to have divergence-free
-        vorticity field.
-    
-    * EddyViscosityRelaxationFactor : :py:class:`float`
-        :math:`\in [0, 1)` modifies the EddyViscosityConstant of every particle by
-        EddyViscosityRelaxationFactor at each iteration according to the local loss of
-        Enstrophy of the particles.
-    
-    * RemoveWeakParticlesBeyond : :py:class:`float`
-        :math:`\in [0, +\infty)` do not remove weak particles if closer than 
-        RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
-    
-    * ResizeParticleFactor : :py:class:`float`
-        :math:`\in [0, +\infty)` resize particles that grow/shrink past ResizeParticleFactor their
-        original size (given by Sigma0). If ``ResizeParticleFactor == 0``, no resizing is done.
-    
-    StrengthRampAtbeginning : :py:class:`int`
-        :math:`\in [0, +\infty)` put a sinusoidal ramp on the magnitude of the vorticity shed for the
-        StrengthRampAtbeginning first iterations of the simulation.
-            
-    EnstrophyControlRamp : :py:class:`int`
-        :math:`\in [0, +\infty)` put a sinusoidal ramp on the Enstrophy filter applied to the particles
-        for the EnstrophyControlRamp first iterations after the shedding of each particles.
-
-    Fast Multipole Method Parameters
-    --------------------------------
-        
-    * ClusterSizeFactor : :py:class:`float`
-        :math:`\in [0, +\infty)` FMM clusters smaller than Resolution*ClusterSizeFactor cannot be
-        divided into smaller clusters.
-        
-    * FarFieldPolynomialOrder : :py:class:`int`
-        :math:`\in [4, 12)` order of the polynomial which approximates the long distance particle
-        interactions by the FMM, the higher the more accurate and the more costly.
-    
-    * IterationCounter : :py:class:`int`
-        :math:`\in [0, +\infty)` keeps track of how many iteration past since the last IterationTuningFMM.
-    
-    * IterationTuningFMM : :py:class:`int`
-        :math:`\in [0, +\infty)` period at which the FMM is compared to the direct computation,
-        shows the relative L2 error made by the FMM approximation.
-    
-    * MaxParticlesPerCluster : :py:class:`int`
-        :math:`\in [1, +\infty)` FMM clusters with less than MaxParticlesPerCluster particles cannot be
-        divided into smaller clusters.
-    
-    * NearFieldOverlapingFactor : :py:class:`float`
-        :math:`\in [1, +\infty)` particle interactions are approximated by the FMM as soon as two
-        clusters of particles are separated by at least NearFieldOverlapingFactor the size
-        of the particles in the cluster, the higher the more accurate and the more costly.
-    
-    * NearFieldSmoothingFactor : :py:class:`float`
-        :math:`\in [1, +\mathrm{NearFieldOverlapingFactor}]` particle interactions are smoothed as soon as two
-        clusters of particles are separated by at most NearFieldSmoothingFactor the size of
-        the particles in the cluster, the higher the more accurate and the more costly.
-    
-    * NumberOfThreads : :py:class:`int` or ``'auto'``
-        :math:`\geq 1`, number of threads of the machine used. If ``'auto'``, the
-        highest number of threads is set.
-    
-    * TimeFMM : :py:class:`float`
-        \[0, +\inf\[, keeps track of the CPU time spent by the FMM for the computation of the
-        particle interactions, in s.
-        
-        .. danger::
-            NOT A USER PARAMETER
-
-    Perturbation Field Parameters
-    -----------------------------        
-        
-    * FMMPerturbationOverlappingRatio : :py:class:`float`
-        :math:`\in [1, +\infty)` perturbation grid interpolations are approximated by the FMM as soon as
-        two clusters of cells are separated by at least NearFieldOverlapingFactor the size
-        of the cluster, the higher the more accurate and the more costly.
-            
-    * TimeVelocityPerturbation : :py:class:`float`
-        \[0, +\inf\[, keeps track of the CPU time spent by the FMM for the interpolation of the
-        perturbation mesh, in s.
-
-        .. danger::
-            NOT A USER PARAMETER
-                
+        dtype : :py:class:`float`, :py:class:`int`, :py:class:`dict` or :py:class:`str`
+            Type to impose.
     Returns
     -------
-
-        defaultVPMParameters : dict
-            default VPM Parameters
-    
+        array : :py:class:`numpy.ndarray`
+            Pointer of the given val with the imposed type.
     '''
-    defaultVPMParameters = dict(
-    ####################################### Fluid Parameters #######################################
-    Density =Density,
-    EddyViscosityConstant =EddyViscosityConstant,
-    EddyViscosityModel    =EddyViscosityModel,
-    KinematicViscosity    =KinematicViscosity,
-    Temperature           =Temperature,
-    Time                  =Time,
-    VelocityFreestream    =VelocityFreestream,
-    ##################################### Numerical Parameters #####################################
-    AntiDiffusion         =AntiDiffusion,
-    AntiStretching        =AntiStretching,
-    CurrentIteration      =CurrentIteration,
-    DiffusionScheme       =DiffusionScheme,
-    IntegrationOrder      =IntegrationOrder,
-    LowStorageIntegration =int(LowStorageIntegration),
-    MachLimitor           =MachLimitor,
-    NumberOfBEMSources    =NumberOfBEMSources,
-    NumberOfCFDSources    =NumberOfCFDSources,
-    NumberOfHybridSources =NumberOfHybridSources,
-    NumberOfLiftingLines  =NumberOfLiftingLines,
-    NumberOfLiftingLineSources  =NumberOfLiftingLineSources,
-    NumberOfNodes         =NumberOfNodes,
-    ParticleSizeVariationLimitor=ParticleSizeVariationLimitor,
-    Resolution            =Resolution,
-    Sigma0                =Sigma0,
-    SmoothingRatio        =SmoothingRatio,
-    StrengthVariationLimitor    =StrengthVariationLimitor,
-    TimeStep              =TimeStep,
-    VorticityEquationScheme     =VorticityEquationScheme,
-    ####################################### Particles Control ######################################
-    CutoffXmin             =CutoffXmin,
-    CutoffXmax             =CutoffXmax,
-    CutoffYmin             =CutoffYmin,
-    CutoffYmax             =CutoffYmax,
-    CutoffZmin             =CutoffZmin,
-    CutoffZmax             =CutoffZmax,
-    ForcedDissipation      =ForcedDissipation,
-    MaximumAgeAllowed      =MaximumAgeAllowed,
-    MaximumAngleForMerging =MaximumAngleForMerging,
-    MaximumMergingVorticityFactor=MaximumMergingVorticityFactor,
-    MinimumOverlapForMerging     =MinimumOverlapForMerging,
-    MinimumVorticityFactor       =MinimumVorticityFactor,
-    RedistributeParticlesBeyond  =RedistributeParticlesBeyond,
-    RedistributionPeriod         =RedistributionPeriod,
-    RealignmentRelaxationFactor  =RealignmentRelaxationFactor,
-    MagnitudeRelaxationFactor    =MagnitudeRelaxationFactor,
-    EddyViscosityRelaxationFactor=EddyViscosityRelaxationFactor,
-    RemoveWeakParticlesBeyond    =RemoveWeakParticlesBeyond,
-    ResizeParticleFactor         =ResizeParticleFactor,
-    StrengthRampAtbeginning      =StrengthRampAtbeginning,
-    EnstrophyControlRamp         =EnstrophyControlRamp,
-    ############################### Fast Multipole Method Parameters ###############################
-    ClusterSizeFactor        =ClusterSizeFactor,
-    FarFieldPolynomialOrder  =FarFieldPolynomialOrder,
-    IterationCounter         =IterationCounter,
-    IterationTuningFMM       =IterationTuningFMM,
-    MaxParticlesPerCluster   =MaxParticlesPerCluster,
-    NearFieldOverlapingFactor=NearFieldOverlapingFactor,
-    NearFieldSmoothingFactor =NearFieldSmoothingFactor,
-    NumberOfThreads          =NumberOfThreads,
-    TimeFMM                  =TimeFMM,
-    ################################ Perturbation Field Parameters #################################
-    FMMPerturbationOverlappingRatio=FMMPerturbationOverlappingRatio,
-    TimeVelocityPerturbation       =TimeVelocityPerturbation,)
+    return np.atleast_1d(np.array(val, order = 'F', dtype = object if (np.array(val) == None).any()
+                                                                                        else dtype))
 
-    return defaultVPMParameters
+def checkRange(Parameters = {}, Range = {}):
+    '''
+    Resest the values in ``Parameters`` to be within ``Range``.
 
-VPMParametersRange = {
-    ################################################################################################
-    ######################################## VPM Parameters ########################################
-    ################################################################################################
-    ####################################### Fluid Parameters #######################################
-        'Density'                         : [0., +np.inf],
-        'EddyViscosityConstant'           : [0., 1.],
-        'EddyViscosityModel'              : [None, 'Vreman', 'Mansour', 'Mansour2', 'Smagorinsky'],
-        'KinematicViscosity'              : [0., +np.inf],
-        'Temperature'                     : [0., +np.inf],
-        'Time'                            : [0., +np.inf],
-        'VelocityFreestream'              : [-np.inf, +np.inf],
-    ##################################### Numerical Parameters #####################################
-        'AntiDiffusion'                   : [0., 1.],
-        'AntiStretching'                  : [0., 1.],
-        'CurrentIteration'                : [0, +np.inf],
-        'DiffusionScheme'                 : [None, 'DVM', 'PSE', 'CSM'],
-        'IntegrationOrder'                : [1, 4],
-        'LowStorageIntegration'           : [0, 1],
-        'MachLimitor'                     : [0., 1.],
-        'NumberOfBEMSources'              : [0, +np.inf],
-        'NumberOfCFDSources'              : [0, +np.inf],
-        'NumberOfHybridSources'           : [0, +np.inf],
-        'NumberOfLiftingLines'            : [0, +np.inf],
-        'NumberOfLiftingLineSources'      : [0, +np.inf],
-        'NumberOfNodes'                   : [0, +np.inf],
-        'ParticleSizeVariationLimitor'    : [1, +np.inf],
-        'Resolution'                      : [0., +np.inf],
-        'Sigma0'                          : [0., +np.inf],
-        'SmoothingRatio'                  : [1., +np.inf],
-        'StrengthVariationLimitor'        : [1, +np.inf],
-        'TimeStep'                        : [0., +np.inf],
-        'VorticityEquationScheme'         : ['Transpose', 'Mixed', 'Classical'],
-    ####################################### Particles Control ######################################
-        'CutoffXmin'                      : [-np.inf, +np.inf],
-        'CutoffXmax'                      : [-np.inf, +np.inf],
-        'CutoffYmin'                      : [-np.inf, +np.inf],
-        'CutoffYmax'                      : [-np.inf, +np.inf],
-        'CutoffZmin'                      : [-np.inf, +np.inf],
-        'CutoffZmax'                      : [-np.inf, +np.inf],
-        'ForcedDissipation'               : [0, +np.inf],
-        'MaximumAgeAllowed'               : [0, +np.inf],
-        'MaximumAngleForMerging'          : [0., 180.],
-        'MaximumMergingVorticityFactor'   : [0., +np.inf],
-        'MinimumOverlapForMerging'        : [0., +np.inf],
-        'MinimumVorticityFactor'          : [0., +np.inf],
-        'RedistributeParticlesBeyond'     : [0., +np.inf],
-        'RedistributionPeriod'            : [0, +np.inf],
-        'RealignmentRelaxationFactor'     : [0., +np.inf],
-        'MagnitudeRelaxationFactor'       : [0., +np.inf],
-        'EddyViscosityRelaxationFactor'   : [0., 1.],
-        'RemoveWeakParticlesBeyond'       : [0., +np.inf],
-        'ResizeParticleFactor'            : [1., +np.inf],
-        'StrengthRampAtbeginning'         : [0, +np.inf],
-        'EnstrophyControlRamp'            : [0, +np.inf],
-    ############################### Fast Multipole Method Parameters ###############################
-        'ClusterSizeFactor'               : [0, +np.inf],
-        'FarFieldPolynomialOrder'         : [4, 12],
-        'IterationCounter'                : [0, +np.inf],
-        'IterationTuningFMM'              : [1, +np.inf],
-        'MaxParticlesPerCluster'          : [1, +np.inf],
-        'NearFieldOverlapingFactor'       : [0., +np.inf],
-        'NearFieldSmoothingFactor'        : [0., +np.inf],
-        'NumberOfThreads'                 : [1, +np.inf],
-        'TimeFMM'                         : [0., +np.inf],
-    ################################ Perturbation Field Parameters #################################
-        'FMMPerturbationOverlappingRatio' : [1., +np.inf],
-        'TimeVelocityPerturbation'        : [0., +np.inf],
-}
+    Parameters
+    ----------
+        Parameters : :py:class:`dict`
+            Contains the ``key`` parameters.
 
-defaultLiftingLineParameters = {
-    ################################################################################################
-    ################################### Lifting Lines Parameters ###################################
-    ################################################################################################
-        'CirculationThreshold'             : 1e-4,
-        'CirculationRelaxationFactor'      : 1./3.,
-        'IntegralLaw'                      : 'linear',
-        'MaxLiftingLineSubIterations'      : 100,
-        'MinNbShedParticlesPerLiftingLine' : 26,
-        'NumberOfParticleSources'          : 50,
-        'ParticleDistribution'             : dict(kind = 'tanhTwoSides', FirstSegmentRatio = 2.,
-                                                       LastSegmentRatio = 0.5, Symmetrical = False),
-        'LocalResolution'                  : None,
-        'RPM'                              : None,
-        'VelocityTranslation'              : None,
-}
+        Range : :py:class:`dict`
+            Operable range of the parameters in ``Parameters``. Each range must be a list of 2
+            :py:class:`float` or :py:class:`int`, or a list of :py:class:`str`.
+    '''
+    for key in Parameters:
+        if key in str_Params:
+            if Parameters[key] not in Range[key]:
+                print(J.WARN + Parameters[key] + ' does not exist. Set to ' + str(Range[key][0])\
+                                                                                           + J.ENDC)
+                Parameters[key] = Range[key][0]
+        elif type(Parameters[key]) != dict and (np.array(Parameters[key]) != None).all():
+            if np.min(Parameters[key]) < Range[key][0]:
+                print(J.WARN + key + ' = ' + str(np.min(Parameters[key])) + ' outside range. ' + \
+                                                            'Set to ' + str(Range[key][0]) + J.ENDC)
+                Parameters[key][Parameters[key] < Range[key][0]] = Range[key][0]
+            if Range[key][-1] < np.max(Parameters[key]):
+                print(J.WARN + key + ' = ' + str(np.max(Parameters[key])) + ' outside range. ' + \
+                                                            'Set to ' + str(Range[key][1]) + J.ENDC)
+                Parameters[key][Range[key][1] < Parameters[key]] = Range[key][1]
 
-LiftingLineParametersRange = {
-    ################################################################################################
-    ################################### Lifting Lines Parameters ###################################
-    ################################################################################################
+def getDefaultFluidParameters(Density               = 1.225,
+                              KinematicViscosity    = 1.46e-5,
+                              Temperature           = 288.15,
+                              VelocityFreestream    = np.array([0., 0., 0.]),
+                              **kwargs):
+    '''
+        Get a :py:class:`dict` containing all the relevant fluid parameters.
+
+        Parameters
+        ----------
+            Density : :py:class:`float`
+                :math:`\in [0, +\infty[` fluid density at infinity :math:`(kg \cdot m^{-3})`.
+            
+            KinematicViscosity : :py:class:`float`
+                :math:`\in [0, +\infty[` fluid kinematic viscosity at freestream
+                :math:`(m^2 \cdot s^{-1})`
+            
+            Temperature : :py:class:`float`
+                :math:`\in [0, +\infty[` fluid temperature at freestream :math:`(K)`.
+                    
+            VelocityFreestream : :py:class:`numpy.ndarray` of 3 :py:class:`float`
+                :math:`\in [-\infty, +\infty[`, fluid velocity at freestream in :math:`(m \cdot s^{-1})`
+        Returns
+        -------
+            FluidParameters : :py:class:`dict`
+                Free flow parameters
+    '''
+    for key in kwargs: print(J.WARN + key + ' does not exist. Parameter deleted.' + J.ENDC)
+    
+    FluidParametersRange = {
+        'Density'               : [0., +np.inf],
+        'KinematicViscosity'    : [0., +np.inf],
+        'Temperature'           : [0., +np.inf],
+        'VelocityFreestream'    : [-np.inf, +np.inf],
+    }
+    FluidParameters = dict(
+        Density               = setType(Density, np.float64),
+        KinematicViscosity    = setType(KinematicViscosity, np.float64),
+        Temperature           = setType(Temperature, np.float64),
+        VelocityFreestream    = setType(VelocityFreestream, np.float64),
+    )
+    checkRange(FluidParameters, FluidParametersRange)
+    return FluidParameters
+
+def getDefaultPrivateParameters(CurrentIteration           = 0,
+                                IterationCounter           = 0,
+                                NumberOfBEMSources         = 0,
+                                NumberOfCFDSources         = 0,
+                                NumberOfHybridSources      = 0,
+                                NumberOfLiftingLines       = 0,
+                                NumberOfLiftingLineSources = 0,
+                                NumberOfNodes              = 0,
+                                Sigma0                     = [None, None],
+                                Time                       = 0.,
+                                TimeFMM                    = 0.,
+                                TimeVelocityPerturbation   = 0.,
+                                **kwargs):
+    '''
+        Get a :py:class:`dict` containing all the relevant VPM numerical parameters.
+
+        Parameters
+        ----------
+            CurrentIteration : :py:class:`int`
+                :math:`\in [0, +\infty[` the current iteration (at restart)
+            
+            IterationCounter : :py:class:`int`
+                :math:`\in [0, +\infty[` keeps track of how many iteration past since the last IterationTuningFMM.
+            
+            NumberOfBEMSources : :py:class:`int`
+                :math:`\in [0, +\infty[` total number of embedded Boundary Element Method particles on the
+                solid boundaries.
+            
+            NumberOfCFDSources : :py:class:`int`
+                :math:`\in [0, +\infty[` total number of embedded Eulerian Immersed particles on the Hybrid
+                Inner Interface.
+            
+            NumberOfHybridSources : :py:class:`int`
+                :math:`\in [0, +\infty[` total number of hybrid particles generated in the Hybrid Domain.
+            
+            NumberOfLiftingLines : :py:class:`int`
+                :math:`\in [0, +\infty[` number of LiftingLines.
+            
+            NumberOfLiftingLineSources : :py:class:`int`
+                :math:`\in [0, +\infty[` total number of embedded source particles on the LiftingLines.
+            
+            NumberOfNodes : :py:class:`int`
+                :math:`\in [0, +\infty[` total number of nodes in the velocity perturbation field grid.
+            
+            Sigma0 : :py:class:`numpy.ndarray` of 2 :py:class:`float` (or :py:obj:`None`)
+                :math:`\in [0, +\infty[` initial minimum and maximum size of the
+                particles, :math:`\sigma_0`
+                    
+            Time : :py:class:`float`
+                :math:`\in [0, +\infty[` physical time :math:`(s)`.
+            
+            TimeFMM : :py:class:`float`
+                :math:`\in [0, +\infty[`, keeps track of the CPU time spent by the FMM for the computation of the
+                particle interactions, in s.
+            
+            TimeVelocityPerturbation : :py:class:`float`
+                :math:`\in [0, +\infty[`, keeps track of the CPU time spent by the FMM for the interpolation of the
+                perturbation mesh, in s.
+        Returns
+        -------
+            NumericalParameters : :py:class:`dict`
+                Numerical Parameters
+    '''
+    for key in kwargs: print(J.WARN + key + ' does not exist. Parameter deleted.' + J.ENDC)
+
+    NumericalParametersRange = {
+        'CurrentIteration'           : [0, +np.inf],
+        'IterationCounter'           : [0, +np.inf],
+        'NumberOfBEMSources'         : [0, +np.inf],
+        'NumberOfCFDSources'         : [0, +np.inf],
+        'NumberOfHybridSources'      : [0, +np.inf],
+        'NumberOfLiftingLines'       : [0, +np.inf],
+        'NumberOfLiftingLineSources' : [0, +np.inf],
+        'NumberOfNodes'              : [0, +np.inf],
+        'Sigma0'                     : [0., +np.inf],
+        'Time'                       : [0., +np.inf],
+        'TimeFMM'                    : [0., +np.inf],
+        'TimeVelocityPerturbation'   : [0., +np.inf],
+    }
+    NumericalParameters = dict(
+        CurrentIteration           = setType(CurrentIteration, np.int32),
+        IterationCounter           = setType(IterationCounter, np.int32),
+        NumberOfBEMSources         = setType(NumberOfBEMSources, np.int32),
+        NumberOfCFDSources         = setType(NumberOfCFDSources, np.int32),
+        NumberOfHybridSources      = setType(NumberOfHybridSources, np.int32),
+        NumberOfLiftingLines       = setType(NumberOfLiftingLines, np.int32),
+        NumberOfLiftingLineSources = setType(NumberOfLiftingLineSources, np.int32),
+        NumberOfNodes              = setType(NumberOfNodes, np.int32),
+        Sigma0                     = setType(Sigma0, np.float64),
+        Time                       = setType(Time, np.float64),
+        TimeFMM                    = setType(TimeFMM, np.float64),
+        TimeVelocityPerturbation   = setType(TimeVelocityPerturbation, np.float64),
+    )
+    checkRange(NumericalParameters, NumericalParametersRange)
+    return NumericalParameters
+
+def getDefaultModelingParameters(AntiDiffusion                 = 0,
+                                 AntiStretching                = 0,
+                                 DiffusionScheme               = 'DVM',
+                                 EddyViscosityConstant         = 0.15,
+                                 EddyViscosityModel            = 'Vreman',
+                                 EddyViscosityRelaxationFactor = 0.005,
+                                 IntegrationOrder              = 1,
+                                 LowStorageIntegration         = 1,
+                                 MagnitudeRelaxationFactor     = 0.,
+                                 RealignmentRelaxationFactor   = 0.,
+                                 SmoothingRatio                = 2.,
+                                 VorticityEquationScheme       = 'Transpose',
+                                 **kwargs):
+    '''
+        Get a :py:class:`dict` containing all the relevant VPM modeling parameters.
+
+        Parameters
+        ----------
+            AntiDiffusion : :py:class:`float`
+                :math:`\in [0, 1]` vortex diffusion either modifying only the particle strength
+                (AntiDiffusion = 0) or the particle size (AntiDiffusion = 1)
+            
+            AntiStretching : :py:class:`float`
+                :math:`\in [0, 1]` vortex stretching either modifying only the particle strength
+                (AntiStretching = 0) or the particle size (AntiStretching = 1)
+            
+            DiffusionScheme : :py:class:`str`
+                Provides the scheme used to compute the diffusion term of the vorticity equation.
+                ``'DVM'``
+                ``'PSE'``
+                ``'CSM'``
+                :py:obj:`None`
+            
+            EddyViscosityConstant : :py:class:`float`
+                :math:`\in [0, +\infty[` constant for the eddy viscosity model.
+            
+            EddyViscosityModel : :py:class:`str` or :py:obj:`None`
+                Selects the eddy viscosity model. Possible options:
+                ``'Mansour'``
+                ``'Mansour2'``
+                ``'Smagorinsky'``
+                ``'Vreman'``
+                :py:obj:`None`
+            
+            EddyViscosityRelaxationFactor : :py:class:`float`
+                :math:`\in [0, 1)` modifies the EddyViscosityConstant of every particle by
+                EddyViscosityRelaxationFactor at each iteration according to the local loss of
+                Enstrophy of the particles.
+            
+            IntegrationOrder : :py:class:`int`
+                :math:`\in [1, 4]` 1st, 2nd, 3rd or 4th order Runge Kutta for time-marching precision
+            
+            LowStorageIntegration : :py:class:`int`
+                states if the classical (:py:obj:`False`) or the low-storage :py:obj:`True` Runge Kutta is used.
+            
+            MagnitudeRelaxationFactor : :py:class:`float`
+                :math:`\in [0, +\infty[` filters the particles strength magnitude to have divergence-free
+                vorticity field.
+            
+            RealignmentRelaxationFactor : :py:class:`float`
+                :math:`\in [0, +\infty[` filters the particles direction to realign the particles with their
+                vorticity to have divergence-free vorticity field.
+            
+            SmoothingRatio : :py:class:`float`
+                :math:`\in [0, 5]` sets the ratio between Resolution and core size 
+                (:math:`\sigma_0/h`). Big values smooth the particle interactions, avoiding
+                singularities at induction, but deteriorates precision
+            
+            VorticityEquationScheme : :py:class:`str`
+                The schemes used to compute the vortex stretching term of
+                the vorticity equation. May be one of:
+                ``'Transpose'``
+                ``'Clasical'``
+                ``'Mixed'``
+        Returns
+        -------
+            ModelingParameters : :py:class:`dict`
+                VPM Modeling Parameters
+    '''
+    for key in kwargs: print(J.WARN + key + ' does not exist. Parameter deleted.' + J.ENDC)
+    
+    ModelingParametersRange = {
+        'AntiDiffusion'                 : [0., 1.],
+        'AntiStretching'                : [0., 1.],
+        'DiffusionScheme'               : ['DVM', 'PSE', 'CSM', None],
+        'EddyViscosityConstant'         : [0., 1.],
+        'EddyViscosityModel'            : ['Vreman', 'Mansour', 'Mansour2', 'Smagorinsky', None],
+        'EddyViscosityRelaxationFactor' : [0., 1.],
+        'IntegrationOrder'              : [1, 4],
+        'LowStorageIntegration'         : [0, 1],
+        'MagnitudeRelaxationFactor'     : [0., +np.inf],
+        'RealignmentRelaxationFactor'   : [0., +np.inf],
+        'SmoothingRatio'                : [1., +np.inf],
+        'VorticityEquationScheme'       : ['Transpose', 'Mixed', 'Classical'],
+    }
+    ModelingParameters = dict(
+        AntiDiffusion                 = setType(AntiDiffusion, np.float64),
+        AntiStretching                = setType(AntiStretching, np.float64),
+        DiffusionScheme               = np.str_(DiffusionScheme),
+        EddyViscosityConstant         = setType(EddyViscosityConstant, np.float64),
+        EddyViscosityModel            = np.str_(EddyViscosityModel),
+        EddyViscosityRelaxationFactor = setType(EddyViscosityRelaxationFactor, np.float64),
+        IntegrationOrder              = setType(IntegrationOrder, np.int32),
+        LowStorageIntegration         = setType(LowStorageIntegration, np.int32),
+        MagnitudeRelaxationFactor     = setType(MagnitudeRelaxationFactor, np.float64),
+        RealignmentRelaxationFactor   = setType(RealignmentRelaxationFactor, np.float64),
+        SmoothingRatio                = setType(SmoothingRatio, np.float64),
+        VorticityEquationScheme       = np.str_(VorticityEquationScheme),
+    )
+    checkRange(ModelingParameters, ModelingParametersRange)
+    return ModelingParameters
+
+def getDefaultNumericalParameters(EnstrophyControlRamp          = 100,
+                                  ForcedDissipation             = 0,
+                                  MachLimitor                   = 0.5,
+                                  NumberOfThreads               = 'auto',
+                                  ParticleSizeVariationLimitor  = 1.1,
+                                  Resolution                    = [None, None],
+                                  StrengthRampAtbeginning       = 50,
+                                  StrengthVariationLimitor      = 2,
+                                  TimeStep                      = None,
+                                  ParticleControlParameters     = dict(
+                                         CutoffXmin                    = -np.inf,
+                                         CutoffXmax                    = +np.inf,
+                                         CutoffYmin                    = -np.inf,
+                                         CutoffYmax                    = +np.inf,
+                                         CutoffZmin                    = -np.inf,
+                                         CutoffZmax                    = +np.inf,
+                                         MaximumAgeAllowed             = 0,
+                                         MaximumAngleForMerging        = 90,
+                                         MaximumMergingVorticityFactor = 100,
+                                         MinimumOverlapForMerging      = 3,
+                                         MinimumVorticityFactor        = 0.001,
+                                         RedistributeParticlesBeyond   = 0,
+                                         RedistributionPeriod          = 1,
+                                         RemoveWeakParticlesBeyond     = 0,
+                                         ResizeParticleFactor          = 3, 
+                                         ),
+                                  FMMParameters                 = dict(
+                                             ClusterSizeFactor             = 10.,
+                                             FarFieldPolynomialOrder       = 8,
+                                             IterationTuningFMM            = 50,
+                                             MaxParticlesPerCluster        = 2**8,
+                                             NearFieldOverlapingFactor     = 2,
+                                             NearFieldSmoothingFactor      = 1,
+                                             PerturbationOverlappingFactor = 1
+                                             ),
+                                  **kwargs):
+    '''
+        Get a :py:class:`dict` containing all the relevant VULCAINS numerical parameters.
+
+        Parameters
+        ----------
+            EnstrophyControlRamp : :py:class:`int`
+                :math:`\in [0, +\infty[` put a sinusoidal ramp on the Enstrophy filter applied to the particles
+                for the EnstrophyControlRamp first iterations after the shedding of each particles.
+            
+            ForcedDissipation : :py:class:`float`
+                :math:`\in [0, +\infty[` sets the percentage of strength the particles loose per second :math:`(%/s)`
+            
+            MachLimitor : :py:class:`float`
+                :math:`\in [0, +\infty[` sets the maximum induced velocity a particle can have.
+                Does not take into account the VelocityFreestream.
+            
+            NumberOfThreads : :py:class:`int` or ``'auto'``
+                :math:`\geq 1`, number of threads of the machine used. If ``'auto'``, the
+                highest number of threads is set.
+            
+            ParticleSizeVariationLimitor : :py:class:`float`
+                :math:`\in [1, +\infty[` gives the maximum a particle can grow/shrink during an iteration.
+            
+            Resolution : :py:class:`numpy.ndarray` of 2 :py:class:`float` (or :py:obj:`None`)
+                :math:`\in [0, +\infty[` Respectively minimum and maximum resolution scale of the VPM.
+                It is usually noted :math:`h`.
+            
+            StrengthRampAtbeginning : :py:class:`int`
+                :math:`\in [0, +\infty[` put a sinusoidal ramp on the magnitude of the vorticity shed for the
+                StrengthRampAtbeginning first iterations of the simulation.
+            
+            StrengthVariationLimitor : :py:class:`float`
+                :math:`\in [1, +\infty[` gives the maximum variation the strength of a 
+                particle can have during an iteration (:math:`\max(\Delta ||\\alpha|| / \Delta t)`)
+                (:math:`\max(||\\alpha||^{t+\Delta t} - ||\\alpha||^{t} / ||\\alpha||^{t})`)
+            
+            TimeStep : :py:class:`float`
+                :math:`\in [0, +\infty[` time step :math:`\Delta t` of the VPM :math:`(s)`
+
+                .. hint::
+                    To help you in deciding the timestep, you may use 
+                    :py:func:`setTimeStepFromBladeRotationAngle` or
+                    :py:func:`setTimeStepFromShedParticles`
+
+            ParticleControlParameters : :py:class:`dict`
+                Contains all the parameters relevent to the redistribution (merging and splitting),
+                and kill criteria of the particles, may it based on their age, strength, position,
+                size ...
+
+                CutoffXmin : :py:class:`float`
+                :math:`\in ]-\infty, +\infty[` particles below this spatial cutoff are deleted :math:`(m)`.
+            
+                CutoffXmax : :py:class:`float`
+                    :math:`\in ]-\infty, +\infty[` particles beyond this spatial cutoff are deleted :math:`(m)`.
+                
+                CutoffYmin : :py:class:`float`
+                    :math:`\in ]-\infty, +\infty[` particles below this spatial cutoff are deleted :math:`(m)`.
+                
+                CutoffYmax : :py:class:`float`
+                    :math:`\in ]-\infty, +\infty[` particles beyond this spatial cutoff are deleted :math:`(m)`.
+                
+                CutoffZmin : :py:class:`float`
+                    :math:`\in ]-\infty, +\infty[` particles below this spatial cutoff are deleted :math:`(m)`.
+                
+                CutoffZmax : :py:class:`float`
+                    :math:`\in ]-\infty, +\infty[` particles beyond this spatial cutoff are deleted :math:`(m)`.
+                    
+                MaximumAgeAllowed : :py:class:`int`
+                    :math:`\in [0, +\infty[` particles older than MaximumAgeAllowed iterations are deleted. If
+                    ``MaximumAgeAllowed == 0``, they are not deleted (disabling this feature).
+                
+                MaximumAngleForMerging : :py:class:`float`
+                    :math:`\in [0, 180)` maximum angle allowed between two particles to be merged, in deg.
+                
+                MaximumMergingVorticityFactor : :py:class:`float`
+                    :math:`\in [0, +\infty[` particles that have their strength above (resp. below)
+                    MaximumMergingVorticityFactor times the maximum particle strength of the Lifting
+                    Line embedded particles and the hybrid particles combined are split (resp. merged),
+                    in %.
+                
+                MinimumOverlapForMerging : :py:class:`float`
+                    :math:`\in [0, +\infty[` particles are merged if their distance is below their size (:math:`\sigma`) times
+                    **MinimumOverlapForMerging**.
+                
+                MinimumVorticityFactor : :py:class:`float`
+                    :math:`\in [0, +\infty[` particles that have their strength below MinimumVorticityFactor times
+                    the maximum particle strength of the Lifting Line embedded particles and the hybrid
+                    particles combined are deleted, in %.
+                    
+                RedistributeParticlesBeyond : :py:class:`float`
+                    :math:`\in [0, +\infty[` do not split/merge particles if closer than 
+                    ``RedistributeParticlesBeyond*Resolution`` from any Lifting Line or Hybrid Domain.
+                
+                RedistributionPeriod : :py:class:`int`
+                    :math:`\in [0, +\infty[` iteration frequency at which particles are tested for
+                    splitting/merging. If 0 the particles are never split/merged.
+                
+                RemoveWeakParticlesBeyond : :py:class:`float`
+                    :math:`\in [0, +\infty[` do not remove weak particles if closer than 
+                    RedistributeParticlesBeyond*Resolution from any Lifting Line or Hybrid Domain.
+                
+                ResizeParticleFactor : :py:class:`float`
+                    :math:`\in [0, +\infty[` resize particles that grow/shrink past ResizeParticleFactor their
+                    original size (given by Sigma0). If ``ResizeParticleFactor == 0``, no resizing is done.
+
+
+            FMMParameters : :py:class:`dict`
+                Contains all the parameters relevent to the Fast Multipole Method for the
+                acceleration of the inter-particular interactions.
+
+                ClusterSizeFactor : :py:class:`float`
+                    :math:`\in [0, +\infty[` FMM clusters smaller than Resolution*ClusterSizeFactor cannot be
+                    divided into smaller clusters.
+                
+                FarFieldPolynomialOrder : :py:class:`int`
+                    :math:`\in [4, 12)` order of the polynomial which approximates the long distance particle
+                    interactions by the FMM, the higher the more accurate and the more costly.
+                
+                IterationTuningFMM : :py:class:`int`
+                    :math:`\in [0, +\infty[` period at which the FMM is compared to the direct computation,
+                    shows the relative L2 error made by the FMM approximation.
+                
+                MaxParticlesPerCluster : :py:class:`int`
+                    :math:`\in [1, +\infty[` FMM clusters with less than MaxParticlesPerCluster particles cannot be
+                    divided into smaller clusters.
+                
+                NearFieldOverlapingFactor : :py:class:`float`
+                    :math:`\in [1, +\infty[` particle interactions are approximated by the FMM as soon as two
+                    clusters of particles are separated by at least NearFieldOverlapingFactor the size
+                    of the particles in the cluster, the higher the more accurate and the more costly.
+                
+                NearFieldSmoothingFactor : :py:class:`float`
+                    :math:`\in [1, +\mathrm{NearFieldOverlapingFactor}]` particle interactions are smoothed as soon as two
+                    clusters of particles are separated by at most NearFieldSmoothingFactor the size of
+                    the particles in the cluster, the higher the more accurate and the more costly.
+
+                PerturbationOverlappingFactor : :py:class:`float`
+                    :math:`\in [1, +\infty[` perturbation grid interpolations are approximated by the FMM as soon as
+                    two clusters of cells are separated by at least NearFieldOverlapingFactor the size
+                    of the cluster, the higher the more accurate and the more costly.
+        Returns
+        -------
+            NumericalParameters : :py:class:`dict`
+                VULCAINS Numerical Parameters
+    '''
+    if 'RECURSIVE' in kwargs: return dict(ParticleControlParameters = ParticleControlParameters,
+                                                                      FMMParameters = FMMParameters)
+    
+    defaultNumericalParameters = getDefaultNumericalParameters(**dict(RECURSIVE=True))
+    PCP = defaultNumericalParameters['ParticleControlParameters']
+    FMMP = defaultNumericalParameters['FMMParameters']
+    for key in kwargs: print(J.WARN + key + ' does not exist. Parameter deleted.' + J.ENDC)
+
+    NumericalParametersRange = {
+        'EnstrophyControlRamp'          : [0, +np.inf],
+        'ForcedDissipation'             : [0, +np.inf],
+        'MachLimitor'                   : [0., 1.],
+        'NumberOfThreads'               : [1, +np.inf],
+        'ParticleSizeVariationLimitor'  : [1, +np.inf],
+        'Resolution'                    : [0., +np.inf],
+        'StrengthRampAtbeginning'       : [0, +np.inf],
+        'StrengthVariationLimitor'      : [1, +np.inf],
+        'TimeStep'                      : [0., +np.inf],
+    }
+    ParticleControlParametersRange = {
+        'CutoffXmin'                    : [-np.inf, +np.inf],
+        'CutoffXmax'                    : [-np.inf, +np.inf],
+        'CutoffYmin'                    : [-np.inf, +np.inf],
+        'CutoffYmax'                    : [-np.inf, +np.inf],
+        'CutoffZmin'                    : [-np.inf, +np.inf],
+        'CutoffZmax'                    : [-np.inf, +np.inf],
+        'MaximumAgeAllowed'             : [0, +np.inf],
+        'MaximumAngleForMerging'        : [0., 180.],
+        'MaximumMergingVorticityFactor' : [0., +np.inf],
+        'MinimumOverlapForMerging'      : [0., +np.inf],
+        'MinimumVorticityFactor'        : [0., +np.inf],
+        'RedistributeParticlesBeyond'   : [0., +np.inf],
+        'RedistributionPeriod'          : [0, +np.inf],
+        'RemoveWeakParticlesBeyond'     : [0., +np.inf],
+        'ResizeParticleFactor'          : [1., +np.inf],
+    }
+    FMMParametersRange = {
+        'ClusterSizeFactor'            : [0, +np.inf],
+        'FarFieldPolynomialOrder'      : [4, 12],
+        'IterationTuningFMM'           : [1, +np.inf],
+        'MaxParticlesPerCluster'       : [1, +np.inf],
+        'NearFieldOverlapingFactor'    : [0., +np.inf],
+        'NearFieldSmoothingFactor'     : [0., +np.inf],
+        'PerturbationOverlappingFactor' : [1., +np.inf],
+    }
+    NumericalParameters = dict(
+        EnstrophyControlRamp          = setType(EnstrophyControlRamp, np.int32),
+        ForcedDissipation             = setType(ForcedDissipation, np.float64),
+        MachLimitor                   = setType(MachLimitor, np.float64),
+        NumberOfThreads               = setType(NumberOfThreads, np.int32),
+        ParticleSizeVariationLimitor  = setType(ParticleSizeVariationLimitor, np.float64),
+        Resolution                    = setType(Resolution, np.float64),
+        StrengthRampAtbeginning       = setType(StrengthRampAtbeginning, np.int32),
+        StrengthVariationLimitor      = setType(StrengthVariationLimitor, np.float64),
+        TimeStep                      = setType(TimeStep, np.float64),
+    )
+    PCP.update(ParticleControlParameters)
+    ParticleControlParameters = dict(
+        CutoffXmin                    = setType(PCP['CutoffXmin'], np.float64),
+        CutoffXmax                    = setType(PCP['CutoffXmax'], np.float64),
+        CutoffYmin                    = setType(PCP['CutoffYmin'], np.float64),
+        CutoffYmax                    = setType(PCP['CutoffYmax'], np.float64),
+        CutoffZmin                    = setType(PCP['CutoffZmin'], np.float64),
+        CutoffZmax                    = setType(PCP['CutoffZmax'], np.float64),
+        MaximumAgeAllowed             = setType(PCP['MaximumAgeAllowed'], np.int32),
+        MaximumAngleForMerging        = setType(PCP['MaximumAngleForMerging'], np.float64),
+        MaximumMergingVorticityFactor = setType(PCP['MaximumMergingVorticityFactor'], np.float64),
+        MinimumOverlapForMerging      = setType(PCP['MinimumOverlapForMerging'], np.float64),
+        MinimumVorticityFactor        = setType(PCP['MinimumVorticityFactor'], np.float64),
+        RedistributeParticlesBeyond   = setType(PCP['RedistributeParticlesBeyond'], np.float64),
+        RedistributionPeriod          = setType(PCP['RedistributionPeriod'], np.int32),
+        RemoveWeakParticlesBeyond     = setType(PCP['RemoveWeakParticlesBeyond'], np.float64),
+        ResizeParticleFactor          = setType(PCP['ResizeParticleFactor'], np.float64),
+    )
+    FMMP.update(FMMParameters)
+    FMMParameters = dict(
+        ClusterSizeFactor             = setType(FMMP['ClusterSizeFactor'], np.float64),
+        FarFieldPolynomialOrder       = setType(FMMP['FarFieldPolynomialOrder'], np.int32),
+        IterationTuningFMM            = setType(FMMP['IterationTuningFMM'], np.int32),
+        MaxParticlesPerCluster        = setType(FMMP['MaxParticlesPerCluster'], np.int32),
+        NearFieldOverlapingFactor     = setType(FMMP['NearFieldOverlapingFactor'], np.float64),
+        NearFieldSmoothingFactor      = setType(FMMP['NearFieldSmoothingFactor'], np.float64),
+        PerturbationOverlappingFactor = setType(FMMP['PerturbationOverlappingFactor'], np.float64),
+    )
+    checkRange(NumericalParameters, NumericalParametersRange)
+    checkRange(ParticleControlParameters, ParticleControlParametersRange)
+    checkRange(FMMParameters, FMMParametersRange)
+    NumericalParameters['ParticleControlParameters'] = ParticleControlParameters
+    NumericalParameters['FMMParameters'] = FMMParameters
+    return NumericalParameters
+
+def getDefaultLiftingLineParameters(CirculationThreshold             = 1e-4,
+                                    CirculationRelaxationFactor      = 1./3.,
+                                    IntegralLaw                      = 'linear',
+                                    MaxLiftingLineSubIterations      = 100,
+                                    MinNbShedParticlesPerLiftingLine = 26,
+                                    NumberOfParticleSources          = 50,
+                                    SourcesDistribution              = dict(
+                                                          kind              = 'tanhTwoSides',
+                                                          FirstSegmentRatio = 2.,
+                                                          LastSegmentRatio  = 0.5,
+                                                          Symmetrical       = False),
+                                    LocalResolution                  = None,
+                                    RPM                              = None,
+                                    VelocityTranslation              = None,
+                                    **kwargs):
+    '''
+        Get a :py:class:`dict` containing all the relevant Lifting Lines parameters.
+
+        .. hint:: These parameters are only imposed if they are not already present in the
+                  .VPM#Parameters of the Lifting Lines. Each Lifting Line can have its own set of parameters.
+
+        Parameters
+        ----------
+            CirculationThreshold : :py:class:`float`
+                :math:`\in ]0., 1]`, convergence criteria for the circulation sub-iteration process to shed the
+                particles from the Lifting Lines.
+                
+            CirculationRelaxationFactor : :py:class:`float`
+                :math:`\in ]0., 1.]`, relaxation parameter of the circulation sub-iterations, the more unstable
+                the simulation, the lower it should be.
+                
+            IntegralLaw : :py:class:`str`
+                linear, uniform, tanhOneSide, tanhTwoSides or ratio`, gives the type of interpolation
+                of the circulation from the Lifting Lines sections onto the particles sources
+                embedded on the Lifting Lines.
+                
+            MaxLiftingLineSubIterations : :py:class:`int`
+                :math:`\in [0, +\infty[`, max number of sub-iteration when sheding the particles from the Lifting
+                Lines.
+                
+            MinNbShedParticlesPerLiftingLine : :py:class:`int`
+                :math:`\in [0, +\infty[`, Lifting Lines cannot have less than MinNbShedParticlesPerLiftingLine
+                particle sources. This parameter is imposed indiscriminately on all the Lifting
+                Lines.
+                
+            NumberOfParticleSources : :py:class:`int`
+                :math:`\in [26, +\infty[`, number of particle sources on the Lifting Lines. Will impose
+                :py:class:`LocalResolution` as:
+                :: LocalResolution = MOLA.Wireframe.getLength(LiftingLine)/NumberOfParticleSources
+                
+            SourcesDistribution : :py:class:`dict`
+                Provides with the repartition of the particle sources on the Lifting Lines.
+
+                    kind : :py:class:`str`
+                        uniform, tanhOneSide, tanhTwoSides or ratio, repatition law of the particle.
+                        
+                    FirstSegmentRatio : :py:class:`float`
+                        :math:`\in ]0., +\infty[`, particles at the root of the Lifting Line are spaced by
+                        FirstSegmentRatio times the LocalResolution.
+                        
+                    LastSegmentRatio : :py:class:`float`
+                        :math:`\in ]0., +\infty[`, particles at the tip of the Lifting Line are spaced by
+                        LastSegmentRatio times the LocalResolution.
+                        
+                    Symmetrical : :py:class:`bool`
+                        :math:`\in [0, 1]`, forces or not the symmetry of the particle sources on the Lifting
+                        Lines.
+
+            LocalResolution : :py:class:`float`
+                :math:`\in ]0, +\infty[`, resolution of the Lifting Line, i.e., mean distance between the
+                particle sources. If undefined, :py:class:`NumberOfParticleSources` is imposed as:
+                :: NumberOfParticleSources = int(round(MOLA.Wireframe.getLength(LiftingLine)/LocalResolution))
+
+            RPM : :py:class:`float`
+                :math:`\in [0, +\infty[`, revolution per minute of the Lifting Lines, rev.min-1
+
+            VelocityTranslation : numpy.ndarray of :py:class:`float`
+                :math:`\in ]-\infty, +\infty[^3`, translation velocity of the Lifting Lines.
+        Returns
+        -------
+            LiftingLinesParameters : :py:class:`dict`
+                 Lifting Lines Parameters
+    '''
+    for key in kwargs: print(J.WARN + key + ' does not exist. Parameter deleted.' + J.ENDC)
+
+    LiftingLineParametersRange = {
         'CirculationThreshold'             : [0., 1.],
         'CirculationRelaxationFactor'      : [0., 1.],
         'IntegralLaw'                      : ['linear', 'uniform', 'tanhOneSide', 'tanhTwoSides',
@@ -685,34 +763,123 @@ LiftingLineParametersRange = {
         'LocalResolution'                  : [0, +np.inf],
         'RPM'                              : [-np.inf, +np.inf],
         'VelocityTranslation'              : [-np.inf, +np.inf],
-}
+    }
+    LiftingLineParameters = dict(
+        CirculationThreshold             = setType(CirculationThreshold, np.float64),
+        CirculationRelaxationFactor      = setType(CirculationRelaxationFactor, np.float64),
+        IntegralLaw                      = np.str_(IntegralLaw),
+        MaxLiftingLineSubIterations      = setType(MaxLiftingLineSubIterations, np.int32),
+        MinNbShedParticlesPerLiftingLine = setType(MinNbShedParticlesPerLiftingLine, np.int32),
+        NumberOfParticleSources          = setType(NumberOfParticleSources, np.int32),
+        SourcesDistribution              = dict(SourcesDistribution),
+        LocalResolution                  = setType(LocalResolution, np.float64),
+        RPM                              = setType(RPM, np.float64),
+        VelocityTranslation              = setType(VelocityTranslation, np.float64),
+    )
+    checkRange(LiftingLineParameters, LiftingLineParametersRange)
+    return LiftingLineParameters
 
-defaultHybridParameters = {
-    ################################################################################################
-    ####################################### Hybrid Parameters ######################################
-    ################################################################################################
-        'EulerianSubIterations'        : 30,
-        'EulerianTimeStep'             : None,
-        'GenerationZones'              : np.array([[-1., -1., -1., 1., 1., 1.]])*np.inf,
-        'HybridDomainSize'             : None,
-        'HybridRedistributionOrder'    : 2,
-        'InnerDomainCellLayer'         : 0,
-        'MaxHybridGenerationIteration' : 50,
-        'MaximumSourcesPerLayer'       : 1000,
-        'MinimumSplitStrengthFactor'   : 1.,
-        'NumberOfBCCells'              : 1,
-        'NumberOfBEMUnknown'           : 0,
-        'NumberOfHybridLayers'         : 5,
-        'OuterDomainCellOffset'        : 2,
-        'ParticleGenerationMethod'     : 'BiCGSTAB',
-        'RelaxationRatio'              : 1,
-        'RelaxationThreshold'          : 1e-3,
-}
+def getDefaultHybridParameters(EulerianSubIterations        = 30,
+                               EulerianTimeStep             = None,
+                               GenerationZones              = np.array([[-1.]*3 + [1.]*3])*np.inf,
+                               HybridDomainSize             = None,
+                               HybridRedistributionOrder    = 2,
+                               InnerDomainCellLayer         = 0,
+                               MaxHybridGenerationIteration = 50,
+                               MaximumSourcesPerLayer       = 1000,
+                               MinimumSplitStrengthFactor   = 1.,
+                               NumberOfBCCells              = 1,
+                               NumberOfBEMUnknown           = 0,
+                               NumberOfHybridLayers         = 5,
+                               OuterDomainCellOffset        = 2,
+                               ParticleGenerationMethod     = 'BiCGSTAB',
+                               RelaxationRatio              = 1,
+                               RelaxationThreshold          = 1e-3,
+                               **kwargs):
+    '''
+        Get a :py:class:`dict` containing all the relevant Hybrid parameters.
 
-HybridParametersRange = {
-    ################################################################################################
-    ####################################### Hybrid Parameters ######################################
-    ################################################################################################
+        Parameters
+        ----------
+            EulerianSubIterations : :py:class:`int`
+                :math: `\in [0, +\infty[`, number of sub-iterations for the Eulerian solver
+            
+            EulerianTimeStep : :py:class:`float`
+                :math: `\in ]0., +\infty[`, timestep for the Eulerian solver, in s.
+
+            GenerationZones : list of :py:class:`list` or list of numpy.ndarray of :py:class:`float`
+                The Eulerian vorticity sources are only considered if within GenerationZones, in
+                :math:`m`. Each list sets the limits of given box
+                ``[xmin, ymin, zmin, xmax, ymax, zmax]``.
+            
+            HybridDomainSize : :py:class:`float`
+                :math: `\in ]0., +\infty[`, size of the Hybrid Domain contained between the Outer and Inner
+            
+            HybridRedistributionOrder : :py:class:`int`
+                :math: `\in [1, 5]`, order of the polynomial used to redistribute the generated particles on a
+                regular cartesian grid.
+            
+            InnerDomainCellLayer : :py:class:`int`
+                :math: `\in ]0, +\infty[`, gives the position of the beginning of the Hybrid Domain, i.e., the
+                position of the Inner Interface. The Hybrid Domain is thus starts 2 ghost cells +
+                NumberOfBCCells + OuterDomainCellOffset + InnerDomainCellLayer layers of cells from
+                the exterior boundary of the Eulerian mesh.
+            
+            MaxHybridGenerationIteration : :py:class:`int`
+                :math: `\in [0, +\infty[`, max number of sub-iterations for the iterative particle generation
+                method.
+            
+            MaximumSourcesPerLayer : :py:class:`int`
+                :math: `\in [0, +\infty[`, max number of vorticity sources in each layer of the Hybrid Domain.
+            
+            MinimumSplitStrengthFactor : :py:class:`float`
+                :math: `\in [0., +\infty[`, in %, sets the minimum particle strength kept per layer after generation
+                of the hybrid particles. The strength threshold is set as a percentage of the
+                maximum strength in the hybrid domain times MinimumSplitStrengthFactor.
+            
+            NumberOfBCCells : :py:class:`int`
+                :math: `\in ]0, +\infty[`, number of layers cells on which the BC farfield is imposed by the VPM.
+            
+            NumberOfBEMUnknown : :py:class:`int`
+                :math: `\in [0, 3]`, number of unknown for the BEM. If NumberOfBEMUnknown == 0: sources and
+                vortex sheets are given with an initial guess but not solved. If NumberOfBEMUnknown
+                == 1: only sources are solved. If NumberOfBEMUnknown == 2: only vortex sheets are
+                solved. If NumberOfBEMUnknown == 3: both sources and vortex sheets are solved.
+            
+            NumberOfHybridLayers : :py:class:`int`
+                :math: `\in ]0, +\infty[`, number of layers dividing the Hybrid Domain.
+            
+            OuterDomainCellOffset : :py:class:`int`
+                :math: `\in ]0, +\infty[`, offsets the position of the Hybrid Domain by OuterDomainCellOffset from
+                the far field BC imposed by the VPM. The Hybrid Domain thus ends 2 ghost cells +
+                NumberOfBCCells + OuterDomainCellOffset layers of cells from the exterior boundary
+                of the Eulerian mesh.
+            
+            ParticleGenerationMethod : :py:class:`str`
+                Gives the iterative methode to compute the strength of the hybrid particles fom the Eulerian
+                vorticity sources. Selects the Generalized Minimal Residual, Bi-Conjugate Gradient
+                Stabilised, Conjugate Gradient or Direct Resolution from LAPACKE. May be one of:
+                ``'GMRES'``
+                ``'BiCGSTAB'``
+                ``'CG'``
+                ``'Direct'``
+            
+            RelaxationRatio : :py:class:`float`
+                :math: `\in [0, +\infty[`, dynamically updates the iterative method convergence criteria for the
+                relative error of the vorticity induced by the generated particles to be as close as
+                possible to RelaxationThreshold.
+            
+            RelaxationThreshold : :py:class:`float`
+                :math: `\in [0, +\infty[` in m^3.s^-1, gives the convergence criteria for the iterative particle
+                generation method.
+        Returns
+        -------
+            HybridParameters : :py:class:`dict`
+                Hybrid parameters
+    '''
+    for key in kwargs: print(J.WARN + key + ' does not exist. Parameter deleted.' + J.ENDC)
+
+    HybridParametersRange = {
         'EulerianSubIterations'        : [0, +np.inf],
         'EulerianTimeStep'             : [0., +np.inf],
         'GenerationZones'              : [-np.inf, +np.inf],
@@ -726,26 +893,30 @@ HybridParametersRange = {
         'NumberOfBEMUnknown'           : [0, 3],
         'NumberOfHybridLayers'         : [0, +np.inf],
         'OuterDomainCellOffset'        : [0, +np.inf],
-        'ParticleGenerationMethod'     : ['GMRES', 'BiCGSTAB', 'CG', 'Direct'],
+        'ParticleGenerationMethod'     : ['BiCGSTAB', 'GMRES', 'CG', 'Direct'],
         'RelaxationRatio'              : [0, +np.inf],
         'RelaxationThreshold'          : [0, +np.inf],
-}
-
-defaultVortexParameters = {
-    ################################################################################################
-    #################################### Vortex Rings parameters ###################################
-    ################################################################################################
-            'Intensity'    : 1.,
-            'NumberLayers' : 6,
-}
-
-VortexParametersRange = {
-    ################################################################################################
-    #################################### Vortex Rings parameters ###################################
-    ################################################################################################
-            'Intensity'    : [-np.inf, +np.inf],
-            'NumberLayers' : [0, +np.inf],
-}
+    }
+    HybridParameters = dict(
+        EulerianSubIterations        = setType(EulerianSubIterations, np.int32),
+        EulerianTimeStep             = setType(EulerianTimeStep, np.float64),
+        GenerationZones              = setType(GenerationZones, np.float64),
+        HybridDomainSize             = setType(HybridDomainSize, np.float64),
+        HybridRedistributionOrder    = setType(HybridRedistributionOrder, np.int32),
+        InnerDomainCellLayer         = setType(InnerDomainCellLayer, np.int32),
+        MaxHybridGenerationIteration = setType(MaxHybridGenerationIteration, np.int32),
+        MaximumSourcesPerLayer       = setType(MaximumSourcesPerLayer, np.int32),
+        MinimumSplitStrengthFactor   = setType(MinimumSplitStrengthFactor, np.float64),
+        NumberOfBCCells              = setType(NumberOfBCCells, np.int32),
+        NumberOfBEMUnknown           = setType(NumberOfBEMUnknown, np.int32),
+        NumberOfHybridLayers         = setType(NumberOfHybridLayers, np.int32),
+        OuterDomainCellOffset        = setType(OuterDomainCellOffset, np.int32),
+        ParticleGenerationMethod     = np.str_(ParticleGenerationMethod),
+        RelaxationRatio              = setType(RelaxationRatio, np.float64),
+        RelaxationThreshold          = setType(RelaxationThreshold, np.float64),
+    )
+    checkRange(HybridParameters, HybridParametersRange)
+    return HybridParameters
 
 ####################################################################################################
 ########################################### Miscellaneous ##########################################
@@ -835,7 +1006,7 @@ def buildEmptyVPMTree(Np = 0, FieldsNames = None):
         Np : :py:class:`int`
             Size of the tree.
         FieldsNames : list of :py:class:`str`
-            List of flow fields to initiate. By default, all the VPM flow fields are initialised.
+            List of flow fields to initiate. By , all the VPM flow fields are initialised.
     Returns
     -------
         t : Tree
@@ -996,21 +1167,136 @@ def getPerturbationFieldTree(t = []):
     PerturbationField = I.getZones(getPerturbationField(t))
     if PerturbationField: return C.newPyTree(['PerturbationField', PerturbationField])
 
-def getVPMParameters(t = []):
+def getAllParameters(t = []):
     '''
-    Get a the VPM parameters.
+    Get all the VULCAINS parameters.
 
     Parameters
     ----------
         t : Tree
-            contains the VPM parameters named '.VPM#Parameters'.
-
+            contains the VULCAINS parameters.
+            ``'.Fluid#Parameters'``
+            ``'.Hybrid#Parameters'``
+            ``'.Modeling#Parameters'``
+            ``'.Numerical#Parameters'``
+            ``'.Private#Parameters'``
     Returns
     -------
-        VPMParameter : :py:class:`dict`
-            VPM parameters.
+        Parameters : :py:class:`dict`
+            VULCAINS parameters.
     '''
-    return J.get(getFreeParticles(t), '.VPM#Parameters')
+    Parameters = {}
+    names = ['Fluid', 'Hybrid', 'Modeling', 'Numerical', 'Private']
+    for name in names:
+        dico = J.get(getFreeParticles(t), '.' + name + '#Parameters')
+        if dico: Parameters[name + 'Parameters'] = dico
+
+    return Parameters
+
+def getFluidParameters(t = []):
+    '''
+    Get the Fluid parameters.
+
+    Parameters
+    ----------
+        t : Tree
+            contains the Fluid parameters ``'.Fluid#Parameters'``.
+    Returns
+    -------
+        FluidParameters : :py:class:`dict`
+            Fluid parameters.
+    '''
+    return J.get(getFreeParticles(t), '.Fluid#Parameters')
+
+def getNumericalParameters(t = []):
+    '''
+    Get the Numerical parameters.
+
+    Parameters
+    ----------
+        t : Tree
+            contains the Numerical parameters ``'.Numerical#Parameters'``.
+    Returns
+    -------
+        NumericalParameters : :py:class:`dict`
+            Numerical parameters.
+    '''
+    return J.get(getFreeParticles(t), '.Numerical#Parameters')
+
+def getParticleControlParameters(t = []):
+    '''
+    Get the Particle Control parameters.
+
+    Parameters
+    ----------
+        t : Tree
+            contains the Particle Control parameters ``'ParticleControlParameters'``.
+    Returns
+    -------
+        ParticleControlParameters : :py:class:`dict`
+            Particles Control parameters.
+    '''
+    return getNumericalParameters(t)['ParticleControlParameters']
+
+def getFMMParameters(t = []):
+    '''
+    Get FMM parameters.
+
+    Parameters
+    ----------
+        t : Tree
+            contains the FMM parameters ``'FMMParameters'``.
+    Returns
+    -------
+        FMMParameters : :py:class:`dict`
+            FMM parameters.
+    '''
+    return getNumericalParameters(t)['FMMParameters']
+
+def getModelingParameters(t = []):
+    '''
+    Get the Modeling parameters.
+
+    Parameters
+    ----------
+        t : Tree
+            contains the Modeling parameters ``'.Modeling#Parameters'``.
+    Returns
+    -------
+        ModelingParameters : :py:class:`dict`
+            Modeling parameters.
+    '''
+    return J.get(getFreeParticles(t), '.Modeling#Parameters')
+
+def getPrivateParameters(t = []):
+    '''
+    Get the Private parameters.
+
+    Parameters
+    ----------
+        t : Tree
+            contains the Private parameters ``'.Private#Parameters'``.
+    Returns
+    -------
+        PrivateParameters : :py:class:`dict`
+            Private parameters.
+    '''
+    return J.get(getFreeParticles(t), '.Private#Parameters')
+
+def getHybridParameters(t = []):
+    '''
+    Get the Hybrid parameters.
+
+    Parameters
+    ----------
+        t : Tree
+            contains the Hybrid parameters ``'.Hybrid#Parameters'``.
+    Returns
+    -------
+        HybridParameters : :py:class:`dict`
+            Hybrid parameters.
+    '''
+    return J.get(getFreeParticles(t), '.Hybrid#Parameters')
 
 def getParticlesNumber(t = [], pointer = False):
     '''
@@ -1020,12 +1306,13 @@ def getParticlesNumber(t = [], pointer = False):
     ----------
         t : Tree
             contains the free VPM parameters named 'FreeParticles'.
+
         pointer : :py:class:`bool`
             States whether the pointer or the value of the size of the zone is returned.
 
     Returns
     -------
-        VPMParameter : :py:class:`dict`
+        ParticleNumber : :py:class:`int` or numpy.ndarray
             Returns the size of the free particles zone.
     '''
     if pointer: return getFreeParticles(t)[1][0]
@@ -1044,7 +1331,7 @@ def getBEMParticlesNumber(t = [], pointer = False):
 
     Returns
     -------
-        VPMParameter : :py:class:`dict`
+        ParticleNumber : :py:class:`dict`
             Returns the size of the BEM particles zone.
     '''
     if pointer: return getBEMParticles(t)[1][0]
@@ -1063,7 +1350,7 @@ def getImmersedParticlesNumber(t = [], pointer = False):
 
     Returns
     -------
-        VPMParameter : :py:class:`dict`
+        ParticleNumber : :py:class:`dict`
             Returns the size of the Immersed particles zone.
     '''
     if pointer: return getImmersedParticles(t)[1][0]
@@ -1106,7 +1393,7 @@ def extractperturbationField(Targets = [], tL = [], tP = []):
     for var in vectorise('VelocityPerturbation'): C._initVars(Targets, var, 0.)
     _tL, _tP = getTrees([tL, tP], ['Particles', 'Perturbation'])
     if tP_Capsule[0] and _tP:
-        Theta, NumberOfNodes, TimeVelPert = getParameters(_tL, ['FMMPerturbationOverlappingRatio',
+        Theta, NumberOfNodes, TimeVelPert = getParameters(_tL, ['PerturbationOverlappingFactor',
                                                        'NumberOfNodes', 'TimeVelocityPerturbation'])
         TimeVelPert[0] += extract_perturbation_velocity_field(C.newPyTree(I.getZones(Targets)),
                                                      _tP, tP_Capsule[0], NumberOfNodes[0], Theta[0])
@@ -1116,20 +1403,19 @@ def extractperturbationField(Targets = [], tL = [], tP = []):
 ######################################## CGNS tree control #########################################
 ####################################################################################################
 ####################################################################################################
-def checkTrees(t = [], VPMParameters = {}, HybridParameters = {}):
+def checkTrees(t = [], Parameters = {}):
     '''
     Checks if the minimum requirements are met within the Bases in t to launch VULCAINS
     computations. The necessary parameters and fields are initialised if missing. Allready existing 
-    parameters are updated with the default parameters and the parameters inputs.
+    parameters are updated with the default parameters and the input parameters.
 
     Parameters
     ----------
         t : Tree
             containers to check.
-        VPMParameters : :py:class:`dict`
-            contains the VPM parameters to put in the checked containers.
-        HybridParameters : :py:class:`dict`
-            contains the Hybrid parameters to put in the checked containers.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     '''
     tL, tLL, tE, tH, tP = getTrees([t], ['Particles', 'LiftingLines', 'Eulerian', 'Hybrid',
                                                                                     'Perturbation'])
@@ -1145,19 +1431,18 @@ def checkTrees(t = [], VPMParameters = {}, HybridParameters = {}):
     J.invokeFieldsDict(Particles, RequiredFlowSolution)
     I._sortByName(Particles)
 
-    newVPMParameters = getDefaultVPMParameters(**getVPMParameters(tL))
-    checkParameters(VPMParameters = newVPMParameters)
-    J.set(Particles, '.VPM#Parameters', **newVPMParameters)
-    I._sortByName(I.getNodeFromName1(Particles, '.VPM#Parameters'))
-
-    OldHybridParameters = getHybridParameters(tL)
-    if OldHybridParameters:
-        newHybridParameters = defaultHybridParameters.copy()
-        newHybridParameters.update(OldHybridParameters)
-        newHybridParameters.update(HybridParameters)
-        checkParameters(HybridParameters = newHybridParameters)
-        J.set(Particles, '.Hybrid#Parameters', **newHybridParameters)
-        I._sortByName(I.getNodeFromName1(Particles, '.Hybrid#Parameters'))
+    newParameters = getAllParameters(tL)
+    for field in [f + 'Parameters' for f in ['Fluid', 'Modeling', 'Numerical', 'Private']]:
+        if field not in newParameters: newParameters[field] = dict()
+    for key in Parameters:
+        newParameters[key].update(Parameters[key])
+    
+    checkParameters(newParameters)
+    for field in ['Fluid', 'Hybrid', 'Modeling', 'Numerical', 'Private']:
+        name = field + 'Parameters'
+        if name in newParameters:
+            J.set(Particles, '.' + field + '#Parameters', **newParameters[name])
+            I._sortByName(I.getNodeFromName1(Particles, '.' + field + '#Parameters'))
 
     t[2] = [I.getNodeFromName1(t, 'CGNSLibraryVersion')] + I.getBases(tL) + I.getBases(tE) + \
                                                    I.getBases(tH) + I.getBases(tLL) + I.getBases(tP)
@@ -1211,252 +1496,43 @@ def getTrees(Trees = [], TreeNames = [], fillEmptyTrees = False):
     if len(newTrees) == 1: return newTrees[0]
     return newTrees
 
-def checkParameters(VPMParameters = {}, LiftingLineParameters = {}, HybridParameters = {},
-    VortexParameters = {}):
+def checkParameters(Parameters = {}):
     '''
     Imposes the types of the parameters in each dictionnary used by VULCAINS. If a parameter is not
-    provided, a default value will be prescribed. Parameters are modified (if necessary) to fit in
+    provided, a  value will be prescribed. Parameters are modified (if necessary) to fit in
     their operability range.
 
     Parameters
     ----------
-        
-        VPMParameters : :py:class:`dict`
-            VPM parameters as set in :py:func:`getDefaultVPMParameters`
-
-        LiftingLineParameters : :py:class:`dict`
-            List of the parameters linked to the Lifting Lines. These parameters are only imposed if
-            they are not already present in the .VPM#Parameters of the Lifting Lines. Each Lifting
-            Line can have its own set of parameters. These parameters are:
-
-            * CirculationThreshold : :py:class:`float`
-                \]0., 1\], convergence criteria for the circulation sub-iteration process to shed the
-                particles from the Lifting Lines.
-                
-                Default value: 1e-4
-            * CirculationRelaxationFactor : :py:class:`float`
-                \]0., 1.\], relaxation parameter of the circulation sub-iterations, the more unstable
-                the simulation, the lower it should be.
-                
-                Default value: 1./3.
-            * IntegralLaw : :py:class:`str`
-                linear, uniform, tanhOneSide, tanhTwoSides or ratio, gives the type of interpolation
-                of the circulation from the Lifting Lines sections onto the particles sources
-                embedded on the Lifting Lines.
-                
-                Default value: 'linear`
-            * MaxLiftingLineSubIterations : :py:class:`int`
-                \[\|0, +\inf\[\|, max number of sub-iteration when sheding the particles from the Lifting
-                Lines.
-                
-                Default value: 100
-            * MinNbShedParticlesPerLiftingLine : :py:class:`int`
-                \[\|0, +\inf\[\|, Lifting Lines cannot have less than MinNbShedParticlesPerLiftingLine
-                particle sources. This parameter is imposed indiscriminately on all the Lifting
-                Lines.
-                
-                Default value: 26
-            * NumberOfParticleSources : :py:class:`int`
-                \[\|26, +\inf\[\|, number of particle sources on the Lifting Lines. Will impose
-                :py:class:`LocalResolution` as:
-                :: LocalResolution = MOLA.Wireframe.getLength(LiftingLine)/NumberOfParticleSources
-                
-                Default value: 50
-            * ParticleDistribution : :py:class:`dict`
-                Provides with the repartition of the particle sources on the Lifting Lines.
-                
-                Default value: dict(kind = 'tanhTwoSides', FirstSegmentRatio = 2.,
-                    LastSegmentRatio = 0.5, Symmetrical = False)
-
-                    * kind : :py:class:`str`
-                        uniform, tanhOneSide, tanhTwoSides or ratio, repatition law of the particle.
-                        
-                        Default value: 'tanhTwoSides'
-                    * FirstSegmentRatio : :py:class:`float`
-                        \]0., +\inf\[, particles at the root of the Lifting Line are spaced by
-                        FirstSegmentRatio times the LocalResolution.
-                        
-                        Default value: 2.
-                    * LastSegmentRatio : :py:class:`float`
-                        \]0., +\inf\[, particles at the tip of the Lifting Line are spaced by
-                        LastSegmentRatio times the LocalResolution.
-                        
-                        Default value: 0.5
-                    * Symmetrical : :py:class:`bool`
-                        \[\|0, 1\|\], forces or not the symmetry of the particle sources on the Lifting
-                        Lines.
-            * LocalResolution : :py:class:`float`
-                \]0, +\inf\[, resolution of the Lifting Line, i.e., mean distance between the
-                particle sources. If undefined, :py:class:`NumberOfParticleSources` is imposed as:
-                :: NumberOfParticleSources = int(round(MOLA.Wireframe.getLength(LiftingLine)/LocalResolution))
-            * RPM : :py:class:`float`
-                \[0, +\inf\], revolution per minute of the Lifting Lines, rev.min-1
-            * VelocityTranslation : numpy.ndarray of :py:class:`float`
-                ]-\inf, +\inf\[^3, translation velocity of the Lifting Lines.
-
-        HybridParameters : :py:class:`dict`
-            List of the parameters linked to the Eulerian-Lagrangian hybridisation. These parameters
-            are:
-
-            * EulerianSubIterations : :py:class:`int`
-                \[\|0, +\inf\[\|, number of sub-iterations for the Eulerian solver
-                
-                Default value: 30
-            * EulerianTimeStep : :py:class:`float`
-                \]0., +\inf\[, timestep for the Eulerian solver, in s.
-                
-                Default value: TimeStep
-            * GenerationZones : list of :py:class:`list` or list of numpy.ndarray of :py:class:`float`
-                The Eulerian vorticity sources are only considered if within GenerationZones, in m.
-                
-                Default value: np.array([[-np.inf, -np.inf, -np.inf, np.inf, np.inf, np.inf]])
-            * HybridDomainSize : :py:class:`float`
-                \]0., +\inf\[, size of the Hybrid Domain contained between the Outer and Inner
-                Interfaces.
-            * HybridRedistributionOrder : :py:class:`int`
-                \[\|1, 5\|\], order of the polynomial used to redistribute the generated particles on a
-                regular cartesian grid.
-                
-                Default value: 2
-            * InnerDomainCellLayer : :py:class:`int`
-                \|\]0, +\inf\[\|, gives the position of the beginning of the Hybrid Domain, i.e., the
-                position of the Inner Interface. The Hybrid Domain is thus starts 2 ghost cells +
-                NumberOfBCCells + OuterDomainCellOffset + InnerDomainCellLayer layers of cells from
-                the exterior boundary of the Eulerian mesh.
-                
-                Default value: 0
-            * MaxHybridGenerationIteration : :py:class:`int`
-                \[\|0, +\inf\[\|, max number of sub-iterations for the iterative particle generation
-                method.
-                
-                Default value: 50
-            * MaximumSourcesPerLayer : :py:class:`int`
-                \[\|0, +\inf\[\|, max number of vorticity sources in each layer of the Hybrid Domain.
-                
-                Default value: 1000
-            * MinimumSplitStrengthFactor : :py:class:`float`
-                \[0., +\inf\[, in %, sets the minimum particle strength kept per layer after generation
-                of the hybrid particles. The strength threshold is set as a percentage of the
-                maximum strength in the hybrid domain times MinimumSplitStrengthFactor.
-                
-                Default value: 1.
-            * NumberOfBCCells : :py:class:`int`
-                \|\]0, +\inf\[\|, number of layers cells on which the BC farfield is imposed by the VPM.
-                
-                Default value: 1
-            * NumberOfBEMUnknown : :py:class:`int`
-                \[\|0, 3\|\], number of unknown for the BEM. If NumberOfBEMUnknown == 0: sources and
-                vortex sheets are given with an initial guess but not solved. If NumberOfBEMUnknown
-                == 1: only sources are solved. If NumberOfBEMUnknown == 2: only vortex sheets are
-                solved. If NumberOfBEMUnknown == 3: both sources and vortex sheets are solved.
-                
-                Default value: 0
-            * NumberOfHybridLayers : :py:class:`int`
-                \|\]0, +\inf\[\|, number of layers dividing the Hybrid Domain.
-                
-                Default value: 5
-            * OuterDomainCellOffset : :py:class:`int`
-                \|\]0, +\inf\[\|, offsets the position of the Hybrid Domain by OuterDomainCellOffset from
-                the far field BC imposed by the VPM. The Hybrid Domain thus ends 2 ghost cells +
-                NumberOfBCCells + OuterDomainCellOffset layers of cells from the exterior boundary
-                of the Eulerian mesh.
-                
-                Default value: 2
-            * ParticleGenerationMethod : :py:class:`str`
-                GMRES, BiCGSTAB, CG or Direct, gives the iterative methode to compute the strength
-                of the hybrid particles fom the Euerian vorticity sources. Selects the Generalized
-                Minimal Residual, Bi-Conjugate Gradient Stabilised, Conjugate Gradient or Direct
-                Resolution from LAPACKE.
-                
-                Default value: 'BiCGSTAB'
-            * RelaxationRatio : :py:class:`float`
-                \[\|0, +\inf\[\|, dynamically updates the iterative method convergence criteria for the
-                relative error of the vorticity induced by the generated particles to be as close as
-                possible to RelaxationThreshold.
-                
-                Default value: 1
-            * RelaxationThreshold : :py:class:`float`
-                \[0, +\inf\[ in m^3.s^-1, gives the convergence criteria for the iterative particle
-                generation method.
-                
-                Default value: 1e-3
-
-        VortexParameters : :py:class:`dict`
-            List of the parameters linked to the free flow configurations. These parameters are:
-
-            * Intensity : :py:class:`float`
-                \[0., +\inf\[, vortex intensity, in m^2.s-1.
-                
-                Default value: 1.
-            * NumberLayers : :py:class:`int`
-                \[\|1., +\inf\[\|, number of layers of particles composing the vortex structure.
-                
-                Default value: 6
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     '''
-    defaultParameters = [defaultVPMParameters, defaultLiftingLineParameters,
-                                                   defaultHybridParameters, defaultVortexParameters]
-    Parameters = [VPMParameters, LiftingLineParameters, HybridParameters, VortexParameters]
-    Ranges = [VPMParametersRange, LiftingLineParametersRange, HybridParametersRange,
-                                                                              VortexParametersRange]
-    def checkRange(Parameter = {}, Range = {}, key = ''):
-        if np.min(Parameter[key]) < Range[key][0]:
-            Parameter[key][Parameter[key] < Range[key][0]] = Range[key][0]
-            print(J.WARN + key + ' outside range. Set to ' + str(Parameter[key]) + J.ENDC)
-        if Range[key][-1] < np.max(Parameter[key]):
-            Parameter[key][Range[key][1] < Parameter[key]] = Range[key][1]
-            print(J.WARN + key + ' outside range. Set to ' + str(Parameter[key]) + J.ENDC)
+    fields = [f + 'Parameters' for f in ['Fluid', 'Hybrid', 'LiftingLine', 'Modeling', 'Numerical',
+                                                                                         'Private']]
+    funcs = [getDefaultFluidParameters, getDefaultHybridParameters, getDefaultLiftingLineParameters,
+            getDefaultModelingParameters, getDefaultNumericalParameters, getDefaultPrivateParameters]
+    for field, func in zip(fields, funcs):
+        if field in Parameters:
+            Parameters[field].update(func(**Parameters[field]))
 
-    for defaultParameter, Parameter, Range in zip(defaultParameters, Parameters, Ranges):
-        tmp = defaultParameter.copy()
-        tmp.update(Parameter)
-        Parameter.update(tmp)
-        deleteKeys = []
-        for key in Parameter:
-            if key in float_Params:
-                Parameter[key] = np.atleast_1d(np.array(Parameter[key], order = 'F',
-                                                                                dtype = np.float64))
-                if np.isnan(Parameter[key]).any():
-                    Parameter[key] = np.array([None]*len(Parameter[key]), order = 'F')
-                else: checkRange(Parameter, Range, key)
-            elif key in int_Params:
-                Parameter[key] = np.atleast_1d(np.array(Parameter[key], order = 'F',
-                                                                                  dtype = np.int32))
-                checkRange(Parameter, Range, key)
-            elif key in str_Params:
-                if not(isinstance(Parameter[key], str) or isinstance(Parameter[key], bytes) or \
-                    isinstance(Parameter[key], np.str_) or isinstance(Parameter[key], np.bytes_) \
-                                                        or isinstance(Parameter[key], type(None))):
-                    print(J.WARN + key + ' should be a string, not a ' + str(type(Parameter[key]))\
-                                                     + '. Set to ' + defaultParameter[key] + J.ENDC)
-                    Parameter[key] = defaultParameter[key]
-                if Parameter[key] not in Range[key]:
-                    print(J.WARN + 'Choose another ' + key +' parameter, ' + str(Parameter[key]) + \
-                                                ' does not exist. Set to ' + Range[key][0] + J.ENDC)
-                    Parameter[key] = Range[key]
-
-                Parameter[key] = np.str_(Parameter[key])
-            elif type(Parameter[key]) != dict : deleteKeys += [key]
-
-        if 'NumberOfThreads' in deleteKeys: deleteKeys.remove('NumberOfThreads')
-        for key in deleteKeys:
-            print(J.WARN + key + ' does not exist. Parameter deleted.' + J.ENDC)
-            del Parameter[key]
-
-    if VPMParameters['Resolution'].all():
-        VPMParameters['Resolution'] = np.array([np.min(VPMParameters['Resolution']),
-                              np.max(VPMParameters['Resolution'])], dtype = np.float64, order = 'F')
-
-    VPMParameters['CutoffXmin'][0], VPMParameters['CutoffXmax'][0] = \
-                               min(VPMParameters['CutoffXmin'][0], VPMParameters['CutoffXmax'][0]),\
-                               max(VPMParameters['CutoffXmin'][0], VPMParameters['CutoffXmax'][0])
-    VPMParameters['CutoffYmin'][0], VPMParameters['CutoffYmax'][0] = \
-                               min(VPMParameters['CutoffYmin'][0], VPMParameters['CutoffYmax'][0]),\
-                               max(VPMParameters['CutoffYmin'][0], VPMParameters['CutoffYmax'][0])
-    VPMParameters['CutoffZmin'][0], VPMParameters['CutoffZmax'][0] = \
-                               min(VPMParameters['CutoffZmin'][0], VPMParameters['CutoffZmax'][0]),\
-                               max(VPMParameters['CutoffZmin'][0], VPMParameters['CutoffZmax'][0])
-    if VPMParameters['Resolution'][0]:
-        VPMParameters['Sigma0'] = VPMParameters['Resolution']*VPMParameters['SmoothingRatio'][0]
+    if 'NumericalParameters' in Parameters:
+        NP = Parameters['NumericalParameters']
+        if NP['Resolution'][0]:
+            NP['Resolution'][0], NP['Resolution'][1] = np.min(NP['Resolution']), \
+                                                                            np.max(NP['Resolution'])
+        if NP['Resolution'][0] and 'PrivateParameters' in Parameters and \
+                                                                 'ModelingParameters' in Parameters:
+            Parameters['PrivateParameters']['Sigma0'] = NP['Resolution']*\
+                                               Parameters['ModelingParameters']['SmoothingRatio'][0]
+        if 'ParticleControlParameters' in NP:
+            PCP = NP['ParticleControlParameters']
+            PCP['CutoffXmin'][0], PCP['CutoffXmax'][0] = min(PCP['CutoffXmin'][0],
+                              PCP['CutoffXmax'][0]), max(PCP['CutoffXmin'][0], PCP['CutoffXmax'][0])
+            PCP['CutoffYmin'][0], PCP['CutoffYmax'][0] = min(PCP['CutoffYmin'][0],
+                              PCP['CutoffYmax'][0]), max(PCP['CutoffYmin'][0], PCP['CutoffYmax'][0])
+            PCP['CutoffZmin'][0], PCP['CutoffZmax'][0] = min(PCP['CutoffZmin'][0],
+                              PCP['CutoffZmax'][0]), max(PCP['CutoffZmin'][0], PCP['CutoffZmax'][0])
 
 def delete(t = [], mask = []):
     '''
@@ -1687,31 +1763,44 @@ def getPerturbationFieldParameters(t = []):
     '''
     return J.get(getFreeParticles(t), '.PerturbationField#Parameters')
 
-def getParameter(t = [], Name = ''):
+def getParameter(t = [], Name = '', Field = ['Numerical', 'Private', 'Modeling', 'Hybrid',
+                                                                                          'Fluid']):
     '''
-    Get a parameter.
+    Recursively searches for a parameter.
 
     Parameters
     ----------
         t : Tree
-            contains a node of parameters where one of them is named Name.
+            Contains the parameter nodes in ``Field`` as ``.Field#Parameters``.
 
         Name : :py:class:`str`
             Name of the parameter to get.
 
+        Field : list of :py:class:`str`
+            Containers in which to look for.
+            ``'Numerical'``
+            ``'Private'``
+            ``'Modeling'``
+            ``'Hybrid'``
+            ``'Fluid'``
+
     Returns
     -------
-        ParameterNode : :py:class:`dict`
-            The parameter is a pointer inside a numpy ndarray.
+        Parameter : :py:class:`float`, :py:class:`int`, :py:class:`str` or :py:class:`dict`
+            Pointer of the parameter.
     '''
-    Particles = getFreeParticles(t)
-    Node = getVPMParameters(Particles)
-    if Name in Node: ParameterNode = Node[Name]
-    else:
-        Node = getHybridParameters(Particles)
-        if Node and Name in Node: ParameterNode = Node[Name]
-        else: ParameterNode = None
-    return ParameterNode
+    if Field:
+        Parameters = J.get(getFreeParticles(t), '.' + Field[0] + '#Parameters')    
+        if Name in Parameters: return Parameters[Name]
+        elif Field[0] == 'Numerical':
+            if 'ParticleControlParameters' in Parameters and \
+                                                    Name in Parameters['ParticleControlParameters']:
+                return Parameters['ParticleControlParameters'][Name]
+            elif 'FMMParameters' in Parameters and Name in Parameters['FMMParameters']:
+                return Parameters['FMMParameters'][Name]
+            else: return getParameter(t, Name, Field[1:])
+        else: return getParameter(t, Name, Field[1:])
+    return None
 
 def getParameters(t = [], Names = []):
     '''
@@ -1730,8 +1819,39 @@ def getParameters(t = [], Names = []):
         ParameterNode : :py:class:`dict`
             The parameter is a pointer inside a numpy ndarray.
     '''
-    Particles = getFreeParticles(t)
-    return [getParameter(Particles, Name) for Name in Names]
+    Names = np.ravel(Names)
+    Parameters = [0]*len(Names)
+    FreeParticles = getFreeParticles(t)
+    FieldNames = ['Numerical', 'Private', 'Modeling', 'Hybrid', 'Fluid']
+    Index = np.array([False]*len(Names))
+    for FieldName in FieldNames:
+        Field = J.get(FreeParticles, '.' + FieldName + '#Parameters')
+        DeleteList = []
+        for pos, Name in enumerate(Names):
+            if not(Index[pos]) and Name in Field:
+                Parameters[pos] = Field[Name]
+                Index[pos] = True
+
+        if Index.all(): return Parameters
+        if FieldName == 'Numerical':
+            subField = Field['ParticleControlParameters']
+            for pos, Name in enumerate(Names):
+                if not(Index[pos]) and Name in subField:
+                    Parameters[pos] = subField[Name]
+                    Index[pos] = True
+
+            if Index.all(): return Parameters
+            subField = Field['FMMParameters']
+            for pos, Name in enumerate(Names):
+                if not(Index[pos]) and Name in subField:
+                    Parameters[pos] = subField[Name]
+                    Index[pos] = True
+
+
+            if Index.all(): return Parameters
+
+    print(Parameters, Index)
+    return Parameters
 
 ####################################################################################################
 ####################################################################################################
@@ -1793,132 +1913,85 @@ def setTimeStepFromShedParticles(tL = [], tLL = [], NumberParticlesShedAtTip = 5
 
     Parameters
     ----------
-        tL: Tree
-            Lagrangian field.
+        tL: Tree or :py:class:`dict`
+            Lagrangian field or dictionary containing VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
 
         tLL : Tree
             Lifting Lines.
 
         NumberParticlesShedAtTip : :py:class:`int`
             Number of particles to shed per TimeStep.
+    Returns
+    -------
+        dt : numpy.ndarray of :py:class:`float`
+            Time step.
     '''
-    if not tLL: raise AttributeError('The time step is not given and can not be \
+    _tLL = getLiftingLinesTree(tLL)
+    if not _tLL and type(tL) != dict: _tLL = getLiftingLinesTree(tL)
+    if not _tLL: raise AttributeError('The time step is not given and can not be \
                  computed without a Lifting Line. Specify the time step or give a Lifting Line')
-    LL.computeKinematicVelocity(tLL)
-    LL.assembleAndProjectVelocities(tLL)
+    LL.computeKinematicVelocity(_tLL)
+    LL.assembleAndProjectVelocities(_tLL)
 
-    if type(tL) == dict:
-        Resolution = tL['Resolution']
-        U0         = tL['VelocityFreestream']
-    else:
-        Particles  = getFreeParticles(tL)
-        Resolution = I.getNodeFromName(Particles, 'Resolution')[1][0]
-        U0         = I.getValue(I.getNodeFromName(Particles, 'VelocityFreestream'))
+    if type(tL) == dict: Parameters = tL
+    else: Parameters = getAllParameters(tL)
 
+    Resolution = Parameters['NumericalParameters']['Resolution'][0]
+    U0         = Parameters['FluidParameters']['VelocityFreestream']
     Urelmax = 0.
-    for LiftingLine in I.getZones(tLL):
+    for LiftingLine in I.getZones(_tLL):
         Ukin = np.vstack(J.getVars(LiftingLine, ['VelocityKinematic' + i for i in 'XYZ']))
-        ui   = np.vstack(J.getVars(LiftingLine, ['VelocityInduced' + i for i in 'XYZ']))
-        Urel = U0 + ui.T - Ukin.T
-        Urel = max([np.linalg.norm(urel, axis = 0) for urel in Urel])
+        Urel = np.max(np.linalg.norm(np.vstack(U0 - Ukin.T), axis = 0))
         if (Urelmax < Urel): Urelmax = Urel
 
     if Urelmax == 0:
         raise ValueError('Maximum velocity is zero. Set non-zero kinematic or freestream \
                                                                                      velocity.')
-
-    if type(tL) == dict:
-        tL['TimeStep'] = NumberParticlesShedAtTip*Resolution/Urel
-    else:
-        VPMParameters = getVPMParameters(tL)
-        VPMParameters['TimeStep'] = NumberParticlesShedAtTip*Resolution/Urel
-
-    return VPMParameters['TimeStep']
+    Parameters['NumericalParameters']['TimeStep'] = np.array([NumberParticlesShedAtTip*Resolution/\
+                                                             Urel], dtype = np.float64, order = 'F')
+    return Parameters['NumericalParameters']['TimeStep']
 
 def setTimeStepFromBladeRotationAngle(tL = [], tLL = [], BladeRotationAngle = 5.):
     '''
     Sets the VPM TimeStep so that the fastest moving Lifting Line rotates by the user-given
     angle per TimeStep.
-    .
+    
     Parameters
     ----------
-        tL : Tree
-            contains a zone of particles named 'FreeParticles'.
+        tL: Tree or :py:class:`dict`
+            Lagrangian field or dictionary containing VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
 
         tLL : Tree
             Lifting Lines.
 
         BladeRotationAngle : :py:class:`float`
             Blade rotation angle per TimeStep.
+    Returns
+    -------
+        dt : numpy.ndarray of :py:class:`float`
+            Time step.
     '''
-    if not tLL: tLL = getLiftingLinesTree(tL)
-    if not tLL: raise AttributeError('The time step is not given and can not be \
+    _tLL = getLiftingLinesTree(tLL)
+    if not _tLL and type(tL) != dict: _tLL = getLiftingLinesTree(tL)
+    if not _tLL: raise AttributeError('The time step is not given and can not be \
                  computed without a Lifting Line. Specify the time step or give a Lifting Line')
 
     RPM = 0.
-    for LiftingLine in I.getZones(tLL):
-        RPM = max(RPM, I.getValue(I.getNodeFromName(LiftingLine, 'RPM')))
+    for LiftingLine in I.getZones(_tLL):
+        RPM = max(RPM, np.abs(I.getValue(I.getNodeFromName(LiftingLine, 'RPM'))))
     
-    if type(tL) == dict:
-        tL['TimeStep'] = 1./6.*BladeRotationAngle/RPM
-    else:
-        VPMParameters = getVPMParameters(tL)
-        VPMParameters['TimeStep'] = 1./6.*BladeRotationAngle/RPM
+    if RPM == 0: raise ValueError('Maximum RPM is zero. Set non-zero RPM.')
+    if type(tL) == dict: Parameters = tL
+    else: Parameters = getAllParameters(tL)
 
-    return VPMParameters['TimeStep']
-
-def setMinNbShedParticlesPerLiftingLine(tLL = [], Parameters = {}, NumberParticlesShedAtTip = 5):
-    '''
-    Sets the minimum number of shedding station on the Lifting Line(s) so that the fastest
-    moving Lifting Line sheds the user-given number of particles at its tip at each TimeStep.
-    .
-    Parameters
-    ----------
-        tLL : Tree
-            Lifting Lines.
-
-        Parameters : :py:class:`dict`
-            Parameters containing the VPM parameters.
-
-        NumberParticlesShedAtTip : :py:class:`int`
-            Blade rotation angle per TimeStep.
-    '''
-    LL.computeKinematicVelocity(tLL)
-    LL.assembleAndProjectVelocities(tLL)
-    Urelmax = 0.
-    L = 0.
-    flag = False
-    if Parameters['VelocityFreestream']: flag = True
-    else: U0 = Parameters['VelocityFreestream']
-    for LiftingLine in I.getZones(tLL):
-        Ukin = np.array(J.getVars(LiftingLine, ['VelocityKinematicX',
-                                                   'VelocityKinematicY', 'VelocityKinematicZ']))
-        ui = np.array(J.getVars(LiftingLine, ['VelocityInducedX',
-                                                       'VelocityInducedY', 'VelocityInducedZ']))
-        if flag:
-            U0 = I.getValue(I.getNodeFromName(LiftingLine, 'VelocityFreestream'))
-        Urel= np.linalg.norm(U0 + ui - Ukin, axis = 0)
-        if (Urelmax < Urel):
-            Urelmax = Urel
-            L = np.minimum(L, W.getLength(LiftingLine))
-    Parameters['MinNbShedParticlesPerLiftingLine'] = int(round(2. + NumberParticlesShedAtTip*L/\
-                                                                   Urel/Parameters['TimeStep']))
-
-def getLiftingLineParameters(t = []):
-    '''
-    Gets the parameters regarding the Lifting Line(s).
-
-    Parameters
-    ----------
-        t : Tree
-            contains a node of parameters named '.LiftingLine#Parameters'.
-
-    Returns
-    -------
-        LiftingLineParameters : :py:class:`dict`
-            Dictionnary of parameters. The parameters are pointers inside numpy ndarrays.
-    '''
-    return J.get(getFreeParticles(t), '.LiftingLine#Parameters')
+    if Urelmax == 0:
+        raise ValueError('Maximum velocity is zero. Set non-zero kinematic or freestream \
+                                                                                     velocity.')
+    Parameters['NumericalParameters']['TimeStep'] = np.array([BladeRotationAngle/(6.*RPM)], \
+                                                                    dtype = np.float64, order = 'F')
+    return Parameters['NumericalParameters']['TimeStep']
 
 def getAerodynamicCoefficientsOnLiftingLine(tLL = [], StdDeviationSample = 50, Freestream = True,
     Wings = False, Surface = 0.):
@@ -1970,7 +2043,7 @@ def getAerodynamicCoefficientsOnPropeller(tLL = [], StdDeviationSample = 50):
             Number of samples for the standard deviation.
     Returns
     -------
-        Loads : dict
+        Loads : :py:class:`dict`
             Aerodynamic coefficients, loads and standard deviation.
     '''
     if not tLL: tLL = getLiftingLinesTree(tL)
@@ -2446,7 +2519,7 @@ def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude',
         elif ParticlesColorField == 'StrengthMagnitude': C._initVars(Particles,
                                  'StrengthMagnitude=({AlphaX}**2 + {AlphaY}**2 + {AlphaZ}**2)**0.5')
         elif ParticlesColorField == 'VelocityMagnitude':
-            U0 = getParameter(Particles, 'VelocityFreestream')
+            U0 = I.getNodeFromName(Particles, 'VelocityFreestream')[1]
             C._initVars(Particles, 'VelocityMagnitude=(\
              (%g+{VelocityInducedX}+{VelocityPerturbationX}+{VelocityBEMX}+{VelocityInterfaceX})**2\
             +(%g+{VelocityInducedY}+{VelocityPerturbationY}+{VelocityBEMY}+{VelocityInterfaceY})**2\
@@ -2521,10 +2594,8 @@ def saveImage(t = [], ShowInScreen = False, ImagesDirectory = 'FRAMES', **Displa
     try: os.makedirs(ImagesDirectory)
     except: pass
 
-    sp = getVPMParameters(t)
-
     DisplayOptions['export'] = os.path.join(ImagesDirectory,
-        'frame%05d.png'%sp['CurrentIteration'])
+        'frame%05d.png'%V.getParameter(t, 'CurrentIteration'))
 
     if ShowInScreen:
         DisplayOptions['offscreen'] = 0
@@ -2611,11 +2682,10 @@ def checkTreeStructure(t = [], name = ''):
     if TypeOfInput == -1:# is a standard CGNS node
         if I.isTopTree(t):
             Bases = I.getBases(t)
-            if len(Bases) == 1 and Bases[0][0] == 'Base' and name:
-                Bases[0][0] = name
+            if len(Bases) == 1 and name: Bases[0][0] = name
         elif t[3] == 'CGNSBase_t':
             LiftingLineBase = t
-            if LiftingLineBase[0] == 'Base' and name: LiftingLineBase[0] = name
+            if name: LiftingLineBase[0] = name
             t = C.newPyTree([])
             t[2] = [LiftingLineBase]
         elif t[3] == 'Zone_t':
@@ -2666,7 +2736,7 @@ def save(t = [], filename = '', VisualisationOptions = {}, SaveFields = checkSav
     if I.getZones(Particles):
         I._rmNodesByName(Particles, 'BEMMatrix')
         if 'VelocityX' in SaveFields:
-            u0 = np.array(getParameter(Particles, 'VelocityFreestream'), dtype = str)
+            u0 = np.array(I.getNodeFromName(Particles, 'VelocityFreestream')[1], dtype = str)
             C._initVars(Particles, 'VelocityX='+u0[0]+'+{VelocityInducedX}+{VelocityPerturbationX}+\
                                                                               {VelocityDiffusionX}')
             C._initVars(Particles, 'VelocityY='+u0[1]+'+{VelocityInducedY}+{VelocityPerturbationY}+\
@@ -2675,7 +2745,7 @@ def save(t = [], filename = '', VisualisationOptions = {}, SaveFields = checkSav
                                                                               {VelocityDiffusionZ}')
 
         if 'VelocityMagnitude' in SaveFields:
-            u0 = np.array(getParameter(Particles, 'VelocityFreestream'), dtype = str)
+            u0 = np.array(I.getNodeFromName(Particles, 'VelocityFreestream')[1], dtype = str)
             C._initVars(Particles, 'VelocityMagnitude=(\
               ('+u0[0]+'+{VelocityInducedX}+{VelocityPerturbationX}+{VelocityDiffusionX})**2 + \
               ('+u0[1]+'+{VelocityInducedY}+{VelocityPerturbationY}+{VelocityDiffusionY})**2 + \

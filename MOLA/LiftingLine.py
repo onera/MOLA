@@ -3207,7 +3207,7 @@ def setVPMParameters(LiftingLines, **kwargs):
                     Gives the number of particle sources on the Lifting Line(s) from where particles
                     are shed.
 
-                ParticleDistribution : :py:class:`dict`
+                SourcesDistribution : :py:class:`dict`
                     Python dictionary specifying distribution instructions.
                     Default value produces a uniform distribution of particles provided by a linear
                     interpolation. Accepted keys are:
@@ -3262,8 +3262,6 @@ def setVPMParameters(LiftingLines, **kwargs):
                 MaxLiftingLineSubIterations : :py:class:`int`
                     Gives the maximum number of iteration used during the shedding process.
     '''
-
-
     for LiftingLine in I.getZones(LiftingLines):
         J.set(LiftingLine, '.VPM#Parameters', **kwargs)
 
