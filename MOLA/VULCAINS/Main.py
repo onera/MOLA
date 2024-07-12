@@ -431,7 +431,7 @@ def getDefaultNumericalParameters(EnstrophyControlRamp          = 100,
                                              PerturbationOverlappingFactor = 1
                                              ),
                                   **kwargs):
-    '''
+    r'''
         Get a :py:class:`dict` containing all the relevant VULCAINS numerical parameters.
 
         Parameters
@@ -2495,7 +2495,10 @@ def setVisualization(t = [], ParticlesColorField = 'VorticityMagnitude',
               if input type is a :py:class:`str`, then **Polars** is
               interpreted as a CGNS file name containing the airfoil polars data
     '''
+    
+    if not t: return
     Particles = getFreeParticles(t)
+    if not Particles: return
     Sigma = I.getValue(I.getNodeFromName(Particles, 'Sigma'))
     C._initVars(Particles, 'radius=' + ParticlesRadius)
     FlowSolution = I.getNodeFromName1(Particles, 'FlowSolution')
