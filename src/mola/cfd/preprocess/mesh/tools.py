@@ -88,6 +88,22 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
     MPI.COMM_WORLD.barrier()
     return t
 
+def to_distributed(tree : cgns.Tree):
+    from mpi4py import MPI
+    import maia
+
+    if bool(tree.get(':CGNS#Distribution')): 
+        t = tree
+    
+    elif bool(tree.get(':CGNS#GlobalNumbering')):
+        t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
+        t = cgns.castNode(t)
+        
+    else:
+        t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+        t = cgns.castNode(t)
+     
+    return t
 
 def reshape_DataArray(zone):
     vertex_shape = zone.value()[:,0]
@@ -104,10 +120,30 @@ def reshape_DataArray(zone):
         elif nfield == ncell:
             field.shape = cell_shape
 
-def to_distributed(tree : cgns.Tree):
-    from mpi4py import MPI
-    import maia
-    t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
-    t = cgns.castNode(t)
+def ravel_BCDataSet(t):
+    # HACK https://elsa.onera.fr/issues/11219
+    # HACK https://elsa-e.onera.fr/issues/10750
+    for bcd in t.group(Type='BCData'):
+        for da in bcd.group(Type='DataArray'):
+            value = da.value()
+            if value is not None:
+                da.setValue(value.ravel(order='K'))
 
-    return t
+def remove_empty_BCDataSet(t):
+    for node in t.group(Type='BCDataSet'):
+        if not node.hasChildren():
+            node.remove()
+
+def force_FamilyBC_as_FamilySpecified(t):
+    # https://elsa.onera.fr/issues/10928
+    for base in t.bases():
+        for zone in base.zones():
+            for bc in zone.group(Type='BC', Depth=2):
+                FamilyName_node = bc.get(Type='FamilyName', Depth=1)
+                if FamilyName_node is not None:
+                    bc.setValue('FamilySpecified')
+                    family = FamilyName_node.value()
+                    if not base.get(Name=family, Type='Family', Depth=1):
+                        Family_node = cgns.Node(Name=family, Type='Family', Parent=base)
+                        cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='UserDefined', Parent=Family_node)
+                    continue

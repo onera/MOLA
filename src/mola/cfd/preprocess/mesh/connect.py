@@ -51,6 +51,7 @@ def apply_with_cassiopee(workflow):
 
         if 'Connection' not in component: continue
         _check_connections(component['Connection'])
+        I._adaptPE2NFace(base)  # For NGon mesh, generate NGonFace nodes if they don't exist using ParentElements n
 
         mola_logger.info(f'Connections for base {base_name}:', rank=0)
 

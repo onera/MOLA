@@ -146,6 +146,7 @@ class Workflow(object):
 
         try:
             import Converter.PyTree as C
+            import Converter.Internal as I
         except ModuleNotFoundError:
             mola_logger.warning('could not import Cassiopee Converter. Cannot check if there is any empty BC')
             return
@@ -163,6 +164,7 @@ class Workflow(object):
                     from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
                     t = to_full_tree_at_rank_0(self.tree)
 
+        I._adaptPE2NFace(t)
         emptyBC = C.getEmptyBC(t, dim=3)
         hasEmpty = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
         if rank ==0:

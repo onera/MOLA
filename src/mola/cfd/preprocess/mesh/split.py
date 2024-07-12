@@ -110,6 +110,9 @@ def apply(workflow):
     '''
     if not workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess': 
         return
+    
+    if workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee' and not workflow.tree.isStructured():
+        raise MolaAssertionError('Incompatibility of SplittingAndDistribution with mesh: Cassiopee cannot be used to split unstructured mesh.')
 
     is_partitioned = bool(workflow.tree.get(':CGNS#GlobalNumbering'))
     if is_partitioned:

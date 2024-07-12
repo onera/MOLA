@@ -391,6 +391,58 @@ def get_workflow_sphere_struct_dist():
     
     return w
 
+def get_workflow_sphere_hybrid():
+    w = Workflow(
+        RawMeshComponents=[
+            dict(
+                Name='sphere',
+                Source='/stck/mola/data/mesh/sphere/sphere_hybrid_pw.cgns',
+                Positioning=[dict(Type='scale', Scale=1e-3)], # since Pointwise mesh is in mm
+                )
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtComputation', # "AtPreprocess" or "AtComputation"
+            Splitter='PyPart', # or 'maia', 'PyPart' etc..
+            ),
+
+        Flow=dict(
+            Density = 0.2,
+            Temperature = 100.,
+            Velocity = 50.,
+        ),
+
+        Turbulence = dict(
+            Model = 'SA',
+        ),
+
+        Solver=os.environ.get('MOLA_SOLVER'),
+
+        Numerics = dict(
+            NumberOfIterations=10,
+            CFL=1.,
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Wall', Type='Wall'),
+            dict(Family='Farfield', Type='Farfield'),
+        ],
+
+        Extractions=[
+            # dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
+            # dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer'], ExtractAtEndOfRun=True),
+            # dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1e-6, ExtractAtEndOfRun=True),
+            # dict(Type='3D', Fields=['PressureStagnation', 'Pressure', 'Mach', 'Entropy'], ExtractAtEndOfRun=True),
+            ],
+
+        RunManagement=dict(
+            NumberOfProcessors=1,
+            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_hybrid'),
+            ),
+        )
+
+    return w
+
 
 
 def get_workflow1():
@@ -605,6 +657,15 @@ def test_workflow_sphere_struct_local_dist():
     w.simulation_status()
     w.remove_cfd_files()
 
+@pytest.mark.integration
+@pytest.mark.cost_level_3
+def test_workflow_sphere_hybrid_local():
+    w = get_workflow_sphere_hybrid()
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+    w.simulation_status()
+    w.remove_cfd_files()
 
 @pytest.mark.network_onera
 @pytest.mark.integration

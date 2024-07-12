@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola.logging import MolaException, MolaUserError
-from . import default, autogrid, utils, reader, writer
+from . import default, autogrid, utils, reader, writer, unstructured
 
 from treelab import cgns
 
@@ -42,4 +42,4 @@ def read(w):
         raise MolaUserError('All bases must have the same physical dimension')
     w.ProblemDimension = int(list(dimOfBases)[0])
 
-
+    unstructured.prepare_unstructured_mesh_if_needed(w)

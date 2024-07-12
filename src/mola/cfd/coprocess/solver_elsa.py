@@ -28,6 +28,7 @@ import mola.naming_conventions as names
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import mola_logger, rank, comm
 import mola.cfd.postprocess as POST
+from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 
 
 def perform_extractions(workflow, coprocess_manager):
@@ -83,12 +84,11 @@ def get_elsa_output_tree(skeleton):
 
     '''
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
-    for tree in [t, skeleton]: 
-        ravelBCDataSet(tree) # HACK https://elsa.onera.fr/issues/11219
     t = I.merge([skeleton, t])
-    removeEmptyBCDataSet(t)
-    forceFamilyBCasFamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
     t = cgns.castNode(t)
+    ravel_BCDataSet(t) # HACK https://elsa.onera.fr/issues/11219
+    remove_empty_BCDataSet(t)
+    # force_FamilyBC_as_FamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
     t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
     return t
 
@@ -195,74 +195,6 @@ def extract_isosurface(output_tree, extraction):
     
     return isosurface
 
-def deduce_container_for_slicing(IsoSurfaceField):
-    if IsoSurfaceField in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
-        return 'GridCoordinates'
-
-    elif IsoSurfaceField in ['Radius', 'radius', 'CoordinateR', 'Slice']:
-        return 'FlowSolution'
-
-    elif IsoSurfaceField == 'ChannelHeight':
-        return 'FlowSolution#Height'
-    
-    else:
-        return 'FlowSolution#EndOfRun'
-    
-def update_elsa_input(new_tree):
-    elsAxdt.xdt(elsAxdt.PYTHON,(elsAxdt.RUNTIME_TREE, new_tree, 1))
-
-def end_simulation(workflow):
-    elsAxdt.safeInterrupt()
-
-def get_family_to_BCType(t):
-        families_to_bctype = dict()
-        for famnode in t.group(Type='Family', Depth=2):
-            bctype = famnode.get(Type='FamilyBC')
-            if bctype is not None:
-                families_to_bctype[famnode.name()] = bctype.value()
-        return families_to_bctype
-
-def moveCoordsFromEndOfRunToGridCoords(to):
-    '''
-    This function is used to make adaptations of the coupling trigger tree
-    provided by elsA. The following operations are performed:
-
-    * ``GridCoordinates`` node is created from ``FlowSolution#EndOfRun#Coords``
-
-
-    Parameters
-    ----------
-
-         to : PyTree
-            Coupling tree as obtained from function
-
-            >>> elsAxdt.get(elsAxdt.OUTPUT_TREE)
-
-            .. note:: tree **to** is modified
-    '''
-    FScoords = I.getNodeFromName(to, 'FlowSolution#EndOfRun#Coords')
-    if FScoords:
-        I._renameNode(to,'FlowSolution#EndOfRun#Coords','GridCoordinates')
-        for GridCoordsNode in I.getNodesFromName3(to, 'GridCoordinates'):
-            GridLocationNode = I.getNodeFromType1(GridCoordsNode, 'GridLocation_t')
-            if I.getValue(GridLocationNode) != 'Vertex':
-                zone = I.getParentOfNode(to, GridCoordsNode)
-                ERRMSG = ('Extracted coordinates of zone '
-                          '%s must be located in Vertex')%I.getName(zone)
-                raise MolaException(ERRMSG)
-            I.rmNode(to, GridLocationNode)
-            I.setType(GridCoordsNode, 'GridCoordinates_t')
-    comm.barrier()
-
-def removeEmptyBCDataSet(t):
-    for z in I.getZones(t):
-        for zbc in I.getNodesFromType1(z,'ZoneBC_t'):
-            for bc in I.getNodesFromType1(zbc,'BC_t'):
-                for n in bc[2]:
-                    if n[0].startswith('BCDataSet'):
-                        if not n[2]:
-                            I._rmNode(t, n)
-
 def extract_residuals(output_tree):
     if rank == 0:
         residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
@@ -283,31 +215,30 @@ def extract_residuals(output_tree):
 def extract_probes():
     mola_logger.warning('skip extraction of type Probe (not implemented yet)', rank=0)
     return cgns.Tree()
-     
-def ravelBCDataSet(t):
-    # HACK https://elsa.onera.fr/issues/11219
-    # HACK https://elsa-e.onera.fr/issues/10750
-    for zone in I.getZones(t):
-        for zbc in I.getNodesFromType1(zone,'ZoneBC_t'):
-            for bc in I.getNodesFromType1(zbc,'BC_t'):
-                for bcds in I.getNodesFromType1(bc,'BCDataSet_t'):
-                    for bcd in I.getNodesFromType1(bcds,'BCData_t'):
-                        for da in I.getNodesFromType1(bcd,'DataArray_t'):
-                            if da[1] is not None:
-                                da[1] = da[1].ravel(order='K')
 
-def forceFamilyBCasFamilySpecified(t):
-    # https://elsa.onera.fr/issues/10928
-    for base in I.getBases(t):
-        for zone in I.getZones(base):
-            for ZoneBC in I.getNodesFromType1(zone,'ZoneBC_t'):
-                for BC in I.getNodesFromType1(ZoneBC,'BC_t'):
-                    FamilyNameNode = I.getNodeFromType1(BC,'FamilyName_t')
-                    if FamilyNameNode is not None:
-                        I.setValue(BC,'FamilySpecified')
-                        FamilyName = I.getValue(FamilyNameNode)
-                        if not I.getNodeFromName1(base,FamilyName):
-                            FamilyAtBase = I.createNode(FamilyName,'Family_t',parent=base)
-                            I.createNode('FamilyBC','FamilyBC_t',value='UserDefined',parent=FamilyAtBase)
-                        continue
+def update_elsa_input(new_tree):
+    elsAxdt.xdt(elsAxdt.PYTHON,(elsAxdt.RUNTIME_TREE, new_tree, 1))
 
+def end_simulation(workflow):
+    elsAxdt.safeInterrupt()
+
+def deduce_container_for_slicing(IsoSurfaceField):
+    if IsoSurfaceField in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        return 'GridCoordinates'
+
+    elif IsoSurfaceField in ['Radius', 'radius', 'CoordinateR', 'Slice']:
+        return 'FlowSolution'
+
+    elif IsoSurfaceField == 'ChannelHeight':
+        return 'FlowSolution#Height'
+    
+    else:
+        return 'FlowSolution#EndOfRun'
+
+def get_family_to_BCType(t):
+    families_to_bctype = dict()
+    for famnode in t.group(Type='Family', Depth=2):
+        bctype = famnode.get(Type='FamilyBC')
+        if bctype is not None:
+            families_to_bctype[famnode.name()] = bctype.value()
+    return families_to_bctype

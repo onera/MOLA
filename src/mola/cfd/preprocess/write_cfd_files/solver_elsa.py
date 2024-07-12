@@ -16,9 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import shutil 
 from treelab import cgns
-from mola import misc
 import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
@@ -26,6 +24,7 @@ from mola import server as SV
 
 def apply_to_solver(workflow):
 
+    add_elsaHybrid_nodes_if_needed(workflow.tree)  # in elsA v5.3.01, it seems to be still mandatory for some hybrid meshes
     add_reference_state(workflow)
     add_governing_equations(workflow)
     if hasattr(workflow, '_FULL_CGNS_MODE'):
@@ -38,6 +37,13 @@ def apply_to_solver(workflow):
     # For now a large part of RunManagement is set in the function build_job_scheduler_header
     workflow.set_workflow_parameters_in_tree()  
     write_data_files(workflow)
+
+def add_elsaHybrid_nodes_if_needed(t):
+    if not t.isStructured():
+        import Converter.Internal as I
+        I._createElsaHybrid(t, method=1)
+        t = cgns.castNode(t)
+    return t
 
 def add_reference_state(workflow):
     '''

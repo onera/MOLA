@@ -24,8 +24,6 @@ def apply(workflow):
     if not all([('Positioning' in component) for component in workflow.RawMeshComponents]):
         return
     
-    import Transform.PyTree as T
-
     tree_was_distributed = bool(workflow.tree.get(':CGNS#Distribution'))
     workflow.tree = to_partitioned_if_distributed(workflow.tree)
 
@@ -37,27 +35,54 @@ def apply(workflow):
         for operation in component['Positioning']:
             if operation['Type'] == 'scale':
                 s = float(operation['Scale'])
-                T._homothety(base,(0,0,0),s)
+                try:
+                    rescale_with_maia(base, s)
+                except (ImportError, AttributeError):
+                    rescale_with_cassiopee(base, s)
 
             elif operation['Type'] == 'TranslationAndRotation':
                 # TODO replace with MOLA meshing operation
                 pt1 = np.array(operation['RequestedFrame']['Point'])
                 pt0 = np.array(operation['InitialFrame']['Point'])
                 translation = pt1 - pt0
-                T._translate(base, tuple(translation))
-                T._rotate(base,tuple(pt1),
-                    ( tuple(operation['InitialFrame']['Axis1']),
-                      tuple(operation['InitialFrame']['Axis2']),
-                      tuple(operation['InitialFrame']['Axis3']) ),
-                    ( tuple(operation['RequestedFrame']['Axis1']),
-                      tuple(operation['RequestedFrame']['Axis2']),
-                      tuple(operation['RequestedFrame']['Axis3']) ))
+                translate_and_rotate_with_cassiopee(base, translation, pt1, operation['InitialFrame'], operation['RequestedFrame'])
 
             
             elif operation['Type'] == 'DuplicateByRotation':
                 ...
                 # TODO BEWARE!! duplicate Component, and handle it properly! 
 
-        for zone in base.zones(): T._makeDirect(zone)
+        for zone in base.zones(): 
+            if cgns.castNode(zone).isStructured():
+                import Transform.PyTree as T
+                T._makeDirect(zone)
 
     if tree_was_distributed: workflow.tree = to_distributed(workflow.tree)
+
+def rescale_with_cassiopee(t, scale):
+    import Transform.PyTree as T
+    T._homothety(t, (0,0,0), scale)
+
+def rescale_with_maia(t, scale):
+    import maia
+    maia.algo.scale_mesh(t, scale)
+
+def translate_and_rotate_with_cassiopee(t, translation, center, InitialFrame, RequestedFrame):
+    import Transform.PyTree as T
+    T._translate(t, tuple(translation))
+    T._rotate(t, tuple(center),
+        ( tuple(InitialFrame['Axis1']),
+          tuple(InitialFrame['Axis2']),
+          tuple(InitialFrame['Axis3']) ),
+        ( tuple(RequestedFrame['Axis1']),
+          tuple(RequestedFrame['Axis2']),
+          tuple(RequestedFrame['Axis3']) ))
+
+def translate_and_rotate_with_maia(t, translation=[0,0,0], rotation_center=[0,0,0], rotation_angle=[0,0,0]):
+    import maia
+    maia.algo.transform_affine(
+        t, 
+        translation=translation, 
+        rotation_center=rotation_center, 
+        rotation_angle=rotation_angle
+        )
