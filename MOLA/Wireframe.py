@@ -5848,7 +5848,7 @@ def tune(curve, point, index=0):
 
 def getLength(curve):
     xyz = np.vstack( J.getxyz(curve) )
-    return np.linalg.norm(np.sum(np.abs(np.diff(xyz,axis=1)),axis=1))
+    return np.sum(np.linalg.norm(np.diff(xyz,axis=1),axis=0))
 
 
 def useEqualNumberOfPointsOrSameDiscretization(Airfoils, FoilDistribution=None):

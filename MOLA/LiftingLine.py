@@ -4102,8 +4102,9 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         v['Gamma'][:] = Gamma
 
         # ------------------------- INTEGRAL LOADS ------------------------- #
-        length = norm(np.sum(np.abs(np.diff(xyz, axis = 1)), axis = 1)) # faster than D.getLength
+        length = np.sum(np.linalg.norm(np.diff(xyz,axis=1),axis=0)) # faster than D.getLength
         DimensionalAbscissa = length*v['s'] # TODO check if v['s'] is updated!
+
 
         # Integrate linear axial force <fa> to get Thrust
         FA = Thrust = sint.simps(v['ForceAxial'], DimensionalAbscissa)
