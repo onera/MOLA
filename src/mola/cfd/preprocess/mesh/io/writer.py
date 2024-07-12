@@ -20,6 +20,7 @@ import glob
 from .utils import get_io_tool
 from treelab import cgns
 import mola.naming_conventions as names
+from mola.cfd.coprocess import mola_logger
 
 def write(w, tree, dst, io_tool=None):
     if tree.get(Name=':CGNS#Ppart', Depth=3):
@@ -80,25 +81,35 @@ def write(w, tree, dst, io_tool=None):
     elif io_tool == 'pypart':
         import Converter.PyTree as C
         import Converter.Mpi as Cmpi
+        # HACK mergeAndSave bugs with empty FlowSolution nodes for unstructured mesh
+        empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, remove=True)
         Cmpi.barrier()
         w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'))
         Cmpi.barrier()
         if Cmpi.rank == 0:
-            if dst.endswith(names.FILE_INPUT_SOLVER):
-                # Bug PyPart: mergeAndSave does not write WorkflowParameters
-                workflow_name_node = cgns.load_from_path(dst, w._workflow_parameters_container_)
-
             t_merged = C.convertFile2PyTree(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'))
-            C.convertPyTree2File(t_merged, dst)
+            t_merged = cgns.castNode(t_merged)
+
+            if dst.endswith(names.FILE_INPUT_SOLVER):
+                # Bug PyPart: mergeAndSave does not write WorkflowParameters, maybe because it is at the Base level
+                # TODO open an issue
+                t_merged.findAndRemoveNode(Name=w._workflow_parameters_container_, Depth=1)
+                params = w.convert_to_dict()
+                t_merged.setParameters(w._workflow_parameters_container_, **params)
+
+            for FS in empty_FlowSolution_nodes:
+                path = _remove_PyPart_suffix(FS.path())
+                zone_path = '/'.join(path.split('/')[:-1])
+                zone = t_merged.getAtPath(zone_path)
+                zone.addChild(FS)
+
+            t_merged.save(dst)
             for fn in glob.glob(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_*.hdf')):
                 try:
                     os.remove(fn)
                 except:
                     pass
-
-            if dst.endswith(names.FILE_INPUT_SOLVER):
-                workflow_name_node.saveThisNodeOnly(dst)
-
+            
         Cmpi.barrier()
 
 def is_empty(zone):
@@ -111,24 +122,28 @@ def is_empty(zone):
     
     return False
 
-def get_empty_FlowSolution_nodes(tree):
-    # Cmpi.convertPyTree2File does not write DataArray in FlowSolution
+def get_empty_FlowSolution_nodes(tree, remove=False):
+    # NOTE Cmpi.convertPyTree2File does not write DataArray in FlowSolution
     # if its value is None on all ranks, but this is a way for elsA to 
     # ask extraction in a FlowSolution (for 3D fields)
     # -> keep these nodes in a list
+
+    # NOTE With unstructured mesh, PyPart does not support empty FlowSolution 
+    # (with DataArray nodes that store None). We need to remove these nodes, 
+    # keep its path, and restore them later in the final file.
+
     import Converter.Mpi as Cmpi
     import copy
 
-    if Cmpi.rank == 0:
-        empty_FlowSolution_nodes = []
-        for FS in tree.group(Type='FlowSolution'):
-            if any([n.value() is None for n in FS.group(Type='DataArray')]):
+    empty_FlowSolution_nodes = []
+    for FS in tree.group(Type='FlowSolution'):
+        if any([n.value() is None for n in FS.group(Type='DataArray')]):
+            if Cmpi.rank == 0:
                 empty_FlowSolution_nodes.append(copy.deepcopy(FS))
-    else:
-        empty_FlowSolution_nodes = []
-    
+            if remove:
+                FS.remove()
+ 
     return empty_FlowSolution_nodes
-
 
 def restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes):
     import Converter.Mpi as Cmpi
@@ -138,3 +153,11 @@ def restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes):
             saved_FS = cgns.readNode(dst, FS.path()) 
             if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
                 FS.saveThisNodeOnly(dst, backend='pycgns')  # it does nothing with h5py2cgns, and it freezes with cassiopee
+
+def _remove_PyPart_suffix(path):
+    path_split = path.split('/')
+    zone_name = path_split[-2]
+    if '.P0.N' in zone_name:
+        new_zone_name = zone_name.split('.P0.N')[0]
+        path = path.replace(zone_name, new_zone_name)
+    return path

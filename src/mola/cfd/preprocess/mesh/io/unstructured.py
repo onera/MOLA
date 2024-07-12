@@ -27,7 +27,7 @@ def prepare_unstructured_mesh_if_needed(workflow, mergeZonesByFamily=True):
         
     any_not_ngon = any(elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in workflow.tree.getElementsTypes())
 
-    remove_grid_connectivities = any_not_ngon or mergeZonesByFamily
+    remove_grid_connectivities = False #any_not_ngon or mergeZonesByFamily
     if remove_grid_connectivities:
         if workflow.tree.get(Type='ZoneGridConnectivity', Depth=3):
             mola_logger.warning('Remove connectivities in mesh, they will be recomputed.')
