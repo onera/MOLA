@@ -4880,7 +4880,6 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
                 BigAoAsValuesDict[KeyName] = BigAoAsValue[1]
 
             f.write('      78      %s\n'%FoilName)
-            f.write('%5i\n' %MachQty)
 
             for var in AllowedQuantities:
                 var_n = I.getNodeFromName1(FlowSol_n,var)
