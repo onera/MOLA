@@ -38,8 +38,7 @@ from . import Main as V
 ############################################### VPM ################################################
 ####################################################################################################
 ####################################################################################################
-def initialiseVPM(tE = [], tH = [], tLL = [], VPMParameters = {}, HybridParameters = {},
-    LiftingLineParameters = {}, PerturbationFieldParameters = {}):
+def initialiseVPM(tE = [], tH = [], tLL = [], Parameters = {}):
     '''
     Creates a Tree initialised with the given parameters and initialise the particles according to
     the given Lifting Lines or Eulerian Mesh. Also generate Hybrid Domains and/or Lifting Lines in
@@ -55,18 +54,10 @@ def initialiseVPM(tE = [], tH = [], tLL = [], VPMParameters = {}, HybridParamete
 
         tLL : Tree
             Lifting Lines.
-
-        VPMParameters : :py:class:`dict`
-            Parameters of the VPM solver.
-
-        HybridParameters : :py:class:`dict`
-            Parameters of the Hybrid solver.
-
-        LiftingLineParameters : :py:class:`dict`
-            Parameters of the Lifting Lines coupling.
-
-        PerturbationFieldParameters : :py:class:`dict`
-            Parameters relative to the Perturbation velocity field.
+        
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     Returns
     -------
         tL : Tree
@@ -74,57 +65,56 @@ def initialiseVPM(tE = [], tH = [], tLL = [], VPMParameters = {}, HybridParamete
     '''
     _tLL, _tE, _tH = V.getTrees([tLL, tE, tH], ['LiftingLines', 'Eulerian', 'Hybrid'])
 
-    if not(VPMParameters['Resolution'].all()):
-        raise ValueError(J.FAIL + 'The Resolution can not be computed. The Resolution or a ' + \
-                                                          'Lifting Line must be specified' + J.ENDC)
-    if not(VPMParameters['TimeStep']):
-        raise ValueError(J.FAIL + 'The TimeStep can not be computed. The TimeStep or a Lifting ' + \
-                                                                  'Line must be specified' + J.ENDC)
+    if not(Parameters['NumericalParameters']['Resolution'][0]):
+        raise ValueError(J.FAIL + 'The Resolution can not be computed. The Resolution must be \
+                                                                                specified' + J.ENDC)
+    if not(Parameters['NumericalParameters']['TimeStep']):
+        raise ValueError(J.FAIL + 'The TimeStep can not be computed. The TimeStep must be \
+                                                                                specified' + J.ENDC)
     tL = V.buildEmptyVPMTree()
     Particles = V.getFreeParticles(tL)
     if _tLL:
         V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Initialisation of Lifting Lines '))
-        V.initialiseParticlesOnLitingLine(tL, _tLL, VPMParameters)
+        V.initialiseParticlesOnLitingLine(tL, _tLL, Parameters)
         V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Done '))
     if _tE:
         V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Initialisation of Hybrid Domain '))
-        V.initialiseHybridParticles(tL, _tE, _tH, VPMParameters, HybridParameters)
-        tL[2][1][2] += V.generateBEMParticles(_tE, _tH, VPMParameters, HybridParameters)
+        V.initialiseHybridParticles(tL, _tE, _tH, Parameters)
+        tL[2][1][2] += V.generateBEMParticles(_tE, _tH, Parameters)
         # HybridParameters['BEMMatrix'] = np.zeros((HybridParameters['NumberOfBEMUnknown'][0]*\
                         # VPMParameters['NumberOfBEMSources'][0])**2, dtype = np.float64, order = 'F')
-        tL[2][1][2] += V.generateImmersedParticles(_tE, _tH, VPMParameters, HybridParameters)
-        J.set(Particles, '.Hybrid#Parameters', **HybridParameters)
-        I._sortByName(I.getNodeFromName1(Particles, '.Hybrid#Parameters'))
+        tL[2][1][2] += V.generateImmersedParticles(_tE, _tH, Parameters)
 
-    J.set(Particles, '.VPM#Parameters', **VPMParameters)
-    I._sortByName(I.getNodeFromName1(Particles, '.VPM#Parameters'))
+    for field in ['Fluid', 'Hybrid', 'Modeling', 'Numerical', 'Private']:
+        name = field + 'Parameters'
+        if name in Parameters and Parameters[name]:
+            J.set(Particles, '.' + field + '#Parameters', **Parameters[name])
+            I._sortByName(I.getNodeFromName1(Particles, '.' + field + '#Parameters'))
+
     return tL
 
-def initialisePerturbationfield(tL = [], tP = []):
+def initialisePerturbationfield(tP = [], Parameters = {}):
     '''
     Initialises the FMM tree capsule of the perturbation field.
 
     Parameters
     ----------
-        tL : Tree
-            Lagrangian field.
-
         tP : Tree
             Perturbation field.
+
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`.
     Returns
     -------
         tP : Tree
             Perturbation field.
     '''
-    _tL = V.getTrees([tL], ['Particles'])
     if tP:
-        if isinstance(tP, str):
-            print(f"{'||':>57}\r" + '||', end='')
-            tP = V.load(tP)
-            V.deletePrintedLines()
+        if isinstance(tP, str): tP = V.load(tP)
 
         V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Initialisation of Perturbation Field '))
-        NumberOfNodes = V.getParameter(_tL, 'NumberOfNodes')
+        NumberOfNodes = Parameters['PrivateParameters']['NumberOfNodes']
         V.tP_Capsule[0] = V.build_perturbation_velocity_capsule(tP, NumberOfNodes)
         V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Done '))
         return tP
@@ -308,11 +298,9 @@ def populationControl(tL = [], tLL = [], tH = []):
         AABB += [[np.min(x), np.min(y), np.min(z), np.max(x), np.max(y), np.max(z)]]
 
     AABB = np.array(AABB, dtype = np.float64)
-    RedistributionKernel = V.RedistributionKernel_str2int[V.getParameter(_tL, 'RedistributionKernel')]
     N0 = Np[0]
     populationControlInfo = np.array([0]*5, dtype = np.int32)
-    RedistributedParticles = V.population_control(_tL, AABB, RedistributionKernel,
-                                                                          populationControlInfo)
+    RedistributedParticles = V.population_control(_tL, AABB, populationControlInfo)
     if RedistributedParticles.any():
         V.adjustTreeSize(_tL, NewSize = len(RedistributedParticles[0]), OldSize = N0)
         X, Y, Z = J.getxyz(Particles)
@@ -345,7 +333,7 @@ def populationControl(tL = [], tLL = [], tH = []):
 ########################################### Vortex Rings ###########################################
 ####################################################################################################
 ####################################################################################################
-def createLambOseenVortexRing(t = [], VPMParameters = {}, VortexParameters = {}):
+def createLambOseenVortexRing(t = [], Parameters = {}, VortexParameters = {}):
     '''
     Initialises a Lamb Oseen vortex ring.
 
@@ -354,19 +342,21 @@ def createLambOseenVortexRing(t = [], VPMParameters = {}, VortexParameters = {})
         t : Tree
             Lagrangian field.
 
-        VPMParameters : :py:class:`dict`
-            Parameters of the VPM solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
 
         VortexParameters : :py:class:`dict`
-            Parameters of the vortex.
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.computeFreeVortex`
     '''
     Gamma = VortexParameters['Intensity'][0]
-    sigma = VPMParameters['Sigma0'][0]
-    lmbd_s = VPMParameters['SmoothingRatio'][0]
-    nu = VPMParameters['KinematicViscosity'][0]
+    sigma = Parameters['PrivateParameters']['Sigma0'][0]
+    lmbd_s = Parameters['ModelingParameters']['SmoothingRatio'][0]
+    nu = Parameters['FluidParameters']['KinematicViscosity'][0]
     R = VortexParameters['RingRadius'][0]
     nc = [0]
-    h = VPMParameters['Resolution'][0]
+    h = Parameters['NumericalParameters']['Resolution'][0]
     
     if 'CoreRadius' in VortexParameters:
         a = VortexParameters['CoreRadius'][0]
@@ -444,7 +434,7 @@ def createLambOseenVortexRing(t = [], VPMParameters = {}, VortexParameters = {})
     VortexParameters['NumberLayers'] = nc
     V.adjust_vortex_ring(t, N_s, N_phi, Gamma, np.pi*r0*r0, np.pi*r0*r0*4./3., nc)
 
-def createLambOseenVortexBlob(t, VPMParameters, VortexParameters):
+def createLambOseenVortexBlob(t = [], Parameters = {}, VortexParameters = {}):
     '''
     Initialises a Lamb Oseen vortex discretised within a cylinder.
 
@@ -453,19 +443,21 @@ def createLambOseenVortexBlob(t, VPMParameters, VortexParameters):
         t : Tree
             Lagrangian field.
 
-        VPMParameters : :py:class:`dict`
-            Parameters of the VPM solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
 
         VortexParameters : :py:class:`dict`
-            Parameters of the vortex.
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.computeFreeVortex`
     '''
     Gamma = VortexParameters['Intensity'][0]
-    sigma = VPMParameters['Sigma0'][0]
-    lmbd_s = VPMParameters['SmoothingRatio'][0]
-    nu = VPMParameters['KinematicViscosity'][0]
+    sigma = Parameters['PrivateParameters']['Sigma0'][0]
+    lmbd_s = Parameters['ModelingParameters']['SmoothingRatio'][0]
+    nu = Parameters['FluidParameters']['KinematicViscosity'][0]
     L = VortexParameters['Length'][0]
     frac = VortexParameters['MinimumVorticityFraction'][0]
-    h = VPMParameters['Resolution'][0]
+    h = Parameters['NumericalParameters']['Resolution'][0]
     if 'CoreRadius' in VortexParameters:
         a = VortexParameters['CoreRadius'][0]
         tau = a*a/4./nu

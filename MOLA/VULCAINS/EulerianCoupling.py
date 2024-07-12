@@ -50,7 +50,7 @@ from . import Main as V
 ############################################## Hybrid ##############################################
 ####################################################################################################
 ####################################################################################################
-def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {}):
+def initialiseEulerianDomain(Mesh = [], Parameters = {}):
     '''
     Creates the Eulerian tree used by VULCAINS and FAST.
 
@@ -59,30 +59,29 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
         Mesh : Tree
             Containes the Eulerian mesh.
 
-        VPMParameters : :py:class:`dict`
-            VPM Parameters.
-
-        HybridParameters : :py:class:`dict`
-            Hybrid Parameters.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     Returns
     -------
         tE : Tree
             Eulerian field.
     '''
     if not Mesh:
-        HybridParameters.clear()
+        if 'HybridParameters' in Parameters: Parameters['HybridParameters'].clear()
         return []
-
+    HybridParameters = Parameters['HybridParameters']
     if isinstance(Mesh, str): Mesh = V.load(Mesh)
 
     import MOLA.Preprocess as PRE
     import Apps.Fast.MB as AppFastMB
-    ReferenceValuesParams = dict(Density = VPMParameters['Density'],
-                                 Temperature = VPMParameters['Temperature'],
-                                 Velocity = np.linalg.norm(VPMParameters['VelocityFreestream']))
+    FluidParameters = Parameters['FluidParameters']
+    ReferenceValuesParams = dict(Density = FluidParameters['Density'],
+                                 Temperature = FluidParameters['Temperature'],
+                                 Velocity = np.linalg.norm(FluidParameters['VelocityFreestream']))
 
     FluidProperties = PRE.computeFluidProperties(SutherlandViscosity = \
-                                       VPMParameters['KinematicViscosity']*VPMParameters['Density'])
+                                   FluidParameters['KinematicViscosity']*FluidParameters['Density'])
     ReferenceValues = PRE.computeReferenceValues(FluidProperties,
                                                  **ReferenceValuesParams)
     RefState = [
@@ -93,9 +92,9 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
             ['Ts',   FluidProperties['SutherlandTemperature']],
             ['Pr',   FluidProperties['Prandtl']],
             ['Density', ReferenceValues['Density']],
-            ['MomentumX', VPMParameters['VelocityFreestream'][0]*VPMParameters['Density'][0]],
-            ['MomentumY', VPMParameters['VelocityFreestream'][1]*VPMParameters['Density'][0]],
-            ['MomentumZ', VPMParameters['VelocityFreestream'][2]*VPMParameters['Density'][0]],
+            ['MomentumX', FluidParameters['VelocityFreestream'][0]*FluidParameters['Density'][0]],
+            ['MomentumY', FluidParameters['VelocityFreestream'][1]*FluidParameters['Density'][0]],
+            ['MomentumZ', FluidParameters['VelocityFreestream'][2]*FluidParameters['Density'][0]],
             ['EnergyStagnationDensity', ReferenceValues['EnergyStagnationDensity']],
             ['TurbulentEnergyKineticDensity', ReferenceValues['TurbulentEnergyKineticDensity']],
             ['TurbulentDissipationRateDensity', ReferenceValues['TurbulentDissipationRateDensity']],
@@ -142,20 +141,17 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
         for var in vars:
             node = I.getNodeFromName(state, var)
             if node is not None: C._initVars(base, 'centers:' + var, float(node[1][0]))
+    dtL = Parameters['NumericalParameters']['TimeStep'][0]
+    dtE = HybridParameters['EulerianTimeStep'][0]
+    if not dtL or not dtE:
+        if dtL and (not dtE): dtE = dtL
+        elif dtE and (not dtL): dtL = HybridParameters['EulerianTimeStep'][0]
+        else: raise ValueError(J.FAIL + 'The Lagrangian or Eulerian TimeStep must be specified ' + \
+                                          'in .Numerical#Parameters or .Hybrid#Parameters' + J.ENDC)
 
-    if 'TimeStep' in VPMParameters:
-        dtL = VPMParameters['TimeStep'][0]
-        if 'EulerianTimeStep' in HybridParameters: dtE = HybridParameters['EulerianTimeStep'][0]
-        else: dtE = dtL
-    else:
-        if 'EulerianTimeStep' in HybridParameters:
-            dtE = dtL = HybridParameters['EulerianTimeStep'][0]
-        else:
-            raise ValueError(J.FAIL + 'The Lagrangian TimeStep must be specified in the ' + \
-                                                                           'VPMParameters' + J.ENDC)
-
-    HybridParameters['EulerianTimeStep'] = np.array([dtL/max(1, int(round(dtL/dtE)))], order = 'F',
-                                                                                 dtype = np.float64)
+    Parameters['NumericalParameters']['TimeStep'][0] = dtL
+    HybridParameters['EulerianTimeStep'][0] = np.array([dtL/max(1, int(round(dtL/dtE)))],
+                                                                    order = 'F', dtype = np.float64)
     # #RANS
     # numb = {
     #             "temporal_scheme": "implicit",
@@ -188,40 +184,15 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
                 "nb_relax":1, # nbre de passages de newton
                 "epsi_newton":0.01, # residu a atteindre
             }
-    # t = V.load('tE.cgns')
-    base, = I.getBases(t)
+    t = V.load('tE.cgns')
+    base = I.getBases(t)[0]
     base[0] = 'EulerianBase'
-    basec, = I.getBases(tc)
+    basec = I.getBases(t)[1]
     basec[0] = 'EulerianBaseCenter'
     Fast._setNum2Base(base, numb)
     Fast._setNum2Zones(base, numz)
     tE = C.newPyTree([base, basec])
     computeFastMetrics(tE)
-
-    # t0,tc0,ts,graph = Fast.load('/stck/jvalenti/FAST/Sphere/Refined/restart.cgns', '/stck/jvalenti/FAST/Sphere/Refined/t.cgns', restart=0)
-    # I._rmNodesByName(t0, 'CARTESIAN')
-    # I._rmNodesByName(tc0, 'CARTESIAN')
-    # flagEulerianCells(tE, VPMParameters, HybridParameters)
-    # computeEulerianVorticity(tE, removeVelocityGradients = True)
-    # for zone in I.getZones(V.getEulerianBase(tE)):
-    #     zone0 = I.getNodeFromName(t0, zone[0])
-    #     FlowSolution = I.getNodeFromName(zone, 'FlowSolution#Centers')
-    #     if FlowSolution:
-    #         FlowSolution0 = I.getNodeFromName(zone0, 'FlowSolution#Centers')
-    #         for Field0 in FlowSolution0[2][1:]:
-    #             if Field0[0] != 'cellN' and Field0[0] != 'TurbulentDistance':
-    #                 Field = I.getNodeFromName(FlowSolution, Field0[0])
-    #                 Field[1][:] = Field0[1][:]
-
-    # for zone in I.getZones(V.getEulerianBase(tE)):
-    #     SolverParam = I.getNodeFromName1(zone, '.Solver#VPM')
-    #     index = tuple(I.getNodeFromName1(SolverParam, 'GhostCellsIndices')[1])
-    #     FlowSolution = I.getNodeFromName1(zone, 'FlowSolution#Centers')
-    #     I.getNodeFromName1(FlowSolution, 'VorticityX')[1][index] = 0.
-    #     I.getNodeFromName1(FlowSolution, 'VorticityY')[1][index] = 0.
-    #     I.getNodeFromName1(FlowSolution, 'VorticityZ')[1][index] = 0.
-
-    # fillGhostCells(tE, V.vectorise('Vorticity'))
 
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Fast Warmup (0%) '))
     n_warmup = 1
@@ -238,7 +209,7 @@ def initialiseEulerianDomain(Mesh = [], VPMParameters = {}, HybridParameters = {
     V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Done '))
     # save(tE, 'tE0.cgns')
     # exit()
-    flagEulerianCells(tE, VPMParameters, HybridParameters)
+    flagEulerianCells(tE, Parameters)
     computeEulerianVorticity(tE, removeVelocityGradients = True)
     I.createUniqueChild(base, 'Iteration', 'DataArray_t', value = 0)
     I.createUniqueChild(base, 'Time', 'DataArray_t', value = 0)
@@ -277,7 +248,7 @@ def getMeanTurbulentDistance(t = [], cellN = 2, cellNName = ''):
         d += np.ravel(TurbulentDistance[flag]).tolist()
     return np.mean(d)
 
-def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
+def flagEulerianCells(tE = [], Parameters = {}):
     '''
     Initialises the far field BC, ghost cells, Inner, Outer and BEM cells indices and the
     corresponding parameters.
@@ -287,13 +258,12 @@ def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
         tE : Tree
             Eulerian field.
 
-        VPMParameters : :py:class:`dict`
-            VPM Parameters.
-
-        HybridParameters : :py:class:`dict`
-            Hybrid Parameters.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     '''
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Flagging Cells '))
+    HybridParameters = Parameters['HybridParameters']
     t, tc = V.getEulerianBases(tE)
     Nvoid = 2#for the ghost cells
     Nbc = HybridParameters['NumberOfBCCells'][0]
@@ -368,7 +338,7 @@ def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
     I._rmNodesByName(Inners, 'FlowSolution#Centers')
     Inners = C.node2Center(Inners, 'FlowSolution')
     I._rmNodesByName(Inners, 'FlowSolution')
-    for zone, Inner, Outer in zip(I.getZones(t), I.getZones(Inners), I.getZones(Outers)):#tag the cells to impose the VPM BC
+    for zone, Inner, Outer in zip(I.getZones(t), I.getZones(Inners), I.getZones(Outers)):
         parent = I.createUniqueChild(zone, '.Solver#VPM','UserDefined_t')
         BC = np.array(np.where(I.getNodeFromName(zone, 'cellN')[1] == 2), dtype = np.int32,
                                                                                         order = 'F')
@@ -376,9 +346,6 @@ def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
                     I.createNode('GhostCellsIndices', 'Tuple_t',
                                  value = np.array(np.where(I.getNodeFromName(zone, 'Flag')[1] == 0),
                                                                     dtype = np.int32, order = 'F')),
-                    # I.createNode('CellsIndices', 'Tuple_t',
-                    #              value = np.array(np.where(I.getNodeFromName(zone, 'Flag')[1] != 0),
-                    #                                                 dtype = np.int32, order = 'F')),
                     I.createNode('BEMInterfaceIndices', 'Tuple_t',
                                   value = np.array(np.where(I.getNodeFromName(zone, 'BEM')[1] == 2),
                                                                     dtype = np.int32, order = 'F')),
@@ -388,40 +355,19 @@ def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
                     I.createNode('OuterInterfaceIndices', 'Tuple_t',
                                 value = np.array(np.where(I.getNodeFromName(zone, 'Outer')[1] == 2),
                                                                     dtype = np.int32, order = 'F'))]
-        # InnerDistance = I.getNodeFromName(Inner, 'TurbulentDistance')[1]
-        # OuterDistance = I.getNodeFromName(Outer, 'TurbulentDistance')[1]
-        # InnerCells = 0 < InnerDistance
-        # OuterCells = 0 < OuterDistance
-        # InnerDistance[np.logical_not(InnerCells)] = 0.
-        # FlagHybrid = InnerCells*np.logical_not(OuterCells)
-        # if np.sum(FlagHybrid):
-        #     InnerDistance /= np.max(InnerDistance[FlagHybrid])
-        #     InnerDistance[OuterCells] = 1.
-        #     weight = np.square(np.cos(np.pi/2.*InnerDistance))
-        #     weight[weight < 0.] = 0.
-        #     weight[1. < weight] = 1.
-        #     children += [I.createNode('BCInterpolationWeight', 'Tuple_t', value = \
-        #                      np.array(weight[tuple(BC)].tolist(), dtype = np.float64, order = 'F'))]
-        # else:
-        #     children += [I.createNode('BCInterpolationWeight', 'Tuple_t', value = \
-        #                                              np.array([], dtype = np.float64, order = 'F'))]
 
         I.addChild(parent, children)
-
-
-
-
-    # C._initVars(t,'centers:cellN', 1)
-    # CX._applyBCOverlaps(t, depth = 2      , loc = 'centers', val = 0, cellNName = 'cellN')
-    # CX._applyBCOverlaps(t, depth = 2 + 1, loc = 'centers', val = 2, cellNName = 'cellN')
-    # C._cpVars(t, 'centers:cellN', tc, 'cellN')
 
     I._rmNodesByName(t, 'Outer')
     I._rmNodesByName(t, 'Inner')
     I._rmNodesByName(t, 'BEM')
     I._rmNodesByName(t, 'Flag')
-    HybridParameters['HybridDomainSize'][0] = dH = dOuter - dInner
-    h = dH/(HybridParameters['NumberOfHybridLayers'][0]*VPMParameters['SmoothingRatio'][0])
+    HybridParameters['HybridDomainSize'] = dH = np.array([dOuter - dInner], dtype = np.float64, \
+                                                                                        order = 'F')
+    SmoothingRatio = Parameters['ModelingParameters']['SmoothingRatio']
+    NP = Parameters['NumericalParameters']
+    Sigma0 = Parameters['PrivateParameters']['Sigma0']
+    h = dH[0]/(HybridParameters['NumberOfHybridLayers'][0]*SmoothingRatio[0])
     parent = I.createUniqueChild(t, '.Solver#VPM','UserDefined_t')
     children = [I.createNode('ResolutionVPM', 'DataArray_t', value = h),
                 I.createNode('BEMInterfaceIndex', 'DataArray_t', value = NBEM),
@@ -431,13 +377,13 @@ def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
                 I.createNode('OuterInterfaceIndex', 'DataArray_t', value = NOuter),
                 I.createNode('OuterInterfaceDistance', 'DataArray_t', value = dOuter)]
     I.addChild(parent, children)
-    if VPMParameters['Resolution'][0]:
-        VPMParameters['Resolution'][0] = min(h, VPMParameters['Resolution'][0])
-        VPMParameters['Resolution'][1] = max(h, VPMParameters['Resolution'][1])
+    if NP['Resolution'][0]:
+        NP['Resolution'][0] = min(h, NP['Resolution'][0])
+        NP['Resolution'][1] = max(h, NP['Resolution'][1])
     else:
-        VPMParameters['Resolution'] = np.array([h]*2, order = 'F', dtype = np.float64)
+        NP['Resolution'] = np.array([h]*2, order = 'F', dtype = np.float64)
 
-    VPMParameters['Sigma0'] = VPMParameters['Resolution']*VPMParameters['SmoothingRatio']
+    Parameters['PrivateParameters']['Sigma0'] = NP['Resolution']*SmoothingRatio
 
     msg =  f"{'||':>57}\r" + '|| ' + '{:32}'.format('Outer Interface cell') + ': ' + \
                                                                         '{:d}'.format(NOuter) + '\n'
@@ -448,26 +394,20 @@ def flagEulerianCells(tE = [], VPMParameters = {}, HybridParameters = {}):
     msg += f"{'||':>57}\r" + '|| ' + '{:32}'.format('Inner Interface distance') + ': ' + \
                                                                     '{:.4g}'.format(dInner) + ' m\n'
     msg +=  f"{'||':>57}\r" + '|| ' + '{:32}'.format('Hybrid Domain size') + ': ' + \
-                                                                        '{:.4g}'.format(dH) + ' m\n'
+                                                                     '{:.4g}'.format(dH[0]) + ' m\n'
     msg +=  f"{'||':>57}\r" + '|| ' + '{:32}'.format('Hybrid VPM resolution') + ': ' + \
                                                                          '{:.4g}'.format(h) + ' m\n'
     msg += f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Done ')
     V.show(msg)
 
-def generateHybridDomainInterfaces(tE = [], VPMParameters = {}, HybridParameters = {}):
+def generateHybridDomainInterfaces(tE = []):
     '''
     Gives the solid boundary for the BEM and the Inner and Outer Interface of the Hybrid Domain.
 
     Parameters
     ----------
-        t : Tree
-            Containes the Eulerian Field.
-
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters for the VPM solver.
-
-        HybridParameters : :py:class:`dict`
-            Containes Hybrid parameters for the Hybrid solver.
+        tE : Tree
+            Eulerian Field.
     Returns
     -------
         Interfaces : Zones
@@ -658,7 +598,7 @@ def filterHybridSources(tL = [], tE = [], tH = []):
     J.invokeFields(Sources, ['Layers'])[0][:] = Clusters[10]
     return Sources
 
-def generateHybridSources(tE = [], VPMParameters = {}, HybridParameters = {}):
+def generateHybridSources(tE = [], Parameters = {}):
     '''
     Initialises the vorticity sources from the Eulerian Mesh.
 
@@ -667,22 +607,20 @@ def generateHybridSources(tE = [], VPMParameters = {}, HybridParameters = {}):
         tE : Tree
             Eulerian field.
 
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters for the VPM solver.
-
-        HybridParameters : :py:class:`dict`
-            Containes Hybrid parameters for the Hybrid solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     Returns
     -------
         HybridSources : Zone
             Vorticity sources.
     '''
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Generate Hybrid Sources '))
-    Sigma0 = VPMParameters['Resolution'][0]*VPMParameters['SmoothingRatio'][0]
-    Nl = HybridParameters['NumberOfHybridLayers'][0]
-    Nhl = HybridParameters['MaximumSourcesPerLayer'][0]
-    Nh = VPMParameters['NumberOfHybridSources'][0]
-    GenZones = HybridParameters['GenerationZones']
+    Parameters['PrivateParameters']['NumberOfHybridSources'][0] = 0
+    Sigma0 = Parameters['PrivateParameters']['Sigma0'][0]
+    Nl = Parameters['HybridParameters']['NumberOfHybridLayers'][0]
+    Nhl = Parameters['HybridParameters']['MaximumSourcesPerLayer'][0]
+    GenZones = Parameters['HybridParameters']['GenerationZones']
     t, tc = V.getEulerianBases(tE)
     CFDParam = I.getNodeFromName1(t, '.Solver#VPM')
     NInner = I.getValue(I.getNodeFromName1(CFDParam, 'InnerInterfaceIndex')) + 2#because of the ghost cells
@@ -713,7 +651,6 @@ def generateHybridSources(tE = [], VPMParameters = {}, HybridParameters = {}):
     Layers[dH < 0] = 1
     for i in range(Nl): Layers[(dL*i < dH)*(dH <= dL*(i + 1))] = i + 1
 
-    VPMParameters['NumberOfHybridSources'] = np.array([0], order = 'F', dtype = np.int32)
     HybridSources = C.convertArray2Node(J.createZone('HybridSources', [Fields['CenterX'],
                                                       Fields['CenterY'], Fields['CenterZ']], 'xyz'))
     J.invokeFields(HybridSources, ['Layers'])[0][:] = Layers
@@ -731,7 +668,7 @@ def generateHybridSources(tE = [], VPMParameters = {}, HybridParameters = {}):
     V.show(msg)
     return [HybridSources]
 
-def generateBEMParticles(tE = [], tH = [], VPMParameters = {}, HybridParameters = {}):
+def generateBEMParticles(tE = [], tH = [], Parameters = {}):
     '''
     Initialises the BEM particles from the Eulerian field.
 
@@ -743,11 +680,9 @@ def generateBEMParticles(tE = [], tH = [], VPMParameters = {}, HybridParameters 
         tH : Tree
             Hybrid Domain.
 
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters for the VPM solver.
-
-        HybridParameters : :py:class:`dict`
-            Containes Hybrid parameters for the Hybrid solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     Returns
     -------
         BEM particles : Zone
@@ -758,7 +693,8 @@ def generateBEMParticles(tE = [], tH = [], VPMParameters = {}, HybridParameters 
 
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Generate BEM Panels '))
     Interface = V.getHybridDomainBEMInterface(_tH)
-    Sigma0 = VPMParameters['Resolution'][0]*VPMParameters['SmoothingRatio'][0]
+    PP = Parameters['PrivateParameters']
+    Sigma0 = PP['Sigma0'][0]
     unique = setDonorsIndex(Interface, tE, DonorsName = 'BEMDonorsIndices')
     Fields = getDonorsFields(tE, DonorsName = 'BEMDonorsIndices')
     Zone = C.convertArray2Node(J.createZone('Zone', [Fields['CenterX'], Fields['CenterY'], \
@@ -775,7 +711,7 @@ def generateBEMParticles(tE = [], tH = [], VPMParameters = {}, HybridParameters 
         Index[Donors] = AllIndex[Index[Donors].astype(np.int32)]
 
     Fields = getDonorsFields(tE, DonorsName = 'BEMDonorsIndices')
-    VPMParameters['NumberOfBEMSources'] = np.array([len(Fields['CenterX'])], dtype = np.int32,
+    PP['NumberOfBEMSources'] = np.array([len(Fields['CenterX'])], dtype = np.int32,
                                                                                         order = 'F')
     BEMParticles = C.convertArray2Node(J.createZone('BEMParticles', [Fields['CenterX'], \
                                                       Fields['CenterY'], Fields['CenterZ']], 'xyz'))
@@ -805,11 +741,11 @@ def generateBEMParticles(tE = [], tH = [], VPMParameters = {}, HybridParameters 
     t2z0[:] /= t2
     sigma[:] = findMinimumDistanceBetweenParticles(Fields['CenterX'], Fields['CenterY'],
                                                                                   Fields['CenterZ'])
-    sigma[sigma < VPMParameters['Sigma0'][0]/2.] = VPMParameters['Sigma0'][0]/2.
+    sigma[sigma < Sigma0/2.] = Sigma0/2.
     I._sortByName(I.getNodeFromName(BEMParticles, 'FlowSolution'))
 
     msg =  f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of BEM panels') + ': ' + \
-                                        '{:d}'.format(VPMParameters['NumberOfBEMSources'][0]) + '\n'
+                                  '{:d}'.format(PP['NumberOfBEMSources'][0]) + '\n'
     msg += f"{'||':>57}\r" + '|| ' + '{:32}'.format('Targeted Particle spacing') + ': ' + \
                                                                     '{:.4f}'.format(Sigma0) + ' m\n'
     msg += f"{'||':>57}\r" + '|| ' + '{:32}'.format('Mean Particle spacing') + ': ' + \
@@ -824,7 +760,7 @@ def generateBEMParticles(tE = [], tH = [], VPMParameters = {}, HybridParameters 
     V.show(msg)
     return [BEMParticles]
 
-def generateImmersedParticles(tE = [], tH = [], VPMParameters = {}, HybridParameters = {}):
+def generateImmersedParticles(tE = [], tH = [], Parameters = {}):
     '''
     Initialises the Eulerian Immersed particles from the Eulerian field.
 
@@ -836,11 +772,9 @@ def generateImmersedParticles(tE = [], tH = [], VPMParameters = {}, HybridParame
         tH : Tree
             Hybrid Domain.
 
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters for the VPM solver.
-
-        HybridParameters : :py:class:`dict`
-            Containes Hybrid parameters for the Hybrid solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     Returns
     -------
         Immersed particles : Zone
@@ -851,7 +785,8 @@ def generateImmersedParticles(tE = [], tH = [], VPMParameters = {}, HybridParame
 
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Generate Eulerian Panels '))
     Interface = V.getHybridDomainInnerInterface(_tH)
-    Sigma0 = VPMParameters['Resolution'][0]*VPMParameters['SmoothingRatio'][0]
+    PP = Parameters['PrivateParameters']
+    Sigma0 = PP['Sigma0'][0]
     unique = setDonorsIndex(Interface, tE, DonorsName = 'CFDDonorsIndices')
     Fields = getDonorsFields(tE, DonorsName = 'CFDDonorsIndices')
     Zone = C.convertArray2Node(J.createZone('Zone', [Fields['CenterX'], Fields['CenterY'], \
@@ -877,14 +812,14 @@ def generateImmersedParticles(tE = [], tH = [], VPMParameters = {}, HybridParame
     nz0[:] = nz[AllDonors]
     sigma[:] = findMinimumDistanceBetweenParticles(Fields['CenterX'], Fields['CenterY'],
                                                                                   Fields['CenterZ'])
-    sigma[sigma < VPMParameters['Sigma0'][0]/2.] = VPMParameters['Sigma0'][0]/2.
+    sigma[sigma < Sigma0/2.] = Sigma0/2.
     I._sortByName(I.getNodeFromName(ImmersedParticles, 'FlowSolution'))
 
-    VPMParameters['NumberOfCFDSources'] = np.array([len(Fields['CenterX'])], dtype = np.int32,
+    PP['NumberOfCFDSources'] = np.array([len(Fields['CenterX'])], dtype = np.int32,
                                                                                         order = 'F')
 
     msg  = f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of CFD panels') + ': ' +  \
-                                        '{:d}'.format(VPMParameters['NumberOfCFDSources'][0]) + '\n'
+                                                   '{:d}'.format(PP['NumberOfCFDSources'][0]) + '\n'
     msg += f"{'||':>57}\r" + '|| ' + '{:32}'.format('Targeted Particle spacing') + ': ' + \
                                                                     '{:.4f}'.format(Sigma0) + ' m\n'
     msg += f"{'||':>57}\r" + '|| ' + '{:32}'.format('Mean Particle spacing')     + ': ' + \
@@ -931,7 +866,7 @@ def generateEulerianBCZone(tE = []):
     # I._rmNodesByName(BC, 'GridCoordinates')
     return BC
 
-def generateHybridDomain(tE = [], VPMParameters = {}, HybridParameters = {}):
+def generateHybridDomain(tE = [], Parameters = {}):
     '''
     Sets the vorticity donors from the Eulerian Mesh, generates the BEM, Inner and Outer
     Interfaces of the Hybrid Domain and retrieves the far field Eulerian BC.
@@ -941,11 +876,9 @@ def generateHybridDomain(tE = [], VPMParameters = {}, HybridParameters = {}):
         tE : Tree
             Eulerian field.
 
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters for the VPM solver.
-
-        HybridParameters : :py:class:`dict`
-            Containes Hybrid parameters for the Hybrid solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     Returns
     -------
         HybridDomain : Tree
@@ -954,13 +887,13 @@ def generateHybridDomain(tE = [], VPMParameters = {}, HybridParameters = {}):
     _tE = V.getTrees([tE], ['Eulerian'])
     if not _tE: return []
 
-    Interfaces = generateHybridDomainInterfaces(_tE, VPMParameters, HybridParameters)
-    HybridSources = generateHybridSources(_tE, VPMParameters, HybridParameters)
+    Interfaces = generateHybridDomainInterfaces(_tE)
+    HybridSources = generateHybridSources(_tE, Parameters)
     BC = generateEulerianBCZone(_tE)
     return C.newPyTree(['HybridDomain', I.getZones(HybridSources) + I.getZones(Interfaces) + \
                                                                                     I.getZones(BC)])
 
-def initialiseHybridParticles(tL = [], tE = [], tH = [], VPMParameters = {}, HybridParameters = {}):
+def initialiseHybridParticles(tL = [], tE = [], tH = [], Parameters = {}):
     '''
     Initialises the hybrid particles.
 
@@ -975,20 +908,18 @@ def initialiseHybridParticles(tL = [], tE = [], tH = [], VPMParameters = {}, Hyb
         tH : Tree
             Hybrid Domain.
 
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters for the VPM solver.
-
-        HybridParameters : :py:class:`dict`
-            Containes Hybrid parameters for the Hybrid solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     '''
     _tL, _tE, _tH = V.getTrees([tL, tE, tH], ['Particles', 'Eulerian', 'Hybrid'])
     if not _tE or not _tL or not _tH: return {}
 
-    Nl = HybridParameters['NumberOfHybridLayers']
-    Nll = VPMParameters['NumberOfLiftingLineSources']
-    Nh = VPMParameters['NumberOfHybridSources']
-    Nhl = HybridParameters['MaximumSourcesPerLayer']
-    Sigma0 = VPMParameters['Resolution'][0]*VPMParameters['SmoothingRatio'][0]
+    Nl = Parameters['HybridParameters']['NumberOfHybridLayers']
+    Nll = Parameters['PrivateParameters']['NumberOfLiftingLineSources']
+    Nh = Parameters['PrivateParameters']['NumberOfHybridSources']
+    Nhl = Parameters['HybridParameters']['MaximumSourcesPerLayer']
+    Sigma0 = Parameters['PrivateParameters']['Sigma0'][0]
     Fields = getDonorsFields(_tE, 'HybridDonorsIndices', V.vectorise('Vorticity'))
     Layers = J.getVars(V.getHybridSources(_tH), ['Layers'])[0]
     w = np.linalg.norm(np.vstack([Fields['VorticityX'], Fields['VorticityY'],
@@ -1006,8 +937,8 @@ def initialiseHybridParticles(tL = [], tE = [], tH = [], VPMParameters = {}, Hyb
     V.addParticlesToTree(_tL, Hybrids[0], Hybrids[1], Hybrids[2], Zeros, Zeros, Zeros, Hybrids[9],
                                                                                              Nll[0])
     Cs, Nu = J.getVars(V.getFreeParticles(_tL), ['Cvisq', 'Nu'])
-    Cs[Nll[0]: Nll[0] + Nh[0]] = VPMParameters['EddyViscosityConstant'][0]
-    Nu[Nll[0]: Nll[0] + Nh[0]] = VPMParameters['KinematicViscosity'][0]
+    Cs[Nll[0]: Nll[0] + Nh[0]] = Parameters['ModelingParameters']['EddyViscosityConstant'][0]
+    Nu[Nll[0]: Nll[0] + Nh[0]] = Parameters['FluidParameters']['KinematicViscosity'][0]
 
 def flagNodesInsideSurface(X = [], Y = [], Z = [], Surface = []):
     '''
@@ -1273,16 +1204,16 @@ def computeEulerianNextTimeStep(tL = [], tE = [], tH = []):
     ndt = int(round(dtL[0]/dtE[0]))
     if ndt < 1: raise ValueError(J.FAIL + 'The Eulerian timestep (%g s) can not be bigger '%dtE + \
                                                  'than the Lagrangian timestep (%g s)'%dtL + J.ENDC)
-    BCM1 = V.getEulerianBC(_tH)
-    BC = induceEulerianBC(_tL, _tE)
-    for step in range(ndt):
-        updateEulerianBC(_tE, interpolateEulerianBC(BC, BCM1, (step + 1)/ndt))
-        computeFast(_tE)
+    # BCM1 = V.getEulerianBC(_tH)
+    # BC = induceEulerianBC(_tL, _tE)
+    # for step in range(ndt):
+    #     updateEulerianBC(_tE, interpolateEulerianBC(BC, BCM1, (step + 1)/ndt))
+    computeFast(_tE)
 
-    computeEulerianVorticity(_tE, removeVelocityGradients = True)
-    updateCFDSources(_tL, _tE)#in that order
-    updateBEMSources(_tL, _tE)
-    storeEulerianBC(BC, BCM1)
+    # computeEulerianVorticity(_tE, removeVelocityGradients = True)
+    # updateCFDSources(_tL, _tE)#in that order
+    # updateBEMSources(_tL, _tE)
+    # storeEulerianBC(BC, BCM1)
     IterationInfo['Eulerian time'] = J.tic() - IterationInfo['Eulerian time']
     return IterationInfo
 
@@ -1305,14 +1236,12 @@ def shedVorticitySourcesFromHybridDomain(tL = [], tE = [], tH = []):
     if not _tE or not _tL or not _tH: return {}
 
     IterationInfo = {'Eulerian generation time': J.tic()}
-    HybridParameters = V.getHybridParameters(_tL)
-    VPMParameters = V.getVPMParameters(_tL)
-    Offset = VPMParameters['NumberOfLiftingLineSources'][0]
     Sources = filterHybridSources(_tL, _tE, _tH)
     IterationInfo['Number of shed particles Eulerian'] = -eraseParticlesInHybridDomain(_tL, _tH)
     IterationInfo.update(solveHybridParticlesStrength(Sources, _tL))
     redistributeVorticitySources(Sources, _tL)
-    IterationInfo['Number of shed particles Eulerian'] += VPMParameters['NumberOfHybridSources'][0]
+    IterationInfo['Number of shed particles Eulerian'] += \
+                                                     V.getParameter(_tL, 'NumberOfHybridSources')[0]
     IterationInfo['Eulerian generation time'] = J.tic() - IterationInfo['Eulerian generation time']
     return IterationInfo
 
@@ -1492,19 +1421,18 @@ def computeFast(tE = []):#, SubIterations = 1):
     if not _tE: return
 
     t, tc = V.getEulerianBases(_tE)
-    CurentIteration = I.getNodeFromName1(t, 'Iteration')
+    CurrentIteration = I.getNodeFromName1(t, 'Iteration')
     time = I.getNodeFromName1(t, 'Time')
     dt = I.getNodeFromName(t, 'time_step')
-    if CurentIteration: CurentIteration = I.getValue(CurentIteration)
-    else: CurentIteration = 0
+    if CurrentIteration: CurrentIteration = I.getValue(CurrentIteration)
+    else: CurrentIteration = 0
     if time: time = I.getValue(time)
     else: time = 0
     if dt: dt = I.getValue(dt)
     else: dt = 0
-
-    nitrun, NIT = max(0, CurentIteration), 1#, SubIterations
+    nitrun, NIT = max(0, CurrentIteration), 1#, SubIterations
     FastS._compute(t = t, tc = tc, metrics = V.FastMetrics[0], nitrun = nitrun, NIT = NIT)
-    if CurentIteration == 1: V.deletePrintedLines()
+    if CurrentIteration == 1: V.deletePrintedLines()
     I.createUniqueChild(t, 'Iteration', 'DataArray_t', value = nitrun + NIT)
     I.createUniqueChild(t, 'Time', 'DataArray_t', value = time + NIT*dt) 
 

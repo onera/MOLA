@@ -15,6 +15,19 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+'''
+VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible Navier-Stokes)
+
+This module is used as a launcher for the VULCAINS simulations. VPM-only, coupled VPM-Lifting Line
+and hybrid Lagrangian-Eulerian (VPM-URANS) simulations are available.
+
+Version:
+0.5
+
+Author:
+Johan VALENTIN
+'''
+
 import os
 import numpy as np
 import Converter.PyTree as C
@@ -28,35 +41,40 @@ from . import Main as V
 ############################################## Solver ##############################################
 ####################################################################################################
 ####################################################################################################
-
-def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {},
-    PerturbationFieldParameters = {}, Polars  = [], EulerianMesh = None, PerturbationField = [],
-    LiftingLines = [], NumberOfIterations = 1000, RestartPath = None,
-    DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'], StdDeviationSample = 50,
-    VisualisationOptions = {'addLiftingLineSurfaces':True}, SaveVPMPeriod = 100, Verbose = True,
-    SaveImageOptions={}, Surface = 0., FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf,
-    SaveImagePeriod = np.inf, NoRedistributionZones = []):
+def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationField = [],
+    LiftingLines = [], NumberOfIterations = 1000, RestartPath = None, DIRECTORY_OUTPUT = 'OUTPUT',
+    SaveFields = ['all'], StdDeviationSample = 50, SaveVPMPeriod = 100, Verbose = True,
+    VisualisationOptions = {'addLiftingLineSurfaces':True}, SaveImageOptions = {}, Surface = 0.,
+    FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf, SaveImagePeriod = np.inf,
+    NoRedistributionZones = []):
     '''
     Launches the VPM solver.
 
     Parameters
     ----------
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided parameters for the VULCAINS simulation. If a parameter is not filled out,
+            a default value will be provided.
 
-        VPMParameters : dict
-            User-provided parameters for the VPM solver as established in
-            :py:func:`~MOLA.VULCAINS.Main.getDefaultVPMParameters`
-
-        HybridParameters : dict
-            User-provided parameters for the Hybrid Fast-VPM solver as established
-            in :py:func:`~MOLA.VULCAINS.Main.checkParameters`
-
-        LiftingLineParameters : dict
-            User-provided parameters for the Lifting-Lines as established in
-            :py:func:`~MOLA.VULCAINS.Main.checkParameters`
-
-        PerturbationFieldParameters : dict
-            User-provided parameters for the Perturbation Velocity Field (if any)
-            as established in as established in :py:func:`~MOLA.VULCAINS.Main.checkParameters`
+                FluidParameters : :py:class:`dict`
+                    Fluid-related parameters as established in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultFluidParameters`
+                
+                ModelingParameters : :py:class:`dict`
+                    Method-related parameters as established in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters`
+                
+                NumericalParameters : :py:class:`dict`
+                    Simulation-related parameters as established in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultNumericalParameters`
+                
+                LiftingLineParameters : :py:class:`dict`
+                    LiftingLine-related parameters as established in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultLiftingLineParameters`
+                
+                HybridParameters : :py:class:`dict`
+                    Hybrid-related parameters as established in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultHybridParameters`
 
         Polars : :py:class:`list` of :py:class:`~MOLA.Data.Zone.Zone` or :py:class:`str`
             Enhanced **Polars** for each airfoil, containing also foilwise
@@ -164,7 +182,7 @@ def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {
             .. hint::
                 Use *SaveFields* = ``"all"`` for saving all fields
 
-        VisualisationOptions : dict
+        VisualisationOptions : :py:class:`dict`
             Keyword-argument parameters provided to :py:func:`~MOLA.VULCAINS.Main.setVisualization`,
             used for setting the scene of the visualisation
 
@@ -177,7 +195,7 @@ def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {
         Verbose : bool
             States whether the VPM solver prompts the VPM information during the simulation.
 
-        SaveImageOptions : dict
+        SaveImageOptions : :py:class:`dict`
             Keyword-argument parameters provided to :py:func:`~MOLA.VULCAINS.Main.setVisualization`
             used for creating the images (see also **VisualisationOptions** argument)
 
@@ -212,13 +230,9 @@ def compute(VPMParameters = {}, HybridParameters = {}, LiftingLineParameters = {
     if isinstance(Polars, str): Polars = V.load(Polars)
     V.buildPolarsInterpolator(Polars)
     V.addSafeZones(NoRedistributionZones)
-    if RestartPath: t = restartComputation(path = RestartPath, VPMParameters = VPMParameters,
-                                          PerturbationFieldParameters = PerturbationFieldParameters,
-                                                                HybridParameters = HybridParameters)
-    else: t = initialiseComputation(VPMParameters = VPMParameters,
-                 LiftingLineParameters = LiftingLineParameters, HybridParameters = HybridParameters,
-             PerturbationFieldParameters = PerturbationFieldParameters, EulerianMesh = EulerianMesh,
-                         LiftingLines = LiftingLines, PerturbationField = PerturbationField)
+    if RestartPath: t = restartComputation(path = RestartPath, Parameters = Parameters)
+    else: t = initialiseComputation(Parameters = Parameters, EulerianMesh = EulerianMesh,
+                                 LiftingLines = LiftingLines, PerturbationField = PerturbationField)
 
 
     SaveFields = V.checkSaveFields(SaveFields)
@@ -273,7 +287,7 @@ def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = []):
             Perturbation field
     Returns
     -------
-        IterationInfo : dict
+        IterationInfo : :py:class:`dict`
             VULCAINS information on the current iteration.
     '''
     IterationInfo = {}
@@ -373,13 +387,13 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
     tLL = V.getLiftingLinesTree(t)
     tH = V.getHybridDomainTree(t)
     tP = V.getPerturbationFieldTree(t)
-    Parameters = V.getVPMParameters(t)
+    Parameters = V.getAllParameters(t)
     Np = V.getParticlesNumber(t, pointer = True)
-    it = Parameters['CurrentIteration']
-    simuTime = Parameters['Time']
-    PSE = V.DiffusionScheme_str2int[Parameters['DiffusionScheme']] < 2
-    DVM = V.DiffusionScheme_str2int[Parameters['DiffusionScheme']] == 2
-    Freestream = (np.linalg.norm(Parameters['VelocityFreestream'], axis = 0) != 0.)
+    it = Parameters['PrivateParameters']['CurrentIteration']
+    simuTime = Parameters['PrivateParameters']['Time']
+    PSE = V.DiffusionScheme_str2int[Parameters['ModelingParameters']['DiffusionScheme']] < 2
+    DVM = V.DiffusionScheme_str2int[Parameters['ModelingParameters']['DiffusionScheme']] == 2
+    Freestream = (np.linalg.norm(Parameters['FluidParameters']['VelocityFreestream']) != 0.)
     try: Wing = (I.getValue(I.getNodeFromName(t, 'RPM')) == 0)
     except: Wing = True
 
@@ -393,6 +407,7 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
         if SAVE_ALL: SAVE_FIELDS = SAVE_VPM = True
         
         IterationTime = J.tic()
+        
         newInfo = mainFunction(tL, tLL, tE, tH, tP)
         # newInfo = mainFunction(t)
 
@@ -426,26 +441,16 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
     
     return t
 
-def initialiseComputation(VPMParameters = {}, LiftingLineParameters = {}, HybridParameters = {},
-    PerturbationFieldParameters = {}, LiftingLines = [], EulerianMesh = [],
+def initialiseComputation(Parameters = {}, LiftingLines = [], EulerianMesh = [],
                                                                             PerturbationField = []):
     '''
     Initialises all the trees used for the VULCAINS simulation.
 
     Parameters
     ----------
-
-        VPMParameters : :py:class:`dict`
-            like in :py:func:`compute`
-
-        HybridParameters : :py:class:`dict`
-            like in :py:func:`compute`
-
-        LiftingLineParameters : :py:class:`dict`
-            like in :py:func:`compute`
-
-        PerturbationFieldParameters : :py:class:`dict`
-            like in :py:func:`compute`
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
 
         EulerianMesh : Tree
             like in :py:func:`compute`
@@ -461,29 +466,31 @@ def initialiseComputation(VPMParameters = {}, LiftingLineParameters = {}, Hybrid
             Contains the Lagrangian field, Lifting Lines, Eulerian field, Hybrid Domain and
             Perturbation field.
     '''
-    if 'NumberOfThreads' not in VPMParameters: VPMParameters['NumberOfThreads'] = 'auto'
+    if 'NumberOfThreads' not in Parameters['NumericalParameters']:
+        Parameters['NumericalParameters']['NumberOfThreads'] = 'auto'
     
-    VPMParameters['NumberOfThreads'] = V.initialiseThreads(VPMParameters['NumberOfThreads'])
-    VPMParameters.update(PerturbationFieldParameters)
-    V.checkParameters(VPMParameters = VPMParameters,
-             LiftingLineParameters = LiftingLineParameters, HybridParameters = HybridParameters)
-    tLL = V.initialiseLiftingLines(LiftingLines, VPMParameters, LiftingLineParameters)
-    tE = V.initialiseEulerianDomain(EulerianMesh, VPMParameters, HybridParameters)
-    tH = V.generateHybridDomain(tE, VPMParameters, HybridParameters)
-    tL = V.initialiseVPM(tE = tE, tH = tH, tLL = tLL, VPMParameters = VPMParameters,
-                 HybridParameters = HybridParameters, LiftingLineParameters = LiftingLineParameters,
-                                          PerturbationFieldParameters = PerturbationFieldParameters)
-    tP = V.initialisePerturbationfield(tL, PerturbationField)
+    Parameters['NumericalParameters']['NumberOfThreads'] = V.initialiseThreads(\
+                                               Parameters['NumericalParameters']['NumberOfThreads'])
+    for field in [f + 'Parameters' for f in ['Fluid', 'Hybrid', 'Modeling', 'Numerical','Private']]:
+        if field not in Parameters: Parameters[field] = dict()
+
+    if not 'LiftingLineParameters' in Parameters: Parameters['LiftingLineParameters'] = dict()
+    V.checkParameters(Parameters)
+    tLL = V.initialiseLiftingLines(LiftingLines, Parameters)
+    tE = V.initialiseEulerianDomain(EulerianMesh, Parameters)
+    tH = V.generateHybridDomain(tE, Parameters)
+    tP = V.initialisePerturbationfield(PerturbationField, Parameters)
+    tL = V.initialiseVPM(tE = tE, tH = tH, tLL = tLL, Parameters = Parameters)
     t = C.newPyTree()
     t[2] = [I.getNodeFromName1(t, 'CGNSLibraryVersion')] + I.getBases(tL) + I.getBases(tE) + \
                                                    I.getBases(tH) + I.getBases(tLL) + I.getBases(tP)
     V.induceVPMField(t)
-    V.getParameter(t, 'IterationCounter')[0] = VPMParameters['IterationTuningFMM']*\
-                                                                   VPMParameters['IntegrationOrder']
+    V.getParameter(t, 'IterationCounter')[0] = Parameters['ModelingParameters']['IntegrationOrder']\
+                           *Parameters['NumericalParameters']['FMMParameters']['IterationTuningFMM']
+                                                
     return t
 
-def restartComputation(path = 'OUTPUT.cgns', VPMParameters = {}, HybridParameters = {},
-    PerturbationFieldParameters = {}):
+def restartComputation(path = 'OUTPUT.cgns', Parameters = {}):
     '''
     Restarts and checks all the trees used for the VULCAINS simulation.
 
@@ -492,17 +499,9 @@ def restartComputation(path = 'OUTPUT.cgns', VPMParameters = {}, HybridParameter
         path : Tree or :py:class:`str`
             Restart tree (VPM) or its file path
 
-        VPMParameters : :py:class:`dict`
-            like in :py:func:`compute`
-
-        HybridParameters : :py:class:`dict`
-            like in :py:func:`compute`
-
-        LiftingLineParameters : :py:class:`dict`
-            like in :py:func:`compute`
-
-        PerturbationFieldParameters : :py:class:`dict`
-            like in :py:func:`compute`
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     Returns
     -------
         t : Tree
@@ -512,11 +511,13 @@ def restartComputation(path = 'OUTPUT.cgns', VPMParameters = {}, HybridParameter
     if isinstance(path, str): t = V.load(path)
     else: t = path
 
-    OMP_NUM_THREADS = VPMParameters['NumberOfThreads'] if 'NumberOfThreads' in VPMParameters else \
-                                                                  V.getParameter(t, 'NumberOfThreads')
-    VPMParameters['NumberOfThreads'] = V.initialiseThreads(OMP_NUM_THREADS)
-    VPMParameters.update(PerturbationFieldParameters)
-    V.checkTrees(t, VPMParameters = VPMParameters, HybridParameters = HybridParameters)
+    if 'NumericalParameters' not in Parameters: Parameters['NumericalParameters'] = dict()
+    if 'NumberOfThreads' in Parameters['NumericalParameters']:
+        OMP_NUM_THREADS = Parameters['NumericalParameters']['NumberOfThreads']
+    else: OMP_NUM_THREADS = V.getParameter(t, 'NumberOfThreads')
+    
+    Parameters['NumericalParameters']['NumberOfThreads'] = V.initialiseThreads(OMP_NUM_THREADS)
+    V.checkTrees(t, Parameters)
     tL, tLL, tE, tH, tP = V.getTrees([t], ['Particles', 'LiftingLines', 'Eulerian', 'Hybrid',
                                                                                     'Perturbation'])
     if tP:
@@ -533,19 +534,40 @@ def restartComputation(path = 'OUTPUT.cgns', VPMParameters = {}, HybridParameter
                                                    I.getBases(tH) + I.getBases(tLL) + I.getBases(tP)
     return t
 
-def computeVortexRing(VPMParameters = {}, VortexParameters = {}, NumberOfIterations = 10000,
-    SaveVPMPeriod = 10, DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'], LeapFrog = False):
+def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations = 10000,
+    SaveVPMPeriod = 10, DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all']):
     '''
     Initialises all the trees used for the VULCAINS simulation of unbounded vortex rings.
 
     Parameters
     ----------
-
-        VPMParameters : :py:class:`dict`
-            same as in :py:func:`compute`
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
 
         VortexParameters : :py:class:`dict`
-            same as in :py:func:`compute`
+            Describe the vortex to simulate.
+
+                Intensity : :py:class:`float`
+                    Intensity of the vortex :math:``m^2.s^{-1}``.
+
+                MinimumVorticityFraction : :py:class:`float`
+                    Keep adding layers to discretise the vortex until the lowest vorticity of the
+                    layer is just above ``MinimumVorticityFraction`` times the vorticity at the
+                    center of the vortex.
+
+                RingRadius : :py:class:`float`
+                    Radius of the vortex ring (if any).
+
+                InitialSpacing : :py:class:`float`
+                    Initial center-to-center distance between the two coaxial vortex rings.
+
+                Length : :py:class:`float`
+                    Length of the vortex tube (if any).
+
+                NumberLayers : :py:class:`int`
+                    Gives the number of layers used to discretise the vortex.
+
 
         NumberOfIterations : :py:class:`int`
             same as in :py:func:`compute`
@@ -559,34 +581,27 @@ def computeVortexRing(VPMParameters = {}, VortexParameters = {}, NumberOfIterati
         SaveFields : :py:class:`list` or numpy.ndarray of :py:class:`str`
             same as in :py:func:`compute`
 
-        LeapFrog : :py:class:`bool`
-            States whether an isolated (:py:obj:`False`), or two leap-frogging
-            (:py:obj:`True`) vortex rings are to be simulated.
-
     Returns
     -------
         t : Tree
             Contains the Lagrangian field, Lifting Lines, Eulerian field, Hybrid Domain and
             Perturbation field.
     '''
-    VPMParameters['NumberOfThreads'] = V.initialiseThreads(VPMParameters['NumberOfThreads'])
-    VPMParameters['VelocityFreestream'] = np.array([0.]*3, dtype = float)
-    VPMParameters['Sigma0'] = np.array(VPMParameters['Resolution']*\
-                           VPMParameters['SmoothingRatio'], dtype = np.float64, order = 'F')
-    VPMParameters['IterationCounter'] = np.array([0], dtype = np.int32, order = 'F')
-    VPMParameters['StrengthRampAtbeginning'][0] = max(\
-                                                VPMParameters['StrengthRampAtbeginning'], 1)
-    VPMParameters['EnstrophyControlRamp'][0] = max(\
-                                                VPMParameters['EnstrophyControlRamp'], 1)
-    VPMParameters['MinimumVorticityFactor'][0] = max(0., \
-                                                    VPMParameters['MinimumVorticityFactor'])
-    V.checkParameters(VPMParameters = VPMParameters, VortexParameters = VortexParameters)
+    if 'NumberOfThreads' not in Parameters['NumericalParameters']:
+        Parameters['NumericalParameters']['NumberOfThreads'] = 'auto'
+    
+    Parameters['NumericalParameters']['NumberOfThreads'] = V.initialiseThreads(\
+                                               Parameters['NumericalParameters']['NumberOfThreads'])
+    for field in [f + 'Parameters' for f in ['Fluid', 'Hybrid', 'Modeling', 'Numerical','Private']]:
+        if field not in Parameters: Parameters[field] = dict()
+
+    V.checkParameters(Parameters)
     t = V.buildEmptyVPMTree()
     if 'Length' in VortexParameters:
-        createLambOseenVortexBlob(t, VPMParameters, VortexParameters)
+        createLambOseenVortexBlob(t, Parameters, VortexParameters)
     else:
-        createLambOseenVortexRing(t, VPMParameters, VortexParameters)
-        if LeapFrog:
+        createLambOseenVortexRing(t, Parameters, VortexParameters)
+        if 'InitialSpacing' in VortexParameters:
             Particles = V.getParticles(t)
             Np = V.getParticlesNumber(Particles)
             V.extend(Particles, Np)
@@ -595,23 +610,19 @@ def computeVortexRing(VPMParameters = {}, VortexParameters = {}, NumberOfIterati
             ax[Np:], ay[Np:], az[Np:], s[Np:], c[Np:], nu[Np:] = ax[:Np], \
                                                ay[:Np], az[:Np], s[:Np], c[:Np], nu[:Np]
             x, y, z = J.getxyz(Particles)
-            if 'InitialSpacing' not in VortexParameters:
-                VortexParameters['InitialSpacing'] = VortexParameters['RingRadius']
-            x[Np:], y[Np:], z[Np:] = x[:Np], y[:Np], z[:Np] + \
-                                                           VortexParameters['InitialSpacing']
+            x[Np:], y[Np:], z[Np:] = x[:Np], y[:Np], z[:Np] + VortexParameters['InitialSpacing']
 
     
     Particles = V.getParticles(t)
-    J.set(Particles, '.VPM#Parameters', **VPMParameters)
-    J.set(Particles, '.VortexRing#Parameters', **VortexParameters)
-    I._sortByName(I.getNodeFromName1(Particles, '.VPM#Parameters'))
-    I._sortByName(I.getNodeFromName1(Particles, '.VortexRing#Parameters'))
+    for field in ['Fluid', 'Hybrid', 'Modeling', 'Numerical', 'Private']:
+        name = field + 'Parameters'
+        if name in Parameters and Parameters[name]:
+            J.set(Particles, '.' + field + '#Parameters', **Parameters[name])
+            I._sortByName(I.getNodeFromName1(Particles, '.' + field + '#Parameters'))
 
     V.induceVPMField(t)
-
-    IterationCounter = I.getNodeFromName(t, 'IterationCounter')
-    IterationCounter[1][0] = VPMParameters['IterationTuningFMM']*\
-                                                           VPMParameters['IntegrationOrder']
+    V.getParameter(t, 'IterationCounter')[0] = Parameters['ModelingParameters']['IntegrationOrder']\
+                           *Parameters['NumericalParameters']['FMMParameters']['IterationTuningFMM']
     V.compute(RestartPath = t, NumberOfIterations = NumberOfIterations,
         DIRECTORY_OUTPUT = DIRECTORY_OUTPUT, SaveFields = SaveFields,
         VisualisationOptions = {'addLiftingLineSurfaces':False}, SaveVPMPeriod = SaveVPMPeriod)

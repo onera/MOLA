@@ -42,7 +42,7 @@ from . import Main as V
 ########################################### Lifting Lines ##########################################
 ####################################################################################################
 ####################################################################################################
-def initialiseLiftingLines(tLL = [], VPMParameters = {}, LiftingLineParameters = {}):
+def initialiseLiftingLines(tLL = [], Parameters = {}):
     '''
     Initialises the Lifting Lines and updates the parameters.
 
@@ -51,28 +51,23 @@ def initialiseLiftingLines(tLL = [], VPMParameters = {}, LiftingLineParameters =
         tLL : Tree
             Lifting Lines.
 
-        VPMParameters : :py:class:`dict`
-            VPM Parameters.
-
-        LiftingLineParameters : :py:class:`dict`
-            Lifting Line Parameters.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     Returns
     -------
         tLL : Tree
             Lifting Lines.
     '''
     if not tLL:
-        LiftingLineParameters.clear()
+        if 'LiftingLineParameters' in Parameters: Parameters['LiftingLineParameters'].clear()
         return []
         
-    if isinstance(tLL, str):
-        V.show(f"{'||':>57}\r" + '||', end='')
-        tLL = V.load(tLL)
-        V.deletePrintedLines()
+    if isinstance(tLL, str): tLL = V.load(tLL)
     
     tLL = V.checkTreeStructure(tLL, 'LiftingLines')
-    updateLiftingLinesParameters(tLL, VPMParameters, LiftingLineParameters)
-    updateParametersFromLiftingLines(tLL, VPMParameters)
+    updateLiftingLinesParameters(tLL, Parameters)
+    updateParametersFromLiftingLines(tLL, Parameters)
     return tLL
 
 def rotateLiftingLineSections(tLL = []):
@@ -195,41 +190,43 @@ def renameLiftingLinesTree(tLL = []):
     else:
         raise AttributeError(ERRMSG)
 
-def updateParametersFromLiftingLines(tLL = [], VPMParameters = {}):
+def updateParametersFromLiftingLines(tLL = [], Parameters = {}):
     '''
     Checks the and updates VPM and Lifting Line parameters.
-    .
+    
     Parameters
     ----------
         tLL : Tree
             Lifting Lines.
 
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters of the VPM solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`.
     '''
     _tLL = V.getTrees([tLL], ['LiftingLines'])
-    Zones = I.getZones(_tLL)
-    VPMParameters['NumberOfLiftingLines'] = np.array([len(Zones)], \
-                                                                  dtype = np.int32, order = 'F')
-    VPMParameters['NumberOfLiftingLineSources'] = np.zeros(1, dtype = np.int32, order = 'F')
-    for LiftingLine in Zones:
-        LLParameters = J.get(LiftingLine, '.VPM#Parameters')
-        VPMParameters['NumberOfLiftingLineSources'] += LLParameters['NumberOfParticleSources'] \
-                                           - 1 + LLParameters['ParticleDistribution']['Symmetrical']
-
-    if not(VPMParameters['Resolution'].all()) and Zones:
+    LLs = I.getZones(_tLL)
+    PP = Parameters['PrivateParameters']
+    PP['NumberOfLiftingLines'][0] = len(LLs)
+    PP['NumberOfLiftingLineSources'][0] = 0
+    for LL in LLs:
+        LLParameters = J.get(LL, '.VPM#Parameters')
+        PP['NumberOfLiftingLineSources'][0] += LLParameters['NumberOfParticleSources'] \
+                                           - 1 + LLParameters['SourcesDistribution']['Symmetrical']
+    
+    NP = Parameters['NumericalParameters']
+    if not(NP['Resolution'][0]) and LLs:
         hmax, hmin = -np.inf, np.inf
-        for LiftingLine in Zones:
-            LLParameters = J.get(LiftingLine, '.VPM#Parameters')
-            Resolution =  LLParameters['LocalResolution']
-            hmax = max(Resolution, hmax)
-            hmin = min(Resolution, hmin)
+        for LL in LLs:
+            LLParameters = J.get(LL, '.VPM#Parameters')
+            hloc =  LLParameters['LocalResolution']
+            hmax = max(hloc, hmax)
+            hmin = min(hloc, hmin)
         
-        VPMParameters['Resolution'] = np.array([hmin, hmax], dtype = np.float64, order = 'F')
-        VPMParameters['Sigma0'] = VPMParameters['Resolution']*VPMParameters['SmoothingRatio'][0]
+        NP['Resolution'] = np.array([hmin, hmax], dtype = np.float64, order = 'F')
+        PP['Sigma0'] = NP['Resolution']*Parameters['ModelingParameters']['SmoothingRatio'][0]
 
-    if not(VPMParameters['TimeStep']) and Zones:
-        setTimeStepFromShedParticles(VPMParameters, Zones, NumberParticlesShedAtTip = 1.)
+    if not(NP['TimeStep']) and LLs:
+        setTimeStepFromShedParticles(NP, LLs, NumberParticlesShedAtTip = 1.)
 
 def setLiftingLinesInducedVelocity(tLL = [], InducedVelocity = []):
     '''
@@ -349,7 +346,7 @@ def extractBoundAndShedVelocityOnLiftingLines(tL = [], tLL = [], Nshed = 0):
     V.extract_bound_and_shed_velocity_on_lifting_lines(_tL, _tLL, Nshed)
     return getLiftingLinesInducedVelocity(_tLL)
 
-def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParameters = {}):
+def updateLiftingLinesParameters(tLL = [], Parameters = {}):
     '''
     Checks the and updates the parameters in the Lifting Lines.
     
@@ -358,18 +355,20 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
         tLL : Tree
             Lifting Lines.
 
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters of the VPM solver.
-
-        LiftingLineParameters : :py:class:`dict`
-            Containes Lifting Line parameters for the Lifting Lines.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`.
     '''
     Zones = I.getZones(V.getTrees([tLL], ['LiftingLines']))
     if not Zones: return []
+    U0 = Parameters['FluidParameters']['VelocityFreestream']
+    rho = Parameters['FluidParameters']['Density']
+    T0 = Parameters['FluidParameters']['Temperature']
+    if Parameters['NumericalParameters']['TimeStep'][0]:
+        dt = Parameters['NumericalParameters']['TimeStep'][0]
+    else: dt = np.inf
 
-    if VPMParameters['TimeStep']: dt = VPMParameters['TimeStep'][0]
-    else: dt = np.array([np.inf], order = 'F', dtype = np.float64)
-
+    LiftingLineParameters = Parameters['LiftingLineParameters']
     NLLmin = LiftingLineParameters['MinNbShedParticlesPerLiftingLine'][0]
     for LiftingLine in Zones:
         span = W.getLength(LiftingLine)
@@ -381,22 +380,22 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
         else:
             IntegralLaw = LiftingLineParameters['IntegralLaw']
 
-        if 'ParticleDistribution' in LLParameters:
-            ParticleDistribution = LLParameters['ParticleDistribution']
-        elif isinstance(LiftingLineParameters['ParticleDistribution'], dict):
-            ParticleDistribution = LiftingLineParameters['ParticleDistribution']
+        if 'SourcesDistribution' in LLParameters:
+            SourcesDistribution = LLParameters['SourcesDistribution']
+        elif isinstance(LiftingLineParameters['SourcesDistribution'], dict):
+            SourcesDistribution = LiftingLineParameters['SourcesDistribution']
         else:
             ERRMSG = J.FAIL + ('Source particle distribution unspecified for ' + LiftingLine[0]
                                                                                  + '.') + J.ENDC
             raise AttributeError(ERRMSG)
 
-        if 'Symmetrical' not in ParticleDistribution:
-            if 'Symmetrical' in LLParameters['ParticleDistribution']:
-                ParticleDistribution['Symmetrical'] = \
-                                             LLParameters['ParticleDistribution']['Symmetrical']
-            elif 'Symmetrical' in LiftingLineParameters['ParticleDistribution']:
-                ParticleDistribution['Symmetrical'] = \
-                                    LiftingLineParameters['ParticleDistribution']['Symmetrical']
+        if 'Symmetrical' not in SourcesDistribution:
+            if 'Symmetrical' in LLParameters['SourcesDistribution']:
+                SourcesDistribution['Symmetrical'] = \
+                                             LLParameters['SourcesDistribution']['Symmetrical']
+            elif 'Symmetrical' in LiftingLineParameters['SourcesDistribution']:
+                SourcesDistribution['Symmetrical'] = \
+                                    LiftingLineParameters['SourcesDistribution']['Symmetrical']
             else:
                 ERRMSG = J.FAIL + ('Symmetry of the source particle distribution unspecified '
                                                          'for ' + LiftingLine[0] + '.') + J.ENDC
@@ -413,7 +412,7 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
             NumberOfParticleSources = NLLmin
             LocalResolution = span/NumberOfParticleSources
 
-        if ParticleDistribution['Symmetrical'] and NumberOfParticleSources%2:
+        if SourcesDistribution['Symmetrical'] and NumberOfParticleSources%2:
             NumberOfParticleSources += 1
             LocalResolution = span/NumberOfParticleSources
             V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
@@ -423,32 +422,32 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
                                                              str(NumberOfParticleSources) + '.')
             V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
 
-        if ParticleDistribution['kind'] == 'ratio' or \
-                            ParticleDistribution['kind'] == 'tanhOneSide' or \
-                                                 ParticleDistribution['kind'] == 'tanhTwoSides':
-            if 'FirstSegmentRatio' in ParticleDistribution:
-                ParticleDistribution['FirstCellHeight'] = \
-                                       ParticleDistribution['FirstSegmentRatio']*LocalResolution
-            elif 'FirstSegmentRatio' in LiftingLineParameters['ParticleDistribution']:
-                ParticleDistribution['FirstCellHeight'] = \
-                             LiftingLineParameters['ParticleDistribution']['FirstSegmentRatio']\
+        if SourcesDistribution['kind'] == 'ratio' or \
+                            SourcesDistribution['kind'] == 'tanhOneSide' or \
+                                                 SourcesDistribution['kind'] == 'tanhTwoSides':
+            if 'FirstSegmentRatio' in SourcesDistribution:
+                SourcesDistribution['FirstCellHeight'] = \
+                                       SourcesDistribution['FirstSegmentRatio']*LocalResolution
+            elif 'FirstSegmentRatio' in LiftingLineParameters['SourcesDistribution']:
+                SourcesDistribution['FirstCellHeight'] = \
+                             LiftingLineParameters['SourcesDistribution']['FirstSegmentRatio']\
                                                                                 *LocalResolution
             else:
                 ERRMSG = J.FAIL + ('FirstSegmentRatio unspecified for ' + LiftingLine[0] + \
-                                  ' dispite ' + ParticleDistribution['kind'] + ' law.') + J.ENDC
+                                  ' dispite ' + SourcesDistribution['kind'] + ' law.') + J.ENDC
                 raise AttributeError(ERRMSG)
 
-        if ParticleDistribution['kind'] == 'tanhTwoSides':
-            if 'LastSegmentRatio' in ParticleDistribution:
-                ParticleDistribution['LastCellHeight'] = \
-                                        ParticleDistribution['LastSegmentRatio']*LocalResolution
-            elif 'LastSegmentRatio' in LiftingLineParameters['ParticleDistribution']:
-                ParticleDistribution['LastCellHeight'] = \
-                              LiftingLineParameters['ParticleDistribution']['LastSegmentRatio']\
+        if SourcesDistribution['kind'] == 'tanhTwoSides':
+            if 'LastSegmentRatio' in SourcesDistribution:
+                SourcesDistribution['LastCellHeight'] = \
+                                        SourcesDistribution['LastSegmentRatio']*LocalResolution
+            elif 'LastSegmentRatio' in LiftingLineParameters['SourcesDistribution']:
+                SourcesDistribution['LastCellHeight'] = \
+                              LiftingLineParameters['SourcesDistribution']['LastSegmentRatio']\
                                                                                 *LocalResolution
             else:
                 ERRMSG = J.FAIL + ('LastSegmentRatio unspecified for ' + LiftingLine[0] + \
-                                  ' dispite ' + ParticleDistribution['kind'] + ' law.') + J.ENDC
+                                  ' dispite ' + SourcesDistribution['kind'] + ' law.') + J.ENDC
                 raise AttributeError(ERRMSG)
 
         if 'CirculationThreshold' in LLParameters:
@@ -470,7 +469,7 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
             IntegralLaw = IntegralLaw,
             NumberOfParticleSources = np.array([NumberOfParticleSources], order = 'F',
                                                                               dtype = np.int32),
-            ParticleDistribution = ParticleDistribution,
+            SourcesDistribution = SourcesDistribution,
             CirculationThreshold = np.array([CirculationThreshold], order = 'F',
                                                                             dtype = np.float64),
             CirculationRelaxationFactor = np.array([CirculationRelaxationFactor], order = 'F',
@@ -480,9 +479,9 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
                                                                               dtype = np.int32),
             TimeSinceLastShedding = dt)
 
-        LL.setConditions(LiftingLine, VelocityFreestream = VPMParameters['VelocityFreestream'],
-                                      Density = VPMParameters['Density'],
-                                      Temperature = VPMParameters['Temperature'])
+        LL.setConditions(LiftingLine, VelocityFreestream = U0,
+                                      Density = rho,
+                                      Temperature = T0)
     if LiftingLineParameters['RPM']: LL.setRPM(Zones, LiftingLineParameters['RPM'])
 
     if LiftingLineParameters['VelocityTranslation']:
@@ -490,9 +489,9 @@ def updateLiftingLinesParameters(tLL = [], VPMParameters = {}, LiftingLineParame
             Kinematics = I.getNodeFromName(LiftingLine, '.Kinematics')
             VelocityTranslation = I.getNodeFromName(Kinematics, 'VelocityTranslation')
             VelocityTranslation[1] = np.array(LiftingLineParameters['VelocityTranslation'],
-                                                                dtype = np.float64, order = 'F')
+                                                                    dtype = np.float64, order = 'F')
 
-def initialiseParticlesOnLitingLine(tL = [], tLL = [], VPMParameters = {}):
+def initialiseParticlesOnLitingLine(tL = [], tLL = [], Parameters = {}):
     '''
     Initialises the bound particles embedded on the Lifting Lines and the first row of shed
     particles.
@@ -505,14 +504,17 @@ def initialiseParticlesOnLitingLine(tL = [], tLL = [], VPMParameters = {}):
         tLL : Tree
             Lifting Lines.
 
-        VPMParameters : :py:class:`dict`
-            Containes VPM parameters of the VPM solver.
+        Parameters : :py:class:`dict` of :py:class:`dict`
+            User-provided VULCAINS parameters as established in
+            :py:func:`~MOLA.VULCAINS.Main.compute`
     '''
     _tL, _tLL = V.getTrees([tL, tLL], ['Particles', 'LiftingLines'])
     if not _tLL:
-        VPMParameters['NumberOfLiftingLineSources'] = np.zeros(1, order = 'F', dtype = np.int32)
+        Parameters['PrivateParameters']['NumberOfLiftingLines'][0] = 0
+        Parameters['PrivateParameters']['NumberOfLiftingLineSources'][0] = 0
         return
 
+    
     LL.computeKinematicVelocity(_tLL)
     LL.assembleAndProjectVelocities(_tLL)
     LL._applyPolarOnLiftingLine(_tLL, V.PolarsInterpolators[0], ['Cl', 'Cd', 'Cm'])
@@ -520,32 +522,34 @@ def initialiseParticlesOnLitingLine(tL = [], tLL = [], VPMParameters = {}):
 
     X0, Y0, Z0, AX0, AY0, AZ0, S0 = [], [], [], [], [], [], []
     X, Y, Z, AX, AY, AZ, S = [], [], [], [], [], [], []
+    SmoothingRatio = Parameters['ModelingParameters']['SmoothingRatio'][0]
+    U0 = Parameters['FluidParameters']['VelocityFreestream']
     for LiftingLine in I.getZones(_tLL):
         #Gamma, GammaM1 = J.getVars(LiftingLine, ['Gamma', 'GammaM1'])
         #GammaM1[:] = Gamma[:]
         h = I.getValue(I.getNodeFromName(LiftingLine, 'LocalResolution'))
         L = W.getLength(LiftingLine)
         LLParameters = J.get(LiftingLine, '.VPM#Parameters')
-        ParticleDistribution = LLParameters['ParticleDistribution']
-        if ParticleDistribution['Symmetrical']:
+        SourcesDistribution = LLParameters['SourcesDistribution']
+        if SourcesDistribution['Symmetrical']:
             HalfStations = int(LLParameters['NumberOfParticleSources'][0]/2 + 1)
             SemiWing = W.linelaw(P1 = (0., 0., 0.), P2 = (L/2., 0., 0.), N = HalfStations,
-                                                            Distribution = ParticleDistribution)# has to give +1 point because one point is lost with T.symetrize()
+                                                            Distribution = SourcesDistribution)# has to give +1 point because one point is lost with T.symetrize()
             WingDiscretization = J.getx(T.join(T.symetrize(SemiWing, (0, 0, 0), (0, 1, 0), \
                                                                           (0, 0, 1)), SemiWing))
             WingDiscretization += L/2.
-            ParticleDistribution = WingDiscretization/L
+            SourcesDistribution = WingDiscretization/L
         else:
             WingDiscretization = J.getx(W.linelaw(P1 = (0., 0., 0.), P2 = (L, 0., 0.),
                                                  N = LLParameters['NumberOfParticleSources'][0],
-                                                           Distribution = ParticleDistribution))
-            ParticleDistribution = WingDiscretization/L
+                                                           Distribution = SourcesDistribution))
+            SourcesDistribution = WingDiscretization/L
 
         LLParameters = J.get(LiftingLine, '.VPM#Parameters')
-        LLParameters['ParticleDistribution'] = ParticleDistribution
+        LLParameters['SourcesDistribution'] = SourcesDistribution
         J.set(LiftingLine, '.VPM#Parameters', **LLParameters)
         Source = LL.buildVortexParticleSourcesOnLiftingLine(LiftingLine,
-                                                      AbscissaSegments = [ParticleDistribution],
+                                                      AbscissaSegments = [SourcesDistribution],
                                                       IntegralLaw = LLParameters['IntegralLaw'])
 
         SourceX = I.getValue(I.getNodeFromName(Source, 'CoordinateX'))
@@ -560,11 +564,10 @@ def initialiseParticlesOnLitingLine(tL = [], tLL = [], VPMParameters = {}):
         AX0.extend(0.5*(Gamma[2:-1] + Gamma[1:-2])*(SourceX[2:-1] - SourceX[1:-2]))
         AY0.extend(0.5*(Gamma[2:-1] + Gamma[1:-2])*(SourceY[2:-1] - SourceY[1:-2]))
         AZ0.extend(0.5*(Gamma[2:-1] + Gamma[1:-2])*(SourceZ[2:-1] - SourceZ[1:-2]))
-        S0.extend(dy*VPMParameters['SmoothingRatio'][0])
+        S0.extend(dy*SmoothingRatio)
         Kinematics = J.get(LiftingLine, '.Kinematics')
-        Urel = VPMParameters['VelocityFreestream']-Kinematics['VelocityTranslation']
+        Urel = U0 - Kinematics['VelocityTranslation']
         Dpsi = np.arctan2(h, W.getLength(LiftingLine))*180./np.pi*(Kinematics['RPM'][0] != 0)
-        #if (Dpsi == 0. and Urel == 0.): Urel = np.array(VPMParameters['Resolution'][0], VPMParameters['Resolution'][0], VPMParameters['Resolution'][0])
         if not Kinematics['RightHandRuleRotation']: Dpsi *= -1
         T._rotate(Source, Kinematics['RotationCenter'], Kinematics['RotationAxis'], -Dpsi)
         T._translate(Source, Urel/(np.linalg.norm(Urel, axis = 0) + 1e-10)*h)
@@ -581,7 +584,7 @@ def initialiseParticlesOnLitingLine(tL = [], tLL = [], VPMParameters = {}):
         AX.extend([0.]*(len(SourceX) - 2))
         AY.extend([0.]*(len(SourceX) - 2))
         AZ.extend([0.]*(len(SourceX) - 2))
-        S.extend(dy*VPMParameters['SmoothingRatio'][0])
+        S.extend(dy*SmoothingRatio)
 
     V.addParticlesToTree(_tL, NewX = X0, NewY = Y0, NewZ = Z0, NewAX = AX0, NewAY = AY0,
                                 NewAZ = AZ0,  NewSigma = S0, Offset = 0, ExtendAtTheEnd = False)
@@ -589,9 +592,9 @@ def initialiseParticlesOnLitingLine(tL = [], tLL = [], VPMParameters = {}):
                             NewAZ = AZ,  NewSigma = S, Offset = len(X0), ExtendAtTheEnd = False)
     Nu, Cvisq = J.getVars(V.getFreeParticles(_tL), ['Nu', 'Cvisq'])
     Nu[:len(X0)] = 0.
-    Nu[len(X0):] = VPMParameters['KinematicViscosity']
+    Nu[len(X0):] = Parameters['FluidParameters']['KinematicViscosity']
     Cvisq[:len(X0)] = 0.
-    Cvisq[len(X0):] = VPMParameters['EddyViscosityConstant']
+    Cvisq[len(X0):] = Parameters['ModelingParameters']['EddyViscosityConstant']
     LL.computeGeneralLoadsOfLiftingLine(_tLL,
                                             UnsteadyData={'IterationNumber'         : 0,
                                                           'Time'                    : 0,
@@ -994,17 +997,15 @@ def shedVorticitySourcesFromLiftingLines(tL = [], tLL = [], tP = []):
              ['SmoothingRatio', 'TimeStep', 'Time', 'CurrentIteration', 'StrengthRampAtbeginning', \
                       'KinematicViscosity', 'EddyViscosityConstant', 'NumberOfLiftingLineSources', \
                                                         'NumberOfBEMSources', 'NumberOfCFDSources'])
-    if not NumberOfBEMSources: NumberOfBEMSources = [0]
-    if not NumberOfCFDSources: NumberOfCFDSources = [0]
     NumberOfSources = NumberOfLLSources[0] + NumberOfCFDSources[0] + NumberOfBEMSources[0]
     NumberOfLLSources = NumberOfLLSources[0]
     Ramp = np.sin(min((it[0] + 1)/Ramp[0], 1.)*np.pi/2.)
     moveAndUpdateLiftingLines(_tL, _tLL, _tP, dt[0])
 
-    ParticleDistribution = [I.getNodeFromName(LiftingLine, 'ParticleDistribution')[1] for \
+    SourcesDistribution = [I.getNodeFromName(LiftingLine, 'SourcesDistribution')[1] for \
                                                                     LiftingLine in I.getZones(_tLL)]
     Sources = LL.buildVortexParticleSourcesOnLiftingLine(_tLL, AbscissaSegments = \
-                                                       ParticleDistribution, IntegralLaw = 'linear')
+                                                       SourcesDistribution, IntegralLaw = 'linear')
     TimeShed, GammaThreshold, GammaRelax, MaxIte = [], [], [], 0
     for LiftingLine in I.getZones(_tLL):
         LLParameters = J.get(LiftingLine, '.VPM#Parameters')
@@ -1024,7 +1025,7 @@ def shedVorticitySourcesFromLiftingLines(tL = [], tLL = [], tP = []):
     SheddingLiftingLines = I.getZones(I.copyRef(_tLL))
     for index in frozenLiftingLines[::-1]:
         SheddingLiftingLines.pop(index)
-        ParticleDistribution.pop(index)
+        SourcesDistribution.pop(index)
         GammaThreshold.pop(index)
         GammaRelax.pop(index)
         GammaOld.pop(index)
@@ -1052,7 +1053,7 @@ def shedVorticitySourcesFromLiftingLines(tL = [], tLL = [], tP = []):
         LL._applyPolarOnLiftingLine(tLL_shed, V.PolarsInterpolators[0], ['Cl'])
         updateLiftingLinesCirculation(tLL_shed)
         Sources = LL.buildVortexParticleSourcesOnLiftingLine(tLL_shed,
-                                    AbscissaSegments = ParticleDistribution, IntegralLaw = 'linear')
+                                    AbscissaSegments = SourcesDistribution, IntegralLaw = 'linear')
         GammaError = relaxCirculationAndGetImbalance(GammaOld, GammaRelax, Sources, GammaError,
                                                                                      GammaDampening)
         ni += 1
@@ -1061,7 +1062,7 @@ def shedVorticitySourcesFromLiftingLines(tL = [], tLL = [], tP = []):
         for index in frozenLiftingLines: Sources.insert(index, SourcesM1[index])
 
     #if (GammaError < GammaThreshold).any():
-    #    safeLiftingLinesIterations(_tL, tLL_shed, frozenLiftingLines, ParticleDistribution, GammaThreshold, GammaRelax, Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, az)
+    #    safeLiftingLinesIterations(_tL, tLL_shed, frozenLiftingLines, SourcesDistribution, GammaThreshold, GammaRelax, Dir, VeciX, VeciY, VeciZ, SheddingDistance, ax, ay, az)
 
     Nu, Cvisq = J.getVars(Particles, ['Nu', 'Cvisq'])
     offset = NumberOfSources + Nshed
