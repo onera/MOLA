@@ -802,10 +802,10 @@ def getDefaultHybridParameters(EulerianSubIterations        = 30,
         Parameters
         ----------
             EulerianSubIterations : :py:class:`int`
-                :math: `\in [0, +\infty[`, number of sub-iterations for the Eulerian solver
+                :math:`\in [0, +\infty[`, number of sub-iterations for the Eulerian solver
             
             EulerianTimeStep : :py:class:`float`
-                :math: `\in ]0., +\infty[`, timestep for the Eulerian solver, in s.
+                :math:`\in ]0., +\infty[`, timestep for the Eulerian solver, in s.
 
             GenerationZones : list of :py:class:`list` or list of numpy.ndarray of :py:class:`float`
                 The Eulerian vorticity sources are only considered if within GenerationZones, in
@@ -813,44 +813,44 @@ def getDefaultHybridParameters(EulerianSubIterations        = 30,
                 ``[xmin, ymin, zmin, xmax, ymax, zmax]``.
             
             HybridDomainSize : :py:class:`float`
-                :math: `\in ]0., +\infty[`, size of the Hybrid Domain contained between the Outer and Inner
+                :math:`\in ]0., +\infty[`, size of the Hybrid Domain contained between the Outer and Inner
             
             HybridRedistributionOrder : :py:class:`int`
-                :math: `\in [1, 5]`, order of the polynomial used to redistribute the generated particles on a
+                :math:`\in [1, 5]`, order of the polynomial used to redistribute the generated particles on a
                 regular cartesian grid.
             
             InnerDomainCellLayer : :py:class:`int`
-                :math: `\in ]0, +\infty[`, gives the position of the beginning of the Hybrid Domain, i.e., the
+                :math:`\in ]0, +\infty[`, gives the position of the beginning of the Hybrid Domain, i.e., the
                 position of the Inner Interface. The Hybrid Domain is thus starts 2 ghost cells +
                 NumberOfBCCells + OuterDomainCellOffset + InnerDomainCellLayer layers of cells from
                 the exterior boundary of the Eulerian mesh.
             
             MaxHybridGenerationIteration : :py:class:`int`
-                :math: `\in [0, +\infty[`, max number of sub-iterations for the iterative particle generation
+                :math:`\in [0, +\infty[`, max number of sub-iterations for the iterative particle generation
                 method.
             
             MaximumSourcesPerLayer : :py:class:`int`
-                :math: `\in [0, +\infty[`, max number of vorticity sources in each layer of the Hybrid Domain.
+                :math:`\in [0, +\infty[`, max number of vorticity sources in each layer of the Hybrid Domain.
             
             MinimumSplitStrengthFactor : :py:class:`float`
-                :math: `\in [0., +\infty[`, in %, sets the minimum particle strength kept per layer after generation
+                :math:`\in [0., +\infty[`, in %, sets the minimum particle strength kept per layer after generation
                 of the hybrid particles. The strength threshold is set as a percentage of the
                 maximum strength in the hybrid domain times MinimumSplitStrengthFactor.
             
             NumberOfBCCells : :py:class:`int`
-                :math: `\in ]0, +\infty[`, number of layers cells on which the BC farfield is imposed by the VPM.
+                :math:`\in ]0, +\infty[`, number of layers cells on which the BC farfield is imposed by the VPM.
             
             NumberOfBEMUnknown : :py:class:`int`
-                :math: `\in [0, 3]`, number of unknown for the BEM. If NumberOfBEMUnknown == 0: sources and
+                :math:`\in [0, 3]`, number of unknown for the BEM. If NumberOfBEMUnknown == 0: sources and
                 vortex sheets are given with an initial guess but not solved. If NumberOfBEMUnknown
                 == 1: only sources are solved. If NumberOfBEMUnknown == 2: only vortex sheets are
                 solved. If NumberOfBEMUnknown == 3: both sources and vortex sheets are solved.
             
             NumberOfHybridLayers : :py:class:`int`
-                :math: `\in ]0, +\infty[`, number of layers dividing the Hybrid Domain.
+                :math:`\in ]0, +\infty[`, number of layers dividing the Hybrid Domain.
             
             OuterDomainCellOffset : :py:class:`int`
-                :math: `\in ]0, +\infty[`, offsets the position of the Hybrid Domain by OuterDomainCellOffset from
+                :math:`\in ]0, +\infty[`, offsets the position of the Hybrid Domain by OuterDomainCellOffset from
                 the far field BC imposed by the VPM. The Hybrid Domain thus ends 2 ghost cells +
                 NumberOfBCCells + OuterDomainCellOffset layers of cells from the exterior boundary
                 of the Eulerian mesh.
@@ -865,12 +865,12 @@ def getDefaultHybridParameters(EulerianSubIterations        = 30,
                 ``'Direct'``
             
             RelaxationRatio : :py:class:`float`
-                :math: `\in [0, +\infty[`, dynamically updates the iterative method convergence criteria for the
+                :math:`\in [0, +\infty[`, dynamically updates the iterative method convergence criteria for the
                 relative error of the vorticity induced by the generated particles to be as close as
                 possible to RelaxationThreshold.
             
             RelaxationThreshold : :py:class:`float`
-                :math: `\in [0, +\infty[` in m^3.s^-1, gives the convergence criteria for the iterative particle
+                :math:`\in [0, +\infty[` in m^3.s^-1, gives the convergence criteria for the iterative particle
                 generation method.
         Returns
         -------
@@ -1986,9 +1986,6 @@ def setTimeStepFromBladeRotationAngle(tL = [], tLL = [], BladeRotationAngle = 5.
     if type(tL) == dict: Parameters = tL
     else: Parameters = getAllParameters(tL)
 
-    if Urelmax == 0:
-        raise ValueError('Maximum velocity is zero. Set non-zero kinematic or freestream \
-                                                                                     velocity.')
     Parameters['NumericalParameters']['TimeStep'] = np.array([BladeRotationAngle/(6.*RPM)], \
                                                                     dtype = np.float64, order = 'F')
     return Parameters['NumericalParameters']['TimeStep']
@@ -2046,7 +2043,6 @@ def getAerodynamicCoefficientsOnPropeller(tLL = [], StdDeviationSample = 50):
         Loads : :py:class:`dict`
             Aerodynamic coefficients, loads and standard deviation.
     '''
-    if not tLL: tLL = getLiftingLinesTree(tL)
     Loads = {}
     if not tLL: return Loads
     LiftingLine = I.getZones(tLL)[0]
@@ -2094,7 +2090,6 @@ def getAerodynamicCoefficientsOnRotor(tLL = [], StdDeviationSample = 50):
         Loads : :py:class:`dict`
             Aerodynamic coefficients, loads and standard deviation.
     '''
-    if not tLL: tLL = getLiftingLinesTree(tL)
     Loads = {}
     if not tLL: return Loads
     LiftingLine = I.getZones(tLL)[0]
@@ -2144,7 +2139,6 @@ def getAerodynamicCoefficientsOnWing(tLL = [], Surface = 0., StdDeviationSample 
         Loads : :py:class:`dict`
             Aerodynamic coefficients, loads and standard deviation.
     '''
-    if not tLL: tLL = getLiftingLinesTree(tL)
     Loads = {}
     if not tLL: return Loads
     LiftingLine = I.getZones(tLL)[0]
@@ -2191,7 +2185,6 @@ def getStandardDeviationWing(tLL = [], StdDeviationSample = 50):
         std_Drag : :py:class:`float`
             Drag standard deviation.
     '''
-    if not tLL: tLL = getLiftingLinesTree(tL)
     if not tLL: return 0., 0.
     LiftingLine = I.getZones(tLL)[0]
     UnsteadyLoads = I.getNodeFromName(LiftingLine, '.UnsteadyLoads')
@@ -2232,7 +2225,6 @@ def getStandardDeviationBlade(tLL = [], StdDeviationSample = 50):
         std_Drag : :py:class:`float`
             Drag standard deviation.
     '''
-    if not tLL: tLL = getLiftingLinesTree(tL)
     if not tLL: return 0., 0.
 
     LiftingLine = I.getZones(tLL)[0]
