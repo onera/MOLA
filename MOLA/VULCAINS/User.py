@@ -114,73 +114,185 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
             Possible fields are:
 
             * ``VelocityInduced``
-                description
+                :math:`\overrightarrow{u}_i`. Velocity induced by all the particles.
 
             * ``VelocityPerturbation``
-                description
+                :math:`\overrightarrow{u}_p`. Perturbation velocity of the free flow. Is obtained
+                from the velocity at the nodes of the ``PerturbationField`` mesh.
 
             * ``VelocityDiffusion``
-                description
+                :math:`\overrightarrow{u}_d`. Only if the Diffusion Velocity Method (DVM) is used.
+                The diffusion velocity accounts for the spread of the vorticity in the flow due to
+                viscous effetc by physically transporting the particles.
+
+                .. attention: The diffusion velocity has no physical meaning and does not appear in
+                the total velocity.
 
             * ``gradxVelocity``
-                description
+                :math:`\overrightarrow{e}_x\cdot\overrightarrow{∇}\otimes\overrightarrow{U}=\dfrac{
+                \partial \overrightarrow{U}}{\partial x}`. Gradient of the total velocity along the
+                x axis.
 
             * ``gradyVelocity``
-                description
+                :math:`\overrightarrow{e}_y\cdot\overrightarrow{∇}\otimes\overrightarrow{U}=\dfrac{
+                \partial \overrightarrow{U}}{\partial y}`. Gradient of the total velocity along the
+                y axis.
 
             * ``gradzVelocity``
-                description
+                :math:`\overrightarrow{e}_z\cdot\overrightarrow{∇}\otimes\overrightarrow{U}=\dfrac{
+                \partial \overrightarrow{U}}{\partial z}`. Gradient of the total velocity along the
+                z axis.
 
             * ``PSE``
-                description
+                :math:`V\overrightarrow{∇}\cdot((\\nu + \\nu_t)\overrightarrow{∇}\otimes
+                \overrightarrow\omega)`. Approximates the diffusion term of the vorticity equation
+                with the Particle Strength Exchange method.
 
             * ``Vorticity``
-                description
+                :math:`\overrightarrow{\omega}`. Vorticity induced by the particles.
+
+                .. note:: Is not necessarely equal to the fluid divergence-free vorticity
+                    :math:`\overrightarrow{∇}\\times\overrightarrow{U}`.
+
+                .. hint:: The enstrophy control filter can be used for the particles to induce a
+                    vorticity as divergence-free as possible. The ``MagnitudeRelaxationFactor`` and
+                    ``RealignmentRelaxationFactor`` parameters in
+                    :py:func:``~MOLA.VULCAINS.Main.getDefaultModelingParameters`` are used to tune
+                    said filter.
 
             * ``Alpha``
-                description
+                :math:`\overrightarrow{\\alpha}`. Intensity or "weight" of the particles. The
+                stronger a particle, the stronger the induced velocity and vorticity.
 
             * ``Stretching``
-                description
+                :math:`(\overrightarrow{\\alpha}\cdot\overrightarrow{∇})\overrightarrow{U}` if 
+                ``VorticityEquationScheme == 'Clasical'``, :math:`(\overrightarrow{\\alpha}\cdot
+                ^t\overrightarrow{∇})\overrightarrow{U}` if 
+                ``VorticityEquationScheme == 'Transpose'`` and :math:`\dfrac{1}{2}(
+                \overrightarrow{\\alpha}\cdot(\overrightarrow{∇}+^t\overrightarrow{∇}))
+                \overrightarrow{U}` if ``VorticityEquationScheme == 'Mixed'``. Corresponds to the
+                stretching/compression term of the vorticity equation.
+
+                .. note:: In 3D, serves as a production of vorticity in the flow. The stronger the
+                    strains in the flow, i.e., the stronger the velocity gradients, the stronger the
+                    vorticity production.
+
+                .. hint:: The transpose formulation is the only one of the three to conserve the
+                    total vorticity of the flow.
 
             * ``rotU``
-                description
+                :math:`\overrightarrow{∇}\\times\overrightarrow{U}`. Curl of the total velocity.
+
+                .. note:: This vorticity is divergence-free by construction.
 
             * ``Velocity``
-                description
+                :math:`\overrightarrow{U}=\overrightarrow{U}_{\infty}+\overrightarrow{u}_i+
+                \overrightarrow{u}_p`. Total velocity.
+
+                .. note:: Note the absence of the diffusion velocity in the total velocity. This is
+                    because while :math:`\overrightarrow{u}_d` represents the spread of vorticity
+                    due to viscous effetcs and is used to transport the particles, it has no
+                    physical meaning and does not intervene in the actual velocity of the flow.
 
             * ``Age``
-                description
+                Number of iteration since the particles were generated.
+
+                .. hint:: The ``MaximumAgeAllowed`` parameter in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultNumericalParameters` is used to delete
+                    particles past a given iteration.
+
+                .. note:: The ``Age`` of the particles is increased by one after the time
+                    integration with
+                    :py:func:`~MOLA.VULCAINS.FreeWakeParticles.computeLagrangianNextTimeStep`.
+
+                .. note:: If several particles are to be merged, the age of the new particles is
+                    computed as the average of the age of each particle, weighted by the norm of
+                    their strength :math:`Age_{new}=\dfrac{\sum Age\|\\alpha\|}{\sum \|\\alpha\|}`.
 
             * ``Sigma``
-                description
+                :math:`\sigma`. Smoothing radius of the particles.
+
+                .. note:: This radius is linked to the spatial filter, noted :math:`\zeta_{\\sigma}`
+                    , used to filter the continous flow to ponctual blob of vorticity the size of
+                    the particles.
+
+                .. note:: :math:`\sigma` can be seen as the radius of action of the particles. The
+                    bigger the :math:`\sigma` of a particle, the farther away it can induce, and the
+                    more stable the particle is.
+
+                .. note:: The smoothing radius can change according to several things:
+                    
+                    * Viscous effects (CSM or DVM in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters`)
+
+                    * To account for the evolution of the divergence of the velocity.
+
+                    * ``AntiStretcing`` or ``AntiDiffusion`` parameters in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters`.
+
+                    * Particles can be resized if they overgrow or shrink too much
+                    (see ``ResizeParticleFactor`` in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultNumericalParameters`)
+
+                    * When particles are merged,
+                    :math:`\\sigma_{new}=\dfrac{\sum \\sigma\|\\alpha\|}{\sum \|\\alpha\|}`.
 
             * ``Cvisq``
-                description
+                :math:`C_s`. Smagorinsky constant used to compute the turbulent viscosity
+                :math:`\\nu_t\\approx C_s\|\overline{\overline{S}}\|` where
+                :math:`\overline{\overline{S}}` is the strain rate tensor of the flow.
+
+                .. hint:: This constant is set by the parameter ``EddyViscosityConstant``. It can
+                    also be dynamically adjusted by increasing or decreasing by 
+                    ``EddyViscosityRelaxationFactor`` this constant at each iteration based on the
+                    local loss of enstrophy of the flow. The relevant parameters can be found in
+                    :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters`.
 
             * ``Nu``
-                description
+                :math:`\\nu+\\nu_t`. Sum of the fluid ``KinematicViscosity`` set in
+                :py:func:`~MOLA.VULCAINS.Main.getDefaultFluidParameters`, and the turbulent
+                viscosity computed from the given model ``EddyViscosityModel`` in
+                :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters` and the Smagorinsky
+                constant.
+
+                .. note:: The kinematic viscosity is used in the ``PSE`` and the 
+                    ``DiffusionVelocity``.
 
             * ``divUd``
-                description
+                :math:`\overrightarrow{∇}\cdot\overrightarrow{u}_d`. Divergence of the diffusion
+                velocity.
+
+                .. note:: While the velocity induced by the particles in the wake is divergence-free
+                    by construction, it is not the case of the diffusion velocity, or the velocity
+                    induced by the normal sources in the Immersed and BEM particles. The size of the
+                    particles evolve according this divergence.
 
             * ``Enstrophyf``
-                description
+                :math:`\int_{V}\|\overrightarrow{\omega}\|dV=\overrightarrow{\\alpha}\cdot
+                \overrightarrow{\\omega}`. Particle-induced enstrophy.
+
+                .. note:: The vorticity used to compute this enstrophy is the one induced by the
+                    particles, i.e., the one that is not divergence-free.
 
             * ``Enstrophy``
-                description
+                :math:`\int_{V}\|\overrightarrow{∇}\\times\overrightarrow{U}\|dV=
+                \overrightarrow{\\alpha}\cdot(\overrightarrow{∇}\\times\overrightarrow{U})`.
+                Enstrophy of the flow.
+
+                .. note:: This enstrophy uses the divergence-free vorticity of the flow and
+                    represents the real enstrophy of the flow.
 
             * ``EnstrophyM1``
-                description
+                Enstrophy of the flow at the previous timestep.
 
             * ``StrengthMagnitude``
-                description
+                :math:`\\|\overrightarrow{\\alpha}\\|`. Magnitude of the strength of the particles.
 
             * ``VelocityMagnitude`` 
-                description
+                :math:`\|\overrightarrow{U}\|`. Magnitude of the total velocity.
 
             * ``VorticityMagnitude``
-                description
+                :math:`\|\overrightarrow{\omega}\|`. Magnitude of the particle-induced vorticity.
 
             .. hint::
                 Use *SaveFields* = ``"all"`` for saving all fields
