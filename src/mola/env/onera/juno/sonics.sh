@@ -25,7 +25,6 @@ export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
-# export PYTHONPATH=/stck/tbontemp/softs/treelab/src:$PYTHONPATH # ONLY DURING DEV
 
 # source /tmp_user/juno/sonics/dist/socle_cfd6/source.sh
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh

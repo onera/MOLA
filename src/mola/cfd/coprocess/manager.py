@@ -141,18 +141,9 @@ class CoprocessManager():
                     files_to_save[filename].append(extraction['Data'])
             return files_to_save
         
-        def merge_data(data_pytrees):
-            import Converter.Internal as I
-            return cgns.castNode(I.merge(data_pytrees))
-            # if len(data_pytrees) > 1:
-            #     tree_to_save = data_pytrees[0].merge(data_pytrees[1:])
-            # else:
-            #     tree_to_save = data_pytrees[0]
-            # return tree_to_save
-    
         files_to_save = sort_extractions_to_save_by_file()
         for filename, data_pytrees in files_to_save.items():
-            tree_to_save = merge_data(data_pytrees)
+            tree_to_save = cgns.merge(data_pytrees)
             self.save(tree_to_save, filename)
 
     def save(self, data, filename, tag_with_iteration=False):
@@ -184,7 +175,11 @@ class CoprocessManager():
         self.apply_operations()
 
         self.status = 'COMPLETED'
-        moveLogFiles()
+        move_log_files()
+        try:
+            call_solver_specific_function(self.workflow, 'move_log_files', 3)
+        except MolaException:
+            pass
         check_simulation_end_and_create_COMPLETED(self.Extractions)
 
     def _update_workflow_parameters_for_restart(self):
@@ -199,7 +194,7 @@ class CoprocessManager():
         self.workflow.set_workflow_parameters_in_tree()
     
 
-def moveLogFiles():
+def move_log_files():
     if rank == 0:
         try: os.makedirs(names.DIRECTORY_LOG)
         except: pass
@@ -213,9 +208,6 @@ def moveLogFiles():
                 NewFilename = FilenameBase+'-%d'%i+'.log'
 
             shutil.move(fn, os.path.join(names.DIRECTORY_LOG, NewFilename))
-
-        for fn in glob.glob('elsA_MPI*'):
-            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, fn))
 
     comm.barrier()
 

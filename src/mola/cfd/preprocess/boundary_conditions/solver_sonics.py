@@ -30,6 +30,11 @@ def function_generator(name):
             motion = kwargs.pop('Motion')
             motion = translate_motion_to_sonics(motion)
             kwargs['motion'] = motion
+        if 'ImposedVariables' in kwargs:
+            ImposedVariables = kwargs.pop('ImposedVariables')
+            kwargs.update(ImposedVariables)
+        if 'variableForInterpolation' in kwargs: 
+            kwargs.pop('variableForInterpolation')
         miles.bcfactory(workflow.tree, name, *args, **kwargs)
     return set_bc
 

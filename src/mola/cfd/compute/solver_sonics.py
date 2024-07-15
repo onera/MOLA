@@ -34,20 +34,25 @@ def apply_to_solver(workflow):
     import maia
 
     if rank==0:
+        os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
         os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
 
-    dist_tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
+    workflow.tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
 
-    # default_pytriggers = get_default_pytriggers(workflow.SolverParameters['configuration'], dist_tree, comm)
+    # default_pytriggers = get_default_pytriggers(workflow.SolverParameters['configuration'], workflow.tree, comm)
     # pytriggers += default_pytriggers
     # iterators = get_default_iterators(workflow.SolverParameters['configuration'], pytriggers, comm)
 
-    # NOTE Finally, sonics.solver.run will take only dist_tree (the configuration will be read inside the tree)
-    workflow.SolverParameters['configuration'] = get_configuration_from_tree(dist_tree, workflow)
-    sonics.solver.run(workflow.SolverParameters['configuration'], dist_tree, comm) #, iterators=iterators)
+    from mola.cfd.coprocess.manager import CoprocessManager
+    coprocess_manager = CoprocessManager(workflow)
+    workflow._coprocess_manager = coprocess_manager
 
-    maia.algo.pe_to_nface(dist_tree, comm)
-    maia.io.dist_tree_to_file(dist_tree, 'solution.cgns', comm)
+    # NOTE Finally, sonics.solver.run will take only dist_tree (the configuration will be read inside the tree)
+    workflow.SolverParameters['configuration'] = get_configuration_from_tree(workflow.tree, workflow)
+    sonics.solver.run(workflow.SolverParameters['configuration'], workflow.tree, comm) #, iterators=iterators)
+
+    coprocess_manager.finalize()
+    del workflow._coprocess_manager
  
 def get_configuration_from_tree(tree, workflow):
     import miles

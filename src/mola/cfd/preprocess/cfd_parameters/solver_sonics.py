@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException
 
 from treelab import cgns
@@ -86,6 +87,9 @@ def apply_to_solver(workflow):
         )
     )
 
+    if not isinstance(workflow.Numerics['CFL'], (int, float)):
+        raise MolaException(f"CFL must be a float (now it is a {type(workflow.Numerics['CFL'])})")
+
     my_config.add_template(get_turbulence_template(workflow.Turbulence))
     my_config.add_template(get_spatial_fluxes_template(workflow.Numerics))
     my_config.add_template(get_time_marching_template(workflow.Numerics))
@@ -97,12 +101,13 @@ def apply_to_solver(workflow):
 
     configuration.update(
         dict(
-            output_folder = ".",
+            output_folder = names.DIRECTORY_LOG,
             niter = workflow.Numerics['NumberOfIterations'],
             niter_period = 1,
             extracts = {'*': ['conservatives', 'LaminarViscosity', 'TurbulentViscosity','TurbulentViscosity', 'TurbulentDistance', 'Mach', 'primitives']},
             code_generation = "none",
-            fcfl = workflow.Numerics['CFL'],
+            CFL = workflow.Numerics['CFL'],
+            # fcfl = lambda iteration: workflow.Numerics['CFL'],
         )
     )
 

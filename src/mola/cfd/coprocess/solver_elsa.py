@@ -15,6 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import glob
+import shutil
 from fnmatch import fnmatch
 
 import Converter.Internal as I
@@ -57,11 +60,15 @@ def perform_extractions(workflow, coprocess_manager):
         elif extraction['Type'] == 'Residuals':
             extraction['Data'] = extract_residuals(output_tree)
         
-        elif extraction['Type'] == 'Integral':
-            extraction['Data'] = extract_integral(output_tree)
+        # elif extraction['Type'] == 'Integral':
+        #     extraction['Data'] = extract_integral(output_tree)
 
-        elif extraction['Type'] == 'Probe':
-            extraction['Data'] = extract_probe(output_tree)
+        # elif extraction['Type'] == 'Probe':
+        #     extraction['Data'] = extract_probe(output_tree)
+
+        else:
+            mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
+            extraction['Data'] = cgns.Tree()
 
         # Remove PyPart nodes for data that are not 3D (important to save them without PyPart)
         if extraction['Type'] not in ['Restart', '3D']:
@@ -242,3 +249,10 @@ def get_family_to_BCType(t):
         if bctype is not None:
             families_to_bctype[famnode.name()] = bctype.value()
     return families_to_bctype
+
+def move_log_files(w):
+    if rank == 0:
+        for fn in glob.glob('elsA_MPI*'):
+            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, fn))
+
+    comm.barrier()

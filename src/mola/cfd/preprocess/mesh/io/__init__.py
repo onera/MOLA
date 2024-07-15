@@ -35,7 +35,7 @@ def read(w):
         
         meshes += [base]
     
-    w.tree = cgns.merge(meshes)
+    w.tree = cgns.add(meshes)
 
     dimOfBases = set(base.dim() for base in w.tree.bases())
     if len(dimOfBases) != 1:

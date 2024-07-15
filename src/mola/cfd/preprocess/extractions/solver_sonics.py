@@ -22,13 +22,13 @@ def apply_to_solver(workflow):
 
     mola_logger.warning('No custom extractions available with SoNICS for now.')
     # workflow._pytriggers = []
-    # add_extractions_for_restart(workflow)
+    add_extractions_for_restart(workflow)
     # process_extractions(workflow)
 
 def add_extractions_for_restart(workflow):
     workflow._interface.add_to_Extractions_Restart(
         # Container='FlowSolution#EndOfRun', 
-        Fields='conservatives',
+        Fields=['conservatives'],
         )
 
 def process_extractions(workflow):
