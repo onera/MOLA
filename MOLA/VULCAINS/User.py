@@ -565,7 +565,7 @@ def initialiseComputation(Parameters = {}, LiftingLines = [], EulerianMesh = [],
     ----------
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
 
         EulerianMesh : Tree
             like in :py:func:`compute`
@@ -616,7 +616,7 @@ def restartComputation(path = 'OUTPUT.cgns', Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     Returns
     -------
         t : Tree
@@ -658,7 +658,7 @@ def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations
     ----------
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
 
         VortexParameters : :py:class:`dict`
             Describe the vortex to simulate.
@@ -752,7 +752,7 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
     Parameters
     ----------
         Targets : Tree
-            Probes of the VPM field.
+            Probes of the simulated domain.
 
         tL : Tree
             Lagrangian field.
@@ -773,7 +773,7 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
             becomes.
 
         NearFieldOverlapingFactor : :py:class:`float`
-            must be :math:`[1, +\infty)`. The particle interactions are
+            must be :math:`[1, +\infty[`. The particle interactions are
             approximated by the FMM as soon as two clusters of particles are
             separated by at least **NearFieldOverlapingFactor** the size
             of the particles in the cluster.

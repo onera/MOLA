@@ -57,7 +57,7 @@ def initialiseVPM(tE = [], tH = [], tLL = [], Parameters = {}):
         
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     Returns
     -------
         tL : Tree
@@ -104,7 +104,7 @@ def initialisePerturbationfield(tP = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`.
+            :py:func:`~MOLA.VULCAINS.User.compute`.
     Returns
     -------
         tP : Tree
@@ -344,11 +344,11 @@ def createLambOseenVortexRing(t = [], Parameters = {}, VortexParameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
 
         VortexParameters : :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.computeFreeVortex`
+            :py:func:`~MOLA.VULCAINS.User.computeFreeVortex`
     '''
     Gamma = VortexParameters['Intensity'][0]
     sigma = Parameters['PrivateParameters']['Sigma0'][0]
@@ -445,11 +445,11 @@ def createLambOseenVortexBlob(t = [], Parameters = {}, VortexParameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
 
         VortexParameters : :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.computeFreeVortex`
+            :py:func:`~MOLA.VULCAINS.User.computeFreeVortex`
     '''
     Gamma = VortexParameters['Intensity'][0]
     sigma = Parameters['PrivateParameters']['Sigma0'][0]

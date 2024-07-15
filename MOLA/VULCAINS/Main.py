@@ -164,7 +164,7 @@ def getDefaultFluidParameters(Density               = 1.225,
                 :math:`\in [0, +\infty[` fluid temperature at freestream :math:`(K)`.
                     
             VelocityFreestream : :py:class:`numpy.ndarray` of 3 :py:class:`float`
-                :math:`\in [-\infty, +\infty[`, fluid velocity at freestream in :math:`(m \cdot s^{-1})`
+                :math:`\in ]-\infty, +\infty[`, fluid velocity at freestream in :math:`(m \cdot s^{-1})`
         Returns
         -------
             FluidParameters : :py:class:`dict`
@@ -1415,7 +1415,7 @@ def checkTrees(t = [], Parameters = {}):
             containers to check.
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     '''
     tL, tLL, tE, tH, tP = getTrees([t], ['Particles', 'LiftingLines', 'Eulerian', 'Hybrid',
                                                                                     'Perturbation'])
@@ -1506,7 +1506,7 @@ def checkParameters(Parameters = {}):
     ----------
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     '''
     fields = [f + 'Parameters' for f in ['Fluid', 'Hybrid', 'LiftingLine', 'Modeling', 'Numerical',
                                                                                          'Private']]
@@ -1915,7 +1915,7 @@ def setTimeStepFromShedParticles(tL = [], tLL = [], NumberParticlesShedAtTip = 5
     ----------
         tL: Tree or :py:class:`dict`
             Lagrangian field or dictionary containing VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
 
         tLL : Tree
             Lifting Lines.
@@ -1961,7 +1961,7 @@ def setTimeStepFromBladeRotationAngle(tL = [], tLL = [], BladeRotationAngle = 5.
     ----------
         tL: Tree or :py:class:`dict`
             Lagrangian field or dictionary containing VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
 
         tLL : Tree
             Lifting Lines.
