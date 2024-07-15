@@ -18,7 +18,7 @@ import os
 import copy
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, MolaException, mute_stdout
+from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola.cfd.preprocess.motion import motion
 
 BoundaryConditionsNames = dict(
@@ -67,6 +67,9 @@ def apply(workflow, selected_boundaries_conditions=None):
     if len(selected_boundaries_conditions) != 0:
         mola_logger.info(f'Set boundary conditions:', rank=0)
 
+    available_bc_names = [name for name, solvers in BoundaryConditionsNames.items() if workflow.Solver.lower() in solvers]
+    alternative_available_bc_names = [solvers[workflow.Solver.lower()] for solvers in BoundaryConditionsNames.values() if workflow.Solver.lower() in solvers]
+
     for bc in selected_boundaries_conditions:
 
         _check_family_exists(workflow.tree, bc['Family'])
@@ -79,15 +82,21 @@ def apply(workflow, selected_boundaries_conditions=None):
         else:
             mola_logger.info(f'  > {bcName} on family {bc["Family"]}', rank=0)
         
-        if bcName in BoundaryConditionsNames:
+        if bcName in available_bc_names:
             # Define in the main MOLA preprocess, lower in this file
             MOLAGenericFunction = globals()[bcName]
             solverSpecificFunctionName = BoundaryConditionsNames[bcName][workflow.Solver]
             args, kwargs = MOLAGenericFunction(workflow, bc)
-        else:
+        elif bcName in alternative_available_bc_names:
             # Defined only in the specific solver module
             solverSpecificFunctionName = bcName
             args, kwargs = bc['args'], bc['kwargs']
+        else:
+            raise MolaUserError(
+                f'Boundary condition {bcName} is not available. ' 
+                f'Please choose one among conditions currently available for solver {workflow.Solver}: '
+                f'{", ".join(available_bc_names)}'
+                 )
 
         current_path = os.path.dirname(os.path.realpath(__file__))
         solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))

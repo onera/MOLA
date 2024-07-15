@@ -61,6 +61,8 @@ class ExternalFlowGenerator(object):
         Mach = self.Flow['VelocityForScalingAndTurbulence'] /np.sqrt( self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * self.Flow['Temperature'] )
         Pressure = self.Flow['Density'] * self.Fluid['IdealGasConstant'] * self.Flow['Temperature']
         PressureDynamic = 0.5 * self.Flow['Density'] * self.Flow['VelocityForScalingAndTurbulence'] **2
+        TemperatureStagnation = self.Flow['Temperature'] * (1 + (self.Fluid['Gamma']-1)/2. * Mach**2)
+        PressureStagnation = Pressure * (TemperatureStagnation/self.Flow['Temperature']) ** (self.Fluid['Gamma'] / (self.Fluid['Gamma']-1)) 
 
         Momentum_vector = self.Flow['Density'] * self.Flow['Velocity'] * np.array(self.Flow['Direction'])
         MomentumX =  Momentum_vector[0]
@@ -81,6 +83,8 @@ class ExternalFlowGenerator(object):
             Mach                    = Mach,
             Pressure                = Pressure,
             PressureDynamic         = PressureDynamic,
+            PressureStagnation      = PressureStagnation,
+            TemperatureStagnation   = TemperatureStagnation,
             ViscosityMolecular      = ViscosityMolecular,
             ViscosityEddy           = self.Turbulence['Viscosity_EddyMolecularRatio'] * ViscosityMolecular,
             MomentumX               = MomentumX,
