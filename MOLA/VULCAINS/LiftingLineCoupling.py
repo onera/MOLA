@@ -53,7 +53,7 @@ def initialiseLiftingLines(tLL = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     Returns
     -------
         tLL : Tree
@@ -201,7 +201,7 @@ def updateParametersFromLiftingLines(tLL = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`.
+            :py:func:`~MOLA.VULCAINS.User.compute`.
     '''
     _tLL = V.getTrees([tLL], ['LiftingLines'])
     LLs = I.getZones(_tLL)
@@ -357,7 +357,7 @@ def updateLiftingLinesParameters(tLL = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`.
+            :py:func:`~MOLA.VULCAINS.User.compute`.
     '''
     Zones = I.getZones(V.getTrees([tLL], ['LiftingLines']))
     if not Zones: return []
@@ -506,7 +506,7 @@ def initialiseParticlesOnLitingLine(tL = [], tLL = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     '''
     _tL, _tLL = V.getTrees([tL, tLL], ['Particles', 'LiftingLines'])
     if not _tLL:

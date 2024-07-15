@@ -164,7 +164,7 @@ def getDefaultFluidParameters(Density               = 1.225,
                 :math:`\in [0, +\infty[` fluid temperature at freestream :math:`(K)`.
                     
             VelocityFreestream : :py:class:`numpy.ndarray` of 3 :py:class:`float`
-                :math:`\in [-\infty, +\infty[`, fluid velocity at freestream in :math:`(m \cdot s^{-1})`
+                :math:`\in ]-\infty, +\infty[`, fluid velocity at freestream in :math:`(m \cdot s^{-1})`
         Returns
         -------
             FluidParameters : :py:class:`dict`
@@ -1415,7 +1415,7 @@ def checkTrees(t = [], Parameters = {}):
             containers to check.
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     '''
     tL, tLL, tE, tH, tP = getTrees([t], ['Particles', 'LiftingLines', 'Eulerian', 'Hybrid',
                                                                                     'Perturbation'])
@@ -1506,7 +1506,7 @@ def checkParameters(Parameters = {}):
     ----------
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     '''
     fields = [f + 'Parameters' for f in ['Fluid', 'Hybrid', 'LiftingLine', 'Modeling', 'Numerical',
                                                                                          'Private']]
@@ -1915,7 +1915,7 @@ def setTimeStepFromShedParticles(tL = [], tLL = [], NumberParticlesShedAtTip = 5
     ----------
         tL: Tree or :py:class:`dict`
             Lagrangian field or dictionary containing VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
 
         tLL : Tree
             Lifting Lines.
@@ -1961,7 +1961,7 @@ def setTimeStepFromBladeRotationAngle(tL = [], tLL = [], BladeRotationAngle = 5.
     ----------
         tL: Tree or :py:class:`dict`
             Lagrangian field or dictionary containing VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
 
         tLL : Tree
             Lifting Lines.
@@ -2732,19 +2732,16 @@ def save(t = [], filename = '', VisualisationOptions = {}, SaveFields = checkSav
         I._rmNodesByName(Particles, 'BEMMatrix')
         if 'VelocityX' in SaveFields:
             u0 = np.array(I.getNodeFromName(Particles, 'VelocityFreestream')[1], dtype = str)
-            C._initVars(Particles, 'VelocityX='+u0[0]+'+{VelocityInducedX}+{VelocityPerturbationX}+\
-                                                                              {VelocityDiffusionX}')
-            C._initVars(Particles, 'VelocityY='+u0[1]+'+{VelocityInducedY}+{VelocityPerturbationY}+\
-                                                                              {VelocityDiffusionY}')
-            C._initVars(Particles, 'VelocityZ='+u0[2]+'+{VelocityInducedZ}+{VelocityPerturbationZ}+\
-                                                                              {VelocityDiffusionZ}')
+            C._initVars(Particles, 'VelocityX='+u0[0]+'+{VelocityInducedX}+{VelocityPerturbationX}')
+            C._initVars(Particles, 'VelocityY='+u0[1]+'+{VelocityInducedY}+{VelocityPerturbationY}')
+            C._initVars(Particles, 'VelocityZ='+u0[2]+'+{VelocityInducedZ}+{VelocityPerturbationZ}')
 
         if 'VelocityMagnitude' in SaveFields:
             u0 = np.array(I.getNodeFromName(Particles, 'VelocityFreestream')[1], dtype = str)
             C._initVars(Particles, 'VelocityMagnitude=(\
-              ('+u0[0]+'+{VelocityInducedX}+{VelocityPerturbationX}+{VelocityDiffusionX})**2 + \
-              ('+u0[1]+'+{VelocityInducedY}+{VelocityPerturbationY}+{VelocityDiffusionY})**2 + \
-              ('+u0[2]+'+{VelocityInducedZ}+{VelocityPerturbationZ}+{VelocityDiffusionZ})**2)**0.5')
+                                   ('+u0[0]+'+{VelocityInducedX}+{VelocityPerturbationX})**2 + \
+                                   ('+u0[1]+'+{VelocityInducedY}+{VelocityPerturbationY})**2 + \
+                                   ('+u0[2]+'+{VelocityInducedZ}+{VelocityPerturbationZ})**2)**0.5')
 
         if 'rotUX' in SaveFields:
             C._initVars(Particles, 'rotUX={gradyVelocityZ} - {gradzVelocityY}')

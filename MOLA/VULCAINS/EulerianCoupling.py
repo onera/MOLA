@@ -61,7 +61,7 @@ def initialiseEulerianDomain(Mesh = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     Returns
     -------
         tE : Tree
@@ -260,7 +260,7 @@ def flagEulerianCells(tE = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     '''
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Flagging Cells '))
     HybridParameters = Parameters['HybridParameters']
@@ -609,7 +609,7 @@ def generateHybridSources(tE = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     Returns
     -------
         HybridSources : Zone
@@ -682,7 +682,7 @@ def generateBEMParticles(tE = [], tH = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     Returns
     -------
         BEM particles : Zone
@@ -774,7 +774,7 @@ def generateImmersedParticles(tE = [], tH = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     Returns
     -------
         Immersed particles : Zone
@@ -878,7 +878,7 @@ def generateHybridDomain(tE = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     Returns
     -------
         HybridDomain : Tree
@@ -910,7 +910,7 @@ def initialiseHybridParticles(tL = [], tE = [], tH = [], Parameters = {}):
 
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided VULCAINS parameters as established in
-            :py:func:`~MOLA.VULCAINS.Main.compute`
+            :py:func:`~MOLA.VULCAINS.User.compute`
     '''
     _tL, _tE, _tH = V.getTrees([tL, tE, tH], ['Particles', 'Eulerian', 'Hybrid'])
     if not _tE or not _tL or not _tH: return {}
