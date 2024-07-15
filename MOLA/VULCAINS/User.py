@@ -52,6 +52,7 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
 
     Parameters
     ----------
+    
         Parameters : :py:class:`dict` of :py:class:`dict`
             User-provided parameters for the VULCAINS simulation. If a parameter is not filled out,
             a default value will be provided.
@@ -110,8 +111,7 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
 
         SaveFields : :py:class:`list` of :py:class:`str`, or :py:class:`str`
             Fields to save at each particle.
-            If ``'all'``, then they are all saved.
-            Possible fields are:
+            If ``'all'``, then they are all saved. Possible fields are:
 
             * ``VelocityInduced``
                 :math:`\overrightarrow{u}_i`. Velocity induced by all the particles.
@@ -222,20 +222,25 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
 
                 .. note:: The smoothing radius can change according to several things:
                     
-                    * Viscous effects (CSM or DVM in
-                    :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters`)
+                    *
+                        Viscous effects (CSM or DVM in
+                        :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters`)
 
-                    * To account for the evolution of the divergence of the velocity.
+                    * 
+                        To account for the evolution of the divergence of the velocity.
 
-                    * ``AntiStretcing`` or ``AntiDiffusion`` parameters in
-                    :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters`.
+                    *
+                        ``AntiStretcing`` or ``AntiDiffusion`` parameters in
+                        :py:func:`~MOLA.VULCAINS.Main.getDefaultModelingParameters`.
 
-                    * Particles can be resized if they overgrow or shrink too much
-                    (see ``ResizeParticleFactor`` in
-                    :py:func:`~MOLA.VULCAINS.Main.getDefaultNumericalParameters`)
+                    * 
+                        Particles can be resized if they overgrow or shrink too much
+                        (see ``ResizeParticleFactor`` in
+                        :py:func:`~MOLA.VULCAINS.Main.getDefaultNumericalParameters`)
 
-                    * When particles are merged,
-                    :math:`\\sigma_{new}=\dfrac{\sum \\sigma\|\\alpha\|}{\sum \|\\alpha\|}`.
+                    * 
+                        When particles are merged,
+                        :math:`\\sigma_{new}=\dfrac{\sum \\sigma\|\\alpha\|}{\sum \|\\alpha\|}`.
 
             * ``Cvisq``
                 :math:`C_s`. Smagorinsky constant used to compute the turbulent viscosity
@@ -265,7 +270,7 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
                 .. note:: While the velocity induced by the particles in the wake is divergence-free
                     by construction, it is not the case of the diffusion velocity, or the velocity
                     induced by the normal sources in the Immersed and BEM particles. The size of the
-                    particles evolve according this divergence.
+                    particles evolve according to this divergence.
 
             * ``Enstrophyf``
                 :math:`\int_{V}\|\overrightarrow{\omega}\|dV=\overrightarrow{\\alpha}\cdot
