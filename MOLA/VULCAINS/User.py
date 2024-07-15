@@ -117,16 +117,16 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
                 :math:`\overrightarrow{u}_i`. Velocity induced by all the particles.
 
             * ``VelocityPerturbation``
-                :math:`\overrightarrow{u}_p`. Perturbation velocity of the free flow. Is obtained
+                :math:`\overrightarrow{u}_p`. Perturbation velocity of the free flow. It is obtained
                 from the velocity at the nodes of the ``PerturbationField`` mesh.
 
             * ``VelocityDiffusion``
                 :math:`\overrightarrow{u}_d`. Only if the Diffusion Velocity Method (DVM) is used.
                 The diffusion velocity accounts for the spread of the vorticity in the flow due to
-                viscous effetc by physically transporting the particles.
+                viscous effect by physically transporting the particles.
 
-                .. attention: The diffusion velocity has no physical meaning and does not appear in
-                the total velocity.
+                .. warning:: The diffusion velocity has no physical meaning and does not appear in
+                    the total velocity.
 
             * ``gradxVelocity``
                 :math:`\overrightarrow{e}_x\cdot\overrightarrow{∇}\otimes\overrightarrow{U}=\dfrac{
@@ -151,7 +151,7 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
             * ``Vorticity``
                 :math:`\overrightarrow{\omega}`. Vorticity induced by the particles.
 
-                .. note:: Is not necessarely equal to the fluid divergence-free vorticity
+                .. note:: It is not necessarily equal to the fluid divergence-free vorticity
                     :math:`\overrightarrow{∇}\\times\overrightarrow{U}`.
 
                 .. hint:: The enstrophy control filter can be used for the particles to induce a
@@ -170,14 +170,14 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
                 ^t\overrightarrow{∇})\overrightarrow{U}` if 
                 ``VorticityEquationScheme == 'Transpose'`` and :math:`\dfrac{1}{2}(
                 \overrightarrow{\\alpha}\cdot(\overrightarrow{∇}+^t\overrightarrow{∇}))
-                \overrightarrow{U}` if ``VorticityEquationScheme == 'Mixed'``. Corresponds to the
+                \overrightarrow{U}` if ``VorticityEquationScheme == 'Mixed'``. It corresponds to the
                 stretching/compression term of the vorticity equation.
 
-                .. note:: In 3D, serves as a production of vorticity in the flow. The stronger the
+                .. note:: In 3D, it serves as a production of vorticity in the flow. The stronger the
                     strains in the flow, i.e., the stronger the velocity gradients, the stronger the
                     vorticity production.
 
-                .. hint:: The transpose formulation is the only one of the three to conserve the
+                .. hint:: The transposed formulation is the only one of the three to conserve the
                     total vorticity of the flow.
 
             * ``rotU``
