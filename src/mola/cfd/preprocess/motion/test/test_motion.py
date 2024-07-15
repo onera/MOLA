@@ -19,6 +19,7 @@ import pytest
 import copy
 import numpy as np
 from mola.cfd.preprocess.motion import motion
+from treelab import cgns
 
 
 @pytest.mark.unit
@@ -117,3 +118,26 @@ def test_is_mobile5():
     )
     motion.update_motion_with_defaults(Motion)
     assert not motion.is_mobile(Motion)
+
+class FakeWorkflow():
+    def __init__(self):
+        self.Motion = None
+        self.tree = cgns.Tree()
+        base = cgns.Base(Parent=self.tree)
+        zone = cgns.Zone(Parent=base)
+        udd = cgns.Node(Name='UDD', Type='UserDefinedData', Parent=zone)
+        cgns.Node(Name='FamilyName', Type='FamilyName', Value='ThisIsATrap', Parent=udd)
+        cgns.Node(Name='FamilyName', Type='FamilyName', Value='Fam1', Parent=zone)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_default_motion_on_families():
+    workflow = FakeWorkflow()
+    motion.set_default_motion_on_families(workflow)
+    assert workflow.Motion == dict(
+        Fam1 = dict(
+            RotationSpeed = [0.0, 0.0, 0.0], 
+            RotationAxisOrigin = [0.0, 0.0, 0.0], 
+            TranslationSpeed = [0.0, 0.0, 0.0]
+        )
+    )

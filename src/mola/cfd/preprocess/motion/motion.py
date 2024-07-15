@@ -30,7 +30,7 @@ def set_default_motion_on_families(workflow):
         workflow.Motion = dict()
 
     for zone in workflow.tree.zones():
-        FamilyName = zone.get(Type='FamilyName')
+        FamilyName = zone.get(Type='FamilyName', Depth=1)
         if FamilyName and FamilyName.value() not in workflow.Motion:
             workflow.Motion[FamilyName.value()] = dict()
 
