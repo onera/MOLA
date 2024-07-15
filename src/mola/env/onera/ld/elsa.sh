@@ -40,8 +40,7 @@ MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export DIST="visung
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
-# export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
-export PYTHONPATH=/stck/tbontemp/softs/treelab/src:$PYTHONPATH # ONLY DURING DEV
+export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # maia
 module use --append /home/sonics/LD8/modules/

@@ -28,6 +28,8 @@ def apply(workflow):
     
     #. Adapt this node to the solver
     '''
+    add_reference_state(workflow)
+    
     initialization_functions = dict(
         uniform = initialize_flow_with_reference_state,
         copy = initialize_flow_from_file_by_copy,
@@ -40,6 +42,30 @@ def apply(workflow):
     # workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
     
     apply_to_solver(workflow)
+
+def add_reference_state(workflow):
+    '''
+    Add ``ReferenceState`` node to CGNS using user-provided conditions
+    '''
+
+    ReferenceState = dict(**workflow.Flow['ReferenceState'])
+
+    for var in ['Mach','Pressure','Temperature']:
+        ReferenceState[var] = workflow.Flow[var]
+ 
+    namesForCassiopee = dict(
+        cv                    = 'Cv',
+        Gamma                 = 'Gamma',
+        SutherlandViscosity   = 'Mus',
+        SutherlandConstant    = 'Cs',
+        SutherlandTemperature = 'Ts',
+        Prandtl               = 'Pr',
+    )
+    for var in ['cv','Gamma','SutherlandViscosity','SutherlandConstant','SutherlandTemperature','Prandtl']:
+        ReferenceState[namesForCassiopee[var]] = workflow.Fluid[var]
+
+    for base in workflow.tree.bases():
+        base.setParameters('ReferenceState', ContainerType='ReferenceState', **ReferenceState)
 
 def initialize_flow_with_reference_state(workflow):
     mola_logger.info('Initialize FlowSolution with uniform reference values',rank=0)

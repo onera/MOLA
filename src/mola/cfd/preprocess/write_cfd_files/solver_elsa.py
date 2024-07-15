@@ -25,7 +25,6 @@ from mola import server as SV
 def apply_to_solver(workflow):
 
     add_elsaHybrid_nodes_if_needed(workflow.tree)  # in elsA v5.3.01, it seems to be still mandatory for some hybrid meshes
-    add_reference_state(workflow)
     add_governing_equations(workflow)
     if hasattr(workflow, '_FULL_CGNS_MODE'):
         add_elsa_keys_to_cgns(workflow)
@@ -44,30 +43,6 @@ def add_elsaHybrid_nodes_if_needed(t):
         I._createElsaHybrid(t, method=1)
         t = cgns.castNode(t)
     return t
-
-def add_reference_state(workflow):
-    '''
-    Add ``ReferenceState`` node to CGNS using user-provided conditions
-    '''
-
-    ReferenceState = dict(**workflow.Flow['ReferenceState'])
-
-    for var in ['Mach','Pressure','Temperature']:
-        ReferenceState[var] = workflow.Flow[var]
- 
-    namesForCassiopee = dict(
-        cv                    = 'Cv',
-        Gamma                 = 'Gamma',
-        SutherlandViscosity   = 'Mus',
-        SutherlandConstant    = 'Cs',
-        SutherlandTemperature = 'Ts',
-        Prandtl               = 'Pr',
-    )
-    for var in ['cv','Gamma','SutherlandViscosity','SutherlandConstant','SutherlandTemperature','Prandtl']:
-        ReferenceState[namesForCassiopee[var]] = workflow.Fluid[var]
-
-    for base in workflow.tree.bases():
-        base.setParameters('ReferenceState', ContainerType='ReferenceState', **ReferenceState)
 
 def add_governing_equations(workflow):
     '''
