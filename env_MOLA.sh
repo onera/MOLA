@@ -240,9 +240,10 @@ elif [ "$MAC" = "juno" ]; then
     unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLAJUNO
 
-    # # maia
-    # module use --append /tmp_user/sator/sonics/usr/modules/
-    # module load maia/$MAIAVERSION-dsi-cfd5_idx32
+    # maia
+    module use --append /tmp_user/juno/sonics/usr/modules/
+    module load maia/1.2-dsi-cfd6
+
 
     # VPM
     export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
