@@ -15,10 +15,12 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import Union
+
 import numpy as np
 from treelab import cgns
 from mola import math_tools
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, MolaUserAttributeError, MolaUserError
 
 K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
@@ -40,6 +42,33 @@ class ExternalFlowGenerator(object):
         self.Flow = workflow.Flow if workflow.Flow is not None else dict()
         self.Turbulence = workflow.Turbulence if workflow.Turbulence is not None else dict()
 
+    def set_Flow_defaults(self,
+            Direction              : Union [ list, tuple, np.ndarray ] = [1, 0, 0],
+            VelocityForScalingAndTurbulence : float = None,
+            *,
+            Velocity               : float = 1.0,
+            Density                : float = 1.225,
+            Temperature            : float = 288.15,
+            ):
+        # This function does nothing, but it is mandatory to be called by WorkflowInterface.
+        # Its signature will be checked.
+        return
+    
+    def _check_inputs(self):
+        if len(self.Flow['Direction']) != 3:
+            raise MolaUserAttributeError('Direction argument must be a 3-float list, tuple or numpy')
+        
+        if not 'VelocityForScalingAndTurbulence' in self.Flow \
+            or self.Flow['VelocityForScalingAndTurbulence'] is None:
+            self.Flow['VelocityForScalingAndTurbulence'] = np.abs(self.Flow['Velocity'])
+            if self.Flow['VelocityForScalingAndTurbulence'] < 1e-5:
+                raise MolaUserError('Velocity is very low. You must set a positive value for VelocityForScalingAndTurbulence')
+        elif self.Flow['VelocityForScalingAndTurbulence'] <= 0:
+            raise MolaUserError('You must provide positive value for VelocityForScalingAndTurbulence')
+
+        return self.Flow
+
+
     def generate(self):
         self.set_fluid_properties()
         self.set_flow_properties()
@@ -51,6 +80,8 @@ class ExternalFlowGenerator(object):
         self.Fluid['cp'] = self.Fluid['Gamma'] * self.Fluid['cv']
 
     def set_flow_properties(self):
+
+        self._check_inputs()
 
         # TODO Put ViscosityMolecular in the Fluid attribute ?
         def SutherlandLaw(T, mus, Ts, S):

@@ -83,6 +83,7 @@ def test_ExternalFlowGenerator():
         MomentumZ = 0.0,
         Pressure = 101325.04438875,
         PressureDynamic = 61.25000000000001,
+        PressureStagnation = 101386.30761311583,
         ReferenceState = dict(
             Density = 1.225,
             EnergyStagnationDensity = 253373.86097187505,
@@ -93,6 +94,7 @@ def test_ExternalFlowGenerator():
             TurbulentEnergyKineticDensity = 0.00018375
         ),                   
         Temperature = 288.15,
+        TemperatureStagnation = 288.1997668175762,
         Velocity = 10,
         VelocityForScalingAndTurbulence = 10,
         ViscosityEddy = 1.7893800000000003e-06,

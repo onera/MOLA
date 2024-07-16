@@ -102,16 +102,9 @@ class Workflow(object):
     def process_overset(self):
         pass
 
-    def get_flow_generator(self, fg):
-        if isinstance(fg, str):
-            return flow_generators.AvailableFlowGenerators[fg]
-        else:
-            return fg
-
-
     def compute_flow_and_turbulence(self):
         # mola-generic set of parameters
-        FlowGen = self.get_flow_generator(self.Flow['Generator'])(self)
+        FlowGen = flow_generators.get_flow_generator(self.Flow['Generator'])(self)
         FlowGen.generate()
         self.Fluid = FlowGen.Fluid
         self.Flow = FlowGen.Flow

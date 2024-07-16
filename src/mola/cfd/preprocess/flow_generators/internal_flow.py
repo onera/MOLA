@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import Union
+
 import numpy as np
 import scipy.optimize
 from .external_flow import ExternalFlowGenerator 
@@ -32,6 +34,19 @@ class InternalFlowGenerator(ExternalFlowGenerator):
             self.Surface = workflow.ApplicationContext['Surface']
         except KeyError:
             self.Surface = self.get_surface_of_inflow(workflow)
+    
+    def set_Flow_defaults(self,
+            MassFlow               : float = None,
+            Mach                   : float = None,
+            Direction              : Union [ list,tuple,np.ndarray ] = [1, 0, 0],
+            VelocityForScalingAndTurbulence : float = None,
+            *,
+            PressureStagnation     : float = None,
+            TemperatureStagnation  : float = None,
+            ):
+        # This function does nothing, but it is mandatory to be called by WorkflowInterface.
+        # Its signature will be checked.
+        return
 
     def set_flow_properties(self):
         self.compute_external_quantities_from_internal_quantities()        

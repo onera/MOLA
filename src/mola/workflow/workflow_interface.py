@@ -147,38 +147,28 @@ class WorkflowInterface(object):
 
     def set_Flow(self,
             Generator : str = 'External_rho_V_T',
-            Velocity               : float = 1.0,
-            # Parameters relevant to InternalFlowGenerator
-            MassFlow               : float = None,
-            Mach                   : float = None,
-            PressureStagnation     : float = None,
-            TemperatureStagnation  : float = None,
-            IdealGasConstant       : float = None,
-            Gamma                  : float = None,
-            # Parameters relevant to ExternalFlowGenerator
-            Direction              : Union [ list,
-                                            tuple,
-                                       np.ndarray ] = [1, 0, 0],
-            Density                : float = 1.225,
-            Temperature            : float = 288.15,
-            VelocityForScalingAndTurbulence : float = None
+            # NOTE kwargs are here not to raise an error due to specific arguments for the Generator
+            # This function has a specific behavior to raise appropriated errors.
+            # The interface is delegated to the method set_defaults of the Generator class 
+            **kwargs  
             ):
 
-        self.Flow = self._get_comp(WorkflowInterface.set_Flow, self.repack_kwargs())
-
-        if 'Direction' in self.Flow:
-            self.Flow['Direction'] = np.array(self.Flow['Direction'], dtype=float)
-            if len(self.Flow['Direction']) != 3:
-                raise MolaUserAttributeError('Direction argument must be a 3-float list, tuple or numpy')
-            
-        if 'VelocityForScalingAndTurbulence' not in self.Flow:
-            V = np.abs(self.Flow['Velocity'])
-            if V < 1e-5:
-                raise MolaUserError('Velocity is very low. You must set a positive value for VelocityForScalingAndTurbulence')
+        from  mola.cfd.preprocess import flow_generators
+        FlowGen = flow_generators.get_flow_generator(Generator) 
+        signature = inspect.signature(FlowGen.set_Flow_defaults)
+        default_kwargs = dict((name, param.default) for name, param in signature.parameters.items() if name != 'self')
+        for name, value in kwargs.items():
+            if name not in default_kwargs:
+                error_msg = (f"set_Flow() got an unexpected keyword argument '{name}'. " 
+                             f"The following arguments are for the currently selected "
+                             f"{BOLD}Generator{ENDC}{RED}: {PINK}{Generator}{ENDC}{RED} "
+                             f"(another one may be selected in {BOLD}Flow{ENDC}{RED} if needed)")
+                raise MolaUserAttributeError(FlowGen.set_Flow_defaults, error_msg)
             else:
-                self.Flow['VelocityForScalingAndTurbulence'] = V
-        elif self.Flow['VelocityForScalingAndTurbulence'] <= 0:
-            raise MolaUserError('You must provide positive value for VelocityForScalingAndTurbulence')
+                default_kwargs[name] = value
+                
+        self.Flow = self._get_comp(FlowGen.set_Flow_defaults, default_kwargs) 
+        self.Flow['Generator'] = Generator
 
     def set_Turbulence(self,
         Viscosity_EddyMolecularRatio : float = 0.1,

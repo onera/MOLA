@@ -22,3 +22,10 @@ AvailableFlowGenerators = dict(
     External_rho_V_T = ExternalFlowGenerator,
     Internal         = InternalFlowGenerator,
 )
+
+def get_flow_generator(fg):
+    if isinstance(fg, str):
+        return AvailableFlowGenerators[fg]
+    else:
+        return fg
+    
