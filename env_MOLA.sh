@@ -17,7 +17,7 @@ export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MAIAVERSION=1.2
-export TREELABVERSION=v0.1.1
+export TREELABVERSION=v0.2.0
 ###############################################################################
 
 
@@ -239,9 +239,10 @@ elif [ "$MAC" = "juno" ]; then
     unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLAJUNO
 
-    # # maia
-    # module use --append /tmp_user/sator/sonics/usr/modules/
-    # module load maia/$MAIAVERSION-dsi-cfd5_idx32
+    # maia
+    module use --append /tmp_user/juno/sonics/usr/modules/
+    module load maia/1.2-dsi-cfd6
+
 
     # VPM
     export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
@@ -260,7 +261,7 @@ elif [ "$MAC" = "juno" ]; then
 
     # NOTE installation hint:
     # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-    export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/sator_elsA
+    export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
     export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
     export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
