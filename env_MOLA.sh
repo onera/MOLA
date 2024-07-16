@@ -7,17 +7,18 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLAVER=Dev
-export MOLA=/stck/lbernard/MOLA/$MOLAVER
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
-export MOLAJUNO=/tmp_user/juno/lbernard/MOLA/$MOLAVER
+export MOLAVER=v1.18
+export MOLA=/stck/mola/$MOLAVER
+export MOLASATOR=/tmp_user/sator/mola/$MOLAVER
+export MOLAJUNO=/tmp_user/juno/mola/$MOLAVER
 export VPMVERSION=v0.5
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
-export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
-export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
+export MOLAext=/stck/mola/$MOLAVER/ext # you should not modify this line
+export MOLASATORext=/tmp_user/sator/mola/$MOLAVER/ext # you should not modify this line
+export MOLASATORext=/tmp_user/juno/mola/$MOLAVER/ext # you should not modify this line
 export MAIAVERSION=1.2
-export TREELABVERSION=v0.1.1
+export TREELABVERSION=v0.2.0
 ###############################################################################
 
 
