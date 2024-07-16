@@ -16,7 +16,6 @@ export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/mola/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/mola/$MOLAVER/ext # you should not modify this line
-export MOLASATORext=/tmp_user/juno/mola/$MOLAVER/ext # you should not modify this line
 export MAIAVERSION=1.2
 export TREELABVERSION=v0.2.0
 ###############################################################################
@@ -265,6 +264,7 @@ elif [ "$MAC" = "juno" ]; then
     export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
     export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
     export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
+
 
 elif [ "$MAC" = "topaze" ]; then
     source /ccc/work/cont001/saelsa/saelsa/Public/$ELSAVERSION/Dist/bin/topaze/.env_elsA
