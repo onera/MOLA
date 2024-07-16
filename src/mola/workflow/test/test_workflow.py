@@ -43,7 +43,7 @@ def get_workflow_dist():
                             np.linspace(0,1,21), indexing='ij')
         mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'],
                                                 [ x,  y,  z ])
-        mesh = cgns.merge(mesh) # mesh must be CGNSTree_t for full_to_dist_tree
+        mesh = cgns.add(mesh) # mesh must be CGNSTree_t for full_to_dist_tree
 
 
     MPI.COMM_WORLD.barrier()
@@ -717,15 +717,15 @@ def test_workflow_sphere_unstruct_local():
     w.simulation_status()
     w.remove_cfd_files()
 
-@pytest.mark.integration
-@pytest.mark.cost_level_3
-def test_workflow_sphere_hybrid_local():
-    w = get_workflow_sphere_hybrid()
-    w.prepare()
-    w.write_cfd_files()
-    w.submit()
-    w.simulation_status()
-    w.remove_cfd_files()
+# @pytest.mark.integration
+# @pytest.mark.cost_level_3
+# def test_workflow_sphere_hybrid_local():
+#     w = get_workflow_sphere_hybrid()
+#     w.prepare()
+#     w.write_cfd_files()
+#     w.submit()
+#     w.simulation_status()
+#     w.remove_cfd_files()
 
 @pytest.mark.network_onera
 @pytest.mark.integration

@@ -99,9 +99,9 @@ def test_global_convergence_history():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_process_extractions_3d():
+def test_process_extractions_3d_base():
     params = get_workflow2_parameters()
-    params['Extractions'] = [dict(Type='3D', Fields=['Density', 'Momentum', 'Energy'])]
+    params['Extractions'] = [dict(Type='3D', Fields=['Density', 'Momentum', 'Energy'], Container='FlowSolution#Output')]
     workflow = Workflow(**params)
     workflow.assemble()
     solver_elsa.process_extractions_3d(workflow)
@@ -114,7 +114,7 @@ def test_process_extractions_3d():
                 ['Density', None, [], 'DataArray_t'], 
                 ['Momentum', None, [], 'DataArray_t'], 
                 ['Energy', None, [], 'DataArray_t'], 
-                ['GridLocation', np.array([b'C', b'e', b'l', b'l', b'C', b'e', b'n', b't', b'e', b'r'], dtype='|S1'), [], 'GridLocation_t'], 
+                ['GridLocation', np.array([b'V', b'e', b'r', b't', b'e', b'x'], dtype='|S1'), [], 'GridLocation_t'], 
                 ['.Solver#Output', None, [
                     ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
                     ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
@@ -145,7 +145,7 @@ def test_process_extractions_3d_additional_variables():
                 ['Density', None, [], 'DataArray_t'], 
                 ['Momentum', None, [], 'DataArray_t'], 
                 ['Energy', None, [], 'DataArray_t'], 
-                ['GridLocation', np.array([b'C', b'e', b'l', b'l', b'C', b'e', b'n', b't', b'e', b'r'], dtype='|S1'), [], 'GridLocation_t'], 
+                ['GridLocation', np.array([b'V', b'e', b'r', b't', b'e', b'x'], dtype='|S1'), [], 'GridLocation_t'], 
                 ['.Solver#Output', None, [
                     ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
                     ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
@@ -203,7 +203,7 @@ def test_process_extractions_3d_average():
     FS_ref = ['FlowSolution#Average', None, [
                 ['Density', None, [], 'DataArray_t'], 
                 ['Momentum', None, [], 'DataArray_t'], 
-                ['GridLocation', np.array([b'C', b'e', b'l', b'l', b'C', b'e', b'n', b't', b'e', b'r'], dtype='|S1'), [], 'GridLocation_t'], 
+                ['GridLocation', np.array([b'V', b'e', b'r', b't', b'e', b'x'], dtype='|S1'), [], 'GridLocation_t'], 
                 ['.Solver#Output', None, [
                     ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
                     ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 

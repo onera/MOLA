@@ -310,7 +310,7 @@ def _splitAndDistributeUsingNProcsWithCassiopee(workflow, NumberOfProcessors, ra
 
     if basesToSplit:
 
-        tToSplit = cgns.merge([b.copy() for b in basesToSplit])
+        tToSplit = cgns.add([b.copy() for b in basesToSplit])
         splitter = workflow.SplittingAndDistribution['Splitter']
         C.registerAllNames(tToSplit) # HACK https://gitlab.onera.net/numerics/mola/-/issues/143
         tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
