@@ -383,10 +383,15 @@ def wait4FileFromServer(filename, requestInterval=0.5, timeout=60.):
         otherwise
     '''
     tic = timeit.default_timer()
+    directory_path = os.path.dirname(filename)
+    if not directory_path: directory_path = '.'
+    os.listdir(directory_path)
     ElapsedTime = 0.
+    if os.path.exists(filename): return True
     while ElapsedTime < timeout:
         time.sleep(requestInterval)
         ElapsedTime = timeit.default_timer() - tic
+        os.listdir(directory_path)
         if os.path.exists(filename): return True
     if ElapsedTime >= timeout:
         print(WARN+'Warning: timeout reached.'+ENDC)
