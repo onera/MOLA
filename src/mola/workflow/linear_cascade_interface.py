@@ -23,19 +23,19 @@ class WorkflowLinearCascadeInterface(WorkflowInterface):
     def set_ApplicationContext(self, 
             AngleOfAttackDeg : float = 0.,
         ):
-        self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.repack_kwargs())
+        self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.get_default_values_from_local_signature())
 
     def add_to_RawMeshComponents(self,
         Mesher        : str  = 'Autogrid',
         **kwargs):
-        local_kwargs = self.repack_kwargs()
+        local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
         return super().add_to_RawMeshComponents(**local_kwargs)
 
     def set_Flow(self,
                 Generator : str = 'Internal',
                 **kwargs):
-        local_kwargs = self.repack_kwargs()
+        local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
         return super().set_Flow(**local_kwargs)
 
@@ -44,5 +44,5 @@ class WorkflowLinearCascadeInterface(WorkflowInterface):
             Splitter                         : str = 'PyPart',
             Distributor                      : str = 'PyPart',
             **kwargs):
-        return super().set_SplittingAndDistribution(**self.repack_kwargs())
+        return super().set_SplittingAndDistribution(**self.get_default_values_from_local_signature())
         

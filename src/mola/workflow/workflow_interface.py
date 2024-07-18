@@ -55,7 +55,7 @@ class WorkflowInterface(object):
             ApplicationContext : dict = None,
             ):
             
-        attributes = self.repack_kwargs()
+        attributes = self.get_default_values_from_local_signature()
 
         self._workflow_parameters_container_ = names.CONTAINER_WORKLFOW_PARAMETERS
 
@@ -123,7 +123,7 @@ class WorkflowInterface(object):
                                Zone ],
         ):
         self.RawMeshComponents.append(self._get_comp(
-            WorkflowInterface.add_to_RawMeshComponents, self.repack_kwargs()))
+            WorkflowInterface.add_to_RawMeshComponents, self.get_default_values_from_local_signature()))
 
     def set_RawMeshComponents(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -132,7 +132,7 @@ class WorkflowInterface(object):
         '''
         this method is virtual and shall be reimplemented in inherited workflows
         '''
-        self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.repack_kwargs())
+        self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.get_default_values_from_local_signature())
 
     def set_Fluid(self,
             Gamma                      : float =  1.4,
@@ -142,7 +142,7 @@ class WorkflowInterface(object):
             SutherlandConstant         : float = 110.4,
             SutherlandViscosity        : float = 1.78938e-05,
             SutherlandTemperature      : float = 288.15):
-        self.Fluid = self._get_comp(WorkflowInterface.set_Fluid, self.repack_kwargs())
+        self.Fluid = self._get_comp(WorkflowInterface.set_Fluid, self.get_default_values_from_local_signature())
 
 
     def set_Flow(self,
@@ -177,7 +177,7 @@ class WorkflowInterface(object):
         TurbulenceCutOffRatio        : float = 1e-8,
         TransitionMode               :   str = None,
                        ):
-        self.Turbulence = self._get_comp(WorkflowInterface.set_Turbulence, self.repack_kwargs())
+        self.Turbulence = self._get_comp(WorkflowInterface.set_Turbulence, self.get_default_values_from_local_signature())
 
     def set_BoundaryConditions(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -191,7 +191,7 @@ class WorkflowInterface(object):
         Type          : str   = None,
         ):
         self.BoundaryConditions.append(self._get_comp(
-            WorkflowInterface.add_to_BoundaryConditions, self.repack_kwargs()))
+            WorkflowInterface.add_to_BoundaryConditions, self.get_default_values_from_local_signature()))
 
     def set_SplittingAndDistribution(self,
         Strategy                         : str = 'AtPreprocess',
@@ -209,7 +209,7 @@ class WorkflowInterface(object):
         DistributeOnlyOnFullNodes : bool = True,
                        ):
         self.SplittingAndDistribution = self._get_comp(
-            WorkflowInterface.set_SplittingAndDistribution, self.repack_kwargs())
+            WorkflowInterface.set_SplittingAndDistribution, self.get_default_values_from_local_signature())
 
     def set_Numerics(self,
         Scheme                    : str   = 'Jameson',
@@ -224,7 +224,7 @@ class WorkflowInterface(object):
                                             dict] = 10.0,
                        ):
         self.Numerics = self._get_comp(
-            WorkflowInterface.set_Numerics, self.repack_kwargs())
+            WorkflowInterface.set_Numerics, self.get_default_values_from_local_signature())
         self.check_time_marching()
         self.check_cfl()
 
@@ -261,11 +261,11 @@ class WorkflowInterface(object):
     def add_to_BodyForceModeling(self,
             ToBeImplmented : str = 'NotYetImplemented'):
         self.BodyForceModeling.append(self._get_comp(
-            WorkflowInterface.add_to_BodyForceModeling, self.repack_kwargs()))
+            WorkflowInterface.add_to_BodyForceModeling, self.get_default_values_from_local_signature()))
 
     def set_Motion(self,
             motion_per_family_dict    : dict  = None):
-        self.Motion = self._get_comp(WorkflowInterface.set_Motion, self.repack_kwargs())
+        self.Motion = self._get_comp(WorkflowInterface.set_Motion, self.get_default_values_from_local_signature())
 
     def set_Initialization(self,
             Method    : str  = 'uniform',
@@ -275,7 +275,7 @@ class WorkflowInterface(object):
                                   Zone ]  = None,
             KeepTurbulentDistance    : bool  = False):
         self.Initialization = self._get_comp(
-            WorkflowInterface.set_Initialization, self.repack_kwargs())
+            WorkflowInterface.set_Initialization, self.get_default_values_from_local_signature())
 
     def set_Extractions(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list, several_add_tos=True,
@@ -321,7 +321,7 @@ class WorkflowInterface(object):
         Extraction of global or local residuals
         '''
         self.Extractions.append(self._get_comp(
-            WorkflowInterface.add_to_Extractions_Residuals, self.repack_kwargs()))
+            WorkflowInterface.add_to_Extractions_Residuals, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_Integral(self,
             Fields : list = None, # accepts prefix avg- or std-
@@ -344,7 +344,7 @@ class WorkflowInterface(object):
         Summation over a given source of the mesh, providing a scalar integral value
         '''
         self.Extractions.append(self._get_comp(
-            WorkflowInterface.add_to_Extractions_Integral, self.repack_kwargs()))
+            WorkflowInterface.add_to_Extractions_Integral, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_Probe(self,
             Fields : list = None, # accepts prefix avg- or std-
@@ -369,7 +369,7 @@ class WorkflowInterface(object):
         Probe extraction 
         '''
         self.Extractions.append(self._get_comp(
-            WorkflowInterface.add_to_Extractions_Probe, self.repack_kwargs()))
+            WorkflowInterface.add_to_Extractions_Probe, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_BC(self,
             Fields : list = None,
@@ -393,7 +393,7 @@ class WorkflowInterface(object):
         Extraction at boundaries of the mesh
         '''
         self.Extractions.append(self._get_comp(
-            WorkflowInterface.add_to_Extractions_BC, self.repack_kwargs()))
+            WorkflowInterface.add_to_Extractions_BC, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_IsoSurface(self,
             Fields : list = None,
@@ -419,7 +419,7 @@ class WorkflowInterface(object):
         Extraction using an iso-surface operation
         '''
         self.Extractions.append(self._get_comp(
-            WorkflowInterface.add_to_Extractions_IsoSurface, self.repack_kwargs()))
+            WorkflowInterface.add_to_Extractions_IsoSurface, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_Interpolation(self,
             Fields : list = None,
@@ -444,7 +444,7 @@ class WorkflowInterface(object):
         Extraction using an interpolation on a user-provided grid by file or in memory
         '''
         self.Extractions.append(self._get_comp(
-            WorkflowInterface.add_to_Extractions_Interpolation, self.repack_kwargs()))
+            WorkflowInterface.add_to_Extractions_Interpolation, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_3D(self,
             Fields : list = None,
@@ -469,7 +469,7 @@ class WorkflowInterface(object):
         Fields (or sub-fields) extraction 
         '''
         self.Extractions.append(self._get_comp(
-            WorkflowInterface.add_to_Extractions_3D, self.repack_kwargs()))
+            WorkflowInterface.add_to_Extractions_3D, self.get_default_values_from_local_signature()))
     
     def add_to_Extractions_Restart(self,
             Fields : list = None,
@@ -488,7 +488,7 @@ class WorkflowInterface(object):
         Fields used to restart a simulation 
         '''
         self.Extractions.append(self._get_comp(
-            WorkflowInterface.add_to_Extractions_Restart, self.repack_kwargs()))
+            WorkflowInterface.add_to_Extractions_Restart, self.get_default_values_from_local_signature()))
 
     def set_ExtractionsDefaults(self, user_list : list = None):
         self._set_by_user_list(self._method_name(), user_list)
@@ -509,7 +509,7 @@ class WorkflowInterface(object):
         ReferenceParameter : str = 'File',
         ):
         self.ExtractionsDefaults.append(self._get_comp(
-            WorkflowInterface.add_to_ExtractionsDefaults, self.repack_kwargs()))
+            WorkflowInterface.add_to_ExtractionsDefaults, self.get_default_values_from_local_signature()))
 
     def set_ConvergenceCriteria(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)
@@ -523,7 +523,7 @@ class WorkflowInterface(object):
         Threshold     : float = 1e-3,
         ):
         self.ConvergenceCriteria.append(self._get_comp(
-            WorkflowInterface.add_to_ConvergenceCriteria, self.repack_kwargs()))
+            WorkflowInterface.add_to_ConvergenceCriteria, self.get_default_values_from_local_signature()))
 
     def set_RunManagement(self,
         JobName : str = None,
@@ -538,7 +538,7 @@ class WorkflowInterface(object):
         mola_target_path : str = None,
                           ):
         self.RunManagement = self._get_comp(
-            WorkflowInterface.set_RunManagement, self.repack_kwargs())
+            WorkflowInterface.set_RunManagement, self.get_default_values_from_local_signature())
             
     def __str__(self, maxlevel=1000):
         
@@ -694,7 +694,7 @@ class WorkflowInterface(object):
         return new_component
 
     @staticmethod
-    def repack_kwargs(**kwargs):
+    def get_default_values_from_local_signature():
         # Get the current frame (frame where this function is called)
         frame = inspect.currentframe().f_back
         # Get the arguments from the calling frame
@@ -702,7 +702,7 @@ class WorkflowInterface(object):
         locals_dict.pop("self", None)
         locals_dict.pop("kwargs", None)
         locals_dict.pop("__class__", None)
-        locals_dict.pop("self.repack_kwargs", None)
+        locals_dict.pop("self.get_default_values_from_local_signature", None)
         kwargs = {key: locals_dict[key] for key in locals_dict if key not in locals_dict.get("args", [])}
         return kwargs
 

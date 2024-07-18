@@ -125,8 +125,8 @@ def apply(workflow):
         return
 
 
-    mola_logger.info('splitting and distributing mesh...', rank=0)
     mode = get_and_check_splitting_mode(workflow.SplittingAndDistribution)
+    mola_logger.info(f'splitting and distributing mesh (mode {mode})...', rank=0)
     if mode == 'auto':
         split_with_auto_mode(workflow)
     else:
@@ -338,11 +338,12 @@ def _splitAndDistributeUsingNProcsWithCassiopee(workflow, NumberOfProcessors, ra
                     dims = zone.shape()
                     for NPts, dir in zip(dims, ['i', 'j', 'k']):
                         if NPts < 5:
+                            warning_message = f'zone {zone[0]} has {NPts} pts in {dir} direction'
                             if NPts < 3:
-                                raise MolaException('zone {zone[0]} has {NPts} pts in {dir} direction', exit=False)
+                                mola_logger.error(warning_message)
                                 HasDegeneratedZones = True
                             else:
-                                mola_logger.warning('zone {zone[0]} has {NPts} pts in {dir} direction')
+                                mola_logger.warning(warning_message)
 
         if HasDegeneratedZones:
             raise MolaException('grid has degenerated zones. See previous print error messages')

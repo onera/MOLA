@@ -43,7 +43,7 @@ class ExternalFlowGenerator(object):
         self.Turbulence = workflow.Turbulence if workflow.Turbulence is not None else dict()
 
     def set_Flow_defaults(self,
-            Direction              : Union [ list, tuple, np.ndarray ] = [1, 0, 0],
+            Direction              : Union [ list, tuple, np.ndarray ] = [1., 0., 0.],
             VelocityForScalingAndTurbulence : float = None,
             *,
             Velocity               : float = 1.0,
@@ -57,6 +57,7 @@ class ExternalFlowGenerator(object):
     def _check_inputs(self):
         if len(self.Flow['Direction']) != 3:
             raise MolaUserAttributeError('Direction argument must be a 3-float list, tuple or numpy')
+        self.Flow['Direction'] = np.array(self.Flow['Direction'], dtype=float)
         
         if not 'VelocityForScalingAndTurbulence' in self.Flow \
             or self.Flow['VelocityForScalingAndTurbulence'] is None:

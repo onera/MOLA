@@ -47,6 +47,12 @@ def apply_to_solver(workflow):
     e.mode = elsAxdt.READ_ALL
     e.compute()
 
+    if rank==0:
+        table = e.symboltable()
+        with open(os.path.join(names.DIRECTORY_LOG, f'symbol_table.log'), 'w') as f:
+            import pprint
+            f.write(pprint.pformat(table))
+
     coprocess_manager.finalize()
     del workflow._coprocess_manager
     

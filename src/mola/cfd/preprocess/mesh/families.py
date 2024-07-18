@@ -46,31 +46,12 @@ def apply(workflow):
             if 'Families' not in component: 
                 continue
             
-            import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
 
             for operation in component['Families']:
                 FamilyName = operation['Name']
-                location   = operation['Location']
-                mola_logger.info(f'setting Family {FamilyName} in base {base.name()}')
-                
-                if location in structured_locations:
-                    for zone in base.zones():
-                        C._addBC2Zone(zone, FamilyName,
-                                    'FamilySpecified:'+FamilyName,
-                                    location)
+                location   = operation.get('Location')
+                set_family_from_location(base, FamilyName, location)
 
-                elif location == 'remaining':
-                    C._fillEmptyBCWith(base, FamilyName,
-                        'FamilySpecified:'+FamilyName,dim=base.dim())
-
-                elif location.startswith('plane'):
-                    if not base.isStructured():
-                        msg = f'component "{base.name()}" is not composed exclusively of '
-                        msg+= f'structured zones: hence, BC family "{FamilyName}" cannot '
-                        msg+= f'be applied at requested location "{location}"'
-                        raise ValueError(msg)
-
-                    WindowTags = getWindowTagsAtPlane(zone, planeTag=location)
             appendFamiliesToBase(base)
 
     if mpi_size > 1:
@@ -79,7 +60,29 @@ def apply(workflow):
         workflow.tree = cgns.castNode(workflow.tree)
         MPI.COMM_WORLD.barrier()
     
+def set_family_from_location(base, FamilyName, location):
+    import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
 
+    mola_logger.info(f'setting Family {FamilyName} in base {base.name()}')
+                    
+    if location in structured_locations:
+        for zone in base.zones():
+            C._addBC2Zone(zone, FamilyName,
+                        'FamilySpecified:'+FamilyName,
+                        location)
+
+    elif location == 'remaining':
+        C._fillEmptyBCWith(base, FamilyName,
+            'FamilySpecified:'+FamilyName,dim=base.dim())
+
+    elif location.startswith('plane'):
+        if not base.isStructured():
+            msg = f'component "{base.name()}" is not composed exclusively of '
+            msg+= f'structured zones: hence, BC family "{FamilyName}" cannot '
+            msg+= f'be applied at requested location "{location}"'
+            raise ValueError(msg)
+
+        WindowTags = getWindowTagsAtPlane(zone, planeTag=location)
 
 def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
     '''
@@ -153,7 +156,7 @@ def appendFamiliesToBase(base):
     for FamilyName in AllFamilyNames:
         cgns.Node(Name=FamilyName, Type='Family', Parent=base)
 
-def join_families(t, pattern):
+def join_families(t, pattern, mode=1):
     '''
     In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
     Families <ROW_I>_<PATTERN>, so as many as rows.
@@ -187,15 +190,26 @@ def join_families(t, pattern):
             'It must be more selective.'
         )
         preffix, suffix = split_fanBC
-        # Add the short name to the set fam2keep
-        short_name = f'{preffix}{pattern}'
-        if short_name not in fam2keep: 
-            fam2keep.append(short_name)
-        if suffix != '':
-            # Change the family name
-            famBC_node.setValue(short_name)
-            if famBC not in fam2remove: 
-                fam2remove.append(famBC)
+        if mode == 1:
+            # Add the short name to the set fam2keep
+            short_name = f'{preffix}{pattern}'
+            if short_name not in fam2keep: 
+                fam2keep.append(short_name)
+            if suffix != '':
+                # Change the family name
+                famBC_node.setValue(short_name)
+                if famBC not in fam2remove: 
+                    fam2remove.append(famBC)
+        else:
+            # Add the short name to the set fam2keep
+            short_name = f'{pattern}'
+            if short_name not in fam2keep: 
+                fam2keep.append(short_name)
+            if preffix != '' or suffix != '':
+                # Change the family name
+                famBC_node.setValue(short_name)
+                if famBC not in fam2remove: 
+                    fam2remove.append(famBC)
 
     # Remove families
     for fam in fam2remove:
@@ -208,5 +222,5 @@ def join_families(t, pattern):
         fam_node = t.get(Name=fam, Type='Family', Depth=2)
         if fam_node is None:
             mola_logger.debug(f'Add family {fam}')
-            cgns.createNode(Name=fam, Type='Family', Parent=base)
+            cgns.Node(Name=fam, Type='Family', Parent=base)
 
