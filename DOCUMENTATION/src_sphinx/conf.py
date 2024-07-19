@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'MOLA'
 copyright = 'ONERA'
 author = 'Luis BERNARDOS'
-release = 'Dev' # sets the default doc version
+release = 'v1.18' # sets the default doc version
 
 
 # -- General configuration ---------------------------------------------------
@@ -84,6 +84,7 @@ html_context = {
     "default_mode": "light",
     'versions_dropdown': {
         'Dev': 'development',
+        'v1.18': 'v1.18',
         'v1.17': 'v1.17',
         'v1.16': 'v1.16',
         'v1.15': 'v1.15',
