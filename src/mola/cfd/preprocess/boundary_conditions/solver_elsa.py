@@ -284,6 +284,9 @@ def outpres(workflow, Family, Pressure, bc=None, variableForInterpolation='Chann
         setBCwithImposedVariables(workflow, Family, ImposedVariables,
                                 FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
 
+def outmfr2(workflow, Family, MassFlow, groupmassflow=1):
+    ImposedVariables = dict(globalmassflow=MassFlow, groupmassflow=groupmassflow)
+    setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC='BCOutflowSubsonic', BCType='outmfr2')
 
 def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCType,
     bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):

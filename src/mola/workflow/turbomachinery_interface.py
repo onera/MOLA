@@ -72,4 +72,4 @@ class WorkflowTurbomachineryInterface(WorkflowInterface):
         '''
         local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
-        return super().add_to_Extractions_Integral(**local_kwargs)
+        super().add_to_Extractions_Integral(**local_kwargs)

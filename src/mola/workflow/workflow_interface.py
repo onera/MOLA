@@ -184,6 +184,7 @@ class WorkflowInterface(object):
 
     def add_to_BoundaryConditions(self,
         Pressure      : float = None,
+        MassFlow      : float = None,
         Motion        : dict  = None, # TODO check this
         LinkedFamily  : str   = None,
         *,

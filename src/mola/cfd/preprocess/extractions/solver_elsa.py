@@ -135,6 +135,7 @@ def process_extractions_2d(workflow):
     default_bc_parameters, default_bc_wall_parameters = get_default_parameters_for_2d_extractions(workflow.SolverParameters, workflow.Flow['Pressure'])
     
     FamilyNodes = workflow.tree.group(Type='Family', Depth=2)
+    BCFamilyNodes = [node for node in FamilyNodes if node.get(Type='FamilyBC', Depth=1)]
 
     # Among all extractions, get all the BCType that are asked
     AllBCExtractions = []
@@ -144,14 +145,16 @@ def process_extractions_2d(workflow):
 
     for Extraction in workflow.Extractions:
 
-        if Extraction['Type'] != 'BC':
+        is_integral_on_bc = Extraction['Type'] == 'Integral' \
+            and (Extraction['Source'].startswith('BC') or Extraction['Source'] in BCFamilyNodes)
+        if Extraction['Type'] != 'BC' and not is_integral_on_bc:
             # extraction not handled with that function
             continue
 
         # TODO : manage the case with no BCType given but a Family instead
         ExtractBCTypeRequired = Extraction['Source'] # It may contain *
 
-        for FamilyNode in FamilyNodes:
+        for FamilyNode in BCFamilyNodes:
             FamilyBCNode = FamilyNode.get(Type='FamilyBC', Value=ExtractBCTypeRequired, Depth=1)
             if FamilyBCNode:
                 ExtractBCType = FamilyBCNode.value()

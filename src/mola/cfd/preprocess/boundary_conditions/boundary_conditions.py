@@ -221,6 +221,22 @@ def InflowStagnation(workflow, bc):
 def OutflowPressure(workflow, bc):
     return [bc['Family']], dict(Pressure=bc['Pressure']) 
 
+def OutflowMassFlow(workflow, bc):
+    MassFlow = bc.get('MassFlow')
+    if not MassFlow:
+        MassFlow = workflow.Flow.get('MassFlow')
+    if not MassFlow:
+        from mola.cfd.preprocess.mesh.tools import get_surface_of_family
+        surface = get_surface_of_family(workflow.tree, bc['Family'])
+        MassFlow = workflow.Flow['Density']*workflow.Flow['Velocity']*surface
+
+    try:
+        fluxcoeff = workflow.ApplicationContext['NormalizationCoefficient'][bc['Family']]['FluxCoef']
+    except: 
+        fluxcoeff = 1.
+
+    MassFlowOnBC = MassFlow / fluxcoeff
+    return [bc['Family']], dict(MassFlow=MassFlowOnBC) 
 
 def getPrimitiveTurbulentFieldForInjection(workflow, bc):
         '''
