@@ -186,12 +186,9 @@ def Wall(workflow, bc):
     motion.update_motion_with_defaults(Motion)
     return [bc['Family']], dict(Motion=Motion) 
 
-def WallViscous(workflow, bc):
-    return Wall(workflow, bc)
+WallViscous = Wall
+WallInviscid = Wall
 
-def WallInviscid(workflow, bc):
-    return Wall(workflow, bc) 
-    
 def Farfield(workflow, bc):
     return [bc['Family']], dict() 
 
@@ -216,6 +213,39 @@ def InflowStagnation(workflow, bc):
         **getPrimitiveTurbulentFieldForInjection(workflow, bc)
         )
 
+    return [bc['Family']], dict(ImposedVariables=ImposedVariables, variableForInterpolation=variableForInterpolation) 
+
+def InflowMassFlow(workflow, bc):
+    Surface = bc.get('Surface', None)
+    if not Surface:
+        from mola.cfd.preprocess.mesh.tools import get_surface_of_family
+        Surface = get_surface_of_family(workflow.tree, bc['Family'])
+        try:
+            Surface *= workflow.ApplicationContext['NormalizationCoefficient'][bc['Family']]['FluxCoef']
+        except:
+            pass
+
+    MassFlow              = bc.get('MassFlow', workflow.Flow['MassFlow'])
+    SurfacicMassFlow      = bc.get('SurfacicMassFlow', MassFlow / Surface)
+
+    TemperatureStagnation = bc.get('TemperatureStagnation', workflow.Flow['TemperatureStagnation'])
+    EnthalpyStagnation    = bc.get('EnthalpyStagnation', workflow.Fluid['cp'] * TemperatureStagnation)
+    VelocityUnitVectorX   = bc.get('VelocityUnitVectorX', workflow.Flow['Direction'][0])
+    VelocityUnitVectorY   = bc.get('VelocityUnitVectorY', workflow.Flow['Direction'][1])
+    VelocityUnitVectorZ   = bc.get('VelocityUnitVectorZ', workflow.Flow['Direction'][2])
+    variableForInterpolation = bc.get('variableForInterpolation', 'ChannelHeight')    
+    # if not 'MassFlow' in bc:
+    #     # used for getPrimitiveTurbulentFieldForInjection
+    #     bc['MassFlow'] = SurfacicMassFlow * Surface
+
+    ImposedVariables = dict(
+        SurfacicMassFlow    = SurfacicMassFlow,
+        EnthalpyStagnation  = EnthalpyStagnation,
+        VelocityUnitVectorX = VelocityUnitVectorX,
+        VelocityUnitVectorY = VelocityUnitVectorY,
+        VelocityUnitVectorZ = VelocityUnitVectorZ,
+        **getPrimitiveTurbulentFieldForInjection(workflow, bc)
+        )
     return [bc['Family']], dict(ImposedVariables=ImposedVariables, variableForInterpolation=variableForInterpolation) 
 
 def OutflowPressure(workflow, bc):

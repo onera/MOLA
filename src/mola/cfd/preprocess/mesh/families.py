@@ -156,7 +156,7 @@ def appendFamiliesToBase(base):
     for FamilyName in AllFamilyNames:
         cgns.Node(Name=FamilyName, Type='Family', Parent=base)
 
-def join_families(t, pattern, mode=1):
+def join_families(t, pattern, mode=2):
     '''
     In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
     Families <ROW_I>_<PATTERN>, so as many as rows.

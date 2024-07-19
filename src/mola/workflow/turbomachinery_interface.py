@@ -64,7 +64,7 @@ class WorkflowTurbomachineryInterface(WorkflowInterface):
         self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
 
     def add_to_Extractions_Integral(self,
-            File : str = "turbo_signals.cgns",
+            File : str = "signals.cgns",
             Frame : str = 'relative',
             **kwargs):
         '''

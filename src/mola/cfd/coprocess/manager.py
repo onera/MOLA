@@ -22,9 +22,10 @@ import timeit
 import copy
 
 from treelab import cgns
-from mola.logging import MolaException, MolaAssertionError, MolaUserError
+from mola.logging import MolaException, MolaAssertionError, MolaUserError, CYAN, ENDC, GREEN
 import mola.naming_conventions as names
 from mola.cfd import call_solver_specific_function
+from mola.cfd.preprocess.mesh.io.writer import write
 
 from . import mola_logger, rank, comm
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
@@ -137,6 +138,13 @@ class CoprocessManager():
                         filename = extraction['File']
                     else:
                         filename = os.path.join(names.DIRECTORY_OUTPUT, extraction['File'])
+                    override = extraction.get('Override', True)
+                    if not override:
+                        # Add a suffix _AfterIter<Iteration>
+                        f2cSplit = filename.split('.')
+                        name = '.'.join(f2cSplit[:-1])
+                        fmt = f2cSplit[-1]
+                        filename = f'{name}_AfterIter{self.iteration}.{fmt}'
                     files_to_save.setdefault(filename, [])
                     files_to_save[filename].append(extraction['Data'])
             return files_to_save
@@ -146,24 +154,14 @@ class CoprocessManager():
             tree_to_save = cgns.merge(data_pytrees)
             self.save(tree_to_save, filename)
 
-    def save(self, data, filename, tag_with_iteration=False):
-        from mola.cfd.preprocess.mesh.io.writer import write
-        from mola.logging import CYAN, ENDC, GREEN
-
-        if data is not None:
-            if tag_with_iteration:
-                f2cSplit = filename.split('.')
-                name = '.'.join(f2cSplit[:-1])
-                fmt = f2cSplit[-1]
-                filename = f'{name}_AfterIter{self.iteration}.{fmt}'
-
-            mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
-            if self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
-                io_tool = 'cassiopee_mpi'
-            else:
-                io_tool = None
-            write(self.workflow, data, filename, io_tool=io_tool)
-            mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
+    def save(self, data, filename):
+        mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
+        if self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
+            io_tool = 'cassiopee_mpi'
+        else:
+            io_tool = None
+        write(self.workflow, data, filename, io_tool=io_tool)
+        mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
          
     def finalize(self):
         mola_logger.info(f'>> finalize', rank=0)

@@ -37,7 +37,9 @@ def apply_to_solver(workflow):
             # In elsA, the extraction period is defined by add_global_convergence_history
             # Hence, the update of residuals by MOLA can be done at SavePeriod (more is useless)
             Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
-            break
+        elif Extraction['Type'] == 'Integral':
+            Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
+            
 
 def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():
@@ -178,8 +180,6 @@ def get_default_parameters_for_2d_extractions(SolverParameters, pinf):
         loc           = 'interface',
         fluxcoeff     = 1.0,
         writingframe  = 'absolute',
-        geomdepdom    = 2, # see #8127#note-26
-        delta_cell_max= 300,
     )
 
     # Keys to write in the .Solver#Output for wall Families
@@ -196,6 +196,8 @@ def get_default_parameters_for_2d_extractions(SolverParameters, pinf):
         ytorque       = 0.0,
         ztorque       = 0.0,
         writingframe  = 'relative', # absolute incompatible with unstructured mesh
+        geomdepdom    = 2, # see #8127#note-26
+        delta_cell_max= 300,
     ))
     return default_bc_parameters, default_bc_wall_parameters
 

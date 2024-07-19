@@ -32,9 +32,9 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         if tree is not None:
             self.get_workflow_parameters_from_tree()
         else:
-            self._interface.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
-            self._interface.add_to_Extractions_BC(Source='BCInflow*', Fields=['MassFlow'])
-            self._interface.add_to_Extractions_BC(Source='BCOutflow*', Fields=['MassFlow'])
+            self._interface.add_to_Extractions_BC(Source='BCWallViscous', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
+            self._interface.add_to_Extractions_Integral(Source='BCInflow*', Fields=['MassFlow'])
+            self._interface.add_to_Extractions_Integral(Source='BCOutflow*', Fields=['MassFlow'])
 
     def submit_iso_speed_line(self, ThrottleValues, ParallelMode=False, initialize_from_previous=True):
 

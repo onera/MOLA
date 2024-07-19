@@ -104,25 +104,6 @@ def wallslip(workflow, Family, Motion=None):
 
     .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
 
-    Parameters
-    ----------
-
-        workflow.tree : PyTree
-            Tree to modify
-
-        Family : str
-            Name of the family on which the boundary condition will be imposed
-        
-        Motion : dict, optional
-            Example:
-
-            .. code-block:: python
-                Motion = dict(
-                    RotationSpeed = [1000., 0., 0.],
-                    RotationAxisOrigin = [0., 0., 0.],
-                    TranslationSpeed = [0., 0., 0.]
-                    )
-
     '''
     wall(workflow, Family, Motion=Motion, bctype_cgns='BCWallInviscid', bctype_elsa='wallslip')
 
@@ -131,26 +112,7 @@ def walladia(workflow, Family, Motion=None):
     Set a viscous wall boundary condition.
 
     .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
-
-    Parameters
-    ----------
-
-        workflow.tree : PyTree
-            Tree to modify
-
-        Family : str
-            Name of the family on which the boundary condition will be imposed
-        
-        Motion : dict, optional
-            Example:
-
-            .. code-block:: python
-                Motion = dict(
-                    RotationSpeed = [1000., 0., 0.],
-                    RotationAxisOrigin = [0., 0., 0.],
-                    TranslationSpeed = [0., 0., 0.]
-                    )
-
+    
     '''
     wall(workflow, Family, Motion=Motion, bctype_cgns='BCWallViscous', bctype_elsa='walladia')
 
@@ -231,6 +193,9 @@ def inj1(workflow, Family, ImposedVariables, bc=None, variableForInterpolation='
     else:
         setBCwithImposedVariables(workflow, Family, ImposedVariables,
             FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
+
+def injmfr1(workflow, Family, ImposedVariables, variableForInterpolation='ChannelHeight'):
+    setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC='BCInflowSubsonic', BCType='injmfr1', variableForInterpolation=variableForInterpolation)
 
 def outpres(workflow, Family, Pressure, bc=None, variableForInterpolation='ChannelHeight'):
     '''

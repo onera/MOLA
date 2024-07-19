@@ -20,7 +20,6 @@ import glob
 import shutil
 from fnmatch import fnmatch
 
-import Converter.Internal as I
 import elsAxdt
 
 from treelab import cgns
@@ -37,6 +36,10 @@ from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataS
 def perform_extractions(workflow, coprocess_manager):
     output_tree = get_elsa_output_tree(workflow._Skeleton)
     families_to_bctype = get_family_to_BCType(output_tree)
+
+    # extract all integral data at once, so once by iteration, 
+    # whatever the number of Extractions with type Integral
+    integral_data_already_extracted = False 
     
     for extraction in coprocess_manager.Extractions:
         if extraction['IsToExtract'] == False:
@@ -60,8 +63,10 @@ def perform_extractions(workflow, coprocess_manager):
         elif extraction['Type'] == 'Residuals':
             extraction['Data'] = extract_residuals(output_tree)
         
-        # elif extraction['Type'] == 'Integral':
-        #     extraction['Data'] = extract_integral(output_tree)
+        elif extraction['Type'] == 'Integral' and not integral_data_already_extracted:
+            NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
+            extraction['Data'] = extract_integral(output_tree, NormalizationCoefficients)
+            integral_data_already_extracted = True
 
         # elif extraction['Type'] == 'Probe':
         #     extraction['Data'] = extract_probe(output_tree)
@@ -91,8 +96,8 @@ def get_elsa_output_tree(skeleton):
 
     '''
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
-    t = I.merge([skeleton, t])
     t = cgns.castNode(t)
+    t.merge(skeleton)
     ravel_BCDataSet(t) # HACK https://elsa.onera.fr/issues/11219
     remove_empty_BCDataSet(t)
     # force_FamilyBC_as_FamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
@@ -165,11 +170,9 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
         mola_logger.debug(f'  {family=}', rank=0)
     
         data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
-        SurfacesTree = I.merge([SurfacesTree, data_tree])
-        # SurfacesTree.merge(data_tree) # TODO This doesn't work. Need a new function in Treelab that makes what I.merge does.
+        data_tree = cgns.castNode(data_tree)
+        SurfacesTree.merge(data_tree)
     
-    SurfacesTree = cgns.castNode(SurfacesTree)
-
     if extraction['Name'] != 'ByFamily':
         # merge all bases and rename the unique base
         base0 =  SurfacesTree.bases()[0]
@@ -219,7 +222,46 @@ def extract_residuals(output_tree):
     
     return t
 
-def extract_probes():
+def extract_integral(output_tree, NormalizationCoefficients=None):
+
+    def _normalize_data(IntegralDataNode, Family, NormalizationCoefficients):
+        data_to_normalize = dict(
+            convflux_ro = dict(Name='MassFlow', Coef='FluxCoef'),
+            CL = dict(Name='CL', Coef='FluxCoef'),
+            CD = dict(Name='CD', Coef='FluxCoef'),
+            CY = dict(Name='CY', Coef='FluxCoef'),
+            Cn = dict(Name='Cn', Coef='TorqueCoef'),
+            Cl = dict(Name='Cl', Coef='TorqueCoef'),
+            Cm = dict(Name='Cm', Coef='TorqueCoef'),
+        )
+        for name, params in data_to_normalize.items():
+            new_name = params['Name']
+            try:
+                coef = NormalizationCoefficients[Family][params['Coef']]
+                node = IntegralDataNode.get(Name=name, Type='DataArray')
+                cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=IntegralDataNode)
+            except:
+                pass
+    
+    t = cgns.Tree()
+    base = cgns.Base(Name='Base', Parent=t)
+    zone = cgns.Zone(Name='Integral', Parent=base)
+    for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):
+        Family = IntegralDataNode.name().split('-')[0]
+        IntegralDataNode.dettach()
+        IntegralDataNode.setName(Family)
+        if NormalizationCoefficients:
+            _normalize_data(IntegralDataNode, Family, NormalizationCoefficients)
+        zone.addChild(IntegralDataNode)
+
+    comm.barrier()
+    trees = comm.allgather(t)
+    t = cgns.merge(trees)
+    comm.barrier() 
+
+    return t
+
+def extract_probe(output_tree):
     mola_logger.warning('skip extraction of type Probe (not implemented yet)', rank=0)
     return cgns.Tree()
 
