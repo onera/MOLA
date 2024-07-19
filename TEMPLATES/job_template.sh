@@ -1,25 +1,23 @@
 #!/bin/bash
 #SBATCH -J <JobName>
-#SBATCH --comment <AERnumber> # only relevant for sator
+#SBATCH --comment <AERnumber> # for sator
 #SBATCH -o output.%j.log
 #SBATCH -e error.%j.log
 #SBATCH -t 0-15:00
 #SBATCH -n <NumberOfProcessors>
-#SBATCH --constraint="csl"
-# #SBATCH --qos <qos>
-# NOTE : if job is used in SPIRO, then flag --qos (e.g. c1_test_giga)
-#        must also be provided
-
+#SBATCH --constraint="csl" # for sator
+# #SBATCH --qos <qos> # for SPIRO (e.g. c1_test_giga)
+# #SBATCH -p intel # for juno
 
 ###############################################################################
 # -------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ------------------ #
-export MOLAVER=Dev
-if [ -f "/tmp_user/sator/lbernard/MOLA/$MOLAVER/env_MOLA.sh" ]; then
-    source /tmp_user/sator/lbernard/MOLA/$MOLAVER/env_MOLA.sh
-elif [ -f "/tmp_user/juno/lbernard/MOLA/$MOLAVER/env_MOLA.sh" ]; then
-    source /tmp_user/juno/lbernard/MOLA/$MOLAVER/env_MOLA.sh
+export MOLAVER=v1.18
+if [ -f "/tmp_user/sator/mola/$MOLAVER/env_MOLA.sh" ]; then
+    source /tmp_user/sator/mola/$MOLAVER/env_MOLA.sh
+elif [ -f "/tmp_user/juno/mola/$MOLAVER/env_MOLA.sh" ]; then
+    source /tmp_user/juno/mola/$MOLAVER/env_MOLA.sh
 else
-    source /stck/lbernard/MOLA/$MOLAVER/env_MOLA.sh
+    source /stck/mola/$MOLAVER/env_MOLA.sh
 fi
 if [ "$MAC" = "ld" ] ; then export OMP_NUM_THREADS=1; fi # ticket elsA 11143
 ###############################################################################
