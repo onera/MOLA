@@ -41,6 +41,7 @@ CFD
 ---
 * fixed bug impacting Menter-Langtry turbulence model limiters
 * included ``injrot`` elsA condition
+* allow using 2D map for ``OutflowPressure`` (``outpres``) and ``Farfield`` (``nref``) boundary conditions
 * fixed bug on turbulence cutoff in WorfkflowAirfoil
 * bug fixes on unsteady masking
 
