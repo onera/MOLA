@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
 from ..families import join_families
@@ -33,7 +34,7 @@ def reader(w, component):
     mola_logger.info(f'Read component {name} with Autogrid reader')
         
     component.setdefault('Tolerance', 1e-8)
-    unit = component.get('unit', 'm')
+    unit = component.get('Unit', 'm')
     InitialFrame = component.get('InitialFrame', dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]))
 
     DefaultPositioning = [
@@ -63,7 +64,7 @@ def reader(w, component):
     join_families(mesh, 'HUB')
     join_families(mesh, 'SHROUD')
 
-    update_Connection_from_mesh(mesh, component)
+    update_Connection_from_mesh(mesh, component, w.ApplicationContext['ShaftAxis'])
     clean_grid_connectivities(mesh)
     clean_family_properties(mesh)
 
@@ -115,15 +116,15 @@ def rename_zones(t, zonesToRename=dict()):
             new_name = new_name.replace(pattern, '')
         I._renameNode(t, name, new_name)
 
-def update_Connection_from_mesh(mesh, component):
+def update_Connection_from_mesh(mesh, component, axis):
     # Only if grid connectivities are not already in the mesh
     # TODO: Test on the presence of GC
     # component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
 
-    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['Tolerance'])
+    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['Tolerance'], axis)
     component['Connection'] += periodic_connections
 
-def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance):
+def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance, axis=np.array([1,0,0])):
     base = mesh.bases()[0]
     # angles = set()
     # for node in base.group(Name='BladeNumber'):
@@ -149,7 +150,7 @@ def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance):
             dict(
                 Type='PeriodicMatch', 
                 Tolerance=Tolerance, 
-                RotationAngle=[angle,0.,0.],
+                RotationAngle=angle*axis,
                 Families=(f'{row}_PER1', f'{row}_PER2'),
                 )
             )

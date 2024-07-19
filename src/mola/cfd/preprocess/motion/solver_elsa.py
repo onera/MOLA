@@ -43,8 +43,8 @@ def apply_to_solver(workflow):
     for family, MotionOnFamily in workflow.Motion.items():
         famNode = workflow.tree.get(Name=family, Type='Family', Depth=2)
 
-        # if not motion.is_mobile(MotionOnFamily):
-        #     continue
+        if not motion.is_mobile(MotionOnFamily):
+            continue
         assert_rotation_axis_is_correct(MotionOnFamily)
 
         mola_logger.debug(f'set motion on {family}: {MotionOnFamily}')
@@ -63,7 +63,7 @@ def assert_rotation_axis_is_correct(Motion):
     
     assert onlyOneRotationComponent, 'For elsA, the rotation must be around one axis only'    
 
-def translate_motion_to_elsa(Motion):
+def translate_motion_to_elsa(Motion, remove_null_motions=True):
     if callable(Motion) or any([callable(v) for v in Motion.values()]):
         raise Exception('Cannot translate a function')
     
@@ -81,19 +81,24 @@ def translate_motion_to_elsa(Motion):
     else:
         TranslationVector = [1., 0., 0.]
 
-    motion_elsa = dict(
-        omega        = RotationSpeed,
-        axis_pnt_x   = Motion['RotationAxisOrigin'][0], 
-        axis_pnt_y   = Motion['RotationAxisOrigin'][1], 
-        axis_pnt_z   = Motion['RotationAxisOrigin'][2],
-        axis_vct_x   = RotationAxis[0], 
-        axis_vct_y   = RotationAxis[1], 
-        axis_vct_z   = RotationAxis[2], 
-        transl_vct_x = TranslationVector[0],
-        transl_vct_y = TranslationVector[1],
-        transl_vct_z = TranslationVector[2],
-        transl_speed = TranslationSpeed,
-    )
+    motion_elsa = dict()
+    if not remove_null_motions or RotationSpeed != 0.:
+        motion_elsa.update(dict(
+            omega        = RotationSpeed,
+            axis_pnt_x   = Motion['RotationAxisOrigin'][0], 
+            axis_pnt_y   = Motion['RotationAxisOrigin'][1], 
+            axis_pnt_z   = Motion['RotationAxisOrigin'][2],
+            axis_vct_x   = RotationAxis[0], 
+            axis_vct_y   = RotationAxis[1], 
+            axis_vct_z   = RotationAxis[2], 
+        ))
+    if not remove_null_motions or TranslationSpeed != 0.:
+        motion_elsa.update(dict(
+            transl_vct_x = TranslationVector[0],
+            transl_vct_y = TranslationVector[1],
+            transl_vct_z = TranslationVector[2],
+            transl_speed = TranslationSpeed, 
+        ))
 
     return motion_elsa
         
