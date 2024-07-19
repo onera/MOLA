@@ -4,7 +4,7 @@ MOLA documentation
 Welcome to **MO**\ dular workf\ **L**\ ows for **A**\ erodynamics (MOLA)
 documentation website.
 
-Current documentation version is: ``v1.18``.
+Current documentation version is: ``v1.17``.
 
 Please note the `GitLab page <https://gitlab.onera.net/numerics/mola>`_ of MOLA
 and its associated `Issues <https://gitlab.onera.net/numerics/mola/-/issues>`_ section where
@@ -35,41 +35,47 @@ using `elsA <https://elsa.onera.fr>`_ solver.
 Major changes
 =============
 
-Major changes with respect to previous version (``v1.17``):
+Major changes with respect to previous version (``v1.16``):
 
 CFD
 ---
-* fixed bug impacting Menter-Langtry turbulence model limiters
-* included ``injrot`` elsA condition
-* allow using 2D map for ``OutflowPressure`` (``outpres``) and ``Farfield`` (``nref``) boundary conditions
-* fixed bug on turbulence cutoff in WorfkflowAirfoil
-* bug fixes on unsteady masking
+* use of elsA v5.2.03
+* corrected major bug involving the restart procedure when time-averaging
+* many new examples in `$MOLA/EXAMPLES` and `$MOLA/EXAMPLES_RESTRICTED` directories
+* new inlet and outlet Giles conditions including relevant examples
+* residuals are now accessible during the simulation in file arrays.cgns
 
 
 LIFTING-LINE
 ------------
-* fixed minor bug on computation of lifting-line length
+* DISCLAIMER: LiftingLines files generated with MOLA < v1.17 are not compatible. They shall be regenerated.
+* new sweep and dihedral corrections implemented
+* enhancements on the collective pitch variations
+* included new examples showing lifting-line generation from a blade scan in `$MOLA/EXAMPLES/LIFTING_LINE`
+* multiple new and more readable spanwise loads contained in FlowSolution
+
+BODY-FORCE
+----------
+* the API for body-force applied to internal aerodynamics has changed. See the :ref:`dedicated tutorial <TutorialWorkflowCompressorBodyForce>`.
 
 VPM
 ---
-* use of VULCAINS v0.5
-* new documentation
-* new factorized user interface
-* new enstrophy-based stabilizing algorithm
-* new examples now available on Juno and Sator ONERA machines
-
+* use of VPM v0.4 now called VULCAINS
+* fixed memory leaks
+* multiple lifting-line resolution approach implemented
+* enhanced lifting-line circulation subiterations algorithm
+* included new examples in `$MOLA/EXAMPLES/VPM`
 
 TreeLab
 -------
-* use of v0.2.0
-* allows for reading children of nodes with links
-* simultaneous modification of node value (or name) for multiple selected nodes
-* simultaneous modification of numpy values for multiple cells selected in table
-* new reimplmentation of merge function
+* Extracted the repository of `TreeLab <https://github.com/Luispain/treelab>`_, which is now a fully independent package
+* multi-tab approach, allowing for copying nodes from one tree to another
+* new look with selectable themes (light and dark modes)
+* fully portable and cross-platform, included in `PyPi <https://pypi.org/project/mola-treelab>`_
 
 More details
 ------------
-* See `here <https://gitlab.onera.net/numerics/mola/-/issues/?sort=created_date&state=closed&milestone_title=v1.18&first_page_size=100>`_ a full list of relevant actions related to v1.18 release
+* See `here <https://gitlab.onera.net/numerics/mola/-/issues/?sort=created_date&state=closed&milestone_title=v1.17&first_page_size=100>`_ a full list of relevant actions related to v1.17 release
 
 
 Indices and tables
