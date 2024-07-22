@@ -21,6 +21,7 @@ import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import server as SV
+from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text
 
 def apply_to_solver(workflow):
 
@@ -100,7 +101,7 @@ def write_data_files(workflow):
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)
     write_coprocess(workflow.RunManagement)
-    write_job_launcher(workflow.RunManagement)
+    write_job_launcher(workflow.RunManagement, workflow._SchedulerOptions)
 
 def write_compute(RunManagement):
     txt = f'''
@@ -116,8 +117,8 @@ def write_coprocess(RunManagement):
     txt = '''workflow._coprocess_manager.run_iteration()'''
     SV.save_file_maybe_remote(names.FILE_COPROCESS, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
-def write_job_launcher(RunManagement):
+def write_job_launcher(RunManagement, scheduler_options):
 
-    job_text = SV.get_job_text(RunManagement, 'elsa')+'\n\n'
+    job_text = get_job_text('elsa', RunManagement, scheduler_options)+'\n\n'
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}\n'
     SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])

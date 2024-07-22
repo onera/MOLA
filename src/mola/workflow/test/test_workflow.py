@@ -27,7 +27,7 @@ import mola.naming_conventions as names
 from mola.workflow import Workflow
 from mola.logging import mola_logger, MolaException, mute_stdout
 from mola import server as SV
-from mola.cfd.preprocess.write_cfd_files.write_cfd_files import set_default
+from mola.cfd.preprocess.run_manager import run_manager
 
 
 def get_workflow_dist():
@@ -575,8 +575,8 @@ def test_submit():
     test_dir = 'test_submit_dir'
     os.makedirs(test_dir, exist_ok=True)
     w = Workflow(RunManagement=dict(RunDirectory=test_dir))
-    set_default(w.RunManagement)
-    SV.job_writer.set_launcher_command(w.RunManagement)
+    run_manager.set_default(w.RunManagement)
+    run_manager.set_launcher_command(w.RunManagement)
     with open(os.path.join(test_dir,'job.sh'),'w') as f:
         f.write('hostname > test.txt')
     w.submit()
@@ -765,8 +765,8 @@ def test_submit():
     test_dir = 'test_submit_dir'
     os.makedirs(test_dir, exist_ok=True)
     w = Workflow(RunManagement=dict(RunDirectory=test_dir))
-    set_default(w.RunManagement)
-    SV.job_writer.set_launcher_command(w.RunManagement)
+    run_manager.set_default(w.RunManagement)
+    run_manager.set_launcher_command(w.RunManagement)
     with open(os.path.join(test_dir,names.FILE_JOB),'w') as f:
         f.write('hostname > test.txt')
     w.submit()

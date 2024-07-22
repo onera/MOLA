@@ -38,6 +38,7 @@ from  mola.cfd.preprocess import (flow_generators,
                                motion,
                                cfd_parameters,
                                extractions,
+                               run_manager,
                                write_cfd_files)
 from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
@@ -56,6 +57,7 @@ class Workflow(object):
         if tree is not None: self.get_workflow_parameters_from_tree()
         
     def prepare(self):
+        self.prepare_job()
         self.assemble() # distributed from here 
         self.positioning()
         self.define_families() # possibly partitioned from here
@@ -79,6 +81,8 @@ class Workflow(object):
             raise MolaException((f'the requested solver "{requested_solver}" does not'
                 f'match the type of environment "{env_solver}"'))
 
+    def prepare_job(self):
+        run_manager.apply(self)
 
     def assemble(self):
         self.read_meshes()

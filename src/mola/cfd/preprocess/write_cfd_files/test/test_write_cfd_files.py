@@ -18,23 +18,40 @@
 import pytest
 import os
 from mola import __MOLA_PATH__
-from mola.logging import check_error_message
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
-from mola.server import remote
 
 @pytest.mark.network_onera
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_set_default():
-    config = remote.get_network_config()
-
+def test_onera_get_job_text():
     RunManagement = dict(
-        Machine = 'auto',
-        RunDirectory = '.',
-        NumberOfProcessors = 3,
-        )
+        mola_target_path = __MOLA_PATH__,
+        Machine = 'sator',
+        Scheduler = 'SLURM',
+    )
+    scheduler_options = {
+        'time': '15:00:00',
+        'job-name': 'mytest',
+        'output': 'output.%j.log',
+        'error': 'error.%j.log',
+    }
 
-    write_cfd_files.set_default(RunManagement)
+    job_text = write_cfd_files.get_job_text('fake_solver', RunManagement, scheduler_options)
 
-    assert RunManagement['Machine'] in config.AvailableEnvironments
-    # TODO Complete the assertion tests
+    env = os.path.join(
+        RunManagement['mola_target_path'],
+        "mola",
+        "env",
+        "onera",
+        RunManagement['Machine'],
+        'fake_solver.sh')
+    
+    assert job_text == f'''#!/bin/bash
+#SBATCH --time=15:00:00
+#SBATCH --job-name=mytest
+#SBATCH --output=output.%j.log
+#SBATCH --error=error.%j.log
+
+source {env}
+unset "${{!OMPI_@}}" "${{!MPI_@}}"'''
+    

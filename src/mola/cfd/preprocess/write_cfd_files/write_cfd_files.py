@@ -15,28 +15,39 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from mola.cfd import apply_to_solver
-from mola.logging import mola_logger, MolaException
 from mola import server as SV
 
 def apply(workflow):
 
-    set_default(workflow.RunManagement)
     apply_to_solver(workflow)
 
-def set_default(RunManagement):
-    # CAVEAT: cannot use other contextual information contained in Workflow if 
-    # only provides RunManagement in function
-    set_default_machine(RunManagement)
-    
-    RunManagement.setdefault('mola_target_path', SV.get_mola_installation_path(RunManagement['Machine']))
-        
-    if not SV.run_on_localhost(RunManagement['Machine'], RunManagement['RunDirectory']):
-        mola_logger.info(f"> Run on a remote machine ({RunManagement['Machine']}):\n"
-                         f"    on path {RunManagement['RunDirectory']}\n"
-                         f"    sourcing {RunManagement['mola_target_path']}"
-                         )
+def get_job_text(solver, RunManagement, scheduler_options):
 
-def set_default_machine(RunManagement):
-    if ('Machine' not in RunManagement) or (RunManagement['Machine'] == 'auto'):
-        RunManagement['Machine'] = SV.guess_machine(RunManagement['RunDirectory'])
+    network = SV.get_network()
+
+    header = build_job_scheduler_header(RunManagement['Scheduler'], scheduler_options)
+
+    env = os.path.join(
+        RunManagement['mola_target_path'],
+        "mola",
+        "env",
+        network,
+        RunManagement['Machine'],
+        solver+'.sh')
+
+    job_text = ('#!/bin/bash\n'
+               f'{header}\n'
+               f'source {env}\n'
+                'unset "${!OMPI_@}" "${!MPI_@}"' # https://stackoverflow.com/questions/76672866/running-an-independent-slurm-job-with-mpirun-inside-a-python-script-recursive
+                )
+
+    return job_text
+
+def build_job_scheduler_header(Scheduler, scheduler_options):
+    header = ''
+    if Scheduler == 'SLURM':
+        for option, value in scheduler_options.items():
+            header += f"#SBATCH --{option}={value}\n"
+    return header

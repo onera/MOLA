@@ -16,9 +16,26 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
-import os
 from mola import __MOLA_PATH__
-from mola.server import job_writer
+from mola.cfd.preprocess.run_manager import run_manager
+from mola.server import remote
+
+@pytest.mark.network_onera
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_default():
+    config = remote.get_network_config()
+
+    RunManagement = dict(
+        Machine = 'auto',
+        RunDirectory = '.',
+        NumberOfProcessors = 3,
+        )
+
+    run_manager.set_default(RunManagement)
+
+    assert RunManagement['Machine'] in config.AvailableEnvironments
+    # TODO Complete the assertion tests
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -33,7 +50,7 @@ from mola.server import job_writer
     ])
 def test_convert_to_seconds_ss_int(in_out):
     input, output = in_out[0], in_out[1]
-    assert job_writer.convert_to_seconds(input) == output
+    assert run_manager.convert_to_seconds(input) == output
 
 
 @pytest.mark.unit
@@ -41,38 +58,6 @@ def test_convert_to_seconds_ss_int(in_out):
 def test_time_margin():
     RunManagement = dict(SecondsMarginForQuitBeforeTimeOut=600)
     scheduler_options = dict(time='00:30:00')
-    job_writer.set_time_margin(RunManagement, scheduler_options)
+    run_manager.set_time_margin(RunManagement, scheduler_options)
     assert RunManagement['TimeOutInSeconds'] == 1200.
 
-
-@pytest.mark.network_onera
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_onera_get_job_text():
-    RunManagement = dict(
-        mola_target_path = __MOLA_PATH__,
-        Machine = 'sator',
-        JobName = 'mytest',
-        AER = 'myAER',
-        RunDirectory = '.',
-    )
-    job_text = job_writer.get_job_text(RunManagement, 'fake_solver')
-
-    env = os.path.join(
-        RunManagement['mola_target_path'],
-        "mola",
-        "env",
-        "onera",
-        RunManagement['Machine'],
-        'fake_solver.sh')
-    
-    assert job_text == f'''#!/bin/bash
-#SBATCH --time=15:00:00
-#SBATCH --constraint=csl
-#SBATCH --job-name=mytest
-#SBATCH --output=output.%j.log
-#SBATCH --error=error.%j.log
-#SBATCH --comment=myAER
-
-source {env}
-unset "${{!OMPI_@}}" "${{!MPI_@}}"'''

@@ -24,6 +24,7 @@ from . import Workflow
 from mola import __MOLA_PATH__
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, ENDC
+from mola.cfd.preprocess.run_manager import run_manager
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 from mola import server as SV
 
@@ -310,11 +311,11 @@ class WorkflowSequentialScheduler():
     def _set_machine(self):
         first_workflow = self.workflows[0] 
         RunManagement = copy.deepcopy(first_workflow.RunManagement)
-        write_cfd_files.set_default(RunManagement)
+        scheduler_options = run_manager.set_default(RunManagement)
         self.machine = RunManagement['Machine']
-        self.scheduler, _ = SV.get_scheduler_and_options(RunManagement)
+        self.scheduler = RunManagement['Scheduler']
         self.run_on_localhost = SV.run_on_localhost(self.machine, RunManagement['RunDirectory'])
-        self.job_text = SV.get_job_text(RunManagement, first_workflow.Solver)
+        self.job_text = write_cfd_files.get_job_text(first_workflow.Solver, RunManagement, scheduler_options)
 
     def prepare(self):
         SV.makedirs_remote(self.root_directory, machine=self.machine)
@@ -326,11 +327,6 @@ class WorkflowSequentialScheduler():
             workflow.write_tree_remote(data_directory=self.data_directory)
 
         self.write_sequence_job()
-    
-    # @staticmethod
-    # def prepare_workflow(workflow):
-    #     workflow.prepare()
-    #     workflow.write_cfd_files()
 
     def write_sequence_job(self):
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
@@ -441,7 +437,7 @@ class WorkflowSender():
         else:
             self.patterns_to_copy_files = patterns_to_copy_files
         
-        write_cfd_files.set_default_machine(self.workflow.RunManagement)
+        run_manager.set_default_machine(self.workflow.RunManagement)
         self.machine = self.workflow.RunManagement['Machine']
         
     def apply(self):

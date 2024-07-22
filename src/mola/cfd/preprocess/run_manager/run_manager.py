@@ -15,10 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-
 import mola.naming_conventions as names
-from . import remote 
+from mola.logging import mola_logger, MolaException
+from mola import server as SV
 
 MolaToScheduler = dict(
     SLURM = dict(
@@ -37,44 +36,37 @@ SchedulerDefaults = dict(
     },
 )
 
+def apply(workflow):
 
-def get_job_text(RunManagement, solver):
+    workflow._SchedulerOptions = set_default(workflow.RunManagement)
 
-    network = remote.get_network()
-
-    header = build_job_scheduler_header(RunManagement)
-
-    env = os.path.join(
-        RunManagement['mola_target_path'],
-        "mola",
-        "env",
-        network,
-        RunManagement['Machine'],
-        solver+'.sh')
-
-    job_text = ('#!/bin/bash\n'
-               f'{header}\n'
-               f'source {env}\n'
-                'unset "${!OMPI_@}" "${!MPI_@}"' # https://stackoverflow.com/questions/76672866/running-an-independent-slurm-job-with-mpirun-inside-a-python-script-recursive
-                )
-
-    return job_text
-
-
-def build_job_scheduler_header(RunManagement):
-    header = ''
+def set_default(RunManagement):
+    # CAVEAT: cannot use other contextual information contained in Workflow if 
+    # only provides RunManagement in function
+    set_default_machine(RunManagement)
+    
+    RunManagement.setdefault('mola_target_path', SV.get_mola_installation_path(RunManagement['Machine']))
+        
+    if not SV.run_on_localhost(RunManagement['Machine'], RunManagement['RunDirectory']):
+        mola_logger.info(f"> Run on a remote machine ({RunManagement['Machine']}):\n"
+                         f"    on path {RunManagement['RunDirectory']}\n"
+                         f"    sourcing {RunManagement['mola_target_path']}"
+                         )
+    
     scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
     set_time_margin(RunManagement, scheduler_options)
     set_launcher_command(RunManagement)
-    if scheduler == 'SLURM':
-        for option, value in scheduler_options.items():
-            header += f"#SBATCH --{option}={value}\n"
-    return header
+
+    return scheduler_options
+
+def set_default_machine(RunManagement):
+    if ('Machine' not in RunManagement) or (RunManagement['Machine'] == 'auto'):
+        RunManagement['Machine'] = SV.guess_machine(RunManagement['RunDirectory'])
 
 
 def get_scheduler_and_options(RunManagement):
     # Get default options from the machine scheduler_defaults.py
-    scheduler_defaults = remote.get_scheduler_defaults(RunManagement['Machine'], mola_target_path=RunManagement['mola_target_path'])
+    scheduler_defaults = SV.get_scheduler_defaults(RunManagement['Machine'], mola_target_path=RunManagement['mola_target_path'])
     if scheduler_defaults is None:
         scheduler = None
         scheduler_options = dict()
@@ -109,6 +101,8 @@ def get_scheduler_and_options(RunManagement):
     except KeyError:
         pass
 
+    RunManagement['Scheduler'] = scheduler
+
     return scheduler, scheduler_options
 
 
@@ -124,9 +118,7 @@ def set_launcher_command(RunManagement):
     if 'LauncherCommand' not in RunManagement \
         or RunManagement['LauncherCommand'] == 'auto':
         scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
-        job_path = os.path.join(RunManagement['RunDirectory'], names.FILE_JOB)
-        if scheduler == 'SLURM':
-            # RunManagement['LauncherCommand'] = f'sbatch {job_path}'
+        if RunManagement['Scheduler'] == 'SLURM':
             RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; sbatch {names.FILE_JOB}"
         else:
             RunManagement['LauncherCommand'] = f"cd {RunManagement['RunDirectory']}; bash {names.FILE_JOB}"
