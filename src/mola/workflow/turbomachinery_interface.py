@@ -23,9 +23,6 @@ from . import WorkflowInterface
 
 class WorkflowTurbomachineryInterface(WorkflowInterface):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     def add_to_RawMeshComponents(self,
         Mesher        : str  = 'Autogrid',
         **kwargs):
@@ -63,8 +60,15 @@ class WorkflowTurbomachineryInterface(WorkflowInterface):
 
         self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
 
+    def set_Numerics(self,
+            Scheme : str   = 'Roe',
+            **kwargs):
+        local_kwargs = self.get_default_values_from_local_signature()
+        local_kwargs.update(kwargs)
+        super().set_Numerics(**local_kwargs)
+
     def add_to_Extractions_Integral(self,
-            File : str = "signals.cgns",
+            File : str = 'signals.cgns',
             Frame : str = 'relative',
             **kwargs):
         '''

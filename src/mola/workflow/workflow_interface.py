@@ -53,6 +53,7 @@ class WorkflowInterface(object):
             ConvergenceCriteria : list = None,
             RunManagement : dict = None,
             ApplicationContext : dict = None,
+            SolverParameters : dict = None,
             ):
             
         attributes = self.get_default_values_from_local_signature()
@@ -91,8 +92,6 @@ class WorkflowInterface(object):
             elif expected_type in [list, str]:
                 try: method(user_input)
                 except TypeError as e: raise MolaUserAttributeError(method, e)
-
-        self.SolverParameters = dict()
 
 
     def check_consistency_between_solver_and_environment(self):
@@ -537,9 +536,14 @@ class WorkflowInterface(object):
         LauncherCommand : str = 'auto',
         FilesAndDirectories : list = [],
         mola_target_path : str = None,
-                          ):
+        ):
         self.RunManagement = self._get_comp(
             WorkflowInterface.set_RunManagement, self.get_default_values_from_local_signature())
+        
+    def set_SolverParameters(self, **kwargs):
+        # no check on this attribute, because it is solver dependent. 
+        # It allows to replace a solver parameter by a user defined value, without checking.
+        self.SolverParameters = kwargs
             
     def __str__(self, maxlevel=1000):
         

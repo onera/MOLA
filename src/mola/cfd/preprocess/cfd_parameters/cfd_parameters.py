@@ -15,8 +15,23 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd import apply_to_solver
 
 def apply(workflow):
+    user_given_parameters = copy.copy(workflow.SolverParameters)
     apply_to_solver(workflow)
+    deep_update(workflow.SolverParameters, user_given_parameters)
+    mola_logger.warning(f'{workflow.SolverParameters["numerics"]}')
+
+def deep_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, dict):
+            d[k] = deep_update(d.get(k, {}), v)
+        elif isinstance(v, list):
+            d[k].extent(v)
+        else:
+            d[k] = v
+    return d
+
