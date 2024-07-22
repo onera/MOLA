@@ -30,6 +30,7 @@ class FakeWorkflow():
         self.tree = cgns.Tree()
         base = cgns.Base(Parent=self.tree)
         cgns.Node(Name='Rotor', Type='Family', Parent=base)
+        cgns.Node(Name='Stator', Type='Family', Parent=base)
         self.Motion = Motion
 
 
@@ -63,14 +64,14 @@ def test_apply_to_solver():
                     ['transl_speed', np.array([9.43398113]), [], 'DataArray_t']
                 ], 'UserDefinedData_t']], 'Family_t']
     
-    assert str(workflow.tree.get(Type='Family')) == str(ref_tree)
+    assert str(workflow.tree.get(Name='Rotor')) == str(ref_tree)
 
     
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_apply_to_solver_no_motion():
+def test_apply_to_solver_no_motion_for_all_families():
     Motion = dict(
-        Rotor = dict(
+        Stator = dict(
             RotationSpeed=[0., 0., 0.],
             RotationAxisOrigin=[0., 0., 0.],
             TranslationSpeed=[0.,0.,0.],
@@ -79,7 +80,56 @@ def test_apply_to_solver_no_motion():
 
     workflow = FakeWorkflow(Motion)
     solver_elsa.apply_to_solver(workflow)
-    assert str(workflow.tree.get(Type='Family')) == str(['Rotor', None, [], 'Family_t'])
+    assert str(workflow.tree.get(Name='Stator')) == str(['Stator', None, [], 'Family_t'])
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_apply_to_solver_no_motion_for_one_family():
+    # NOTE The node .Solver#Motion must be defined even for fixed zones, 
+    # if at least one zone is moving. Otherwise, elsA rises an error like in 
+    # the issue https://elsa-e.onera.fr/issues/11050 :
+    #   User Error : Block motion parameter must be defined consistently over all the blocks
+    
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[100., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0.,0.,0.],
+        ),
+        Stator = dict(
+            RotationSpeed=[0., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0.,0.,0.],
+        ),
+    )
+
+    ref_Rotor = ['Rotor', None, [
+                ['.Solver#Motion', None, [
+                    ['motion', np.array([b'm', b'o', b'b', b'i', b'l', b'e'], dtype='|S1'), [], 'DataArray_t'], 
+                    ['omega', np.array([100.]), [], 'DataArray_t'], 
+                    ['axis_pnt_x', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_pnt_y', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_pnt_z', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_vct_x', np.array([1.]), [], 'DataArray_t'], 
+                    ['axis_vct_y', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_vct_z', np.array([0.]), [], 'DataArray_t'],
+                ], 'UserDefinedData_t']], 'Family_t']
+    ref_Stator = ['Stator', None, [
+                ['.Solver#Motion', None, [
+                    ['motion', np.array([b'm', b'o', b'b', b'i', b'l', b'e'], dtype='|S1'), [], 'DataArray_t'], 
+                    ['omega', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_pnt_x', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_pnt_y', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_pnt_z', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_vct_x', np.array([1.]), [], 'DataArray_t'], 
+                    ['axis_vct_y', np.array([0.]), [], 'DataArray_t'], 
+                    ['axis_vct_z', np.array([0.]), [], 'DataArray_t'],
+                ], 'UserDefinedData_t']], 'Family_t']
+
+    workflow = FakeWorkflow(Motion)
+    solver_elsa.apply_to_solver(workflow)
+    assert str(workflow.tree.get(Name='Rotor')) == str(ref_Rotor)
+    assert str(workflow.tree.get(Name='Stator')) == str(ref_Stator)
 
 
 @pytest.mark.unit

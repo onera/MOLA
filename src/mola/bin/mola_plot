@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+#
+# Plot residuals, massflow, loads, etc.
+
+import os
+import numpy as np
+import argparse
+
+from treelab import cgns
+import mola.naming_conventions as names
+from mola.logging import mola_logger, MolaException, MolaUserError, CYAN, GREEN, ENDC
+
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser('Plot results')
+parser.add_argument('-f', '--file', type=str, help='path of the file with 1D results', 
+                    default=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D))
+parser.add_argument('-o', '--output', type=str, help='Kinds of outputs to plot. Available choices are: residuals, massflow', 
+                    nargs='*', default=['residuals', 'massflow'])
+args = parser.parse_args()
+
+signals = cgns.load(args.file)
+
+def plot_residuals(signals, figname='residuals.png'):
+    ConvergenceHistory = signals.get(Name='GlobalConvergenceHistory')
+    if not ConvergenceHistory:
+        mola_logger.warning('No residuals found (node GlobalConvergenceHistory is missing)')
+    else:
+        parent = ConvergenceHistory.getParent()
+        residuals = parent.getParameters('GlobalConvergenceHistory')
+
+        varList = list(residuals)
+        varList.remove('IterationNumber')
+        varList.remove('NormDefinitions')
+        plt.figure()
+        for varname in varList:
+            plt.plot(residuals['IterationNumber'], residuals[varname], label=varname)
+        plt.yscale('log')
+        plt.xlabel('Iterations')
+        plt.ylabel('Residuals')
+        plt.legend(loc='best')
+        plt.grid()
+        save_figure_if_required(figname)
+
+def plot_massflow(signals, figname='massflow.png'):
+    massflows = dict()
+
+    for node in signals.group(Type='IntegralData'):
+        try:
+            massflows[node.name()] = dict(
+                IterationNumber = node.get(Name='IterationNumber').value(),
+                MassFlow = np.absolute(node.get(Name='MassFlow').value()), 
+                )
+        except:
+            continue
+
+    if len(massflows) == 0:
+        mola_logger.warning('No massflow results found')
+    else:
+        plt.figure()
+        zones = sorted(massflows.keys())
+        for zone in zones:
+            plt.plot(massflows[zone]['IterationNumber'], massflows[zone]['MassFlow'], label=zone)
+        plt.xlabel('Iterations')
+        plt.ylabel('MassFlow (kg/s)')
+        plt.legend(loc='best')
+        plt.grid()
+        save_figure_if_required(figname)
+
+def save_figure_if_required(figname):
+    if figname is not None:
+        print(f'Saving {CYAN}{figname}{ENDC} ...', end=' ')
+        plt.savefig(figname, dpi=150, bbox_inches='tight')
+        print(f'{GREEN}OK{ENDC}')
+
+operations = dict(
+    residuals = plot_residuals,
+    massflow = plot_massflow,
+)
+for name in args.output:
+    if name not in operations:
+        raise MolaUserError(f'Unknown kind of output "{name}". See documention of this function with --help')
+    operations[name](signals)
+
+plt.show()
+

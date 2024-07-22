@@ -249,7 +249,8 @@ def InflowMassFlow(workflow, bc):
     return [bc['Family']], dict(ImposedVariables=ImposedVariables, variableForInterpolation=variableForInterpolation) 
 
 def OutflowPressure(workflow, bc):
-    return [bc['Family']], dict(Pressure=bc['Pressure']) 
+    Pressure = bc.get('Pressure', workflow.Flow['Pressure'])
+    return [bc['Family']], dict(Pressure=Pressure) 
 
 def OutflowMassFlow(workflow, bc):
     MassFlow = bc.get('MassFlow')

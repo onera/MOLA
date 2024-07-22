@@ -586,7 +586,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=48):
 
 def _getComponentsNamesBasedOnSplitPolicy(workflow):
     splitUserData = workflow.SplittingAndDistribution
-    splitCompsUserData = splitUserData['ComponentsToSplit']
+    splitCompsUserData = splitUserData.get('ComponentsToSplit', [])
     ComponentsToSplit = []
     ComponentsNotToSplit = []
     for component in workflow.RawMeshComponents:

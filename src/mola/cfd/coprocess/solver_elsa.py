@@ -63,10 +63,13 @@ def perform_extractions(workflow, coprocess_manager):
         elif extraction['Type'] == 'Residuals':
             extraction['Data'] = extract_residuals(output_tree)
         
-        elif extraction['Type'] == 'Integral' and not integral_data_already_extracted:
-            NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
-            extraction['Data'] = extract_integral(output_tree, NormalizationCoefficients)
-            integral_data_already_extracted = True
+        elif extraction['Type'] == 'Integral':
+            if not integral_data_already_extracted:
+                NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
+                extraction['Data'] = extract_integral(output_tree, NormalizationCoefficients)
+                integral_data_already_extracted = True
+            else:
+                extraction['Data'] = cgns.Tree()
 
         # elif extraction['Type'] == 'Probe':
         #     extraction['Data'] = extract_probe(output_tree)
@@ -206,19 +209,21 @@ def extract_isosurface(output_tree, extraction):
     return isosurface
 
 def extract_residuals(output_tree):
-    if rank == 0:
-        residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
-        if not residuals:
-            return cgns.Tree()
-        residuals = cgns.castNode(residuals)
-        residuals.findAndRemoveNode(Name='.Solver#Output')
-        t = cgns.Tree()
-        base = cgns.Base(Name='Base', Parent=t)
-        cgns.Zone(Name='Monitoring', Parent=base, Children=[residuals])
-        # NOTE maybe it would be better to put the ConvergenceHistory node under the base (not the zone),
-        # but for now it seems to be not permitted with treelab
-    else:
-        t = cgns.Tree()
+    residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
+    if not residuals:
+        return cgns.Tree()
+    residuals = cgns.castNode(residuals)
+    residuals.findAndRemoveNode(Name='.Solver#Output')
+    t = cgns.Tree()
+    base = cgns.Base(Name='Base', Parent=t)
+    cgns.Zone(Name='Monitoring', Parent=base, Children=[residuals])
+    # NOTE maybe it would be better to put the ConvergenceHistory node under the base (not the zone),
+    # but for now it seems to be not permitted with treelab
+
+    comm.barrier()
+    trees = comm.allgather(t)
+    t = cgns.merge(trees)
+    comm.barrier() 
     
     return t
 

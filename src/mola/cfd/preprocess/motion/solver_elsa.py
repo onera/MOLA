@@ -40,11 +40,17 @@ def apply_to_solver(workflow):
         workflow : Workflow object
 
     '''
+    if all([not motion.is_mobile(MotionOnFamily) for MotionOnFamily in workflow.Motion.values()]):
+        return
+    
     for family, MotionOnFamily in workflow.Motion.items():
+        # NOTE The node .Solver#Motion must be defined even for fixed zones, 
+        # if at least one zone is moving. Otherwise, elsA rises an error like in 
+        # the issue https://elsa-e.onera.fr/issues/11050 :
+        #   User Error : Block motion parameter must be defined consistently over all the blocks
+
         famNode = workflow.tree.get(Name=family, Type='Family', Depth=2)
 
-        if not motion.is_mobile(MotionOnFamily):
-            continue
         assert_rotation_axis_is_correct(MotionOnFamily)
 
         mola_logger.debug(f'set motion on {family}: {MotionOnFamily}')
@@ -68,9 +74,11 @@ def translate_motion_to_elsa(Motion, remove_null_motions=True):
         raise Exception('Cannot translate a function')
     
     RotationAxis = np.array(Motion['RotationSpeed'])
-    RotationSpeed = np.sqrt(RotationAxis.dot(RotationAxis))
+    assert RotationAxis[1] == RotationAxis[2] == 0
+    RotationSpeed = RotationAxis[0]
+    # RotationSpeed = np.sqrt(RotationAxis.dot(RotationAxis)) # not working, the sign is always positive!
     if RotationSpeed != 0:
-        RotationAxis = np.absolute(RotationAxis) / RotationSpeed
+        RotationAxis = np.absolute(RotationAxis / RotationSpeed)
     else:
         RotationAxis = [1., 0., 0.]
 
@@ -82,16 +90,16 @@ def translate_motion_to_elsa(Motion, remove_null_motions=True):
         TranslationVector = [1., 0., 0.]
 
     motion_elsa = dict()
-    if not remove_null_motions or RotationSpeed != 0.:
-        motion_elsa.update(dict(
-            omega        = RotationSpeed,
-            axis_pnt_x   = Motion['RotationAxisOrigin'][0], 
-            axis_pnt_y   = Motion['RotationAxisOrigin'][1], 
-            axis_pnt_z   = Motion['RotationAxisOrigin'][2],
-            axis_vct_x   = RotationAxis[0], 
-            axis_vct_y   = RotationAxis[1], 
-            axis_vct_z   = RotationAxis[2], 
-        ))
+    # if not remove_null_motions or RotationSpeed != 0.:
+    motion_elsa.update(dict(
+        omega        = RotationSpeed,
+        axis_pnt_x   = Motion['RotationAxisOrigin'][0], 
+        axis_pnt_y   = Motion['RotationAxisOrigin'][1], 
+        axis_pnt_z   = Motion['RotationAxisOrigin'][2],
+        axis_vct_x   = RotationAxis[0], 
+        axis_vct_y   = RotationAxis[1], 
+        axis_vct_z   = RotationAxis[2], 
+    ))
     if not remove_null_motions or TranslationSpeed != 0.:
         motion_elsa.update(dict(
             transl_vct_x = TranslationVector[0],
