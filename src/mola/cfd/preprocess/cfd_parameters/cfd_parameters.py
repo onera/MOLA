@@ -23,7 +23,6 @@ def apply(workflow):
     user_given_parameters = copy.copy(workflow.SolverParameters)
     apply_to_solver(workflow)
     deep_update(workflow.SolverParameters, user_given_parameters)
-    mola_logger.warning(f'{workflow.SolverParameters["numerics"]}')
 
 def deep_update(d, u):
     for k, v in u.items():

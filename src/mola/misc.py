@@ -235,9 +235,10 @@ def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6):
             if not allclose_dict(v, d2[k], tol_abs, tol_rel):
                 mola_logger.debug(f'{k}: {v} != {d2[k]}')
                 return False
-        elif isinstance(v, np.ndarray) and np.all(v != d2[k]):
-            mola_logger.debug(f'{k}: {v} != {d2[k]}')
-            return False
+        elif isinstance(v, (np.ndarray, list)):
+            if np.all(v != d2[k]):
+                mola_logger.debug(f'{k}: {v} != {d2[k]}')
+                return False
         # Fall back to default
         elif v != d2[k]:
             mola_logger.debug(f'{k}: {v} != {d2[k]}')
