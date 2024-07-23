@@ -68,7 +68,7 @@ def checkDependencies():
 
 
 def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None, 
-                    duplicationInfos={}, zonesToRename={},
+                    duplicationInfos={}, zonesToRename={}, keepSeparateBlades = False,
                     scale=1., rotation='fromAG5', tol=1e-8, PeriodicTranslation=None,
                     BodyForceRows=None, families2Remove=[], saveGeometricalDataForBodyForce=True):
     '''
@@ -132,6 +132,10 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None,
         zonesToRename : dict
             Each key corresponds to the name of a zone to modify, and the associated
             value is the new name to give.
+
+        keepSeparateBlades : bool
+            If :py:obj:`True`, a separate family is created for each blade from a row
+            when performing a duplication. Useful for computations with inlet distortions.
 
         scale : float
             Homothety factor to apply on the mesh. Default is 1.
@@ -247,7 +251,7 @@ def prepareMesh4ElsA(mesh, InputMeshes=None, splitOptions=None,
         try: MergeBlocks = rowParams['MergeBlocks']
         except: MergeBlocks = False
         duplicate(t, row, rowParams['NumberOfBlades'],
-                nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks)
+                nDupli=rowParams['NumberOfDuplications'], merge=MergeBlocks, keepSeparateBlades = keepSeparateBlades)
 
     if splitOptions is not None:
         t = PRE.splitAndDistribute(t, InputMeshes, **splitOptions)
@@ -870,7 +874,7 @@ def convert2Unstructured(t, merge=True, tol=1e-6):
     '''
     return PRE.convert2Unstructured(t, merge, tol)
 
-def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
+def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, keepSeparateBlades = False, axis=(1,0,0),
     verbose=1, container='FlowSolution#Init',
     vectors2rotate=[['VelocityX','VelocityY','VelocityZ'],['MomentumX','MomentumY','MomentumZ']]):
     '''
@@ -906,6 +910,10 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
                 globborder will be defined on a BC of the duplicated domain. It
                 allows the splitting procedure to provide a 'matricial' ordering
                 (see `elsA Tutorial about globborder <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/globborder.html>`_)
+        
+        keepSeparateBlades : bool
+            If :py:obj:`True`, a separate family is created for each blade from a row
+            when performing a duplication. Useful for computations with inlet distortions.
 
         axis : tuple
             axis of rotation given as a 3-tuple of integers or floats
@@ -973,6 +981,18 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
                     ang = 360./nBlades*(n+1)
                     rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
                     I.setName(rot, "{}_{}".format(zone_name, n+2))
+                    if keepSeparateBlades:
+                        for familyNameNode in I.getNodesFromType(I.getNodesFromType(rot,'ZoneBC_t'),'FamilyName_t'):
+                            for bladeName in ['blade','vane','tip']:
+                                if bladeName in I.getValue(familyNameNode).lower():
+                                    familyName = I.getValue(familyNameNode)
+                                    I.setValue(familyNameNode, "{}_{}".format(familyName, n+2))
+                                    I.printTree(familyNameNode)
+                                    bladeFamilyNodeCopy = I.copyNode(I.getNodeFromName(base,familyName)) 
+                                    I.printTree(bladeFamilyNodeCopy)
+                                    I.setName(bladeFamilyNodeCopy, "{}_{}".format(familyName, n+2))
+                                    I.printTree(bladeFamilyNodeCopy)
+                                    I._addChild(base, bladeFamilyNodeCopy)          
                     I._addChild(base, rot)
                     zones2merge.append(rot)
                 if merge:
@@ -1026,8 +1046,14 @@ def duplicateFlowSolution(t, TurboConfiguration):
         nBlades = rowParams['NumberOfBlades']
         nDupli = rowParams['NumberOfBladesSimulated']
         nMesh = rowParams['NumberOfBladesInInitialMesh']
+
+        try:
+            keepSeparateBlades = TurboConfiguration['keepSeparateBlades']
+        except:
+            keepSeparateBlades = False
+
         if nDupli > nMesh:
-            duplicate(t, row, nBlades, nDupli=nDupli, axis=(1,0,0))
+            duplicate(t, row, nBlades, nDupli=nDupli, axis=(1,0,0),keepSeparateBlades=keepSeparateBlades)
 
         angle = 360. / nBlades * nDupli
         if not np.isclose(angle, 360.):
@@ -1283,7 +1309,7 @@ def computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration):
             ReferenceValues['NormalizationCoefficient'][FamilyName] = dict(FluxCoef=fluxcoeff)
 
 def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={},
-    PeriodicTranslation=None, BodyForceInputData=[]):
+    PeriodicTranslation=None, BodyForceInputData=[],keepSeparateBlades = False):
     '''
     Construct a dictionary concerning the compressor properties.
 
@@ -1349,6 +1375,10 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
         BodyForceInputData : list
             see :py:func:`prepareMainCGNS4ElsA`
 
+        keepSeparateBlades : bool
+            If :py:obj:`True`, a separate family is created for each blade from a row
+            when performing a duplication. Useful for computations with inlet distortions.
+
     Returns
     -------
 
@@ -1364,7 +1394,8 @@ def getTurboConfiguration(t, ShaftRotationSpeed=0., HubRotationSpeed=[], Rows={}
         TurboConfiguration = dict(
             ShaftRotationSpeed = ShaftRotationSpeed,
             HubRotationSpeed   = HubRotationSpeed,
-            Rows               = Rows
+            Rows               = Rows,
+            keepSeparateBlades = keepSeparateBlades
             )
         for row, rowParams in TurboConfiguration['Rows'].items():
             for key, value in rowParams.items():

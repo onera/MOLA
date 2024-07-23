@@ -14,10 +14,10 @@
 ###############################################################################
 # -------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ------------------ #
 export MOLAVER=Dev
-if [ -f "/tmp_user/sator/lbernard/MOLA/$MOLAVER/env_MOLA.sh" ]; then
-    source /tmp_user/sator/lbernard/MOLA/$MOLAVER/env_MOLA.sh
+if [ -f "/tmp_user/sator/dlewis/MOLA/$MOLAVER/env_MOLA.sh" ]; then
+    source /tmp_user/sator/dlewis/MOLA/$MOLAVER/env_MOLA.sh
 else
-    source /stck/lbernard/MOLA/$MOLAVER/env_MOLA.sh
+    source /stck/dlewis/MOLA/$MOLAVER/env_MOLA.sh
 fi
 if [ "$MAC" = "ld" ] ; then export OMP_NUM_THREADS=1; fi # ticket elsA 11143
 ###############################################################################

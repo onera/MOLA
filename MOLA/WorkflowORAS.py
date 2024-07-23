@@ -2,15 +2,15 @@
 #
 #    This file is part of MOLA.
 #
-#    MOLA is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU Lesser General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
+#    MOLA is free software: you can redistribute it and/or modify it under the
+#    terms of the GNU Lesser General Public License as published by the Free
+#    Software Foundation, either version 3 of the License, or (at your option)
+#    any later version.
 #
-#    MOLA is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU Lesser General Public License for more details.
+#    MOLA is distributed in the hope that it will be useful, but WITHOUT ANY
+#    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+#    FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+#    more details.
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
@@ -20,10 +20,10 @@ MOLA - WorkflowORAS.py
 
 WORKFLOW ORAS
 
-Collection of functions designed for CFD simulations of Open Rotor And Stator (ORAS)
+Collection of functions designed for CFD simulations of Open Rotor And Stator
+(ORAS)
 
-File history:
-01/04/2022 - M. Balmaseda - Creation
+File history: 01/04/2022 - M. Balmaseda - Creation
 '''
 
 import MOLA
@@ -61,9 +61,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
         JobInformation={}, SubmitJob=False, FULL_CGNS_MODE=False, templates=dict(), 
         secondOrderRestart=False):
     '''
-    This is mainly a function similar to :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
-    but adapted to ORAS mono-chanel computations. Its purpose is adapting
-    the CGNS to elsA.
+    This is mainly a function similar to
+    :func:`MOLA.Preprocess.prepareMainCGNS4ElsA` but adapted to ORAS mono-chanel
+    computations. Its purpose is adapting the CGNS to elsA.
 
     Parameters
     ----------
@@ -72,29 +72,31 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             if the input is a :py:class:`str`, then such string specifies the
             path to file (usually named ``mesh.cgns``) where the result of
             function :py:func:`prepareMesh4ElsA` has been writen. Otherwise,
-            **mesh** can directly be the PyTree resulting from :func:`prepareMesh4ElsA`
+            **mesh** can directly be the PyTree resulting from
+            :func:`prepareMesh4ElsA`
 
         ReferenceValuesParams : dict
-            Python dictionary containing the
-            Reference Values and other relevant data of the specific case to be
-            run using elsA. For information on acceptable values, please
-            see the documentation of function :func:`computeReferenceValues`.
+            Python dictionary containing the Reference Values and other relevant
+            data of the specific case to be run using elsA. For information on
+            acceptable values, please see the documentation of function
+            :func:`computeReferenceValues`.
 
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> MOLA.Preprocess.computeReferenceValues(arg, **ReferenceValuesParams)
 
         NumericalParams : dict
-            dictionary containing the numerical
-            settings for elsA. For information on acceptable values, please see
-            the documentation of function :func:`MOLA.Preprocess.getElsAkeysNumerics`
+            dictionary containing the numerical settings for elsA. For
+            information on acceptable values, please see the documentation of
+            function :func:`MOLA.Preprocess.getElsAkeysNumerics`
 
             .. note:: internally, this dictionary is passed as *kwargs* as follows:
 
                 >>> MOLA.Preprocess.getElsAkeysNumerics(arg, **NumericalParams)
 
         OverrideSolverKeys : :py:class:`dict` of maximum 3 :py:class:`dict`
-            exactly the same as in :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
+            exactly the same as in
+            :py:func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         RPM : float
             revolutions per minute of the blade
@@ -104,30 +106,35 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             documentation of :func:`MOLA.Preprocess.prepareMainCGNS4ElsA`
 
         BodyForceInputData : :py:class:`dict`
-            if provided, each key in this :py:class:`dict` is the name of a row family to model
-            with body-force. The associated value is a sub-dictionary, with the following 
-            potential entries:
+            if provided, each key in this :py:class:`dict` is the name of a row
+            family to model with body-force. The associated value is a
+            sub-dictionary, with the following potential entries:
 
-                * model (:py:class:`dict`): the name of the body-force model to apply. Available models 
-                  are: 'hall', 'blockage', 'Tspread', 'constant'.
+                * model (:py:class:`dict`): the name of the body-force model to
+                  apply. Available models are: 'hall', 'blockage', 'Tspread',
+                  'constant'.
 
-                * rampIterations (:py:class:`dict`): The number of iterations to apply a ramp on source terms, 
-                  starting from `BodyForceInitialIteration` (in `ReferenceValues['CoprocessOptions']`). 
-                  If not given, there is no ramp (source terms are fully applied from the `BodyForceInitialIteration`).
+                * rampIterations (:py:class:`dict`): The number of iterations to
+                  apply a ramp on source terms, starting from
+                  `BodyForceInitialIteration` (in
+                  `ReferenceValues['CoprocessOptions']`). If not given, there is
+                  no ramp (source terms are fully applied from the
+                  `BodyForceInitialIteration`).
 
-                * other optional parameters depending on the **model** 
-                  (see dedicated functions in :mod:`MOLA.BodyForceTurbomachinery`).
+                * other optional parameters depending on the **model** (see
+                  dedicated functions in :mod:`MOLA.BodyForceTurbomachinery`).
 
         writeOutputFields : bool
-            if :py:obj:`True`, write initialized fields overriding
-            a possibly existing ``OUTPUT/fields.cgns`` file. If :py:obj:`False`, no
-            ``OUTPUT/fields.cgns`` file is writen, but in this case the user must
-            provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for example,
-            using a previous computation result).
+            if :py:obj:`True`, write initialized fields overriding a possibly
+            existing ``OUTPUT/fields.cgns`` file. If :py:obj:`False`, no
+            ``OUTPUT/fields.cgns`` file is writen, but in this case the user
+            must provide a compatible ``OUTPUT/fields.cgns`` file to elsA (for
+            example, using a previous computation result).
 
         Initialization : dict
             dictionary defining the type of initialization, using the key
-            **method**. See documentation of :func:`MOLA.Preprocess.initializeFlowSolution`
+            **method**. See documentation of
+            :func:`MOLA.Preprocess.initializeFlowSolution`
 
         JobInformation : dict
             Dictionary containing information to update the job file. For
@@ -135,36 +142,39 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
             function :func:`MOLA.JobManager.updateJobFile`
 
         SubmitJob : bool
-            if :py:obj:`True`, submit the SLURM job based on information contained
-            in **JobInformation**
+            if :py:obj:`True`, submit the SLURM job based on information
+            contained in **JobInformation**
 
         FULL_CGNS_MODE : bool
             if :py:obj:`True`, put all elsA keys in a node ``.Solver#Compute``
             to run in full CGNS mode.
 
         templates : dict
-            Main files to copy for the workflow. 
-            By default, it is filled with the following values:
+            Main files to copy for the workflow. By default, it is filled with
+            the following values:
 
             .. code-block::python
 
                 templates = dict(
-                    job_template = '$MOLA/TEMPLATES/job_template.sh',
-                    compute = '$MOLA/TEMPLATES/<WORKFLOW>/compute.py',
-                    coprocess = '$MOLA/TEMPLATES/<WORKFLOW>/coprocess.py',
+                    job_template = '$MOLA/TEMPLATES/job_template.sh', compute =
+                    '$MOLA/TEMPLATES/<WORKFLOW>/compute.py', coprocess =
+                    '$MOLA/TEMPLATES/<WORKFLOW>/coprocess.py',
                     otherWorkflowFiles = ['monitor_loads.py'],
                 )
 
         secondOrderRestart : bool
-            If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or 'DualTimeStep' 
-            (second order time integration schemes), prepare a second order restart, and allow 
-            the automatic restart of such a case. By default, the value is :py:obj:`False`.
+            If :py:obj:`True`, and if NumericalParams['time_algo'] is 'gear' or
+            'DualTimeStep' (second order time integration schemes), prepare a
+            second order restart, and allow the automatic restart of such a
+            case. By default, the value is :py:obj:`False`.
 
             .. important:: 
             
-                This behavior works only if elsA reaches the final iteration given by ``niter``.
-                If the simulation stops because of the time limit or because all convergence criteria
-                have been reached, then the restart will be done at the first order, without raising an error.
+                This behavior works only if elsA reaches the final iteration
+                given by ``niter``. If the simulation stops because of the time
+                limit or because all convergence criteria have been reached,
+                then the restart will be done at the first order, without
+                raising an error.
                 
     Returns
     -------
@@ -176,7 +186,8 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
                 main CGNS file to be read directly by elsA
 
             * ``OUTPUT/fields.cgns``
-                file containing the initial fields (if ``writeOutputFields=True``)
+                file containing the initial fields (if
+                ``writeOutputFields=True``)
 
             * ``setup.py``
                 ultra-light file containing all relevant info of the simulation
@@ -227,7 +238,9 @@ def prepareMainCGNS4ElsA(mesh='mesh.cgns', ReferenceValuesParams={},
     elsAkeysNumerics = PRE.getElsAkeysNumerics(ReferenceValues, **NumericalParams, unstructured=IsUnstructured)
 
     if CHORO_TAG == True and Initialization['method'] != 'copy':
-            MSG = 'Flow initialization failed. No initial solution provided. Chorochronic simulations must be initialized from a mixing plane solution obtained on the same mesh'
+            MSG = '''Flow initialization failed. No initial solution provided. 
+                Chorochronic simulations must be initialized from a mixing plane
+                solution obtained on the same mesh'''
             print(J.FAIL + MSG + J.ENDC)
             raise Exception(J.FAIL + MSG + J.ENDC)
     
@@ -339,10 +352,12 @@ def updateChoroTimestep(t, Rows, NumericalParams):
             Tree to modify
 
         Rows : :py:class:`dict`
-            Dictionary of Rows as provided in TurboConfiguration for the prepareMainCGNS function.
+            Dictionary of Rows as provided in TurboConfiguration for the
+            prepareMainCGNS function.
 
         NumericalParams : :py:class:`dict`
-            dictionary containing the numerical settings for elsA. Similar to that required in prepareMainCGNS function.
+            dictionary containing the numerical settings for elsA. Similar to
+            that required in prepareMainCGNS function.
 
     '''   
     rowNameList = list(Rows.keys())
@@ -362,7 +377,8 @@ def updateChoroTimestep(t, Rows, NumericalParams):
     print(J.WARN + MSG + J.ENDC)
 
     if 'timestep' not in NumericalParams.keys():
-        MSG = 'Time-step not provided by the user. Computating of a suitable time-step based on stage properties.'
+        MSG = '''Time-step not provided by the user. 
+            Computating of a suitable time-step based on stage properties.'''
         print(J.WARN + MSG + J.ENDC)
         Nquo = 10
         time_step = DeltaT/Nquo
@@ -383,7 +399,8 @@ def updateChoroTimestep(t, Rows, NumericalParams):
         Nquo_round = np.round(NewNquo)
         print()
         if np.absolute(NewNquo-Nquo_round)>1e-08:
-            MSG = 'Choice of time-step does no seem to be suited for the case. Check the following parameters:'
+            MSG = '''Choice of time-step does no seem to be suited for the case. 
+                Check the following parameters:'''
             print(J.WARN + MSG + J.ENDC)
 
     MSG = 'Nquo : %s'%(NewNquo)
@@ -401,7 +418,7 @@ def updateChoroTimestep(t, Rows, NumericalParams):
 
 def setRadiusAsChannelHeight(t):
     '''
-    Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
+    Compute the variable ``ChannelHeight`` from a mesh PyTree **t**. This function
     relies on the ETC module.
 
     Parameters
@@ -434,7 +451,35 @@ def setRadiusAsChannelHeight(t):
     print(J.GREEN + 'done.' + J.ENDC)
     return t
 
-def computeRowLoadRadialDistribution(surface, row, torque_center= None):
+def computeRowSectionalLoad(surface, row, torque_center= None):
+    '''
+    Compute the sectional loads (spanwise distributions) along the blade surface
+    of the specified row and add it to the surface base.
+    
+    Parameters
+    ----------
+    
+        surface : PyTree, Base, Zone or :py:class:`list` of Zone
+            surfaces from which sectional loads are to be computed
+
+            .. note::
+                surfaces contained in **t** must contain the following fields
+                 (preferrably at centers): ``Pressure``, ``SkinFrictionX``,
+                ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
+                normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
+
+        row : str
+
+            Blade row to be considered. Must be consistent with the row names in
+            main.cgns files.
+
+            .. hint:: Rotor or Stator for example 
+
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or
+        :py:class:`numpy`
+            center for computation the torque contributions
+
+    '''
 
     def searchBladeInTree(row):
         famnames = ['*BLADE*'.format(row), '*Blade*'.format(row),
@@ -452,36 +497,36 @@ def computeRowLoadRadialDistribution(surface, row, torque_center= None):
         TurboConfiguration = setup.TurboConfiguration
         ReferenceValues = setup.ReferenceValues
         reference_pressure = ReferenceValues['Pressure']
-        print('Setup OK')
     except:
         setup = None
 
     distribution = np.linspace(0,1,50)
 
     blade_surf = searchBladeInTree(row)
-    print('blade_surf')
-    I.printTree(blade_surf)
     
     if torque_center == None:
         if 'TorqueCenter' in TurboConfiguration['Rows'][row].keys():
-            torque_center = TurboConfiguration['Rows'][row]['TorqueCenter'], #to be retrieved
+            torque_center = TurboConfiguration['Rows'][row]['TorqueCenter'], 
         else:
-            torque_center = ReferenceValues['TorqueOrigin'] #to be retrieved
-    
-    print('Torque center:',torque_center)
+            torque_center = ReferenceValues['TorqueOrigin']
 
-    sectionalLoads = computeLoadRadialDistributionInAnnularConfiguration(blade_surf, distribution=distribution, slicing_options=dict(slicing_method='AbscissaBased',custom_variable=None), geometrical_parameters=dict(start_point=[0.,0.,0.],end_point=None,axis_direction=[1.,0.,0.]),torque_center=torque_center, reference_pressure=reference_pressure)
+    sectionalLoads = computeSectionalLoadInAnnularConfiguration(blade_surf, 
+        distribution=distribution, slicing_options=dict(slicing_method='AbscissaBased',custom_variable=None), 
+        geometrical_parameters=dict(start_point=[0.,0.,0.],end_point=None,axis_direction=[1.,0.,0.]),
+        torque_center=torque_center, reference_pressure=reference_pressure)
     sectionalLoads = I.renameNode(sectionalLoads, 'SectionalLoads', f'{row}_SectionalLoads')
     I.addChild(surface, sectionalLoads)
 
     I.__FlowSolutionNodes__ = FlowSolutionNodesOld
     I.__FlowSolutionCenters__ = FlowSolutionCentersOld   
 
-def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, slicing_options=dict(slicing_method='SpanBased',custom_variable=None), geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None),
-        torque_center=[0,0,0], reference_pressure=0.):
+def computeSectionalLoadInAnnularConfiguration(surface, distribution, 
+    slicing_options=dict(slicing_method='SpanBased',custom_variable=None), 
+    geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None),
+    torque_center=[0,0,0], reference_pressure=0.):
     '''
-    Compute the sectional loads (spanwise distributions) along a direction 
-    from a set of surfaces
+    Compute the sectional loads (spanwise distributions) along a direction from
+    a set of surfaces
 
     Parameters
     ----------
@@ -495,20 +540,44 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
                 ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
                 normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
 
+        distribution : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
+
+            dimensionless coordinate used for discretizing the sectional span.
+            This must be :math:`\in [0,1]`.
+
+            .. hint:: for example 
+
+                >>> distribution = np.linspace(0,1,201)
+
+            .. note:: 
+
+                for slicing_method = ``Custom``, this function automatically
+                recomputes the span :math:`\in [0,1]` to perform the slices. The
+                span is based on the 'custom_variable' and is computed as
+                follows : :math:`(var-min(var))/(max(var)-min(var))`
+
         slicing_options : dict
 
-            dictionary providing the parameters to perform the slicing along the blade span. Two pairs of keywords and associated values can be provided:
+            dictionary providing the parameters to perform the slicing along the
+            blade span. Two pairs of keywords and associated values can be
+            provided:
             
             * slicing_method : str
 
                 Acceptable values are:
 
-                * SpanBased: Computes the span based on 2 points (see below) provided by the user. Each section corresponds to an isoSurface of the ``Span`` variable.
+                * SpanBased: Computes the span based on 2 points (see below)
+                  provided by the user. Each section corresponds to an
+                  isoSurface of the ``Span`` variable.
 
-                * AbscissaBased: computes the abscissa based on the distance d to the axis provided by the user. Each section corresponds to an isoSurface of the Abscissa variable.
-                  :math:`Abscissa = (d-dmin)/(dmax-dmin)`
+                * AbscissaBased: computes the abscissa based on the distance d
+                  to the axis provided by the user. Each section corresponds to
+                  an isoSurface of the Abscissa variable. :math:`Abscissa =
+                  (d-dmin)/(dmax-dmin)`
 
-                * Custom: uses the ``custom_variable`` parameter provided by the user as the reference variable to perform the isoSurface for each section.
+                * Custom: uses the ``custom_variable`` parameter provided by the
+                  user as the reference variable to perform the isoSurface for
+                  each section.
             
             * custom_variable : str 
 
@@ -523,51 +592,54 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
 
         geometrical_parameters : :py:class:`dict`
 
-            dictionary providing the geometrical parameters required to compute the blade span with the chosen ``slicing_method``. Pairs of keywords and associated values can be the following:
+            dictionary providing the geometrical parameters required to compute
+            the blade span with the chosen ``slicing_method``. Pairs of keywords
+            and associated values can be the following:
             
-            * start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+            * start_point : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
 
-                :math:`(x,y,z)` coordinates of the starting point from which 
+                :math:`(x,y,z)` coordinates of the starting point from which
                 sectional loads are to be computed.
 
                 .. warning:: 
                     Must be provided for SpanBased slicing and AbscissaBased slicing.
 
-            * end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+            * end_point : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
 
-                :math:`(x,y,z)` coordinates of the end point up to which 
+                :math:`(x,y,z)` coordinates of the end point up to which
                 sectional loads are to be computed. 
 
                 .. warning:: 
                     Must be provided for SpanBased slicing.
 
-            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
 
-                :math:`(x,y,z)` direction of the reference axis along which 
+                :math:`(x,y,z)` direction of the reference axis along which
                 sectional loads are to be computed.
 
                 .. warning:: Must be provided for AbscissaBased slicing.
 
-        distribution : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
-
-            dimensionless coordinate (from *start_point* to *end_point*) used 
-            for discretizing the sectional loads. This must be :math:`\in [0,1]`.
-
-            .. hint:: for example 
-
-                >>> distribution = np.linspace(0,1,201)
-
-            .. note:: 
-
-                for slicing_method = ``Custom``, this function automatically recomputes the span :math:`\in [0,1]` 
-                to perform the slices. The span is based on the 'custom_variable' and is computed as follows : 
-                :math:`(var-min(var))/(max(var)-min(var))`
-
-        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or
+        :py:class:`numpy`
             center for computation the torque contributions
 
         reference_pressure : float
-            Reference pressure. Put ambiant pressure as a reference for integration over a surface that is not closed (such as blades).
+            Reference pressure. Put ambiant pressure as a reference for
+            integration over a surface that is not closed (such as blades).
+
+    Returns
+    -------
+
+        sectionalLoads : zone 
+            Zone containing a FlowSolution node with the following variables:
+            ``SectionalForceX``, ``SectionalForceY``,
+            ``SectionalForceZ``,``SectionalForceTheta``,``SectionalForceR``
+            ``SectionalTorqueX``, ``SectionalTorqueY``, ``SectionalTorqueZ``,
+            ``SectionalTorqueTheta``,``SectionalTorqueR`` and ``SectionalSpan``.
+
 
     '''
     import MOLA.Wireframe as W
@@ -584,7 +656,8 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
 
     if slicing_options['slicing_method'] == 'SpanBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
-            ERRMSG = 'Span based sectional load computation requires both start_point and end_point as input parameters'
+            ERRMSG = '''Span based sectional load computation requires both 
+                start_point and end_point as input parameters'''
             raise ValueError(ERRMSG)
         else:
             Post.addSpan(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['end_point']))
@@ -596,10 +669,13 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
 
     elif slicing_options['slicing_method'] == 'AbscissaBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['axis_direction']== None:
-            ERRMSG = 'Abscissa based sectional load computation requires both start_point and axis_direction as input parameters'
+            ERRMSG = '''Abscissa based sectional load computation requires both 
+                start_point and axis_direction as input parameters'''
             raise ValueError(ERRMSG)
         else:
-            W.addDistanceRespectToLine(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['axis_direction']), FieldNameToAdd='Distance2Axis')
+            W.addDistanceRespectToLine(surface, np.array(geometrical_parameters['start_point']), 
+                np.array(geometrical_parameters['axis_direction']), 
+                FieldNameToAdd='Distance2Axis')
             
             dmin = C.getMinValue(surface, 'Distance2Axis')
             dmax = C.getMaxValue(surface, 'Distance2Axis')
@@ -610,7 +686,9 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
     
     elif slicing_options['slicing_method'] == 'Custom':
             if slicing_options['custom_variable'] == None:
-                ERRMSG = 'The user needs to provide a custom_variable value when performing custom variable based sectional load computation.'
+                ERRMSG = '''The user needs to provide a custom_variable value 
+                    when performing custom variable based sectional load
+                    computation.'''
                 raise ValueError(ERRMSG)
             else:
                 slicing_var = slicing_options['custom_variable']
@@ -634,26 +712,31 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
                 dmax = C.getMaxValue(surface, slicing_options['custom_variable']+customVarContainerTag)
                 surface = recoverContainers(surface) 
 
-    SectionalForceX             = []
-    SectionalForceY             = []
-    SectionalForceZ             = []
-    SectionalForceTheta         = []
-    SectionalForceR             = []
-    SectionalTorqueX            = []
-    SectionalTorqueX2           = []
-    SectionalTorqueY            = []
-    SectionalTorqueZ            = []
-    SectionalTorqueTheta        = []
-    SectionalTorqueR            = []
-    SectionalSpan               = []
-    SectionalCustomVar          = []
-    SectionalCustomVarOverMax   = []
+    SectionalForceX                 = []
+    SectionalForceY                 = []
+    SectionalForceZ                 = []
+    SectionalForceTheta             = []
+    SectionalForceR                 = []
+    SectionalTorqueX                = []
+    SectionalTorqueX2               = []
+    SectionalTorqueY                = []
+    SectionalTorqueZ                = []
+    SectionalTorqueTheta            = []
+    SectionalTorqueR                = []
+    SectionalSpan                   = []
+    SectionalCustomVar              = []
+    SectionalCustomVarOverMax       = []
+    SectionalDistance2Axis          = []
+    SectionalDistance2AxisOverMax   = []     
 
     sectionalLoads = I.newCGNSBase('SectionalLoads', cellDim=1, physDim=3, parent=None)
 
     for d in distribution:
         if slicing_options['slicing_method'] != 'Custom':
             section = Post.isoSurface(surface, fieldname=slicing_var, value=d, container='BCDataSet')
+            if slicing_options['slicing_method'] == 'AbscissaBased':
+                value = d*(dmax-dmin)+dmin
+
         else:
             value = d*(dmax-dmin)+dmin
             section = Post.isoSurface(surface, fieldname=slicing_var, value=value, container=customVarContainerName)
@@ -699,20 +782,32 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
         SectionalTorqueR     += [ -P.integ(section,'mr')[0] ]
         SectionalSpan        += [ d ]
 
+        if slicing_options['slicing_method'] == 'AbscissaBased':
+            SectionalDistance2Axis         += [ value ]
+            SectionalDistance2AxisOverMax  += [ value/dmax ]
+
         if slicing_options['slicing_method'] == 'Custom':
             SectionalCustomVar          += [ value ]
             SectionalCustomVarOverMax   += [ value/dmax ]  
 
-    sloads = dict(SectionalForceX=np.array(SectionalForceX),SectionalForceY=np.array(SectionalForceY),SectionalForceZ=np.array(SectionalForceZ),
-                  SectionalForceTheta=np.array(SectionalForceTheta),SectionalForceR=np.array(SectionalForceR),
-                  SectionalTorqueX=np.array(SectionalTorqueX), SectionalTorqueY=np.array(SectionalTorqueY),
-                  SectionalTorqueZ=np.array(SectionalTorqueZ), 
-                  SectionalTorqueTheta=np.array(SectionalTorqueTheta), SectionalTorqueR=np.array(SectionalTorqueR),
-                  SectionalSpan=np.array(SectionalSpan))
-     
+    sloads = dict(SectionalForceX=np.array(SectionalForceX),
+                SectionalForceY=np.array(SectionalForceY),
+                SectionalForceZ=np.array(SectionalForceZ),
+                SectionalForceTheta=np.array(SectionalForceTheta),
+                SectionalForceR=np.array(SectionalForceR),
+                SectionalTorqueX=np.array(SectionalTorqueX), 
+                SectionalTorqueY=np.array(SectionalTorqueY),
+                SectionalTorqueZ=np.array(SectionalTorqueZ), 
+                SectionalTorqueTheta=np.array(SectionalTorqueTheta), 
+                SectionalTorqueR=np.array(SectionalTorqueR),
+                SectionalSpan=np.array(SectionalSpan))
+
+    if slicing_options['slicing_method'] == 'AbscissaBased':
+            sloads['SectionalDistance2Axis'] = np.array(SectionalDistance2Axis)
+            sloads['SectionalDistance2AxisOverMax'] = np.array(SectionalDistance2AxisOverMax)   
     if slicing_options['slicing_method'] == 'Custom':
-        sloads['SectionalCustomVar'] = np.array(SectionalCustomVar)
-        sloads['SectionalCustomVarOverMax'] = np.array(SectionalCustomVarOverMax)
+        sloads['Sectional'+custom_variable] = np.array(SectionalCustomVar)
+        sloads['Sectional'+custom_variable+'OverMax'] = np.array(SectionalCustomVarOverMax)
 
     varValues = []
     varNames = []
@@ -729,7 +824,9 @@ def computeLoadRadialDistributionInAnnularConfiguration(surface, distribution, s
 
 
 
-def computeRowPressureCoefficent(surface,row, hlist=all, distribution=np.array([0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.98]), slicing_options=dict(slicing_method='SpanBased',custom_variable=None)):
+def computeRowPressureCoefficent(surface,row, hlist=all, 
+    distribution=np.array([0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.98]), 
+    slicing_options=dict(slicing_method='SpanBased',custom_variable=None)):
 
     def searchBladeInTree(row):
         famnames = ['*BLADE*'.format(row), '*Blade*'.format(row),
@@ -753,13 +850,72 @@ def computeRowPressureCoefficent(surface,row, hlist=all, distribution=np.array([
 
     
     blade_surf = searchBladeInTree(row)
-    blade_slices = Post.computeCp(blade_surf, distribution=distribution, slicing_options=slicing_options, 
+    blade_slices = Post.computeCpProfiles(blade_surf, distribution=distribution, slicing_options=slicing_options, 
                    geometrical_parameters=dict(start_point=[0.,0.,0],end_point=None, axis_direction=[1.,0.,0]), 
                    reference_state = dict(reference_pressure=Pinf, reference_density=Roinf, reference_mach=Minf, gamma=Gamma,rotation_speed = TurboConfiguration['Rows'][row]['RotationSpeed']))
     blade_slices = I.renameNode(blade_slices, 'Slices', f'{row}_Slices')
-    # fsnodes = I.getNodesFromType(blade_slices,'FlowSolution_t')
-    # for node in fsnodes:
-    #     I.setName(node,'FlowSolution')
+
     I._addChild(surface, blade_slices)
 
     return blade_slices
+
+
+
+    return surface
+
+def extractWakeProfilesOnIsoX(surface, radial_location):
+    '''
+    Extract wake profiles on .
+    
+    Parameters
+    ----------
+    
+        surface : PyTree, Base, Zone
+
+            surface from which sectional loads are to be computed
+
+            .. note::
+
+                **surface** must contain the following fields (preferrably at
+                centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``,
+                ``SkinFrictionZ``. It must also contain normals ``nx``, ``ny``,
+                ``nz``. 
+
+        radial_location : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
+            
+            ``ChannelHeight`` values for which the wake profiles are extracted.
+
+    '''
+
+    def Radius (y,z): return np.sqrt(y**2+z**2)
+    def Theta (y, z): return np.arctan2(z,y)
+    def RT (R, Theta): return R*Theta
+    
+    WakeProfiles = I.newCGNSBase('WakeProfiles', cellDim=1, physDim=3, parent=surface)
+ 
+    surfacesIsoX = PostTurbo.getSurfacesFromInfo(surface, type='IsoSurface', field='CoordinateX')
+    if not surfacesIsoX: 
+        raise ValueError('No isoX found in surface tree. Please provide a surface tree with isoX surfaces.')
+    else:
+        for surface in surfacesIsoX:
+            n_name = I.getName(surface)
+            xpos = n_name.replace('Iso_X_','')   
+
+            if I.getNodesFromName(surface,'FlowSolution#Height') == []:
+                print(f'No Channel Height found on {n_name}, computing...')
+                surface = WO.setRadiusAsChannelHeight(surface)
+
+            for h in radial_location:
+                line = Post.isoSurface(surface, fieldname = 'ChannelHeight', value = h, container = 'FlowSolution#Height')
+                if line:
+                    line = T.merge(line)
+                    line = C.initVars(line,'ChannelHeight', Radius, ['CoordinateY','CoordinateZ'])
+                    line = C.initVars(line,'Theta', Theta, ['CoordinateY','CoordinateZ'])
+                    line = C.initVars(line,'RT', RT, ['ChannelHeight','Theta'])
+                    try:
+                        zoneName = I.getName(I.getZones(line)[0])
+                    except : continue
+                    line = I.renameNode(line,zoneName,'WakeProfile_X_%s_R_%s'%(xpos,h))        
+                    I.addChild(WakeProfiles, line)
+    
+    return WakeProfiles
