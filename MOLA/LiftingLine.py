@@ -2858,9 +2858,11 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         SurfVars[Var][:] = MyArr
 
     Surfs = []
-    for LiftingLine in getLiftingLines(LiftingLine):
+    LiftingLines = getLiftingLines(LiftingLine)
+    for LiftingLine in LiftingLines:
         v = J.getAllVars(LiftingLine)
         x,y,z = J.getxyz(LiftingLine)
+        
 
         # recover the airfoils at each node of the LiftingLine
         PolarInfoNode = getAirfoilsNodeOfLiftingLine(LiftingLine)
@@ -2905,7 +2907,8 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         if len(Surfs) == 1: return Surfs[0]
         else: return Surfs
 
-    for Surf in Surfs:
+    for Surf, LiftingLine in zip(Surfs, LiftingLines):
+        s = W.gets(LiftingLine)
         # Invoke the new variables in surface
         SurfVars = J.invokeFieldsDict(Surf,Variables)
 
@@ -2943,8 +2946,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
 
                     interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
                                         kind='cubic', copy=False, axis=0,
-                                        assume_sorted=True)
-
+                                        assume_sorted=True, fill_value="extrapolate")
                     NewInterpArray = interpFoilwise(RefCurvAbs)
 
                     # TODO: Check orientation of foil and data
@@ -2959,7 +2961,6 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
 
             # Store dimensionally-coherent interpolated data
             AllValues[pzn] = adaptedSet
-
 
         for v in range(len(Variables)):
             # Build a 3D matrix containing all data.
