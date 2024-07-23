@@ -2812,10 +2812,6 @@ def splitWithPyPart():
 
         Distribution : dict
             Correspondence between zones and processors.
-
-        PartTree : PyTree
-            Required for adequately saving tree using PyPart (see https://elsa.onera.fr/issues/11149)
-
     '''
 
     import etc.pypart.PyPart     as PPA

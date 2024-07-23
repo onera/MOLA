@@ -962,59 +962,52 @@ def buildPropeller(LiftingLine, NBlades=2, InitialAzimutDirection=[0,1,0],
 
     return PropBase
 
-def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
-    RightHandRuleRotation = True, Symmetrical = False, Twist = {}, Sweep = {}, Dihedral = {}):
+def getLocalFramePerpendicularToLiftingLine(line = [0., 1.], RightHandRuleRotation = True,
+    Symmetrical = False, Twist = {}, Sweep = {}, Dihedral = {}, y = {}, z = {}):
     '''
     Builds the referential of each section perpendicular to the Lifting Line.
 
-
     .. important:: The native canonical lifting line location is set towards:
-
         :math:`+X` spanwise
-
         :math:`-Y` sweepwise
-
         :math:`+Z` dihedralwise
-
         and centered at :math:`(0,0,0)`
-
 
     Parameters
     ----------
-
         Line : zone or :py:class:`float`
             Discretisation of the Lifting Line. Starts and ends with the Lifting Line geometry.
         
-        RightHandRuleRotation : bool
+        RightHandRuleRotation : :py:class:`bool`
             Determines wether the LiftingLine is taken as a rotating blade 
             following the right-hand-rule rotation or not.
         
-        Symmetrical : bool
+        Symmetrical : :py:class:`bool`
             Determines if the Lifting Line is symmetrised. A symmetrical extention is added to the
             build Lifting Line.
 
-        Twist : dict
+        Twist : :py:class:`dict`
             Gives the distribution of twist (in degree) with the according interpolation law.
             For example:
 
-            ::
+            :: Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
+                                    Twist = [30.,  6.0, -7.0], InterpolationLaw = 'akima')
 
-                Twist = dict(RelativeSpan = [0.2,  0.6,  1.0],
-                                    Twist = [30.,  6.0, -7.0],
-                             InterpolationLaw = 'akima')
-
-
-        Sweep : dict
+        Sweep : :py:class:`dict`
             Gives the distribution of sweep (in degree) with the according interpolation law.
 
-        Dihedral : dict
+        Dihedral : :py:class:`dict`
             Gives the distribution of dihedral (in degree) with the according interpolation law.
 
+        y : :py:class:`dict`
+            Gives the Lifting Line position along the Y axis.
+
+        z : :py:class:`dict`
+            Gives the Lifting Line position along the Z axis.
     Returns
     -------
-
-        Frame : dict
-            Contains the positions and vectors of the sections
+        Frame : :py:class:`dict`
+            Containes the positions and vectors of the sections
     '''
     
     Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)
@@ -1029,30 +1022,53 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
     if not Twist:
         print(J.WARN + 'WARNING: no Twist has been prescribed. Set to zero.' + J.ENDC)
         Twist = {'RelativeSpan': s, 'Twist': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
-    if not Sweep:
-        print(J.WARN + 'WARNING: no Sweep has been prescribed. Set to zero.' + J.ENDC)
-        Sweep = {'RelativeSpan': s, 'Sweep': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
-    if not Dihedral:
-        print(J.WARN + 'WARNING: no Dihedral has been prescribed. Set to zero.' + J.ENDC)
-        Dihedral = {'RelativeSpan': s, 'Dihedral': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
+
 
     #translates the angles into cooridnates
-    for dico, v in zip([Sweep, Dihedral], ['Sweep', 'Dihedral']):
-        if 'RelativeSpan' in dico: xs = np.array(dico['RelativeSpan'])*np.max(Span)
-        elif 'Abscissa' in dico:   xs = np.array(dico['Abscissa'])*np.max(Span)
-        else: raise AttributeError("Attribute " + v + " (dict) must contain 'RelativeSpan' or \
+    if Sweep:
+        if 'RelativeSpan' in Sweep:
+            xs = np.array(Sweep['RelativeSpan'])
+            y['RelativeSpan'] = xs
+        elif 'Abscissa' in Sweep:
+            xs = np.array(Sweep['Abscissa'])
+            y['Abscissa'] = xs
+        else: raise AttributeError("Attribute Sweep (dict) must contain 'RelativeSpan' or \
                                                                                     'Abscissa' key")
         dxs = np.append(np.append(xs[1] - xs[0], 0.5*(xs[2:] - xs[:-2])), xs[-1] - xs[-2])
         if not RightHandRuleRotation: dxs *= -1.
-        dl = dxs*np.tan(np.deg2rad(dico[v]))
+        dl = dxs*np.tan(np.deg2rad(Sweep['Sweep']))
         l = [0]
         for dli in dl: l.extend([l[-1] - dli])
     
-        dico[v] = l[1:]
+        y['y'] = np.array(l[1:])*np.max(Span)
+        y['InterpolationLaw'] = Sweep['InterpolationLaw']
+    elif not y:
+        y = {'RelativeSpan': s, 'y': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
+
+    if Dihedral:
+        if 'RelativeSpan' in Dihedral:
+            xs = np.array(Dihedral['RelativeSpan'])
+            z['RelativeSpan'] = xs
+        elif 'Abscissa' in Dihedral:
+            xs = np.array(Dihedral['Abscissa'])
+            z['Abscissa'] = xs
+        else: raise AttributeError("Attribute Dihedral (dict) must contain 'RelativeSpan' or \
+                                                                                    'Abscissa' key")
+        dxs = np.append(np.append(xs[1] - xs[0], 0.5*(xs[2:] - xs[:-2])), xs[-1] - xs[-2])
+        if not RightHandRuleRotation: dxs *= -1.
+        dl = dxs*np.tan(np.deg2rad(Dihedral['Dihedral']))
+        l = [0]
+        for dli in dl: l.extend([l[-1] - dli])
+    
+        z['z'] = np.array(l[1:])*np.max(Span)
+        z['InterpolationLaw'] = Dihedral['InterpolationLaw']
+    elif not z:
+        z = {'RelativeSpan': s, 'z': [0.]*len(s), 'InterpolationLaw': 'interp1d_linear'}
 
     Interp = {}
     #interpolates the twist and the coordinates
-    for dico, v in zip([Twist, Sweep, Dihedral], ['Twist', 'Sweep', 'Dihedral']):
+    for dico, v in zip([Twist, y, z], ['Twist', 'y', 'z']):
+
         if 'RelativeSpan' in dico:
             Interp[v] = J.interpolate__(RelSpan, dico['RelativeSpan'], dico[v],
                                                              dico['InterpolationLaw'], **dico)
@@ -1068,9 +1084,9 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
                                                                                              key"%v)
 
     x = Span[:]
-    y = Interp['Sweep'][:]
-    z = Interp['Dihedral'][:]
-
+    y = Interp['y'][:]
+    z = Interp['z'][:]
+    Twist = Interp['Twist'][:]
     #get the vectors
     import scipy
     Rotate = lambda v, theta, axis: scipy.spatial.transform.Rotation.from_rotvec(\
@@ -1090,7 +1106,7 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.],
     ChordwiseY = bxyz[1,:]
     ChordwiseZ = bxyz[2,:]
     for i in range(NumberOfSections):
-      Chordwise = Rotate(np.array([ChordwiseX[i], ChordwiseY[i], ChordwiseZ[i]]), Interp['Twist'][i],
+      Chordwise = Rotate(np.array([ChordwiseX[i], ChordwiseY[i], ChordwiseZ[i]]), Twist[i],
                                                np.array([SpanwiseX[i], SpanwiseY[i], SpanwiseZ[i]]))
       ChordwiseX[i] = Chordwise[0]
       ChordwiseY[i] = Chordwise[1]
@@ -2842,9 +2858,11 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         SurfVars[Var][:] = MyArr
 
     Surfs = []
-    for LiftingLine in getLiftingLines(LiftingLine):
+    LiftingLines = getLiftingLines(LiftingLine)
+    for LiftingLine in LiftingLines:
         v = J.getAllVars(LiftingLine)
         x,y,z = J.getxyz(LiftingLine)
+        
 
         # recover the airfoils at each node of the LiftingLine
         PolarInfoNode = getAirfoilsNodeOfLiftingLine(LiftingLine)
@@ -2889,7 +2907,8 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
         if len(Surfs) == 1: return Surfs[0]
         else: return Surfs
 
-    for Surf in Surfs:
+    for Surf, LiftingLine in zip(Surfs, LiftingLines):
+        s = W.gets(LiftingLine)
         # Invoke the new variables in surface
         SurfVars = J.invokeFieldsDict(Surf,Variables)
 
@@ -2927,8 +2946,7 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
 
                     interpFoilwise = si.interp1d(CurrentCurvAbs, InterpolatedArray,
                                         kind='cubic', copy=False, axis=0,
-                                        assume_sorted=True)
-
+                                        assume_sorted=True, fill_value="extrapolate")
                     NewInterpArray = interpFoilwise(RefCurvAbs)
 
                     # TODO: Check orientation of foil and data
@@ -2943,7 +2961,6 @@ def postLiftingLine2Surface(LiftingLine, PyZonePolars, Variables=[],
 
             # Store dimensionally-coherent interpolated data
             AllValues[pzn] = adaptedSet
-
 
         for v in range(len(Variables)):
             # Build a 3D matrix containing all data.
@@ -3191,7 +3208,7 @@ def setVPMParameters(LiftingLines, **kwargs):
                     Gives the number of particle sources on the Lifting Line(s) from where particles
                     are shed.
 
-                ParticleDistribution : :py:class:`dict`
+                SourcesDistribution : :py:class:`dict`
                     Python dictionary specifying distribution instructions.
                     Default value produces a uniform distribution of particles provided by a linear
                     interpolation. Accepted keys are:
@@ -3246,8 +3263,6 @@ def setVPMParameters(LiftingLines, **kwargs):
                 MaxLiftingLineSubIterations : :py:class:`int`
                     Gives the maximum number of iteration used during the shedding process.
     '''
-
-
     for LiftingLine in I.getZones(LiftingLines):
         J.set(LiftingLine, '.VPM#Parameters', **kwargs)
 
@@ -4086,8 +4101,9 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         v['Gamma'][:] = Gamma
 
         # ------------------------- INTEGRAL LOADS ------------------------- #
-        length = norm(np.sum(np.abs(np.diff(xyz, axis = 1)), axis = 1)) # faster than D.getLength
+        length = np.sum(np.linalg.norm(np.diff(xyz,axis=1),axis=0)) # faster than D.getLength
         DimensionalAbscissa = length*v['s'] # TODO check if v['s'] is updated!
+
 
         # Integrate linear axial force <fa> to get Thrust
         FA = Thrust = sint.simps(v['ForceAxial'], DimensionalAbscissa)
@@ -4876,7 +4892,6 @@ def convertPolarsCGNS2HOSTformat(PyZonePolars,
                 BigAoAsValuesDict[KeyName] = BigAoAsValue[1]
 
             f.write('      78      %s\n'%FoilName)
-            f.write('%5i\n' %MachQty)
 
             for var in AllowedQuantities:
                 var_n = I.getNodeFromName1(FlowSol_n,var)

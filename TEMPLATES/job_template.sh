@@ -16,6 +16,8 @@
 export MOLAVER=Dev
 if [ -f "/tmp_user/sator/lbernard/MOLA/$MOLAVER/env_MOLA.sh" ]; then
     source /tmp_user/sator/lbernard/MOLA/$MOLAVER/env_MOLA.sh
+elif [ -f "/tmp_user/juno/lbernard/MOLA/$MOLAVER/env_MOLA.sh" ]; then
+    source /tmp_user/juno/lbernard/MOLA/$MOLAVER/env_MOLA.sh
 else
     source /stck/lbernard/MOLA/$MOLAVER/env_MOLA.sh
 fi

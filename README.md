@@ -3,7 +3,7 @@ For documentation, examples, major changes, please consult the [documentation si
 Information for users
 =====================
 
-Please use one of the latest **stable versions** of MOLA : `/stck/lbernard/MOLA/v1.15/env_MOLA.sh`
+Please use one of the latest **stable versions** of MOLA (in ONERA env): `/stck/mola`
 
 
 Information for developers

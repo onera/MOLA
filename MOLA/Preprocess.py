@@ -635,7 +635,7 @@ def prepareMainCGNS4ElsA(mesh, ReferenceValuesParams={}, OversetMotion={},
 def tag_zones_with_sourceterm(t):
     '''
     Add node xdt_nature='sourceterm' that is mandatory to use body force.
-    See https://elsa.onera.fr/issues/11496#note-6
+    See `elsA issue #11496 message 6 <https://elsa.onera.fr/issues/11496#note-6>`__
     '''
     if I.getNodeFromName(t, 'FlowSolution#DataSourceTerm'):
         zones = [z for z in I.getZones(t) if I.getNodeFromName1(z, 'FlowSolution#DataSourceTerm')]
@@ -1830,7 +1830,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
             ``ID_*`` nodes.
 
             .. danger::
-                beware of elsA bug `10545 <https://elsa.onera.fr/issues/10545>`_
+                beware of `elsA bug 10545 <https://elsa.onera.fr/issues/10545>`__
         
         CHECK_OVERSET : bool
             if :py:obj:`True`, then make an extrapolated-orphan cell diagnosis
@@ -1881,7 +1881,7 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     t_blank = staticBlanking(t, bodies, BlankingMatrix, InputMeshes)
     if hasAnyOversetMotion(InputMeshes):
         StaticBlankingMatrix  = getBlankingMatrix(bodies, InputMeshes,
-                                                    StaticOnly=True)
+                                    StaticOnly=True, FullBlankMatrix=BlankingMatrix)
         t = staticBlanking(t, bodies, StaticBlankingMatrix, InputMeshes)
     else:
         StaticBlankingMatrix = BlankingMatrix
@@ -2040,7 +2040,7 @@ def hasAnyOversetMotion(InputMeshes):
     return False
 
 
-def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
+def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False, FullBlankMatrix=None):
     '''
     .. attention:: this is a **private-level** function. Users shall employ
         user-level function :py:func:`addOversetData`.
@@ -2082,7 +2082,6 @@ def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
 
     # Initialization: all bodies mask all bases
     BlankingMatrix = np.ones((Nbases, Nbodies))
-
     # do not allow bodies issued of a given base to mask its own parent base
     for i, j in product(range(Nbases), range(Nbodies)):
         BaseName = BaseNames[i]
@@ -2104,29 +2103,39 @@ def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
             if BodyName.startswith('overlap') and BodyParentBaseName in Forbidden:
                 BlankingMatrix[i, j] = 0
         
-
-    # masking protection using key "OnlyMaskedByWalls"
     for i, meshInfo in enumerate(InputMeshes):
+        
+        # masking protection using key "OnlyMaskedByWalls"
         try: OnlyMaskedByWalls = meshInfo['OversetOptions']['OnlyMaskedByWalls']
         except KeyError: continue
+        
         if OnlyMaskedByWalls:
             for j, BodyName in enumerate(BodyNames):
                 if not BodyName.startswith('wall'):
                     BlankingMatrix[i, j] = 0
 
     if StaticOnly:
-        # TODO optimize by fixed masking of components with same rigid motion
-        for j, BodyName in enumerate(BodyNames):
-            BodyParentBaseName = getBodyParentBaseName(BodyName)
-            bodyInfo = getMeshInfoFromBaseName(BodyParentBaseName,InputMeshes)
-            MovingBody = True if 'Motion' in bodyInfo else False
-            if MovingBody or BodyName.startswith('overlap'):
-                BlankingMatrix[:,j] = 0
-
         for i, meshInfo in enumerate(InputMeshes):
             MovingBase = True if 'Motion' in meshInfo else False
-            if MovingBase: BlankingMatrix[i,:] = 0
 
+            for j, BodyName in enumerate(BodyNames):
+                BodyParentBaseName = getBodyParentBaseName(BodyName)
+                bodyInfo = getMeshInfoFromBaseName(BodyParentBaseName,InputMeshes)
+                MovingBody = True if 'Motion' in bodyInfo else False
+
+                # if MovingBase and MovingBody: rigidMotionToBeImplementedHere # TODO
+                
+                if not MovingBody and not MovingBase: continue # will make static blank
+
+                BlankingMatrix[i,j] = 0
+
+
+        # HACK elsA does not allow for static blanking a base if already dynamic blanked
+        # by other moving bodies
+        Dynamic = FullBlankMatrix - BlankingMatrix
+        for i in range(Dynamic.shape[0]):
+            if any(Dynamic[i,:]):
+                BlankingMatrix[i,:] = 0
     print('BaseNames (rows) = %s'%str(BaseNames))
     print('BodyNames (columns) = %s'%str(BodyNames))
     msg = 'BlankingMatrix:' if not StaticOnly else 'static BlankingMatrix:'
@@ -2134,6 +2143,7 @@ def getBlankingMatrix(bodies, InputMeshes, StaticOnly=False):
     print(np.array(BlankingMatrix,dtype=int))
 
     return BlankingMatrix
+
 
 def getMaskingBodiesAsDict(t, InputMeshes):
     '''
@@ -2800,7 +2810,7 @@ def computeReferenceValues(FluidProperties, Density=1.225, Temperature=288.15,
             computation, expressed in [m]
 
         TurbulenceModel : str
-            Some `NASA's conventional turbulence model <https://turbmodels.larc.nasa.gov/>`_
+            Some `NASA's conventional turbulence model <https://turbmodels.larc.nasa.gov/>`__
             available in elsA are included:
             ``'SA'``, ``'Wilcox2006-klim'``, ``'Wilcox2006-klim-V'``,
             ``'Wilcox2006'``, ``'Wilcox2006-V'``, ``'SST-2003'``, 
@@ -3644,6 +3654,13 @@ def getElsAkeysNumerics(ReferenceValues, NumericalScheme='jameson',
         addKeys['t_cutvar3'] = TurbulenceCutoff*ReferenceStateTurbulence[5]
         addKeys['t_cutvar4'] = TurbulenceCutoff*ReferenceStateTurbulence[6]
 
+    elif 'LM2009' in ReferenceValues['TurbulenceModel']:
+        addKeys['t_cutvar1'] = TurbulenceCutoff*ReferenceStateTurbulence[0]
+        addKeys['t_cutvar2'] = TurbulenceCutoff*ReferenceStateTurbulence[1]
+        addKeys['t_cutvar3'] = 0.0
+        addKeys['t_cutvar4'] = 0.0
+
+
     elif len(ReferenceStateTurbulence)>4: # unsupported 
         raise ValueError('UNSUPPORTED NUMBER OF TURBULENT FIELDS')
     
@@ -3851,8 +3868,8 @@ def addOversetMotion(t, OversetMotion):
             alp0=0.,
             alp_pnt=[0.,0.,0.],
             alp_vct=[0.,1.,0.],
-            rot_pnt=[rc[0],rc[1],rc[2]],
-            rot_vct=[ra[0],ra[1],ra[2]],
+            rot_pnt=[float(rc[0]),float(rc[1]),float(rc[2])],
+            rot_vct=[float(ra[0]),float(ra[1]),float(ra[2])],
             rot_omg=motion_keys['omega'],
             span_vct=bd,
             pre_lag_pnt=[0.,0.,0.],
@@ -3893,23 +3910,26 @@ def addOversetMotion(t, OversetMotion):
 
 
 def _getMotionDataFromMeshInfo(base):
-    defaultRotationCenter = np.array([0.,0.,0.],order='F')
-    defaultRotationAxis = np.array([0.,0.,1.],order='F')
-    defaultTranslationDirection = np.array([1.,0.,0.],order='F')
+    defaultRotationCenter = np.array([0.,0.,0.],dtype=float,order='F')
+    defaultRotationAxis = np.array([0.,0.,1.],dtype=float,order='F')
+    defaultTranslationDirection = np.array([1.,0.,0.],dtype=float,order='F')
     default = defaultRotationCenter, defaultRotationAxis, defaultTranslationDirection
 
     MeshInfo = J.get(base,'.MOLA#InputMesh')
+    if not MeshInfo:
+        raise ValueError(f'base {base[0]} must have .MOLA#InputMesh node')
     
-    if not MeshInfo: return default
-    try: MotionData = MeshInfo['Motion']
-    except KeyError: return default
+    if not 'Motion' in MeshInfo:
+        print(f'base {base[0]} does not have Motion attribute. Assigning default.')
+        return default
 
-    try: 
-        RotationCenter = MotionData['RequestedFrame']['RotationCenter']
-    except KeyError: RotationCenter = defaultRotationCenter
 
-    try: RotationAxis = MotionData['RequestedFrame']['RotationAxis']
-    except KeyError: RotationAxis = defaultRotationAxis
+    if not 'RequestedFrame' in MeshInfo['Motion']:
+        print(J.WARN+f'no requested frame in {base[0]}, using InitialFrame data'+J.ENDC)
+    MotionData = MeshInfo['Motion']['InitialFrame']
+    
+    RotationCenter = np.array(MotionData['RotationCenter'],dtype=float)
+    RotationAxis = np.array(MotionData['RotationAxis'],dtype=float)
 
     try: TranslationDirection = MotionData['RequestedFrame']['TranslationDirection']
     except KeyError: TranslationDirection = defaultTranslationDirection
@@ -5732,6 +5752,8 @@ def duplicateBlades(base, meshInfo):
                 bc['type'] += suffix
                 bc['name'] += suffix
 
+        addSuffixToAllFamilies(base, suffix)
+
         J.set(base,'.MOLA#InputMesh',**newMeshInfo)
         NewMeshInfos += [newMeshInfo]
 
@@ -5762,6 +5784,55 @@ def removeFamilies(t, families_to_remove):
             if n[0] == f or I.getValue(n) == f:
                 I.rmNode(t, n)
 
+
+def addSuffixToAllFamilies(t, suffix):
+    '''
+    Takes all existing families, and adds a suffix.
+    '''
+    for base in I.getBases(t):
+        for fam in I.getNodesFromType1(base, 'Family_t'):
+            renameFamily(base, fam[0], fam[0]+suffix)
+
+def renameFamily(t, existing_name, new_name):
+    '''
+    Renames a family (of zones, or of BC) using a new name.
+    It will change the name of ``Family_t`` nodes inside ``CGNSBase_t`` nodes and
+    the values of the nodes ``FamilyName_t`` inside ``Zone_t``
+
+    Parameters
+    ----------
+
+        t : PyTree, base
+            will be modified in-place
+
+        existing_name : str
+            name of the existing family (to be renamed)
+
+        new_name : str
+            name of the new family
+    '''
+    for base in I.getBases(t):
+        for family_node in I.getNodesFromType1(base, 'Family_t'):
+            if family_node[0] == existing_name:
+                family_node[0] = new_name
+            for family_subnode in I.getNodesFromType(family_node, 'Family_t'):
+                if family_subnode[0] == existing_name:
+                    family_subnode[0] = new_name
+        
+        for zone in I.getZones(base):
+            for family_name_node in I.getNodesFromType1(zone,'FamilyName_t'):
+                family_name = I.getValue(family_name_node)
+                if family_name == existing_name:
+                    I.setValue(family_name_node, new_name)
+                
+            zone_bc = I.getNodeFromType1(zone, 'ZoneBC_t')
+            if not zone_bc: continue
+            for family_name_subnode in I.getNodesFromType(zone_bc,'FamilyName_t'):
+                family_name = I.getValue(family_name_subnode)
+                if family_name == existing_name:
+                    I.setValue(family_name_subnode, new_name)
+
+
 def renameNodes(t, rename_dict={}):
     '''
     a shortcut of I._renameNode function, literally:
@@ -5778,7 +5849,7 @@ def renameNodes(t, rename_dict={}):
 
 def adaptFamilyBCNamesToElsA(t):
     '''
-    Due to https://elsa.onera.fr/issues/11090
+    Due to `elsA issue #11090 <https://elsa.onera.fr/issues/11090>`__
     '''
     for n in I.getNodesFromType(t, 'FamilyBC_t'):
         n[0] = 'FamilyBC'
@@ -5888,7 +5959,7 @@ def appendAdditionalFieldExtractions(ReferenceValues, Extractions):
 def addBC2Zone(*args, **kwargs):
     '''
     Workaround of Converter._addBC2Zone (in-place) function in order to circumvent 
-    https://elsa.onera.fr/issues/11236
+    `elsA Issue #11236 <https://elsa.onera.fr/issues/11236>`__
 
     TODO remove for elsA > v5.2.03
 
@@ -5939,8 +6010,8 @@ def _convert_mesh_to_ngon(filename_in, filename_out):
 
 def _hackChimGroupFamilies(t):
     '''
-    This is a HACK for circumventing https://elsa.onera.fr/issues/11552
-    also check https://gitlab.onera.net/numerics/mola/-/issues/196
+    This is a HACK for circumventing `elsA Issue #11552`__
+    also check `MOLA Issue #196 <https://gitlab.onera.net/numerics/mola/-/issues/196>`__
     '''
     for family_name_node in I.getNodesFromType(t,'FamilyName_t'):
         if family_name_node[0].startswith('ChimGroup'):
@@ -5958,8 +6029,8 @@ def hasMOLAMotion(t):
 
 def avoidSameFamilyBCNameAsBase(t):
     '''
-    This is a HACK for preventing from problem https://elsa.onera.fr/issues/11552
-    Also check https://gitlab.onera.net/numerics/mola/-/issues/198
+    This is a HACK for preventing from problem `elsA Issue #11552 <https://elsa.onera.fr/issues/11552>`__
+    Also check `MOLA Issue #198 <https://gitlab.onera.net/numerics/mola/-/issues/198>`__
     '''
     for base in I.getBases(t):
         for family in I.getNodesFromType1(base,'Family_t'):
