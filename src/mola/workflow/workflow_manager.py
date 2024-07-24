@@ -136,7 +136,7 @@ class WorkflowDispatcher():
             previous_case_path = previous_workflow.RunManagement['RunDirectory']
             init_variations = [
                 ('Initialization|method', 'copy'),
-                ('Initialization|source', f'../{previous_case_path}/{names.DIRECTORY_OUTPUT}/{names.FILE_OUTPUT_3D}'),
+                ('Initialization|source', f'../{previous_case_path}/{names.FILE_INPUT_SOLVER}'),
             ]
             variations += init_variations
         except IndexError:
@@ -470,6 +470,8 @@ class WorkflowSender():
             operation=self._get_adapted_path,
             excluded_attributes=['Extractions']
             )
+        
+        files2copy = [filename for filename in files2copy if not filename.endswith(names.FILE_INPUT_SOLVER)]
         
         for filename in files2copy:
             self._copy_file_to_data_directory(filename)

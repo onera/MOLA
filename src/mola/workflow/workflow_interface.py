@@ -536,6 +536,7 @@ class WorkflowInterface(object):
         LauncherCommand : str = 'auto',
         FilesAndDirectories : list = [],
         mola_target_path : str = None,
+        AER : str = None,
         ):
         self.RunManagement = self._get_comp(
             WorkflowInterface.set_RunManagement, self.get_default_values_from_local_signature())
