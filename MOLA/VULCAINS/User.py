@@ -31,6 +31,7 @@ Johan VALENTIN
 import os
 import numpy as np
 import Converter.PyTree as C
+import Post.PyTree as P
 import Converter.Internal as I
 import Transform.PyTree as T
 from .. import InternalShortcuts as J
@@ -371,7 +372,7 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
         VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
                                                   StdDeviationSample, FieldsExtractionGrid, Surface)
     if FieldsExtractionGrid:
-        extractFields(t, FieldsExtractionGrid, 5300)
+        extractFields(Targets = FieldsExtractionGrid, t = t)
         filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
         V.save(FieldsExtractionGrid, filename, VisualisationOptions, SaveFields)
         V.save(FieldsExtractionGrid, 'fields.cgns', VisualisationOptions, SaveFields)
@@ -543,7 +544,7 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
         printIterationInfo(IterationInfo, PSE = PSE, DVM = DVM, Wings = Wing)
 
         if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
-            extractFields(t, FieldsExtractionGrid, 5300)
+            extractFields(Targets = FieldsExtractionGrid, t = t)
             filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
             V.save(FieldsExtractionGrid, filename, VisualisationOptions, SaveFields)
             J.createSymbolicLink(filename, 'fields.cgns')
@@ -630,13 +631,7 @@ def restartComputation(path = 'OUTPUT.cgns', Parameters = {}):
     '''
     if isinstance(path, str): t = V.load(path)
     else: t = path
-
-    if 'NumericalParameters' not in Parameters: Parameters['NumericalParameters'] = dict()
-    if 'NumberOfThreads' in Parameters['NumericalParameters']:
-        OMP_NUM_THREADS = Parameters['NumericalParameters']['NumberOfThreads']
-    else: OMP_NUM_THREADS = V.getParameter(t, 'NumberOfThreads')
     
-    Parameters['NumericalParameters']['NumberOfThreads'] = V.initialiseThreads(OMP_NUM_THREADS)
     V.checkTrees(t, Parameters)
     tL, tLL, tE, tH, tP = V.getTrees([t], ['Particles', 'LiftingLines', 'Eulerian', 'Hybrid',
                                                                                     'Perturbation'])
@@ -747,7 +742,7 @@ def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations
         DIRECTORY_OUTPUT = DIRECTORY_OUTPUT, SaveFields = SaveFields,
         VisualisationOptions = {'addLiftingLineSurfaces':False}, SaveVPMPeriod = SaveVPMPeriod)
 
-def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrder = 12,
+def extractFields(Targets = [], t = [], FarFieldPolynomialOrder = 12,
     NearFieldOverlapingFactor = 4, NbOfParticlesForPrecisionEvaluation = 1000):
     '''
     Extract fields from a VULCAINS simulation onto given grids, surfaces,
@@ -759,14 +754,9 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
         Targets : Tree
             Probes of the simulated domain.
 
-        tL : Tree
-            Lagrangian field.
-
-        tE : Tree
-            Eulerian field.
-
-        tH : Tree
-            Hybrid Domain.
+        t : Tree
+            Contains the Lagrangian field, Lifting Lines, Eulerian field, Hybrid Domain and
+            Perturbation field.
 
         NbOfParticlesForPrecisionEvaluation : :py:class:`int`
             Number of nodes where the solution approximated by the FMM is checked.
@@ -787,7 +777,7 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
     '''
     #initialise targets
     if not Targets: return
-    _tL, _tE, _tH = V.getTrees([tL, tE, tH], ['Particles', 'Eulerian', 'Hybrid'])
+    _tL, _tE, _tH = V.getTrees([t], ['Particles', 'Eulerian', 'Hybrid'])
     if not _tL: return
     V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
     V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Extract VPM Solution '))
@@ -804,9 +794,9 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
     NbNodes = [0]
     for z in TargetsZones: NbNodes += [C.getNPts(z) + NbNodes[-1]]
 
-    V.show(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of targets') + ': ' +
+    V.show(f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of targets') + ': ' +
                                                                        '{:.4g}'.format(NbNodes[-1]))
-    V.show(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of VPM particles') + ': ' +
+    V.show(f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of VPM particles') + ': ' +
                                                            '{:.4g}'.format(V.getParticlesNumber(_tL)))
     #transform it in particles
     LagrangianGrid = V.buildEmptyVPMTree(NbNodes[-1], newFieldNames)
@@ -899,7 +889,7 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
             J.invokeFields(Zone, ['InterpolationWeight'])[0][:] = np.square(np.cos(\
                                                                         np.pi/2.*Distance))
             # Distance0[1] = Distance
-
+        
     if Nh:
         V.show(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of hybrids') + ': ' + \
                                                                                 '{:.4g}'.format(Nh))
