@@ -372,7 +372,7 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
         VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
                                                   StdDeviationSample, FieldsExtractionGrid, Surface)
     if FieldsExtractionGrid:
-        extractFields(FieldsExtractionGrid, t)
+        extractFields(Targets = FieldsExtractionGrid, t = t)
         filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
         V.save(FieldsExtractionGrid, filename, VisualisationOptions, SaveFields)
         V.save(FieldsExtractionGrid, 'fields.cgns', VisualisationOptions, SaveFields)
@@ -544,7 +544,7 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
         printIterationInfo(IterationInfo, PSE = PSE, DVM = DVM, Wings = Wing)
 
         if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
-            extractFields(FieldsExtractionGrid, t)
+            extractFields(Targets = FieldsExtractionGrid, t = t)
             filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
             V.save(FieldsExtractionGrid, filename, VisualisationOptions, SaveFields)
             J.createSymbolicLink(filename, 'fields.cgns')
@@ -742,7 +742,7 @@ def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations
         DIRECTORY_OUTPUT = DIRECTORY_OUTPUT, SaveFields = SaveFields,
         VisualisationOptions = {'addLiftingLineSurfaces':False}, SaveVPMPeriod = SaveVPMPeriod)
 
-def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrder = 12,
+def extractFields(Targets = [], t = [], FarFieldPolynomialOrder = 12,
     NearFieldOverlapingFactor = 4, NbOfParticlesForPrecisionEvaluation = 1000):
     '''
     Extract fields from a VULCAINS simulation onto given grids, surfaces,
@@ -754,14 +754,9 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
         Targets : Tree
             Probes of the simulated domain.
 
-        tL : Tree
-            Lagrangian field.
-
-        tE : Tree
-            Eulerian field.
-
-        tH : Tree
-            Hybrid Domain.
+        t : Tree
+            Contains the Lagrangian field, Lifting Lines, Eulerian field, Hybrid Domain and
+            Perturbation field.
 
         NbOfParticlesForPrecisionEvaluation : :py:class:`int`
             Number of nodes where the solution approximated by the FMM is checked.
@@ -782,7 +777,7 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
     '''
     #initialise targets
     if not Targets: return
-    _tL, _tE, _tH = V.getTrees([tL, tE, tH], ['Particles', 'Eulerian', 'Hybrid'])
+    _tL, _tE, _tH = V.getTrees([t], ['Particles', 'Eulerian', 'Hybrid'])
     if not _tL: return
     V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
     V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Extract VPM Solution '))
