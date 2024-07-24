@@ -31,6 +31,7 @@ Johan VALENTIN
 import os
 import numpy as np
 import Converter.PyTree as C
+import Post.PyTree as P
 import Converter.Internal as I
 import Transform.PyTree as T
 from .. import InternalShortcuts as J
@@ -371,7 +372,7 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
         VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
                                                   StdDeviationSample, FieldsExtractionGrid, Surface)
     if FieldsExtractionGrid:
-        extractFields(t, FieldsExtractionGrid, 5300)
+        extractFields(FieldsExtractionGrid, t)
         filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
         V.save(FieldsExtractionGrid, filename, VisualisationOptions, SaveFields)
         V.save(FieldsExtractionGrid, 'fields.cgns', VisualisationOptions, SaveFields)
@@ -543,7 +544,7 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
         printIterationInfo(IterationInfo, PSE = PSE, DVM = DVM, Wings = Wing)
 
         if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
-            extractFields(t, FieldsExtractionGrid, 5300)
+            extractFields(FieldsExtractionGrid, t)
             filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
             V.save(FieldsExtractionGrid, filename, VisualisationOptions, SaveFields)
             J.createSymbolicLink(filename, 'fields.cgns')
@@ -630,13 +631,7 @@ def restartComputation(path = 'OUTPUT.cgns', Parameters = {}):
     '''
     if isinstance(path, str): t = V.load(path)
     else: t = path
-
-    if 'NumericalParameters' not in Parameters: Parameters['NumericalParameters'] = dict()
-    if 'NumberOfThreads' in Parameters['NumericalParameters']:
-        OMP_NUM_THREADS = Parameters['NumericalParameters']['NumberOfThreads']
-    else: OMP_NUM_THREADS = V.getParameter(t, 'NumberOfThreads')
     
-    Parameters['NumericalParameters']['NumberOfThreads'] = V.initialiseThreads(OMP_NUM_THREADS)
     V.checkTrees(t, Parameters)
     tL, tLL, tE, tH, tP = V.getTrees([t], ['Particles', 'LiftingLines', 'Eulerian', 'Hybrid',
                                                                                     'Perturbation'])
@@ -899,7 +894,7 @@ def extractFields(Targets = [], tL = [], tE = [], tH = [], FarFieldPolynomialOrd
             J.invokeFields(Zone, ['InterpolationWeight'])[0][:] = np.square(np.cos(\
                                                                         np.pi/2.*Distance))
             # Distance0[1] = Distance
-
+        
     if Nh:
         V.show(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of hybrids') + ': ' + \
                                                                                 '{:.4g}'.format(Nh))
