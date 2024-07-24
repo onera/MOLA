@@ -460,11 +460,11 @@ def computeRowSectionalLoad(surface, row, torque_center= None):
     ----------
     
         surface : PyTree, Base, Zone or :py:class:`list` of Zone
-            surfaces from which sectional loads are to be computed
+            Surfaces from which sectional loads are to be computed
 
             .. note::
-                surfaces contained in **t** must contain the following fields
-                 (preferrably at centers): ``Pressure``, ``SkinFrictionX``,
+                surfaces contained in **t** must contain the following fields 
+                (preferrably at centers): ``Pressure``, ``SkinFrictionX``,
                 ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
                 normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
 
@@ -475,8 +475,8 @@ def computeRowSectionalLoad(surface, row, torque_center= None):
 
             .. hint:: Rotor or Stator for example 
 
-        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or
-        :py:class:`numpy`
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy`
+
             center for computation the torque contributions
 
     '''
@@ -532,35 +532,32 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
     ----------
     
         surface : PyTree, Base, Zone or :py:class:`list` of Zone
-            surfaces from which sectional loads are to be computed
+            Surfaces from which sectional loads are to be computed
 
             .. note::
-                surfaces contained in **t** must contain the following fields
-                 (preferrably at centers): ``Pressure``, ``SkinFrictionX``,
+                surfaces contained in **t** must contain the following fields 
+                (preferrably at centers): ``Pressure``, ``SkinFrictionX``, 
                 ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
                 normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
 
         distribution : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
-
             dimensionless coordinate used for discretizing the sectional span.
             This must be :math:`\in [0,1]`.
 
             .. hint:: for example 
-
+                
                 >>> distribution = np.linspace(0,1,201)
 
             .. note:: 
-
                 for slicing_method = ``Custom``, this function automatically
                 recomputes the span :math:`\in [0,1]` to perform the slices. The
                 span is based on the 'custom_variable' and is computed as
                 follows : :math:`(var-min(var))/(max(var)-min(var))`
 
-        slicing_options : dict
+        slicing_options : :py:class:`dict`
 
-            dictionary providing the parameters to perform the slicing along the
-            blade span. Two pairs of keywords and associated values can be
-            provided:
+            dictionary providing the parameters to perform the slicing along the 
+            blade span. Two pairs of keywords and associated values can be provided:
             
             * slicing_method : str
 
@@ -636,9 +633,9 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
         sectionalLoads : zone 
             Zone containing a FlowSolution node with the following variables:
             ``SectionalForceX``, ``SectionalForceY``,
-            ``SectionalForceZ``,``SectionalForceTheta``,``SectionalForceR``
+            ``SectionalForceZ``, ``SectionalForceTheta``, ``SectionalForceR``
             ``SectionalTorqueX``, ``SectionalTorqueY``, ``SectionalTorqueZ``,
-            ``SectionalTorqueTheta``,``SectionalTorqueR`` and ``SectionalSpan``.
+            ``SectionalTorqueTheta``, ``SectionalTorqueR`` and ``SectionalSpan``.
 
 
     '''
