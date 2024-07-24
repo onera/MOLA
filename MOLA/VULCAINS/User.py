@@ -794,9 +794,9 @@ def extractFields(Targets = [], t = [], FarFieldPolynomialOrder = 12,
     NbNodes = [0]
     for z in TargetsZones: NbNodes += [C.getNPts(z) + NbNodes[-1]]
 
-    V.show(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of targets') + ': ' +
+    V.show(f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of targets') + ': ' +
                                                                        '{:.4g}'.format(NbNodes[-1]))
-    V.show(f"{'||':>57}\r" + '|| ' + '{:32}'.format('Number of VPM particles') + ': ' +
+    V.show(f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of VPM particles') + ': ' +
                                                            '{:.4g}'.format(V.getParticlesNumber(_tL)))
     #transform it in particles
     LagrangianGrid = V.buildEmptyVPMTree(NbNodes[-1], newFieldNames)
