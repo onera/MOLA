@@ -20,9 +20,18 @@ from mola.cfd import apply_to_solver
 def apply(workflow):
 
     add_residuals_extraction(workflow)
+    process_extractions_2d(workflow)
     apply_to_solver(workflow)
     
 def add_residuals_extraction(workflow):
     if not any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
         workflow._interface.add_to_Extractions_Residuals()
 
+def process_extractions_2d(workflow):
+    for Extraction in workflow.Extractions:
+        if Extraction['Type'] == 'BC':
+            Extraction.setdefault('Fields', [])
+            if isinstance(Extraction['Fields'], str):
+                # NOTE Despite the check of the interface, Fields may be a str
+                # when workflow.cgns is read directly, in the context of WorkflowManager
+                Extraction['Fields'] = [Extraction['Fields']]
