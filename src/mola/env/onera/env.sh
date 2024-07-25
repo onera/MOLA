@@ -44,4 +44,4 @@ source $SCRIPT_DIR/network.sh
 
 # source the environment associated to the current machine and MOLA_SOLVER
 echo "source $MOLA/mola/env/onera/$MAC/$MOLA_SOLVER.sh"
-source $MOLA/mola/env/onera/$MAC/$MOLA_SOLVER.sh &>/dev/null || echo 'Error: Cannot source this environment!'
+source $MOLA/mola/env/onera/$MAC/$MOLA_SOLVER.sh &>/dev/null || { echo 'Error: Cannot source this environment!' >&2; return 1; }

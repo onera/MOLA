@@ -18,7 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
+source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new22/.env_elsA &>/dev/null
 unset I_MPI_PMI_LIBRARY
 
 # Treelab
@@ -28,6 +28,10 @@ export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
 export PYTHONPATH=/tmp_user/sator/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
+
+# maia
+module use --append /tmp_user/sator/sonics/usr/modules/
+module load maia/$MAIAVERSION-dsi-cfd6
 
 # PUMA
 export PUMAVERSION=v2.0.3_mod

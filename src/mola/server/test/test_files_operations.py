@@ -154,7 +154,7 @@ def test_read_text_file_from_errors():
 
 @pytest.mark.network_onera
 @pytest.mark.unit
-@pytest.mark.cost_level_1
+@pytest.mark.cost_level_2
 def test_read_text_file_from_errors_sator():
     directory = '/tmp_user/sator/$USER/.test/'
     filename = 'dummy_test_err_file.log'
