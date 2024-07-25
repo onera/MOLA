@@ -48,7 +48,7 @@ export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
 export PYTHONUNBUFFERED=true # cf ticket 9685, but simulation is slower cf ticket 10472
 
-export TREELABVERSION=v0.2
+export TREELABVERSION=v0.2.0
 export MAIAVERSION=dev #1.4
 export VPMVERSION=Dev
 export PUMAVERSION=v2.0.3
