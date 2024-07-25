@@ -708,7 +708,7 @@ def test_workflow_sphere_struct_local_dist():
     w.remove_cfd_files()
 
 @pytest.mark.integration
-@pytest.mark.cost_level_3
+@pytest.mark.cost_level_4
 def test_workflow_sphere_unstruct_local():
     w = get_workflow_sphere_unstruct()
     w.prepare()

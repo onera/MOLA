@@ -19,27 +19,10 @@ from mola.cfd import apply_to_solver
 
 def apply(workflow):
 
-    set_defaults(workflow)
     add_residuals_extraction(workflow)
-    process_extractions_2d(workflow)
     apply_to_solver(workflow)
-
-def set_defaults(workflow):
-    for Extraction in workflow.Extractions:
-        if Extraction['Type'] == 'IsoSurface':
-            if Extraction['Name'] == 'auto':
-                FieldName = Extraction['IsoSurfaceField'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
-                Extraction['Name'] = f"Iso_{FieldName}_{Extraction['IsoSurfaceValue']:.4g}"
     
 def add_residuals_extraction(workflow):
     if not any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
         workflow._interface.add_to_Extractions_Residuals()
-            
-def process_extractions_2d(workflow):
-    for Extraction in workflow.Extractions:
-        if Extraction['Type'] == 'BC':
-            Extraction.setdefault('Fields', [])
-            if isinstance(Extraction['Fields'], str):
-                Extraction['Fields'] = [Extraction['Fields']]
-
 

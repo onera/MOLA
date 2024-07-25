@@ -17,11 +17,65 @@
 
 import pytest
 import os
+import numpy as np
 
 import mola.naming_conventions as names
-from mola.logging import MolaException
 from mola.workflow import WorkflowTurbomachinery
 from mola import server as SV
+
+def get_compressor_example():
+    w = WorkflowTurbomachinery( 
+        RawMeshComponents=[
+        dict(
+            Name='CompressorStage',
+            Source='/stck/mola/data/mesh/compressor_example/compressor_example.cgns',
+            )
+    ],
+
+    ApplicationContext = dict(
+        ShaftRotationSpeed = 6000 * np.pi / 30., 
+        Rows = dict(
+            Rotor = dict(IsRotating=True, NumberOfBlades=30), 
+            Stator = dict(NumberOfBlades=40),
+        )
+    ),
+
+    Flow = dict(
+        Mach                  = 0.3,  
+        TemperatureStagnation = 288.15,
+        PressureStagnation    = 101325.,
+    ),
+
+    Turbulence = dict(
+        Model='Wilcox2006',
+    ),
+
+    Numerics = dict(
+        NumberOfIterations = 5,
+        CFL = dict(EndIteration=300, StartValue=1., EndValue=30.),
+    ),
+
+    BoundaryConditions = [
+        dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
+        dict(Family='Stator_OUTFLOW', Type='OutflowPressure', Pressure=110e3), #98500.),
+        dict(Family='HUB', Type='WallInviscid'),
+        dict(Family='SHROUD', Type='WallInviscid'),
+        dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', Type='MixingPlane')
+    ],
+
+    Extractions = [
+        # dict(Type='3D', 
+        #      Fields=['VelocityX', 'VelocityY', 'VelocityZ', 'Mach', 'Pressure', 'PressureStagnation', 'Entropy'], 
+        #      ExtractionPeriod=500, SavePeriod=500),
+    ],
+
+    RunManagement=dict(
+        JobName='CompressorStage',
+        NumberOfProcessors=4,
+        RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.compressor_example'),
+        ),
+    )
+    return w
 
 def get_workflow_rotor37():
     w = WorkflowTurbomachinery( 
@@ -80,19 +134,19 @@ def get_workflow_rotor37():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_init():
-    w = get_workflow_rotor37()
+    w = get_compressor_example()
     w.print_interface()
 
 
-# @pytest.mark.user_case
-# @pytest.mark.cost_level_4
-# def test_rotor37_local():
-#     w = get_workflow_rotor37()
-#     w.prepare()
-#     w.write_cfd_files()
-#     w.submit()
-#     w.simulation_status()
-#     w.remove_cfd_files()
+@pytest.mark.user_case
+@pytest.mark.cost_level_4
+def test_compressor_example_local():
+    w = get_compressor_example()
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+    w.simulation_status()
+    w.remove_cfd_files()
 
 
 # @pytest.mark.network_onera
@@ -120,4 +174,4 @@ def test_init():
 
 
 if __name__ == '__main__':
-    test_rotor37_local()
+    test_compressor_example_local()

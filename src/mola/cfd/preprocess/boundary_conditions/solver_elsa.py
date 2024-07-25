@@ -628,12 +628,13 @@ def stage_mxpl(workflow, left, right):
 
     workflow.tree = cgns.castNode(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, left, right)
+    # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
+    I._correctPyTree(workflow.tree, level=4)
 
 
 def set_turbomachinery_interface_FamilyBC(t, left, right):
     for gc in t.group(Type='GridConnectivity'):
-        for FamilyBC in gc.group(Type='FamilyBC'):
-            FamilyBC.remove()
+        gc.findAndRemoveNodes(Type='FamilyBC')
     
     leftFamily = t.get(Name=left, Type='Family', Depth=2)
     rightFamily = t.get(Name=right, Type='Family', Depth=2)
