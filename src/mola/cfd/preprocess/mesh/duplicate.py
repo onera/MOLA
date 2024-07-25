@@ -222,49 +222,17 @@ def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
-    # TODO use the following lines when the env uses Maia v>1.3
-    # for row, dup_params in duplication_parameters.items():
-    #     if dup_params['number_of_duplications'] == 0:
-    #         continue
-    #     elif dup_params['is_360']:
-    #         mola_logger.info(f"  > row {row} is replicated on 360 degrees")
-    #         maia.algo.dist.duplicate_family_from_rotation_jns_to_360(dist_tree, row, comm)
-    #     else:
-    #         plurial = 's' if dup_params['number_of_duplications'] > 1 else ''
-    #         mola_logger.info(f"  > row {row} is replicated {dup_params['number_of_duplications']} time"+plurial)
-    #         maia.algo.dist.duplicate_family_from_periodic_jns(dist_tree, row, dup_params['number_of_duplications'], comm)
-        
-    import maia.pytree as PT
     for row, dup_params in duplication_parameters.items():
         if dup_params['number_of_duplications'] == 0:
             continue
-
-        is_zone_in_row = lambda n : PT.get_label(n) == 'Zone_t' and PT.predicate.belongs_to_family(n, row)
-        zones_paths = PT.predicates_to_paths(dist_tree, ['CGNSBase_t', is_zone_in_row])
-
-        _, perio_jns = PT.find_periodic_jns(dist_tree)
-
-        if dup_params['is_360']:
+        elif dup_params['is_360']:
             mola_logger.info(f"  > row {row} is replicated on 360 degrees")
-            maia.algo.dist.duplicate_from_rotation_jns_to_360(
-                dist_tree, 
-                zones_paths, 
-                perio_jns, 
-                comm, 
-                apply_to_fields=True  # TODO that becomes the default value with maia v1.4
-                )
+            maia.algo.dist.duplicate_family_from_rotation_jns_to_360(dist_tree, row, comm)
         else:
             plurial = 's' if dup_params['number_of_duplications'] > 1 else ''
             mola_logger.info(f"  > row {row} is replicated {dup_params['number_of_duplications']} time"+plurial)
-            maia.algo.dist.duplicate_from_periodic_jns(
-                dist_tree, 
-                zones_paths, 
-                perio_jns, 
-                dup_params['number_of_duplications'], 
-                comm, 
-                apply_to_fields=True  # TODO that becomes the default value with maia v1.4
-                )
-    
+            maia.algo.dist.duplicate_family_from_periodic_jns(dist_tree, row, dup_params['number_of_duplications'], comm)
+        
     if merge_zones:
         maia.algo.dist.merge_connected_zones(dist_tree, comm)    
 

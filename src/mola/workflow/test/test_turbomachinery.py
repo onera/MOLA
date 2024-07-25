@@ -21,10 +21,11 @@ import numpy as np
 
 import mola.naming_conventions as names
 from mola.workflow import WorkflowTurbomachinery
+from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola import server as SV
 
-def get_compressor_example():
-    w = WorkflowTurbomachinery( 
+def get_compressor_example_parameters():
+    params = dict( 
         RawMeshComponents=[
         dict(
             Name='CompressorStage',
@@ -75,6 +76,10 @@ def get_compressor_example():
         RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.compressor_example'),
         ),
     )
+    return params
+
+def get_compressor_example():
+    w = WorkflowTurbomachinery(**get_compressor_example_parameters())
     return w
 
 def get_workflow_rotor37():
@@ -136,6 +141,27 @@ def get_workflow_rotor37():
 def test_init():
     w = get_compressor_example()
     w.print_interface()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_duplicate():
+    params = get_compressor_example_parameters()
+    params['ApplicationContext'] = dict(
+        ShaftRotationSpeed = 6000 * np.pi / 30., 
+        Rows = dict(
+            Rotor = dict(IsRotating=True, NumberOfBlades=30, NumberOfBladesSimulated=2), 
+            Stator = dict(NumberOfBlades=40),
+        )
+    )
+    w = WorkflowTurbomachinery(**params)
+    w.assemble()
+    w.positioning()
+    w.connect()
+    rotor_zone_names = [zone.name() for zone in w.tree.zones() if zone.name().startswith('Rotor')]
+    w.define_families()
+    for name in rotor_zone_names:
+        assert w.tree.get(Type='Zone', Name=f'{name}.D0') is not None
+        assert w.tree.get(Type='Zone', Name=f'{name}.D1') is not None
 
 
 @pytest.mark.user_case
