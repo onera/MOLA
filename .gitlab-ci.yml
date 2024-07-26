@@ -15,7 +15,7 @@
 
 default:
   tags: 
-    - juno-shell
+    - shell
 
 stages:
   - test
