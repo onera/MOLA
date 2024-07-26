@@ -143,7 +143,7 @@ def test_init():
     w.print_interface()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_2
+@pytest.mark.cost_level_3
 def test_duplicate():
     params = get_compressor_example_parameters()
     params['ApplicationContext'] = dict(

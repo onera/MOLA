@@ -13,15 +13,19 @@
 #
 # For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
 
+variables:
+  MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
+  MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
+
 default:
   tags: 
-    - shell
+    - juno-shell
 
 stages:
   - test
   - deploy
 
-test_unit: 
+test_unit_elsa: 
   stage: test
   rules:   
     - if: $CI_COMMIT_BRANCH == "master-v2" 
@@ -30,15 +34,28 @@ test_unit:
   #    when: always
   #  - when: never
   before_script:
-    - source src/mola/env/onera/env.sh elsa
+    - source $MOLA_ENV_ELSA
   script:
-    - pytest -m unit src/mola/cfd #--junitxml=pytest-report.xml
-  # artifacts:
-  #   when: always
-  #   reports:
-  #     junit: pytest-report.xml
-  #   paths:
-  #     - pytest-report.xml
+    - pytest -m unit 
+  
+test_unit_sonics: 
+  stage: test
+  rules:   
+    - if: $CI_COMMIT_BRANCH == "master-v2" 
+  before_script:
+    - source $MOLA_ENV_SONICS
+  script:
+    - pytest -m unit 
+
+# test_integration_elsa:   # does not work because it requires to handle job submission
+#   stage: test
+#   needs: ["test_unit_elsa"]
+#   rules:   
+#     - if: $CI_COMMIT_BRANCH == "master-v2" 
+#   before_script:
+#     - source $MOLA_ENV_ELSA
+#   script:
+#     - pytest -m integration 
 
 pages:    # Nom à utiliser
   stage: deploy

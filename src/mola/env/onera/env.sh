@@ -27,7 +27,7 @@ keys=$(echo "$python_data" | grep -oP "'[^']+'\ *:" | sed "s/'//g;s/://g")
 values=$(echo "$python_data" | grep -oP ":\ *'[^']+'" | sed "s/://;s/'//g")
 i=1
 for pattern in $keys; do
-    if [[ $HOSTNAME == $pattern* ]]; then 
+    if [[ $HOSTNAME == $pattern ]]; then 
         export MAC=$(echo $values | cut -d ' ' -f $i)
         break
     fi

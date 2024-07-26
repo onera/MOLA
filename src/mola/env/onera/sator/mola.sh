@@ -31,14 +31,7 @@ unset I_MPI_PMI_LIBRARY
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
-
-export PYTHONPATH=$MOLAext/sator/lib/python3.7/site-packages/:$PYTHONPATH
-export PATH=$MOLAext/sator/bin:$PATH
-export LD_LIBRARY_PATH=$MOLAext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
-
-
+export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH

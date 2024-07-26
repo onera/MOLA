@@ -71,17 +71,23 @@ class MaiaParallel():
 
     '''
      
-    import maia
-    import maia.pytree as PT
-    import mpi4py.MPI as MPI
-    comm = MPI.COMM_WORLD 
-     
     def __init__(self, func):
         # The first argument of func must be a tree or a Workflow
         self._original_func = func
         self._func = func
 
+        try:
+            import maia
+            import mpi4py.MPI as MPI
+            self.maia = maia
+            self.comm = MPI.COMM_WORLD 
+        except ImportError:
+            self.maia = None
+            self.comm = None
+
     def __call__(self, *args, **kwargs):
+        if not self.maia:
+            raise MolaException(f'maia cannot be imported, but it is required by function {self._original_func.__name__}')
         tree = self.get_tree(*args)
         if self.is_dist_tree(tree):
             tree = self.wrapper_dist_tree(tree, *args[1:], **kwargs)
@@ -106,10 +112,10 @@ class MaiaParallel():
         return tree
     
     def is_dist_tree(self, tree):
-        return self.PT.get_node_from_name(tree, ':CGNS#Distribution') is not None
+        return self.maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None
 
     def is_part_tree(self, tree):
-        return self.PT.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None
+        return self.maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None
 
     def is_full_tree(self, tree):
         return not self.is_dist_tree(tree) and not self.is_part_tree(tree)

@@ -76,10 +76,9 @@ def pytest_collection_modifyitems(config, items):
     valid_markers = {'unit', 'integration', 'user_case'}
     not_tagged_tests = []
 
-    skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
     for item in items:
-        if ("network_onera" in item.keywords) and (SV.get_network() != 'onera'):
-            item.add_marker(skip_onera)
+        skip_if_not_on_onera_network(item)
+        skip_if_solver_not_compatible_with_env(item)
 
         markers = {marker.name for marker in item.iter_markers()}
         if not markers.intersection(valid_markers):
@@ -92,3 +91,18 @@ def pytest_collection_modifyitems(config, items):
             f"The following tests are missing a required marker:{os.linesep}" 
             f"  {new_line_double_space.join(not_tagged_tests)}"
         )
+    
+def skip_if_not_on_onera_network(item):
+    skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
+    if ("network_onera" in item.keywords) and (SV.get_network() != 'onera'):
+         item.add_marker(skip_onera)
+
+def skip_if_solver_not_compatible_with_env(item):
+    solvers = ['elsa', 'sonics', 'fast', 'coda']
+    current_solver = os.getenv('MOLA_SOLVER')
+    skip_solver = pytest.mark.skip(reason=f"test not available in the current environment ({current_solver})")
+    is_marked_with_current_solver = current_solver in item.keywords
+    is_marked_with_another_solver = any([solver in item.keywords for solver in solvers if solver != current_solver])
+    if not is_marked_with_current_solver and is_marked_with_another_solver:
+         item.add_marker(skip_solver)
+

@@ -572,11 +572,14 @@ def test_init():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_submit():
-    test_dir = 'test_submit_dir'
-    os.makedirs(test_dir, exist_ok=True)
-    w = Workflow(RunManagement=dict(RunDirectory=test_dir))
+    test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_submit_dir')
+    w = Workflow(RunManagement=dict(
+        RunDirectory=test_dir, 
+        # Force launching with bash, whatever the machine, this is a simple test
+        LauncherCommand=f"cd {test_dir}; bash {names.FILE_JOB}"
+        ))
     run_manager.set_default(w.RunManagement)
-    run_manager.set_launcher_command(w.RunManagement)
+    os.makedirs(test_dir, exist_ok=True)
     with open(os.path.join(test_dir,'job.sh'),'w') as f:
         f.write('hostname > test.txt')
     w.submit()
@@ -758,22 +761,6 @@ def test_workflow_sphere_struct_remote_sator():
 def test_print_interface_1():
     w = get_workflow1()
     w.print_interface()
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_submit():
-    test_dir = 'test_submit_dir'
-    os.makedirs(test_dir, exist_ok=True)
-    w = Workflow(RunManagement=dict(RunDirectory=test_dir))
-    run_manager.set_default(w.RunManagement)
-    run_manager.set_launcher_command(w.RunManagement)
-    with open(os.path.join(test_dir,names.FILE_JOB),'w') as f:
-        f.write('hostname > test.txt')
-    w.submit()
-    if not os.path.exists(os.path.join(test_dir,'test.txt')):
-        raise MolaException('submit test failed')
-    shutil.rmtree(test_dir)
-    
 
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
