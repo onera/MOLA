@@ -22,7 +22,9 @@ from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola.cfd.preprocess.motion import motion
 
 BoundaryConditionsNames = dict(
-    Farfield                     = dict(elsa='nref', sonics='BCFarfield'),
+    Farfield                     = dict(elsa='nref',
+                                        sonics='BCFarfield',
+                                        fast='BCFarfield'),
     InflowStagnation             = dict(elsa='inj1', sonics='BCInflowSubsonicPressure'),
     InflowMassFlow               = dict(elsa='injmfr1', sonics='BCInflowSubsonicMassFlow'),
     OutflowPressure              = dict(elsa='outpres', sonics='BCOutflowSubsonic'),
@@ -30,10 +32,16 @@ BoundaryConditionsNames = dict(
     OutflowRadialEquilibrium     = dict(elsa='outradeq'),
     MixingPlane                  = dict(elsa='stage_mxpl'),
     UnsteadyRotorStatorInterface = dict(elsa='stage_red'),
-    WallViscous                  = dict(elsa='walladia', sonics='BCWallViscous'),
+    WallViscous                  = dict(elsa='walladia',
+                                        sonics='BCWallViscous',
+                                        fast='BCWall'),
     WallViscousIsothermal        = dict(elsa='wallisoth', sonics='BCWallViscousIsothermal'),
-    WallInviscid                 = dict(elsa='wallslip', sonics='BCWallInviscid'),
-    SymmetryPlane                = dict(elsa='sym', sonics='BCSymmetryPlane'),
+    WallInviscid                 = dict(elsa='wallslip',
+                                        sonics='BCWallInviscid',
+                                        fast='BCWall'),
+    SymmetryPlane                = dict(elsa='sym',
+                                        sonics='BCSymmetryPlane',
+                                        fast='BCSymmetryPlane'),
 )
 
 # Shortcuts for already defined boundary conditions
@@ -100,6 +108,7 @@ def apply(workflow, selected_boundaries_conditions=None):
 
         current_path = os.path.dirname(os.path.realpath(__file__))
         solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
+        
         try:
             solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
         except AttributeError:

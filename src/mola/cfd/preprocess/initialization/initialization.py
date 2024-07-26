@@ -39,7 +39,7 @@ def apply(workflow):
 
     initialize_flow_with_given_method(workflow)
     check_initial_flow_is_in_all_zones(workflow)
-    # workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
+    workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
     
     apply_to_solver(workflow)
 

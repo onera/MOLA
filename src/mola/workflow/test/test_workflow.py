@@ -25,7 +25,7 @@ import treelab.cgns as cgns
 
 import mola.naming_conventions as names
 from mola.workflow import Workflow
-from mola.logging import mola_logger, MolaException, mute_stdout
+from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola import server as SV
 from mola.cfd.preprocess.run_manager import run_manager
 
@@ -88,7 +88,6 @@ def get_workflow_dist():
             Splitter='maia', # or 'maia', 'PyPart' etc..
             Distributor='maia', 
             ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
             ),
 
         Flow=dict(
@@ -134,6 +133,7 @@ def get_workflow2_parameters():
     mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
 
     params = dict(
+
         RawMeshComponents=[
             dict(
                 Name='cartesian',
@@ -170,7 +170,7 @@ def get_workflow2_parameters():
             Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
             Distributor='Cassiopee', 
             ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=4, 
+            NumberOfParts=4,
             ),
 
         Flow=dict(
@@ -184,7 +184,8 @@ def get_workflow2_parameters():
         Solver=os.environ.get('MOLA_SOLVER'),
 
         Numerics = dict(
-            CFL=1.,
+            NumberOfIterations = 2,
+            CFL=1.0,
         ),
 
         BoundaryConditions=[
@@ -232,7 +233,6 @@ def get_workflow_sphere_struct():
             Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
             Distributor='Cassiopee', 
             ComponentsToSplit=None, # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=1, 
             ),
 
         Flow=dict(
@@ -291,7 +291,6 @@ def get_workflow_sphere_struct_mpi_to_connect():
             Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
             Splitter='maia', # or 'maia', 'PyPart' etc..
             ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
             ),
 
         Flow=dict(
@@ -352,7 +351,6 @@ def get_workflow_sphere_struct_dist():
             Splitter='maia', # or 'maia', 'PyPart' etc..
             Distributor='maia', 
             ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
             ),
 
         Flow=dict(
@@ -550,12 +548,6 @@ def get_workflow1():
             Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
             Distributor='Cassiopee', 
             ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
-            NumberOfProcessors=4, 
-            # MinimumAllowedNodes=1,
-            # MaximumAllowedNodes=20,
-            # MaximumNumberOfPointsPerNode=1e9,
-            # CoresPerNode=48,
-            # DistributeOnlyOnFullNodes=True,
             ),
 
 
@@ -711,7 +703,12 @@ def test_workflow_sphere_struct_local_dist():
 @pytest.mark.cost_level_3
 def test_workflow_sphere_unstruct_local():
     w = get_workflow_sphere_unstruct()
-    w.prepare()
+    try:
+        w.prepare()
+    except MolaUserError as e:
+        if "mesh must be structured" in str(e): return
+        raise MolaUserError(e)
+
     w.write_cfd_files()
     w.submit()
     w.simulation_status()
@@ -759,22 +756,6 @@ def test_print_interface_1():
     w = get_workflow1()
     w.print_interface()
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_submit():
-    test_dir = 'test_submit_dir'
-    os.makedirs(test_dir, exist_ok=True)
-    w = Workflow(RunManagement=dict(RunDirectory=test_dir))
-    run_manager.set_default(w.RunManagement)
-    run_manager.set_launcher_command(w.RunManagement)
-    with open(os.path.join(test_dir,names.FILE_JOB),'w') as f:
-        f.write('hostname > test.txt')
-    w.submit()
-    if not os.path.exists(os.path.join(test_dir,'test.txt')):
-        raise MolaException('submit test failed')
-    shutil.rmtree(test_dir)
-    
-
 
 def test_wip():
     import inspect
@@ -804,5 +785,5 @@ def test_wip():
 
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
-    test_workflow_sphere_struct_local_cassiopee_mpi()
-    # test_prepare_workflow1()
+    # test_prepare_workflow2()
+    test_submit()

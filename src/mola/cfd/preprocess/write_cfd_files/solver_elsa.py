@@ -26,16 +26,10 @@ from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text
 def apply_to_solver(workflow):
 
     add_elsaHybrid_nodes_if_needed(workflow.tree)  # in elsA v5.3.01, it seems to be still mandatory for some hybrid meshes
-    add_governing_equations(workflow)
     if hasattr(workflow, '_FULL_CGNS_MODE'):
         add_elsa_keys_to_cgns(workflow)
 
     write_run_scripts(workflow)
-    # NOTE The following line is important to write the complete attribute RunManagement in the tree.
-    # Otherwise, this attribute is filled with the workflow defaults, without essential keys.
-    # It would be better to make a separate operation to set properly RunManagement, and then write or not the files...
-    # For now a large part of RunManagement is set in the function build_job_scheduler_header
-    workflow.set_workflow_parameters_in_tree()  
     write_data_files(workflow)
 
 def add_elsaHybrid_nodes_if_needed(t):
@@ -44,18 +38,6 @@ def add_elsaHybrid_nodes_if_needed(t):
         I._createElsaHybrid(t, method=1)
         t = cgns.castNode(t)
     return t
-
-def add_governing_equations(workflow):
-    '''
-    Add the nodes corresponding to `FlowEquationSet_t`
-    '''
-    FlowEquationSet = cgns.Node(Name='FlowEquationSet', Type='FlowEquationSet')
-    cgns.Node(Parent=FlowEquationSet, Name='GoverningEquations', Type='GoverningEquations', Value='NSTurbulent')
-    cgns.Node(Parent=FlowEquationSet, Name='EquationDimension', Type='EquationDimension', Value=workflow.ProblemDimension)
-
-    workflow.tree.findAndRemoveNodes(Type='FlowEquationSet', Depth=2)
-    for base in workflow.tree.bases():
-        base.addChild(FlowEquationSet)
 
 def add_elsa_keys_to_cgns(workflow):
     '''

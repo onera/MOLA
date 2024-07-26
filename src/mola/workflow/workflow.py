@@ -39,6 +39,7 @@ from  mola.cfd.preprocess import (flow_generators,
                                cfd_parameters,
                                extractions,
                                run_manager,
+                               finalization,
                                write_cfd_files)
 from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
@@ -71,6 +72,7 @@ class Workflow(object):
         self.initialize_flow()  # eventually + distance to wall
         self.set_extractions()
         self.check_preprocess() # empty BCs... maybe solver-specific
+        self.finalize_preprocess() # solver-specific
         self.set_workflow_parameters_in_tree()
         # self.set_workflow_parameters_in_file()
 
@@ -129,6 +131,8 @@ class Workflow(object):
     def set_extractions(self):
         extractions.apply(self)
 
+    def finalize_preprocess(self):
+        finalization.apply(self)
 
     def check_preprocess(self):
         def isEmpty(emptyBC):
@@ -379,7 +383,10 @@ class Workflow(object):
         errmsg = SV.read_text_file_from_errors(os.path.join(run_dir, names.FILE_STDERR),
             machine=machine, user=user, max_lines=max_lines_of_catched_error)
         if raise_error_if_not_completed:
-            raise MolaException(errmsg)
+            if errmsg:
+                raise MolaException(errmsg)
+            else:
+                raise MolaException(f'missing COMPLETED, but did not find any error. Check your computation at {self.RunManagement["RunDirectory"]}')
         else:
             mola_logger.warning(errmsg)
             status += '\n'+errmsg

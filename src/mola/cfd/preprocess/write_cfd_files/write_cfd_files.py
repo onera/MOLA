@@ -49,5 +49,9 @@ def build_job_scheduler_header(Scheduler, scheduler_options):
     header = ''
     if Scheduler == 'SLURM':
         for option, value in scheduler_options.items():
-            header += f"#SBATCH --{option}={value}\n"
+            header += f"#SBATCH --{option}"
+            if value is not None or (isinstance(value,str) and value != ''):
+                header += f"={value}"
+            header += "\n"
+    
     return header
