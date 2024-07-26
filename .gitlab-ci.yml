@@ -26,6 +26,8 @@ test_unit:
   #  - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master-v2"'
   #    when: always
   #  - when: never
+  tags: 
+    - shell
   before_script:
     - source src/mola/env/onera/env.sh elsa
   script:
