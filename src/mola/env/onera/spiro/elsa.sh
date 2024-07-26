@@ -36,6 +36,10 @@ export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
+# maia
+module use --append /scratchm/sonics/usr/modules/
+module load maia/$MAIAVERSION-dsi-cfd6
+
 # PUMA
 export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
 export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
@@ -70,3 +74,4 @@ export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
+

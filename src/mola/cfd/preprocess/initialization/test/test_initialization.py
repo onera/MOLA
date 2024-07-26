@@ -66,8 +66,14 @@ def test_initialization_uniform():
         ['TurbulentSANuTildeDensity', np.array([[[4.41691234e-05]],[[4.41691234e-05]]]), [], 'DataArray_t'], 
     ], 'FlowSolution_t']
 
-    assert str(workflow.tree.get(Name='FlowSolution#Init')) == str(ref_fs)
-
+    FS = workflow.tree.get(Name='FlowSolution#Init')
+    assert FS.get(Name='GridLocation', Type='GridLocation', Value='CellCenter') 
+    assert np.allclose(FS.get(Name='Density', Type='DataArray').value(), 1.225)
+    assert np.allclose(FS.get(Name='MomentumX', Type='DataArray').value(), 12.25)
+    assert np.allclose(FS.get(Name='MomentumY', Type='DataArray').value(), 0.)
+    assert np.allclose(FS.get(Name='MomentumZ', Type='DataArray').value(), 0.)
+    assert np.allclose(FS.get(Name='EnergyStagnationDensity', Type='DataArray').value(), 253373.86097188)
+    assert np.allclose(FS.get(Name='TurbulentSANuTildeDensity', Type='DataArray').value(), 4.41691234e-05)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
