@@ -1,4 +1,5 @@
 import pytest
+import os
 import timeit
 import warnings
 from . import server as SV
@@ -72,7 +73,22 @@ def check_cost(func, marker):
 
 def pytest_collection_modifyitems(config, items):
 
+    valid_markers = {'unit', 'integration', 'user_case'}
+    not_tagged_tests = []
+
     skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
     for item in items:
         if ("network_onera" in item.keywords) and (SV.get_network() != 'onera'):
             item.add_marker(skip_onera)
+
+        markers = {marker.name for marker in item.iter_markers()}
+        if not markers.intersection(valid_markers):
+            not_tagged_tests.append(item.nodeid)
+
+    if len(not_tagged_tests) > 0:
+        new_line_double_space = os.linesep + '  '
+        raise pytest.UsageError(
+            f"Each test must be tagged with one of the following markers: {', '.join(valid_markers)}."
+            f"The following tests are missing a required marker:{os.linesep}" 
+            f"  {new_line_double_space.join(not_tagged_tests)}"
+        )

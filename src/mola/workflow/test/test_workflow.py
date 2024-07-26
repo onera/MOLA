@@ -775,33 +775,6 @@ def test_submit():
     shutil.rmtree(test_dir)
     
 
-
-def test_wip():
-    import inspect
-
-    def repack_kwargs_only(**kwargs):
-        # Get the current frame (frame where this function is called)
-        frame = inspect.currentframe().f_back
-        # Get the arguments from the calling frame
-        locals_dict = frame.f_locals
-        # Remove 'self' if this is a method in a class
-        locals_dict.pop("self", None)
-        # Remove 'kwargs' if it exists
-        locals_dict.pop("kwargs", None)
-        # Repack only kwargs
-        kwargs = {key: locals_dict[key] for key in locals_dict if key not in locals_dict.get("args", [])}
-        return kwargs
-
-    # Example usage:
-    def example_function(a, b, c, d=1, e=2, *, f=None, g=None):
-        kwargs = repack_kwargs_only()
-        return kwargs
-
-    result = example_function(1, 2, 3, g='value')
-    print("Keyword arguments:", result)
-    
-    
-
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     test_workflow_sphere_struct_local_cassiopee_mpi()
