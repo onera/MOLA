@@ -38,7 +38,7 @@ def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, 
         extraction = cgns.castNode(extraction)
 
     else:
-        raise MolaException(f'iso_surface is available only with cassiopee (now {tool=})')
+        raise MolaException(f'iso_surface is available only with cassiopee (now tool={tool})')
     
     return extraction
     
@@ -56,7 +56,7 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
         restore_families(extraction, t)
 
     else:
-        raise MolaException(f'extract_bc is available only with cassiopee (now {tool=})')
+        raise MolaException(f'extract_bc is available only with cassiopee (now tool={tool})')
     
     return extraction
     

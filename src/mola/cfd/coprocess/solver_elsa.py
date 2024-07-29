@@ -170,7 +170,7 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
         else:
             continue
 
-        mola_logger.debug(f'  {family=}', rank=0)
+        mola_logger.debug(f'  family={family}', rank=0)
     
         data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
         data_tree = cgns.castNode(data_tree)
