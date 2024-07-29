@@ -31,10 +31,26 @@ default:
       aud: https://gitlab.onera.net
 
 stages:
+  - init
   - test
   - deploy
 
 
+radon_complexity:
+  stage: init
+  before_script:
+    - source $MOLA_ENV_DEFAULT
+    - pip install radon
+  script:
+    - radon cc --min D > radon_cc_complexity_report_min_D.txt  
+    - radon mi --min B > radon_mi_complexity_report_min_B.txt
+  artifacts:
+    paths:
+      - radon_cc_complexity_report_min_D.txt
+      - radon_mi_complexity_report_min_B.txt
+  # after_script:  # to stop the pipeline if code quality is too bad
+  #   - if [ -s radon_cc_complexity_report_min_D.txt ]; then false; fi
+  #   - if [ -s radon_mi_complexity_report_min_B.txt ]; then false; fi
 
 test_unit_elsa: 
   stage: test
