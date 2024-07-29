@@ -25,7 +25,12 @@ def apply(workflow):
     if not all([('Connection' in component) for component in workflow.RawMeshComponents]):
         return
     
-    apply_with_cassiopee(workflow)
+    try:
+        apply_with_cassiopee(workflow)
+
+    except ModuleNotFoundError:
+        _check_can_apply_maia_connect(workflow)     
+        apply_with_maia(workflow)
         
 def apply_with_cassiopee(workflow):
 
@@ -135,6 +140,7 @@ def apply_with_maia(workflow):
             rotation_center = operation.get('RotationCenter', [0., 0., 0.])
             rotation_angle = operation.get('RotationAngle', [0., 0., 0.])
             translation = operation.get('Translation', [0., 0., 0.])
+            rotation_angle = np.array(rotation_angle) * np.pi / 180
             mola_logger.debug(f'    RotationCenter = {rotation_center}')
             mola_logger.debug(f'    RotationAngle = {rotation_angle}')
             mola_logger.debug(f'    Translation = {translation}')
@@ -143,7 +149,22 @@ def apply_with_maia(workflow):
 
         else:
             raise MolaException(f'  Connection type {ConnectionType} not implemented')
-    
+
+def _check_can_apply_maia_connect(workflow):
+    if not workflow.tree.isUnstructured():
+            raise MolaException('Periodic Match with Maia is possible only for unstructured mesh')
+        
+    for component in workflow.RawMeshComponents:
+        for connection in component['Connection']:
+            if connection['Type'] != 'PeriodicMatch':
+                raise MolaException('Connection operations are possible only for Type PeriodicMatch without Cassiopee.')
+            elif not 'Families' in connection:
+                raise MolaException('PeriodicMatch with Maia needs Families.')
+            elif not len(connection['Families']) == 2:
+                raise MolaException('Families must be a tuple of length 2.')
+            elif not any([workflow.tree(Type='Family', Depth=2, Name=fam[0]) for fam in connection['Families']]):
+                raise MolaException('PeriodicMatch with Maia needs Families.')
+
 def _check_connections(connections):
     '''
     If there is one ConnectionType == 'Match' in **connections**, there must be only one

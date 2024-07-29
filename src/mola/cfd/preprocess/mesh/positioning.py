@@ -17,6 +17,7 @@
 
 import numpy as np
 from treelab import cgns
+from mola.logging import mola_logger, MolaException
 from .tools import (to_partitioned_if_distributed,
                     to_distributed)
 
@@ -26,6 +27,8 @@ def apply(workflow):
     
     tree_was_distributed = bool(workflow.tree.get(':CGNS#Distribution'))
     workflow.tree = to_partitioned_if_distributed(workflow.tree)
+
+    warning_flag_import_Transform = False
 
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
@@ -45,8 +48,20 @@ def apply(workflow):
                 pt1 = np.array(operation['RequestedFrame']['Point'])
                 pt0 = np.array(operation['InitialFrame']['Point'])
                 translation = pt1 - pt0
-                translate_and_rotate_with_cassiopee(base, translation, pt1, operation['InitialFrame'], operation['RequestedFrame'])
+                try:
+                    translate_and_rotate_with_cassiopee(base, translation, pt1, operation['InitialFrame'], operation['RequestedFrame'])
+                except (ImportError, AttributeError):
+                    if operation['InitialFrame'] == operation['RequestedFrame']:
+                        translate_and_rotate_with_maia(base, translation)
 
+                    elif operation['InitialFrame'] == dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]) \
+                        and operation['RequestedFrame'] == dict(Point=[0,0,0], Axis1=[1,0,0], Axis2=[0,1,0], Axis3=[0,0,1]):
+                        translate_and_rotate_with_maia(base, translation)
+                        translate_and_rotate_with_maia(base, rotation_center=pt1, rotation_angle=[0,90*np.pi/180,0])
+                        translate_and_rotate_with_maia(base, rotation_center=pt1, rotation_angle=[90*np.pi/180,0,0])
+
+                    else:
+                        raise MolaException('Positioning not implemented without Cassiopee, except for rotations from Autogrid')
             
             elif operation['Type'] == 'DuplicateByRotation':
                 ...
@@ -54,8 +69,13 @@ def apply(workflow):
 
         for zone in base.zones(): 
             if cgns.castNode(zone).isStructured():
-                import Transform.PyTree as T
-                T._makeDirect(zone)
+                try:
+                    import Transform.PyTree as T
+                    T._makeDirect(zone)
+                except ModuleNotFoundError:
+                    if not warning_flag_import_Transform:
+                        mola_logger.warning('Cannot check that the mesh is direct after Positioning operations')
+                        warning_flag_import_Transform = True # To display this warning only once
 
     if tree_was_distributed: workflow.tree = to_distributed(workflow.tree)
 

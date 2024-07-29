@@ -23,14 +23,13 @@ from mola.cfd.preprocess.initialization import initialization
 
 
 def get_debug_mesh():
-    import Converter.PyTree as C
-    import Generator.PyTree as G
-
-    zone = G.cart((0.,0.,0.), (0.1,0.1,0.1), (3,2,2))
-    mesh = C.newPyTree(['cart', zone])
-    mesh = cgns.castNode(mesh)
-
-    return mesh
+    base = cgns.Base(Name='cart')
+    x, y, z = np.meshgrid( np.linspace(0,1,3),
+                           np.linspace(0,1,2),
+                           np.linspace(0,1,2), indexing='ij')
+    zone = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+    base.addChild(zone)
+    return base
 
 def apply_all_previous_stages(workflow):
     workflow.assemble()

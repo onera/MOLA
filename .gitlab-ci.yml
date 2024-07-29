@@ -20,6 +20,12 @@ variables:
 default:
   tags: 
     - juno-shell
+  rules:   
+    - if: $CI_COMMIT_BRANCH == "master-v2" 
+  #rules:
+  #  - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master-v2"'
+  #    when: always
+  #  - when: never
 
 stages:
   - test
@@ -27,35 +33,54 @@ stages:
 
 test_unit_elsa: 
   stage: test
-  rules:   
-    - if: $CI_COMMIT_BRANCH == "master-v2" 
-  #rules:
-  #  - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master-v2"'
-  #    when: always
-  #  - when: never
   before_script:
     - source $MOLA_ENV_ELSA
   script:
-    - pytest -m unit 
+    - coverage run -m pytest -m unit 
+  artifacts:
+    paths:
+      - .coverage
+    expire_in: 1 hour
   
 test_unit_sonics: 
   stage: test
-  rules:   
-    - if: $CI_COMMIT_BRANCH == "master-v2" 
   before_script:
     - source $MOLA_ENV_SONICS
   script:
-    - pytest -m unit 
+    - coverage run -m pytest -m unit 
+  artifacts:
+    paths:
+      - .coverage
+    expire_in: 1 hour
 
 # test_integration_elsa:   # does not work because it requires to handle job submission
 #   stage: test
 #   needs: ["test_unit_elsa"]
-#   rules:   
-#     - if: $CI_COMMIT_BRANCH == "master-v2" 
 #   before_script:
 #     - source $MOLA_ENV_ELSA
 #   script:
-#     - pytest -m integration 
+#     - coverage run -m pytest -m integration 
+#   artifacts:
+#     paths:
+#       - .coverage
+#     expire_in: 1 hour
+
+coverage_report:
+  stage: deploy
+  dependencies:
+    - test_unit_elsa
+    - test_unit_sonics
+  script:
+    - coverage combine test_unit_elsa/.coverage test_unit_sonics/.coverage
+    - coverage xml -o coverage.xml
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+    expire_in: 1 hour
 
 pages:    # Nom à utiliser
   stage: deploy
