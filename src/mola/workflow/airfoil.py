@@ -137,9 +137,9 @@ class WorkflowAirfoil(Workflow):
         PitchAxis /= np.sqrt(PitchAxis.dot(PitchAxis))
 
         # FlowLines are used to infer the final flow direction
-        DragLine = cgns.newZoneFromDict('DragLine', dict(x=[0,1], y=[0,0], z=[0,0]))
-        SideLine = cgns.newZoneFromDict('SideLine', dict(x=[0,0], y=[0,1], z=[0,0]))
-        LiftLine = cgns.newZoneFromDict('LiftLine', dict(x=[0,0], y=[0,0], z=[0,1]))
+        DragLine = cgns.newZoneFromDict('DragLine', dict(x=[0.,1.], y=[0.,0.], z=[0.,0.]))
+        SideLine = cgns.newZoneFromDict('SideLine', dict(x=[0.,0.], y=[0.,1.], z=[0.,0.]))
+        LiftLine = cgns.newZoneFromDict('LiftLine', dict(x=[0.,0.], y=[0.,0.], z=[0.,1.]))
         FlowLines = [DragLine, SideLine, LiftLine]
 
         # Put FlowLines in Aircraft's frame
