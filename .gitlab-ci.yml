@@ -38,6 +38,8 @@ stages:
 
 test_unit_elsa: 
   stage: test
+  tags: 
+    - juno-shell 
   before_script:
     - source $MOLA_ENV_ELSA
   script:
