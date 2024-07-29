@@ -19,6 +19,7 @@ workflow:
     - when: always
 
 variables:
+  MOLA_ENV_DEFAULT: src/mola/env/onera/env.sh
   MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
   MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
 
@@ -74,6 +75,8 @@ coverage_report:
   dependencies:
     - test_unit_elsa
     - test_unit_sonics
+  before_script:
+    - source $MOLA_ENV_DEFAULT
   script:
     - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics
     - coverage xml -o coverage.xml
@@ -84,7 +87,6 @@ coverage_report:
         path: coverage.xml
     paths:
       - coverage.xml
-    expire_in: 1 hour
 
 pages:    # Nom à utiliser
   stage: deploy
