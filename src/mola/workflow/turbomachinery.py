@@ -73,14 +73,14 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
         dispatcher = WM.WorkflowDispatcher(self)
         if not ParallelMode:
-                dispatcher.new_job(f'isospeed_{RPM}rpm')
+                dispatcher.new_job(f'isospeed_{RPM:.0f}rpm')
         for throttle in ThrottleValues:
             if ParallelMode:
-                dispatcher.new_job(f'{throttle_key}_{throttle}')
+                dispatcher.new_job(f'{throttle_key}_{throttle:.2f}')
             dispatcher.add_variations(
                 [
-                    ('RunManagement|JobName', f'{job_name}_{throttle}'),
-                    ('RunManagement|RunDirectory', f'{throttle_key}_{throttle}'),
+                    ('RunManagement|JobName', f'{job_name}_{throttle:.2f}'),
+                    ('RunManagement|RunDirectory', f'{throttle_key}_{throttle:.2f}'),
                     (f'BoundaryConditions|Family={outflow_bc["Family"]}|{throttle_key}', throttle),
                 ], 
                 initialize_from_previous=initialize_from_previous

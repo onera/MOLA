@@ -189,7 +189,7 @@ def test_dispatcher_directories():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_1
-def test_WorkflowParallelScheduler_prepare():
+def test_WorkflowParallelScheduler_prepare(tmp_path):
 
     w = get_fake_workflow()
     dispatcher = WM.WorkflowDispatcher(w)
@@ -199,13 +199,7 @@ def test_WorkflowParallelScheduler_prepare():
         for pressure in [10, 20, 30]:
             dispatcher.add_variations([('RunManagement|RunDirectory', f'test_{pressure}')])
 
-    test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'tmp_test_WorkflowParallelScheduler_prepare_root')
-    try:
-        # remove this directory in case it exists already (e.g. because of a previous error)
-        shutil.rmtree(test_dir)
-    except FileNotFoundError:
-        pass
-
+    test_dir = str(tmp_path)
     scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
     scheduler.prepare()
 
@@ -215,17 +209,16 @@ def test_WorkflowParallelScheduler_prepare():
         root_dirs.append(root)
         files_list.append(files)
 
-    assert root_dirs == [test_dir, f'{test_dir}/model1', f'{test_dir}/model1/test_10', f'{test_dir}/model1/test_30', f'{test_dir}/model1/test_20', f'{test_dir}/model2', f'{test_dir}/model2/test_10', f'{test_dir}/model2/test_30', f'{test_dir}/model2/test_20']
+    assert set(root_dirs) == {test_dir, f'{test_dir}/model1', f'{test_dir}/model1/test_10', f'{test_dir}/model1/test_30', f'{test_dir}/model1/test_20', f'{test_dir}/model2', f'{test_dir}/model2/test_10', f'{test_dir}/model2/test_30', f'{test_dir}/model2/test_20'}
     assert files_list == [[], [names.FILE_JOB_SEQUENCE], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_JOB_SEQUENCE], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW]]
     
-    shutil.rmtree(test_dir)
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
-def test_WorkflowParallelScheduler_sphere_local():
+def test_WorkflowParallelScheduler_sphere_local(tmp_path):
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
-    w = get_workflow_sphere_struct()
+    w = get_workflow_sphere_struct('.')
 
     dispatcher = WM.WorkflowDispatcher(w)
     for BCWall in ['WallViscous', 'WallInviscid']:
@@ -240,13 +233,7 @@ def test_WorkflowParallelScheduler_sphere_local():
                 initialize_from_previous=False
                 )
     
-    test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'tmp_test_WorkflowParallelScheduler_root')
-    try:
-        # remove this directory in case it exists already (e.g. because of a previous error)
-        shutil.rmtree(test_dir)
-    except FileNotFoundError:
-        pass
-    
+    test_dir = str(tmp_path)
     scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
     scheduler.prepare()
     scheduler.submit()
@@ -257,15 +244,13 @@ def test_WorkflowParallelScheduler_sphere_local():
             if not os.path.exists(COMPLETED_PATH):
                 raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
 
-    shutil.rmtree(test_dir)
-
 @pytest.mark.network_onera
 @pytest.mark.integration
 @pytest.mark.cost_level_4
 def test_WorkflowParallelScheduler_sphere_remote_sator():
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
-    w = get_workflow_sphere_struct()
+    w = get_workflow_sphere_struct('.')
     scheduler_defaults = SV.get_scheduler_defaults('sator')
     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
     w.RunManagement['TimeLimit'] = '00:30:00'
@@ -284,7 +269,7 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
                 initialize_from_previous=False
                 )
     
-    test_dir = f'/tmp_user/sator/{os.getenv("USER")}/.test/tmp_MOLA_test/'
+    test_dir = f'/tmp_user/sator/{os.getenv("USER")}/.test_WorkflowParallelScheduler_sphere_remote_sator_{os.getenv("MOLA_SOLVER")}/tmp_MOLA_test/'
     try:
         # remove this directory in case it exists already (e.g. because of a previous error)
         SV.remove_path(test_dir, machine='sator', file_only=False)

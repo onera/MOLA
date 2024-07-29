@@ -15,14 +15,13 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import shutil
+import pytest
 from mola.workflow.workflow import Workflow
 from mola.cfd.postprocess.remove_cfd_files import remove_cfd_files
 
-def test_write_and_remove_files():
-    w = Workflow( RunManagement=dict(
-                    RunDirectory=os.path.dirname(os.path.realpath(__file__))),
-                )
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_write_and_remove_files(tmp_path):
+    w = Workflow(RunManagement=dict(RunDirectory=tmp_path))
     remove_cfd_files.write_dummy_files_for_testing(w)
     remove_cfd_files.apply(w)

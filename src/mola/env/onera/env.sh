@@ -27,7 +27,7 @@ keys=$(echo "$python_data" | grep -oP "'[^']+'\ *:" | sed "s/'//g;s/://g")
 values=$(echo "$python_data" | grep -oP ":\ *'[^']+'" | sed "s/://;s/'//g")
 i=1
 for pattern in $keys; do
-    if [[ $HOSTNAME == $pattern* ]]; then 
+    if [[ $HOSTNAME == $pattern ]]; then 
         export MAC=$(echo $values | cut -d ' ' -f $i)
         break
     fi
@@ -44,4 +44,4 @@ source $SCRIPT_DIR/network.sh
 
 # source the environment associated to the current machine and MOLA_SOLVER
 echo "source $MOLA/mola/env/onera/$MAC/$MOLA_SOLVER.sh"
-source $MOLA/mola/env/onera/$MAC/$MOLA_SOLVER.sh &>/dev/null || echo 'Error: Cannot source this environment!'
+source $MOLA/mola/env/onera/$MAC/$MOLA_SOLVER.sh &>/dev/null || { echo 'Error: Cannot source this environment!' >&2; return 1; }

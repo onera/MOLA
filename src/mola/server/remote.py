@@ -89,7 +89,7 @@ def add_mola_env(machine, solver=os.environ.get('MOLA_SOLVER')):
     mola_path = get_mola_installation_path(machine)
     network = get_network()
     mola_env = os.path.join(mola_path, 'mola', 'env', network, 'env.sh')
-    return  f'source {mola_env} {solver} &>/dev/null && '
+    return  f"source {mola_env} {solver} &>/dev/null || {{ echo 'Error: Cannot source this environment!' >&2; exit 1; }} && "
 
 
 def guess_localhost():

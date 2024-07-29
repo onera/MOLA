@@ -58,7 +58,7 @@ def reader(w, component):
 
     mesh = read(w, component['Source'])
     clean_autogrid_log_bases(mesh)
-    rename_zones(mesh)
+    shorten_zones_names(mesh)
 
     # Join HUB and SHROUD families
     join_families(mesh, 'HUB')
@@ -101,20 +101,17 @@ def clean_family_properties(t):
         fam.findAndRemoveNodes(Name='DynamicData')
     t.findAndRemoveNodes(Name='FamilyProperty')
 
-def rename_zones(t, zonesToRename=dict()):
-    import Converter.Internal as I
+def shorten_zones_names(t):
+    # Delete some usual patterns in AG5
+    patterns = ['_flux_1', '_flux_2', '_flux_3', '_Main_Blade']
     for zone in t.zones():
         name = zone.name()
-        if name in zonesToRename:
-            newName = zonesToRename[name]
-            mola_logger.info("Zone {} is renamed: {}".format(name, newName))
-            I._renameNode(t, name, newName)
-            continue
-        # Delete some usual patterns in AG5
-        new_name = name
-        for pattern in ['_flux_1', '_flux_2', '_flux_3', '_Main_Blade']:
-            new_name = new_name.replace(pattern, '')
-        I._renameNode(t, name, new_name)
+        for pattern in patterns:
+            if pattern in name:
+                new_name = name.replace(pattern, '')
+                zone.setName(new_name)
+                for node in t.group(Value=name):
+                    node.setValue(new_name)
 
 def update_Connection_from_mesh(mesh, component, axis):
     # Only if grid connectivities are not already in the mesh

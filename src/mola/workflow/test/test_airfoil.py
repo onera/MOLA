@@ -21,6 +21,7 @@ import numpy as np
 from mola.workflow import WorkflowAirfoil
 
 @pytest.mark.unit
+@pytest.mark.elsa # because workflow airfoil not compatible with sonics yet (not working without cassiopee)
 @pytest.mark.cost_level_0
 def test_get_flow_directions():
     AngleOfAttackDeg = 15

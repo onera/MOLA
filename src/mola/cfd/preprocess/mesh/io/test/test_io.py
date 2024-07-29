@@ -39,10 +39,13 @@ def build_zone():
 
     return zone
 
-
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_using_mpi():
     print(io.utils.is_using_mpi())
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_file_reader():
     file_src = 'tmp_zone.cgns'
     import mpi4py.MPI as MPI
@@ -60,6 +63,8 @@ def test_file_reader():
         os.unlink(file_src)
     MPI.COMM_WORLD.barrier()
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_file_writer():
     file_src = 'tmp_zone.cgns'
     import mpi4py.MPI as MPI

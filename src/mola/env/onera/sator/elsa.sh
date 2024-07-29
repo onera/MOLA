@@ -18,7 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
+source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new22/.env_elsA &>/dev/null
 unset I_MPI_PMI_LIBRARY
 
 # Treelab
@@ -26,37 +26,41 @@ unset I_MPI_PMI_LIBRARY
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export PYTHONPATH=/tmp_user/sator/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
-# PUMA
-export PUMAVERSION=v2.0.3_mod
-export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}
-export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
-export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
-export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
+# maia
+module use --append /tmp_user/sator/sonics/usr/modules/
+module load maia/$MAIAVERSION-dsi-cfd6
 
-# VPM
-export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
-export PATH=$VPMPATH:$PATH
-export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
-export PYTHONPATH=$VPMPATH:$PYTHONPATH
-export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
+# # PUMA
+# export PUMAVERSION=v2.0.3_mod
+# export PumaRootDir=/tmp_user/sator/rboisard/TOOLS/Puma_${PUMAVERSION}
+# export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
+# export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
+# export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
+# export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
 
-# turbo
-export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+# # VPM
+# export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
+# export PATH=$VPMPATH:$PATH
+# export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
+# export PYTHONPATH=$VPMPATH:$PYTHONPATH
+# export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-# ErstaZ
-export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
-export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
+# # turbo
+# export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+
+# # ErstaZ
+# export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
+# export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
 
-export PYTHONPATH=$MOLAext/sator/lib/python3.7/site-packages/:$PYTHONPATH
-export PATH=$MOLAext/sator/bin:$PATH
-export LD_LIBRARY_PATH=$MOLAext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
+# export PYTHONPATH=$MOLAext/sator/lib/python3.8/site-packages/:$PYTHONPATH
+# export PATH=$MOLAext/sator/bin:$PATH
+# export LD_LIBRARY_PATH=$MOLAext/sator/lib/python3.8/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
 
 
 export PYTHONPATH=$MOLA:$PYTHONPATH

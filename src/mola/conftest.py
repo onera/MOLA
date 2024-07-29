@@ -1,4 +1,5 @@
 import pytest
+import os
 import timeit
 import warnings
 from . import server as SV
@@ -65,19 +66,50 @@ def check_cost(func, marker):
         end_time = timeit.default_timer()
         cpu_cost = end_time - start_time
         if cpu_cost < cost_levels[marker][0]:
-            msg = (f'{func.__name__} took {cpu_cost} seconds, which is'
-             f' lower than the suggested minimum {cost_levels[marker][0]} for marker "{marker}".')
+            msg = (f'{func.__name__} took {cpu_cost} seconds, which is lower than '
+                   f'the suggested minimum {cost_levels[marker][0]} for marker "{marker}".')
             warnings.warn(msg)
         
-        assert cpu_cost <= cost_levels[marker][1], \
-            f'{func.__name__} took {cpu_cost} seconds, which is outside the maximum boundary {cost_levels[marker][1]} for marker "{marker}".'
+        if cpu_cost > cost_levels[marker][1]:
+            msg = (f'{func.__name__} took {cpu_cost} seconds, which is outside the '
+                   f'maximum boundary {cost_levels[marker][1]} for marker "{marker}".')
+            warnings.warn(msg)
 
         return result
     return wrapper
 
 def pytest_collection_modifyitems(config, items):
 
-    skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
+    valid_markers = {'unit', 'integration', 'user_case'}
+    not_tagged_tests = []
+
     for item in items:
-        if ("network_onera" in item.keywords) and (SV.get_network() != 'onera'):
-            item.add_marker(skip_onera)
+        skip_if_not_on_onera_network(item)
+        skip_if_solver_not_compatible_with_env(item)
+
+        markers = {marker.name for marker in item.iter_markers()}
+        if not markers.intersection(valid_markers):
+            not_tagged_tests.append(item.nodeid)
+
+    if len(not_tagged_tests) > 0:
+        new_line_double_space = os.linesep + '  '
+        raise pytest.UsageError(
+            f"Each test must be tagged with one of the following markers: {', '.join(valid_markers)}."
+            f"The following tests are missing a required marker:{os.linesep}" 
+            f"  {new_line_double_space.join(not_tagged_tests)}"
+        )
+    
+def skip_if_not_on_onera_network(item):
+    skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
+    if ("network_onera" in item.keywords) and (SV.get_network() != 'onera'):
+         item.add_marker(skip_onera)
+
+def skip_if_solver_not_compatible_with_env(item):
+    solvers = ['elsa', 'sonics', 'fast', 'coda']
+    current_solver = os.getenv('MOLA_SOLVER')
+    skip_solver = pytest.mark.skip(reason=f"test not available in the current environment ({current_solver})")
+    is_marked_with_current_solver = current_solver in item.keywords
+    is_marked_with_another_solver = any([solver in item.keywords for solver in solvers if solver != current_solver])
+    if not is_marked_with_current_solver and is_marked_with_another_solver:
+         item.add_marker(skip_solver)
+

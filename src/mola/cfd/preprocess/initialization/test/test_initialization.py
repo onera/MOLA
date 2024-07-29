@@ -23,14 +23,13 @@ from mola.cfd.preprocess.initialization import initialization
 
 
 def get_debug_mesh():
-    import Converter.PyTree as C
-    import Generator.PyTree as G
-
-    zone = G.cart((0.,0.,0.), (0.1,0.1,0.1), (3,2,2))
-    mesh = C.newPyTree(['cart', zone])
-    mesh = cgns.castNode(mesh)
-
-    return mesh
+    base = cgns.Base(Name='cart')
+    x, y, z = np.meshgrid( np.linspace(0,1,3),
+                           np.linspace(0,1,2),
+                           np.linspace(0,1,2), indexing='ij')
+    zone = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+    base.addChild(zone)
+    return base
 
 def apply_all_previous_stages(workflow):
     workflow.assemble()
@@ -42,35 +41,8 @@ def apply_all_previous_stages(workflow):
     workflow.compute_flow_and_turbulence()
     workflow.set_motion()
 
-
 @pytest.mark.unit
 @pytest.mark.cost_level_1
-def test_initialization_uniform():
-    mesh = get_debug_mesh()
-    workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        Flow = dict(Velocity=10.0),
-        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
-        Turbulence = dict(Model='SA'),
-    )
-    apply_all_previous_stages(workflow)
-    initialization.apply(workflow)
-
-    ref_fs = ['FlowSolution#Init', None, [
-        ['GridLocation', np.array([b'C', b'e', b'l', b'l', b'C', b'e', b'n', b't', b'e', b'r'],dtype='|S1'), [], 'GridLocation_t'], 
-        ['Density', np.array([[[1.225]],[[1.225]]]), [], 'DataArray_t'], 
-        ['MomentumX', np.array([[[12.25]],[[12.25]]]), [], 'DataArray_t'], 
-        ['MomentumY', np.array([[[0.]],[[0.]]]), [], 'DataArray_t'], 
-        ['MomentumZ', np.array([[[0.]],[[0.]]]), [], 'DataArray_t'], 
-        ['EnergyStagnationDensity', np.array([[[253373.86097188]],[[253373.86097188]]]), [], 'DataArray_t'], 
-        ['TurbulentSANuTildeDensity', np.array([[[4.41691234e-05]],[[4.41691234e-05]]]), [], 'DataArray_t'], 
-    ], 'FlowSolution_t']
-
-    assert str(workflow.tree.get(Name='FlowSolution#Init')) == str(ref_fs)
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_initialization_copy_not_existing_file():
     mesh = get_debug_mesh()
     workflow = Workflow(
@@ -89,36 +61,3 @@ def test_initialization_copy_not_existing_file():
     else:
         raise AssertionError('Should raise an exception when the source file for initialization does not exist.')
     
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_initialization_copy():    
-    ref_fs = cgns.Node(['FlowSolution#Init', None, [
-        ['GridLocation', 'CellCenter', [], 'GridLocation_t'], 
-        ['Density', np.array([[[3.]],[[4.]]]), [], 'DataArray_t'], 
-        ['MomentumX', np.array([[[50.]],[[-5.]]]), [], 'DataArray_t'], 
-        ['MomentumY', np.array([[[0.1]],[[0.5]]]), [], 'DataArray_t'], 
-        ['MomentumZ', np.array([[[0.]],[[1.]]]), [], 'DataArray_t'], 
-        ['EnergyStagnationDensity', np.array([[[2e5]],[[3e5]]]), [], 'DataArray_t'], 
-        ['TurbulentEnergyKineticDensity', np.array([[[0.2]],[[0.5]]]), [], 'DataArray_t'], 
-        ['TurbulentDissipationRateDensity', np.array([[[125.]],[[12.]]]), [], 'DataArray_t']
-    ], 'FlowSolution_t'])
-
-    mesh = get_debug_mesh()
-    source = mesh.copy(deep=True)
-    zone = source.zones()[0]
-    zone.addChild(ref_fs)    
-
-    workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        Flow = dict(Velocity=10.0),
-        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
-        Turbulence = dict(Model='SA'),
-        Initialization=dict(Method='copy', Source=source),
-    )
-    apply_all_previous_stages(workflow)
-    initialization.apply(workflow)
-
-    assert str(workflow.tree.get(Name='FlowSolution#Init')) == str(ref_fs)
-

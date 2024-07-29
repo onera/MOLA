@@ -17,6 +17,7 @@
 
 import os
 import copy
+import pathlib
 import numpy as np
 import copy
 import multiprocessing
@@ -339,6 +340,7 @@ class WorkflowInterface(object):
         '''
         Summation over a given source of the mesh, providing a scalar integral value
         '''
+        if not Name: Name = Source
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_Integral, self.get_default_values_from_local_signature()))
 
@@ -364,11 +366,13 @@ class WorkflowInterface(object):
         '''
         Probe extraction 
         '''
+        if not Name: 
+            Name = f'Probe_{Position[0]:.4g}_{Position[1]:.4g}_{Position[2]:.4g}'
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_Probe, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_BC(self,
-            Fields : list = None,
+            Fields : list = [],
             File : str = names.FILE_OUTPUT_2D,
             Name : str = 'ByFamily',  #None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
@@ -394,7 +398,7 @@ class WorkflowInterface(object):
     def add_to_Extractions_IsoSurface(self,
             Fields : list = None,
             File : str = names.FILE_OUTPUT_2D,
-            Name : str = 'auto', # if None, will be based on Source
+            Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
@@ -414,6 +418,9 @@ class WorkflowInterface(object):
         '''
         Extraction using an iso-surface operation
         '''
+        if not Name:
+            FieldName = IsoSurfaceField.replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
+            Name = f"Iso_{FieldName}_{IsoSurfaceValue:.4g}"
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_IsoSurface, self.get_default_values_from_local_signature()))
 
@@ -523,7 +530,7 @@ class WorkflowInterface(object):
 
     def set_RunManagement(self,
         JobName : str = None,
-        RunDirectory : str = '.',
+        RunDirectory : Union[str, pathlib.PosixPath] = '.',
         NumberOfProcessors : int = MPI.COMM_WORLD.Get_size(),
         NumberOfThreads : int = multiprocessing.cpu_count(),
         Machine : str = None,
@@ -533,7 +540,9 @@ class WorkflowInterface(object):
         LauncherCommand : str = 'auto',
         FilesAndDirectories : list = [],
         mola_target_path : str = None,
+        AER : str = None,
         ):
+        RunDirectory = str(RunDirectory)
         self.RunManagement = self._get_comp(
             WorkflowInterface.set_RunManagement, self.get_default_values_from_local_signature())
         

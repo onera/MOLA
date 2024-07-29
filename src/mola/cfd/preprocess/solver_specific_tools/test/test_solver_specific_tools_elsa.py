@@ -30,26 +30,36 @@ RSM_CGNS2ElsaDict = dict(
         VelocityCorrelationZZ    = 'inj_tur6',
     )
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_translate_to_elsa_dict():
     d = dict((key, 0) for key in solver_elsa.CGNS2ElsaInCGNSNode)
     res = solver_elsa.translate_to_elsa(d)
     assert res == dict((value, 0) for value in solver_elsa.CGNS2ElsaInCGNSNode.values())
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_translate_to_elsa_dict_rsm():
     d = dict((key, 0) for key in RSM_CGNS2ElsaDict)
     res = solver_elsa.translate_to_elsa(d)
 
     assert res == dict((value, 0) for value in RSM_CGNS2ElsaDict.values())
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_translate_to_elsa_list():
     res = solver_elsa.translate_to_elsa(list(solver_elsa.CGNS2ElsaInCGNSNode))
     assert res == list(solver_elsa.CGNS2ElsaInCGNSNode.values())
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_translate_to_elsa_str():
     for cgns_name, elsa_name in solver_elsa.CGNS2ElsaInCGNSNode.items():
         res = solver_elsa.translate_to_elsa(cgns_name)
         assert res == elsa_name
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_translate_to_elsa_error():
     for var in [1, 1., None, True, False]:
         try:

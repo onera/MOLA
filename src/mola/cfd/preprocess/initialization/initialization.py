@@ -28,6 +28,11 @@ def apply(workflow):
     
     #. Adapt this node to the solver
     '''
+    if workflow.Solver == 'sonics':
+        FlowSolution_name = 'FSolution#CellCenter#Init'
+    else:
+        FlowSolution_name = 'FlowSolution#Init'
+
     add_reference_state(workflow)
     
     initialization_functions = dict(
@@ -37,8 +42,8 @@ def apply(workflow):
     )
     initialize_flow_with_given_method = initialization_functions[workflow.Initialization['Method']]
 
-    initialize_flow_with_given_method(workflow)
-    check_initial_flow_is_in_all_zones(workflow)
+    initialize_flow_with_given_method(workflow, FlowSolution_name)
+    check_initial_flow_is_in_all_zones(workflow, FlowSolution_name)
     workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
     
     apply_to_solver(workflow)
@@ -67,11 +72,11 @@ def add_reference_state(workflow):
     for base in workflow.tree.bases():
         base.setParameters('ReferenceState', ContainerType='ReferenceState', **ReferenceState)
 
-def initialize_flow_with_reference_state(workflow):
+def initialize_flow_with_reference_state(workflow, FlowSolution_name):
     mola_logger.info('Initialize FlowSolution with uniform reference values',rank=0)
-    workflow.tree.newFields(workflow.Flow['ReferenceState'], Container='FlowSolution#Init')
+    workflow.tree.newFields(workflow.Flow['ReferenceState'], Container=FlowSolution_name, GridLocation='CellCenter')
 
-def initialize_flow_from_file_by_interpolation(workflow):
+def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     '''
     Initialize the flow solution of **t** from the flow solution in the file
     **sourceFilename**.
@@ -89,7 +94,7 @@ def initialize_flow_from_file_by_interpolation(workflow):
     
     raise Exception('Not yet implemented')
 
-def initialize_flow_from_file_by_copy(workflow):
+def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
     '''
     Initialize the flow solution of **workflow.tree** by copying the flow solution in the file or tree
     **workflow.Initialization['Source']**.
@@ -114,17 +119,17 @@ def initialize_flow_from_file_by_copy(workflow):
         varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
 
     for zone in workflow.tree.zones():
-        FSpath = zone.path() + '/FlowSolution#Init'
+        FSpath = zone.path() + '/' + FlowSolution_name
         try:
             FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
             zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
         except AttributeError:
             raise MolaException(f"The node {FSpath} is not found in {workflow.Initialization['Source']}")
 
-def check_initial_flow_is_in_all_zones(workflow):
+def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
     for zone in workflow.tree.zones():
-        if not zone.get(Name='FlowSolution#Init', Type='FlowSolution', Depth=1):
-            raise MolaException(f'FlowSolution#Init is missing in zone {zone.name()}')
+        if not zone.get(Name=FlowSolution_name, Type='FlowSolution', Depth=1):
+            raise MolaException(f'{FlowSolution_name} is missing in zone {zone.name()}')
 
 @MaiaParallel
 def compute_turbulent_distance_with_maia(dist_tree):

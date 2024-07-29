@@ -111,7 +111,7 @@ class WorkflowAirfoil(Workflow):
                 obtained by projection of the absolute (X, Y, Z) forces onto this
                 vector.
         '''
-        import Geom.PyTree as D
+        # TODO remove this dependency to Cassiopee if possible
         import Transform.PyTree as T
 
         def getDirectionFromLine(line):
@@ -137,9 +137,9 @@ class WorkflowAirfoil(Workflow):
         PitchAxis /= np.sqrt(PitchAxis.dot(PitchAxis))
 
         # FlowLines are used to infer the final flow direction
-        DragLine = cgns.castNode(D.line((0,0,0),(1,0,0),2))
-        SideLine = cgns.castNode(D.line((0,0,0),(0,1,0),2))
-        LiftLine = cgns.castNode(D.line((0,0,0),(0,0,1),2))
+        DragLine = cgns.newZoneFromDict('DragLine', dict(x=[0.,1.], y=[0.,0.], z=[0.,0.]))
+        SideLine = cgns.newZoneFromDict('SideLine', dict(x=[0.,0.], y=[0.,1.], z=[0.,0.]))
+        LiftLine = cgns.newZoneFromDict('LiftLine', dict(x=[0.,0.], y=[0.,0.], z=[0.,1.]))
         FlowLines = [DragLine, SideLine, LiftLine]
 
         # Put FlowLines in Aircraft's frame

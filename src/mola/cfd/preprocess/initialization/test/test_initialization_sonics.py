@@ -18,11 +18,11 @@
 import numpy as np
 from treelab import cgns
 from mola.workflow.workflow import Workflow
-from mola.cfd.preprocess.initialization import initialization, solver_elsa
+from mola.cfd.preprocess.initialization import initialization, solver_sonics
 from mola.cfd.preprocess.initialization.test.test_initialization import get_debug_mesh, apply_all_previous_stages
 
 import pytest
-pytestmark = pytest.mark.elsa
+pytestmark = pytest.mark.sonics
 
 class FakeWorkflow():
     def __init__(self):
@@ -43,10 +43,10 @@ class FakeWorkflow():
 def test_apply_to_solver():
 
     workflow = FakeWorkflow()
-    solver_elsa.apply_to_solver(workflow)
+    solver_sonics.apply_to_solver(workflow)
 
-    assert len(workflow.tree.group(Name='ChimeraCellType')) == 0
-    assert len(workflow.tree.group(Name='TurbulentDistanceIndex')) == 2
+    assert workflow.tree.get(Name='FlowSolution#Init') is None
+    assert len(workflow.tree.group(Name='FSolution#CellCenter#Init', Type='FlowSolution')) == 2
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1
@@ -61,7 +61,7 @@ def test_initialization_uniform():
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)
 
-    FS = workflow.tree.get(Name='FlowSolution#Init', Type='FlowSolution')
+    FS = workflow.tree.get(Name='FSolution#CellCenter#Init', Type='FlowSolution')
     assert FS.get(Name='GridLocation', Type='GridLocation', Value='CellCenter') 
     assert np.allclose(FS.get(Name='Density', Type='DataArray').value(), 1.225)
     assert np.allclose(FS.get(Name='MomentumX', Type='DataArray').value(), 12.25)
@@ -73,7 +73,7 @@ def test_initialization_uniform():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_initialization_copy():    
-    ref_fs = cgns.Node(['FlowSolution#Init', None, [
+    ref_fs = cgns.Node(['FSolution#CellCenter#Init', None, [
         ['GridLocation', 'CellCenter', [], 'GridLocation_t'], 
         ['Density', np.array([[[3.]],[[4.]]]), [], 'DataArray_t'], 
         ['MomentumX', np.array([[[50.]],[[-5.]]]), [], 'DataArray_t'], 
@@ -99,4 +99,4 @@ def test_initialization_copy():
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)
 
-    assert str(workflow.tree.get(Name='FlowSolution#Init')) == str(ref_fs)
+    assert str(workflow.tree.get(Name='FSolution#CellCenter#Init')) == str(ref_fs)
