@@ -42,7 +42,7 @@ def apply_all_previous_stages(workflow):
     workflow.set_motion()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_2
+@pytest.mark.cost_level_1
 def test_initialization_copy_not_existing_file():
     mesh = get_debug_mesh()
     workflow = Workflow(

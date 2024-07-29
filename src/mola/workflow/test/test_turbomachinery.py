@@ -144,7 +144,7 @@ def test_init():
 
 @pytest.mark.unit
 @pytest.mark.elsa # because workflow turbmachinery not compatible with sonics yet (not working without cassiopee)
-@pytest.mark.cost_level_3
+@pytest.mark.cost_level_2
 def test_duplicate():
     params = get_compressor_example_parameters()
     params['ApplicationContext'] = dict(
