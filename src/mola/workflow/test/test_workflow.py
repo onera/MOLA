@@ -213,7 +213,7 @@ def get_workflow2():
     w = Workflow(**params)
     return w
 
-def get_workflow_sphere_struct():
+def get_workflow_sphere_struct(RunDirectory):
     w = Workflow(
         RawMeshComponents=[
             dict(
@@ -265,14 +265,13 @@ def get_workflow_sphere_struct():
 
         RunManagement=dict(
             NumberOfProcessors=1,
-            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_struct'),
+            RunDirectory=RunDirectory,
             ),
         )
     
     return w
 
-
-def get_workflow_sphere_struct_mpi_to_connect():
+def get_workflow_sphere_struct_mpi_to_connect(RunDirectory):
     from mpi4py import MPI
     w = Workflow(
         RawMeshComponents=[
@@ -324,15 +323,13 @@ def get_workflow_sphere_struct_mpi_to_connect():
 
         RunManagement=dict(
             NumberOfProcessors=MPI.COMM_WORLD.Get_size(),
-            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_struct'),
+            RunDirectory=RunDirectory,
             ),
         )
     
     return w
 
-
-
-def get_workflow_sphere_struct_dist():
+def get_workflow_sphere_struct_dist(RunDirectory):
     from mpi4py import MPI
 
     w = Workflow(
@@ -385,13 +382,13 @@ def get_workflow_sphere_struct_dist():
 
         RunManagement=dict(
             NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
-            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_struct_dist'),
+            RunDirectory=RunDirectory,
             ),
         )
     
     return w
 
-def get_workflow_sphere_hybrid():
+def get_workflow_sphere_hybrid(RunDirectory):
     w = Workflow(
         RawMeshComponents=[
             dict(
@@ -437,13 +434,13 @@ def get_workflow_sphere_hybrid():
 
         RunManagement=dict(
             NumberOfProcessors=1,
-            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_hybrid'),
+            RunDirectory=RunDirectory,
             ),
         )
 
     return w
 
-def get_workflow_sphere_unstruct():
+def get_workflow_sphere_unstruct(RunDirectory):
     w = Workflow(
         RawMeshComponents=[
             dict(
@@ -489,7 +486,7 @@ def get_workflow_sphere_unstruct():
 
         RunManagement=dict(
             NumberOfProcessors=1,
-            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_sphere_unstruct'),
+            RunDirectory=RunDirectory,
             ),
         )
 
@@ -571,8 +568,8 @@ def test_init():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_submit():
-    test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_submit_dir')
+def test_submit(tmp_path):
+    test_dir = str(tmp_path)
     w = Workflow(RunManagement=dict(
         RunDirectory=test_dir, 
         # Force launching with bash, whatever the machine, this is a simple test
@@ -600,8 +597,8 @@ def test_write_tree():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 @pytest.mark.mpi
-def test_set_workflow_parameters_in_tree_mpi(filename=''):
-    w = get_workflow_sphere_struct_dist()
+def test_set_workflow_parameters_in_tree_mpi(tmp_path, filename=''):
+    w = get_workflow_sphere_struct_dist(tmp_path)
     w.set_workflow_parameters_in_tree()
     if filename: w.write_tree(filename)
 
@@ -679,8 +676,8 @@ def test_prepare_workflow_dist():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
-def test_workflow_sphere_struct_local():
-    w = get_workflow_sphere_struct()
+def test_workflow_sphere_struct_local(tmp_path):
+    w = get_workflow_sphere_struct(tmp_path)
     w.prepare()
     w.write_cfd_files()
     w.submit()
@@ -690,8 +687,8 @@ def test_workflow_sphere_struct_local():
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
-def test_workflow_sphere_struct_local_cassiopee_mpi():
-    w = get_workflow_sphere_struct_mpi_to_connect()
+def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path):
+    w = get_workflow_sphere_struct_mpi_to_connect(tmp_path)
     w.prepare()
     w.write_cfd_files()
     w.submit()
@@ -702,8 +699,8 @@ def test_workflow_sphere_struct_local_cassiopee_mpi():
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
-def test_workflow_sphere_struct_local_dist():
-    w = get_workflow_sphere_struct_dist()
+def test_workflow_sphere_struct_local_dist(tmp_path):
+    w = get_workflow_sphere_struct_dist(tmp_path)
     w.prepare()
     w.write_cfd_files()
     w.submit()
@@ -712,8 +709,8 @@ def test_workflow_sphere_struct_local_dist():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
-def test_workflow_sphere_unstruct_local():
-    w = get_workflow_sphere_unstruct()
+def test_workflow_sphere_unstruct_local(tmp_path):
+    w = get_workflow_sphere_unstruct(tmp_path)
     w.prepare()
     w.write_cfd_files()
     w.submit()
@@ -722,8 +719,8 @@ def test_workflow_sphere_unstruct_local():
 
 # @pytest.mark.integration
 # @pytest.mark.cost_level_3
-# def test_workflow_sphere_hybrid_local():
-#     w = get_workflow_sphere_hybrid()
+# def test_workflow_sphere_hybrid_local(tmp_path):
+#     w = get_workflow_sphere_hybrid(tmp_path)
 #     w.prepare()
 #     w.write_cfd_files()
 #     w.submit()
@@ -734,8 +731,9 @@ def test_workflow_sphere_unstruct_local():
 @pytest.mark.integration
 @pytest.mark.cost_level_4
 def test_workflow_sphere_struct_remote_sator():
-    w = get_workflow_sphere_struct()
-    w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/test_workflow_sphere_struct_remote_sator/'
+    w = get_workflow_sphere_struct(
+        RunDirectory=f'/tmp_user/sator/$USER/.test_workflow_sphere_struct_remote_sator_{os.getenv("MOLA_SOLVER")}/'
+    )
     scheduler_defaults = SV.get_scheduler_defaults('sator')
     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
     w.RunManagement['TimeLimit'] = '00:30:00'

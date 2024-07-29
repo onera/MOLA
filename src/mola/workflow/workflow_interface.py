@@ -17,8 +17,8 @@
 
 import os
 import copy
+import pathlib
 import numpy as np
-import copy
 from treelab.cgns.tree import Tree
 from treelab.cgns.base import Base
 from treelab.cgns.zone import Zone
@@ -533,7 +533,7 @@ class WorkflowInterface(object):
 
     def set_RunManagement(self,
         JobName : str = None,
-        RunDirectory : str = '.',
+        RunDirectory : Union[str, pathlib.PosixPath] = '.',
         NumberOfProcessors : int = None,
         Machine : int = None,
         User : str = None,
@@ -544,6 +544,7 @@ class WorkflowInterface(object):
         mola_target_path : str = None,
         AER : str = None,
         ):
+        RunDirectory = str(RunDirectory)
         self.RunManagement = self._get_comp(
             WorkflowInterface.set_RunManagement, self.get_default_values_from_local_signature())
         
