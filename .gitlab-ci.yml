@@ -20,6 +20,9 @@ variables:
 default:
   tags: 
     - shell
+  id_tokens:
+    CI_JOB_JWT:
+      aud: https://gitlab.onera.net
 
 stages:
   - test
