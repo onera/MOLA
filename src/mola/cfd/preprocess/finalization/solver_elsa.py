@@ -15,6 +15,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from treelab import cgns
+
+from mola.logging import mola_logger
+
 def apply_to_solver(workflow):
-    groupOfNodes = workflow.tree.group(Name='FlowSolution#Init')
-    for node in groupOfNodes: node.setName('FlowSolution#Centers')
+
+    mola_logger.warning("motion to be implemented for FAST solver")
+

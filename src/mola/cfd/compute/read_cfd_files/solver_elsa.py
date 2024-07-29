@@ -90,7 +90,7 @@ def apply_to_solver(workflow):
         elif was_already_split:
             # distribution = D2.getProcDict(workflow.tree, prefixByBase=True)   
             # zone_to_parts = dict((zone_proc[0], [1.]) for zone_proc in distribution.items() if zone_proc[1]==rank)   
-            if workflow.SplittingAndDistribution['NumberOfProcessors'] == 1:
+            if workflow.RunManagement['NumberOfProcessors'] == 1:
                 workflow.read_tree('maia')
                 part_tree = maia.factory.partition_dist_tree(workflow.tree, comm)
             else:

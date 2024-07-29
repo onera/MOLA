@@ -166,6 +166,7 @@ def test_duplicate(tmp_path):
 
 
 @pytest.mark.user_case
+@pytest.mark.elsa # since not still functional using Fast
 @pytest.mark.cost_level_4
 def test_compressor_example_local(tmp_path):
     w = get_compressor_example(tmp_path)

@@ -16,12 +16,13 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
+pytestmark = pytest.mark.fast
+
 import numpy as np
 
 from treelab import cgns
 from mola.cfd.preprocess.cfd_parameters import solver_fast
 
-pytestmark = pytest.mark.fast
 
 class FakeWorkflowMonoBlock():
 

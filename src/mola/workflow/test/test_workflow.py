@@ -760,4 +760,4 @@ def test_print_interface_1():
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
-    test_workflow_sphere_struct_local()
+    test_workflow_sphere_struct_local('sphere_local')

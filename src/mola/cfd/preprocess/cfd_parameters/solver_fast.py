@@ -17,7 +17,7 @@
 
 from mola.logging import mola_logger, MolaException, MolaUserError
 
-import Fast.PyTree as Fast
+
 from treelab import cgns
 from mola.cfd.preprocess.cfd_parameters import cfd_parameters
 
@@ -107,6 +107,7 @@ def get_time_marching_setup(Numerics):
     return TimeMarchingSetup
 
 def put_numerics_in_tree(fast_numerics, tree):
+    import Fast.PyTree as Fast # TODO setParameters ?
     num_base = dict()
     for k_base in keys_to_store_in_bases:
         if k_base in fast_numerics:

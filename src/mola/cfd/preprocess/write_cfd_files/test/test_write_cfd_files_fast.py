@@ -22,7 +22,7 @@ from mola import __MOLA_PATH__
 from mola.cfd.preprocess.write_cfd_files import solver_fast
 
 import pytest
-pytestmark = pytest.mark.elsa
+pytestmark = pytest.mark.fast
 
 import pathlib
 module_directory = str(pathlib.Path(__file__).parent.resolve())
