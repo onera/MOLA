@@ -42,8 +42,8 @@ radon_complexity:
     - source $MOLA_ENV_DEFAULT
     - pip install radon
   script:
-    - radon cc --min D > radon_cc_complexity_report_min_D.txt  
-    - radon mi --min B > radon_mi_complexity_report_min_B.txt
+    - radon cc --min D src > radon_cc_complexity_report_min_D.txt  
+    - radon mi --min B src > radon_mi_complexity_report_min_B.txt
   artifacts:
     paths:
       - radon_cc_complexity_report_min_D.txt
