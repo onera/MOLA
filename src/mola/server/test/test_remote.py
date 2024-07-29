@@ -23,6 +23,8 @@ from mola.server import remote
 from mola.server import files_operations as FOP
 from mola.logging import MolaException
 
+MOLA_SOLVER = os.getenv('MOLA_SOLVER', 'no_solver')
+
 @pytest.mark.network_onera
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -47,7 +49,7 @@ def test_guess_machine_from_path_error():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_submit_command():
+def test_submit_command(tmp_path):
     try:
         localhost = remote.guess_localhost()
     except:
@@ -55,7 +57,7 @@ def test_submit_command():
         return
     
     # create an empty file with a python command send with submit_command
-    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
+    filename = tmp_path / 'test_submit_command_file'
     remote.submit_command(f'touch {filename}', localhost)
     os.remove(filename)
 
@@ -65,14 +67,13 @@ def test_submit_command():
 def test_submit_command_sator():
     # create an empty file with a python command send with submit_command
     machine = 'sator'
-    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                            'test_submit_command_file')
+    filename = f'/tmp_user/sator/$USER/.test_submit_command_sator_{MOLA_SOLVER}_FILE'
     remote.submit_command(f'touch {filename}', machine)
     FOP.remove_path(filename, machine=machine)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_submit_python_command():
+def test_submit_python_command(tmp_path):
     try:
         localhost = remote.guess_localhost()
     except:
@@ -80,7 +81,7 @@ def test_submit_python_command():
         return
     
     # create an empty file with a python command send with submit_command
-    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
+    filename = tmp_path / 'test_submit_command_file'
     # python_command = f'''{sys.executable} -c "open('{filename}', 'w').close()"'''
     # remote.submit_command(python_command, localhost)
     code = f'''
@@ -116,7 +117,7 @@ def test_submit_python_command_with_error():
 def test_submit_command_python_sator():
     # create an empty file with a python command send with submit_command
     machine = 'sator'
-    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_submit_command_file')
+    filename = f'/tmp_user/sator/$USER/.test_submit_command_python_sator_{MOLA_SOLVER}_FILE'
     pycode = [f"with open('{filename}', 'w') as f:"]
     pycode+= [f"    f.write('test')"]
     pycode = ';'.join(pycode)

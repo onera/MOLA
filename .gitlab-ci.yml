@@ -13,19 +13,19 @@
 #
 # For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
 
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master-v2" 
+    - when: always
+
 variables:
+  MOLA_ENV_DEFAULT: src/mola/env/onera/env.sh
   MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
   MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
 
 default:
   tags: 
     - shell
-  rules:   
-    - if: $CI_COMMIT_BRANCH == "master-v2" 
-  #rules:
-  #  - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master-v2"'
-  #    when: always
-  #  - when: never
   id_tokens:
     CI_JOB_JWT:
       aud: https://gitlab.onera.net
@@ -34,15 +34,19 @@ stages:
   - test
   - deploy
 
+
+
 test_unit_elsa: 
   stage: test
+  tags: 
+    - juno-shell 
   before_script:
     - source $MOLA_ENV_ELSA
   script:
-    - coverage run -m pytest -m unit 
+    - coverage run --data-file=.coverage_test_unit_elsa -m pytest -m unit 
   artifacts:
     paths:
-      - .coverage
+      - .coverage_test_unit_elsa
     expire_in: 1 hour
   
 test_unit_sonics: 
@@ -52,10 +56,10 @@ test_unit_sonics:
   before_script:
     - source $MOLA_ENV_SONICS
   script:
-    - coverage run -m pytest -m unit 
+    - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
   artifacts:
     paths:
-      - .coverage
+      - .coverage_test_unit_sonics
     expire_in: 1 hour
 
 # test_integration_elsa:   # does not work because it requires to handle job submission
@@ -72,11 +76,15 @@ test_unit_sonics:
 
 coverage_report:
   stage: deploy
+  tags: 
+    - juno-shell 
   dependencies:
     - test_unit_elsa
     - test_unit_sonics
+  before_script:
+    - source $MOLA_ENV_DEFAULT
   script:
-    - coverage combine test_unit_elsa/.coverage test_unit_sonics/.coverage
+    - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics
     - coverage xml -o coverage.xml
   artifacts:
     reports:
@@ -85,7 +93,6 @@ coverage_report:
         path: coverage.xml
     paths:
       - coverage.xml
-    expire_in: 1 hour
 
 pages:    # Nom à utiliser
   stage: deploy

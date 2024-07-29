@@ -138,6 +138,10 @@ def makedirs_remote(path, machine=None, user=None):
 
 def scp(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, timeout=60):
 
+    # Force convertion to str in case paths are Path objects from pathlib
+    source_path = str(source_path)
+    destination_path = str(destination_path)
+
     if not is_existing_path(source_path, source_machine, source_user) :
         precision_if_needed = f' on {source_machine}' if source_machine is not None else ''
         raise MolaException(f'The source path {source_path} does not exist{precision_if_needed}.')

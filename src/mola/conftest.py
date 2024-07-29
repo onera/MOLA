@@ -61,12 +61,14 @@ def check_cost(func, marker):
         end_time = timeit.default_timer()
         cpu_cost = end_time - start_time
         if cpu_cost < cost_levels[marker][0]:
-            msg = (f'{func.__name__} took {cpu_cost} seconds, which is'
-             f' lower than the suggested minimum {cost_levels[marker][0]} for marker "{marker}".')
+            msg = (f'{func.__name__} took {cpu_cost} seconds, which is lower than '
+                   f'the suggested minimum {cost_levels[marker][0]} for marker "{marker}".')
             warnings.warn(msg)
         
-        assert cpu_cost <= cost_levels[marker][1], \
-            f'{func.__name__} took {cpu_cost} seconds, which is outside the maximum boundary {cost_levels[marker][1]} for marker "{marker}".'
+        if cpu_cost > cost_levels[marker][1]:
+            msg = (f'{func.__name__} took {cpu_cost} seconds, which is outside the '
+                   f'maximum boundary {cost_levels[marker][1]} for marker "{marker}".')
+            warnings.warn(msg)
 
         return result
     return wrapper

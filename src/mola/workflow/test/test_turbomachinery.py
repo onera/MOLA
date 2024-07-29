@@ -24,7 +24,7 @@ from mola.workflow import WorkflowTurbomachinery
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola import server as SV
 
-def get_compressor_example_parameters():
+def get_compressor_example_parameters(RunDirectory):
     params = dict( 
         RawMeshComponents=[
         dict(
@@ -73,16 +73,16 @@ def get_compressor_example_parameters():
     RunManagement=dict(
         JobName='CompressorStage',
         NumberOfProcessors=4,
-        RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.compressor_example'),
+        RunDirectory=RunDirectory,
         ),
     )
     return params
 
-def get_compressor_example():
-    w = WorkflowTurbomachinery(**get_compressor_example_parameters())
+def get_compressor_example(RunDirectory):
+    w = WorkflowTurbomachinery(**get_compressor_example_parameters(RunDirectory))
     return w
 
-def get_workflow_rotor37():
+def get_workflow_rotor37(RunDirectory):
     w = WorkflowTurbomachinery( 
         RawMeshComponents=[
             dict(
@@ -129,7 +129,7 @@ def get_workflow_rotor37():
 
         RunManagement=dict(
             JobName='rotor37',
-            RunDirectory=os.path.join(os.path.dirname(os.path.realpath(__file__)), '.test_rotor37'),
+            RunDirectory=RunDirectory,
             NumberOfProcessors=4,
             ),
 
@@ -138,15 +138,15 @@ def get_workflow_rotor37():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_init():
-    w = get_compressor_example()
+def test_init(tmp_path):
+    w = get_compressor_example(tmp_path)
     w.print_interface()
 
 @pytest.mark.unit
 @pytest.mark.elsa # because workflow turbmachinery not compatible with sonics yet (not working without cassiopee)
-@pytest.mark.cost_level_3
-def test_duplicate():
-    params = get_compressor_example_parameters()
+@pytest.mark.cost_level_2
+def test_duplicate(tmp_path):
+    params = get_compressor_example_parameters(tmp_path)
     params['ApplicationContext'] = dict(
         ShaftRotationSpeed = 6000 * np.pi / 30., 
         Rows = dict(
@@ -167,8 +167,8 @@ def test_duplicate():
 
 @pytest.mark.user_case
 @pytest.mark.cost_level_4
-def test_compressor_example_local():
-    w = get_compressor_example()
+def test_compressor_example_local(tmp_path):
+    w = get_compressor_example(tmp_path)
     w.prepare()
     w.write_cfd_files()
     w.submit()

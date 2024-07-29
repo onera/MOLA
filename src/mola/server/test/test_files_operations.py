@@ -21,12 +21,11 @@ import shutil
 from mola.server import files_operations as FOP
 from mola.logging import check_error_message
 
-LOCAL_TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_is_existing_path_local_file():
-    filepath = os.path.join(LOCAL_TEST_DIR, 'test_is_existing_path_FILE')
+def test_is_existing_path_local_file(tmp_path):
+    filepath = tmp_path / 'test_is_existing_path_FILE'
     with open(filepath, 'w') as fi:
         fi.write('test')
     assert FOP.is_existing_path(filepath)
@@ -38,8 +37,8 @@ def test_is_existing_path_local_file():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_is_existing_path_local_directory():
-    dirpath = os.path.join(LOCAL_TEST_DIR, 'test_is_existing_path_DIR')
+def test_is_existing_path_local_directory(tmp_path):
+    dirpath = tmp_path / 'test_is_existing_path_DIR'
     try:
         shutil.rmtree(dirpath)
     except: 
@@ -55,16 +54,17 @@ def test_is_existing_path_local_directory():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_scp_local_destination_is_a_directory():
-    source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file')
+def test_scp_local_destination_is_a_directory(tmp_path):
+    filename = '.dummy_test_file'
+    source = tmp_path / filename
     with open(source, 'w') as fi:
         fi.write('test')
 
     # destination is a directory: the file must be copied inside
-    destination_dir = os.path.join(LOCAL_TEST_DIR, '.new_dummy_dir/')
-    destination = os.path.join(destination_dir, '.dummy_test_file')
+    destination_dir = tmp_path / '.new_dummy_dir'
+    destination = destination_dir / filename
 
-    FOP.scp(source, destination_dir)
+    FOP.scp(source, str(destination_dir) + '/')
 
     assert FOP.is_file(destination)
     shutil.rmtree(destination_dir)
@@ -76,14 +76,15 @@ def test_scp_local_destination_is_a_directory():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_scp_local_destination_is_a_file():
-    source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file')
+def test_scp_local_destination_is_a_file(tmp_path):
+    filename = '.dummy_test_file'
+    source = tmp_path / filename
     with open(source, 'w') as fi:
         fi.write('test')
 
     # destination is a file: the file must be copied by changing its name
-    destination_dir = os.path.join(LOCAL_TEST_DIR, '.new_dummy_dir')
-    destination = os.path.join(destination_dir, '.new_dummy_file')
+    destination_dir = tmp_path / '.new_dummy_dir/'
+    destination = destination_dir / filename
 
     FOP.scp(source, destination)
 
@@ -97,12 +98,12 @@ def test_scp_local_destination_is_a_file():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_scp_local_destination_is_an_existing_file():
-    source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file')
+def test_scp_local_destination_is_an_existing_file(tmp_path):
+    source = tmp_path / '.dummy_test_file'
     with open(source, 'w') as fi:
         fi.write('test')
     
-    destination = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file_2')
+    destination = tmp_path / '.dummy_test_file_2'
     with open(destination, 'w') as fi:
         fi.write('test')
     
@@ -122,8 +123,8 @@ def test_scp_local_destination_is_an_existing_file():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_scp_local_destination_and_source_are_the_same():
-    source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_file')
+def test_scp_local_destination_and_source_are_the_same(tmp_path):
+    source = tmp_path / '.dummy_test_file'
     with open(source, 'w') as fi:
         fi.write('test')
 
@@ -136,8 +137,8 @@ def test_scp_local_destination_and_source_are_the_same():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_read_text_file_from_errors():
-    source = os.path.join(LOCAL_TEST_DIR, '.dummy_test_err_file.log')
+def test_read_text_file_from_errors(tmp_path):
+    source = tmp_path / '.dummy_test_err_file.log'
     expected_err_msg = (
         'From this line the file is registered, since there is the word ERROR\n'
         'so this line is registered as well\n'
@@ -156,7 +157,8 @@ def test_read_text_file_from_errors():
 @pytest.mark.unit
 @pytest.mark.cost_level_2
 def test_read_text_file_from_errors_sator():
-    directory = '/tmp_user/sator/$USER/.test/'
+    MOLA_SOLVER = os.getenv('MOLA_SOLVER', 'no_solver')
+    directory = f'/tmp_user/sator/$USER/.test_read_text_file_from_errors_sator_{MOLA_SOLVER}/'
     filename = 'dummy_test_err_file.log'
     expected_err_msg = (
         'From this line the file is registered, since there is the word ERROR\n'
