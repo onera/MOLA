@@ -34,6 +34,8 @@ stages:
   - test
   - deploy
 
+
+
 test_unit_elsa: 
   stage: test
   before_script:
@@ -72,6 +74,8 @@ test_unit_sonics:
 
 coverage_report:
   stage: deploy
+  tags: 
+    - juno-shell 
   dependencies:
     - test_unit_elsa
     - test_unit_sonics
