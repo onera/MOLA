@@ -27,6 +27,7 @@ solver_specific_files = [
     names.FILE_COPROCESS,
     names.FILE_JOB,
     names.FILE_INPUT_SOLVER,
+    "tc.cgns", # TODO remove when factorized into main.cgns if possible
     names.FILE_COLOG,
 ]
 

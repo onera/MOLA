@@ -20,7 +20,10 @@ def pytest_configure(config):
 
     config.addinivalue_line(
         "markers", "elsa: test is relevant only for the solver elsa")
-    
+
+    config.addinivalue_line(
+        "markers", "fast: test is relevant only for the solver fast")
+
     config.addinivalue_line(
         "markers", "sonics: test is relevant only for the solver sonics")
 
@@ -42,6 +45,8 @@ def pytest_configure(config):
 
     config.addinivalue_line(
         "markers", "mpi: test shall be run in mpi")
+
+
 
 def get_cost_marker(marker_container):
     for marker in marker_container:

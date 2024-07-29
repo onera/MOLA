@@ -16,20 +16,16 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
-import numpy as np
 
-from mola.workflow import WorkflowAirfoil
+from mola.cfd.preprocess.boundary_conditions import solver_fast
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
+
+pytestmark = pytest.mark.fast
 
 @pytest.mark.unit
-@pytest.mark.elsa # because workflow airfoil not compatible with sonics yet (not working without cassiopee)
-@pytest.mark.fast # because workflow airfoil not compatible with sonics yet (not working without cassiopee)
 @pytest.mark.cost_level_0
-def test_get_flow_directions():
-    AngleOfAttackDeg = 15
-    AngleOfSlipDeg   = 2
-    YawAxis   = [1, 0, 0] 
-    PitchAxis = [0, -1, 0]  
-    drag_dir, side_dir, lift_dir = WorkflowAirfoil.get_flow_directions(AngleOfAttackDeg, AngleOfSlipDeg, YawAxis, PitchAxis) 
-    assert np.allclose(drag_dir, [ 0.25881905, -0.03371033,  0.96533741]) 
-    assert np.allclose(side_dir, [ 0.        , -0.99939083, -0.0348995 ]) 
-    assert np.allclose(lift_dir, [ 0.96592583,  0.00903265, -0.25866138]) 
+def test_functions_well_defined():
+    BoundaryConditionsNamesInfast = set(v['fast'] for v in BoundaryConditionsNames.values() if 'fast' in v)
+    for fun_name in BoundaryConditionsNamesInfast:
+        assert getattr(solver_fast, fun_name)
+

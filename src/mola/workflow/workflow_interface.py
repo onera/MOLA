@@ -19,6 +19,9 @@ import os
 import copy
 import pathlib
 import numpy as np
+import copy
+import multiprocessing
+from mpi4py import MPI
 from treelab.cgns.tree import Tree
 from treelab.cgns.base import Base
 from treelab.cgns.zone import Zone
@@ -200,14 +203,8 @@ class WorkflowInterface(object):
         ComponentsToSplit                : Union[ str,
                                                  None,
                                                  list ] = 'all',
-        NumberOfProcessors               : Union[ str,
-                                                  int]  = 'auto',
-        MinimumAllowedNodes              : int = 1,
-        MaximumAllowedNodes              : int = 20,
-        MaximumNumberOfPointsPerNode     : int = int(1e9),
-        CoresPerNode                     : int = 48,
-        DistributeOnlyOnFullNodes : bool = True,
-                       ):
+        NumberOfParts                    : int = None,
+        CoresPerNode                     : int = 48):
         self.SplittingAndDistribution = self._get_comp(
             WorkflowInterface.set_SplittingAndDistribution, self.get_default_values_from_local_signature())
 
@@ -534,8 +531,9 @@ class WorkflowInterface(object):
     def set_RunManagement(self,
         JobName : str = None,
         RunDirectory : Union[str, pathlib.PosixPath] = '.',
-        NumberOfProcessors : int = None,
-        Machine : int = None,
+        NumberOfProcessors : int = MPI.COMM_WORLD.Get_size(),
+        NumberOfThreads : int = multiprocessing.cpu_count(),
+        Machine : str = None,
         User : str = None,
         TimeOutInSeconds : float = None,
         SecondsMarginForQuitBeforeTimeOut : float = None,

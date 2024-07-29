@@ -23,7 +23,8 @@ MolaToScheduler = dict(
     SLURM = dict(
         JobName = 'job-name',
         Comment = 'comment',
-        NumberOfProcessors = 'ntasks',
+        NumberOfProcessors = 'ntasks', # $SLURM_NTASKS
+        NumberOfThreads = 'cpus-per-task', # $SLURM_CPUS_PER_TASK
         TimeLimit = 'time',
     ),
 )
@@ -33,6 +34,7 @@ SchedulerDefaults = dict(
         'job-name' : 'mola',
         'output' : 'output.%j.log',
         'error' : 'error.%j.log',
+        'exclusive': None,
     },
 )
 

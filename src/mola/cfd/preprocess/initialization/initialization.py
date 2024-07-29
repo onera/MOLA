@@ -20,6 +20,7 @@ from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException
 from mola.server import MaiaParallel
 
+
 def apply(workflow):
     '''
     Initialize the flow solution.
@@ -44,7 +45,7 @@ def apply(workflow):
 
     initialize_flow_with_given_method(workflow, FlowSolution_name)
     check_initial_flow_is_in_all_zones(workflow, FlowSolution_name)
-    # workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
+    workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
     
     apply_to_solver(workflow)
 
@@ -107,8 +108,10 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
     '''
     if isinstance(workflow.Initialization['Source'], str):
         mola_logger.info(f"Initialize FlowSolution by copy of {workflow.Initialization['Source']}",rank=0)
+        errtag=workflow.Initialization['Source']
     else:
         mola_logger.info(f"Initialize FlowSolution by copy of the given tree",rank=0)
+        errtag='tree'
 
     keepTurbulentDistance = workflow.Initialization.get('KeepTurbulentDistance', False)
 
@@ -120,11 +123,12 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
     for zone in workflow.tree.zones():
         FSpath = zone.path() + '/' + FlowSolution_name
-        try:
-            FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
-            zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
-        except AttributeError:
-            raise MolaException(f"The node {FSpath} is not found in {workflow.Initialization['Source']}")
+        FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
+
+        if FlowSolutionInSourceTree is None:
+            raise MolaException(f"The node {FSpath} is not found in {errtag}")
+
+        zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
 
 def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
     for zone in workflow.tree.zones():
@@ -150,9 +154,11 @@ def compute_turbulent_distance_with_maia(dist_tree):
 
     # If out_fs_name='FlowSolution#Init' is not used, we need to move the TurbulentDistance node
     for zone in PT.iter_all_Zone_t(dist_tree):
-        FlowSolution = PT.get_child_from_name(zone, 'FlowSolution#Init')
-        WallDistance =  PT.get_child_from_name(zone, 'WallDistance') 
+        FlowSolution = PT.get_child_from_name(zone, 'FlowSolution#Init') # CAVEAT name of container
+        WallDistance =  PT.get_child_from_name(zone, 'WallDistance')
+        if not WallDistance: continue
         TurbulentDistance = PT.get_child_from_name(WallDistance, 'TurbulentDistance')
+
         PT.add_child(FlowSolution, TurbulentDistance)
         PT.rm_child(zone, WallDistance)
 

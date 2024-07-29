@@ -133,6 +133,7 @@ class CoprocessManager():
         def sort_extractions_to_save_by_file():
             files_to_save = dict()
             for extraction in self.Extractions:
+                if 'Data' not in extraction: continue
                 if extraction['IsToSave'] and extraction['Data'] is not None:
                     if extraction['Type'] == 'Restart':
                         filename = extraction['File']
