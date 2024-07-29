@@ -41,7 +41,7 @@ test_unit_elsa:
     - coverage run -m pytest -m unit 
   artifacts:
     paths:
-      - .coverage
+      - test_unit_elsa/.coverage
     expire_in: 1 hour
   
 test_unit_sonics: 
@@ -54,7 +54,7 @@ test_unit_sonics:
     - coverage run -m pytest -m unit 
   artifacts:
     paths:
-      - .coverage
+      - test_unit_sonics/.coverage
     expire_in: 1 hour
 
 # test_integration_elsa:   # does not work because it requires to handle job submission
