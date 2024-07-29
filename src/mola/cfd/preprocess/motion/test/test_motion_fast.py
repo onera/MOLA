@@ -15,14 +15,35 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest 
+
+import numpy as np
 from treelab import cgns
-import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
+from mola.cfd.preprocess.motion import solver_fast
 
-import copy
+pytestmark = pytest.mark.fast
 
 
-def apply_to_solver(workflow):
+class FakeWorkflow():
 
-    mola_logger.warning("extractions to be implemented in fast")
+    def __init__(self, Motion):
+        self.tree = cgns.Tree()
+        base = cgns.Base(Parent=self.tree)
+        cgns.Node(Name='Rotor', Type='Family', Parent=base)
+        cgns.Node(Name='Stator', Type='Family', Parent=base)
+        self.Motion = Motion
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_apply_to_solver():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[500., 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[5., 0., 8.],
+        )
+    )
+
+    workflow = FakeWorkflow(Motion)
+    solver_fast.apply_to_solver(workflow)

@@ -80,3 +80,21 @@ def BCFarfield(workflow, Family):
     farfield_family.findAndRemoveNodes(Type='FamilyBC', Depth=1)
     cgns.Node( Name='FamilyBC', Value='BCFarfield', Type='FamilyBC', Parent=farfield_family )
 
+
+def BCSymmetryPlane(workflow, Family):
+    '''
+    Set a SymmetryPlane boundary condition.
+
+    Parameters
+    ----------
+
+        workflow : Workflow object
+
+        Family : str
+            Name of the family on which the boundary condition will be imposed
+
+    '''
+    farfield_family = workflow.tree.get(Name=Family, Type='Family', Depth=2)
+    farfield_family.findAndRemoveNodes(Type='FamilyBC', Depth=1)
+    cgns.Node( Name='FamilyBC', Value='BCSymmetryPlane', Type='FamilyBC', Parent=farfield_family )
+

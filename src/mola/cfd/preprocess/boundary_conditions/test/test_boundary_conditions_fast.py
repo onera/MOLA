@@ -15,14 +15,17 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from treelab import cgns
-import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
+import pytest
 
-import copy
+from mola.cfd.preprocess.boundary_conditions import solver_fast
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
 
+pytestmark = pytest.mark.fast
 
-def apply_to_solver(workflow):
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_functions_well_defined():
+    BoundaryConditionsNamesInfast = set(v['fast'] for v in BoundaryConditionsNames.values() if 'fast' in v)
+    for fun_name in BoundaryConditionsNamesInfast:
+        assert getattr(solver_fast, fun_name)
 
-    mola_logger.warning("extractions to be implemented in fast")

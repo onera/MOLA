@@ -16,16 +16,13 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from treelab import cgns
+
 import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import server as SV
 from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text
 
-import Converter.PyTree as C
-import Converter.Internal as I
-import Connector.PyTree as X
 
 def apply_to_solver(workflow):
 
@@ -38,16 +35,6 @@ def write_run_scripts(workflow):
 
     write_job_launcher(workflow.RunManagement, workflow._SchedulerOptions)
     
-    # TODO adapt write_job_launcher conveniently, using as basis:
-    # #!/bin/bash
-    # #SBATCH --job-name=2023_GEMFAN
-    # #SBATCH --comment=32132011F
-
-    # #SBATCH --ntasks=12
-    # #SBATCH --cpus-per-task=24
-    # #SBATCH --threads-per-core=1
-    # #SBATCH --exclusive
-    # #SBATCH --constraint=csl
 
 def write_data_files(workflow):
 

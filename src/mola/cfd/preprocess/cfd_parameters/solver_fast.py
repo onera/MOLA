@@ -65,8 +65,9 @@ def get_spatial_fluxes(Numerics):
         )
     elif Numerics['Scheme'] == 'Roe':
         SchemeSetup = dict(
-        scheme= 'roe_min',
-        psiroe             = 0.01,
+        scheme = 'roe_min',
+        psiroe = 0.01,
+        slope = "o3", # "minmod" or "o3"
         )
     else:
         raise MolaUserError(f'Numerical scheme {Numerics["Scheme"]} not recognized for the solver fast')
@@ -84,8 +85,9 @@ def get_time_marching_setup(Numerics):
     if Numerics['TimeMarching'] == 'Steady':
 
         TimeMarchingSetup.update({
-            "temporal_scheme": "implicit_local", # or "explicit"
+            "temporal_scheme": "implicit", # or "explicit"
             "time_step_nature": "local",
+            "ss_iteration":1,
             "time_step": 1e-6, # must exist even in steady
             "modulo_verif":10,
         })
@@ -97,6 +99,7 @@ def get_time_marching_setup(Numerics):
         TimeMarchingSetup.update(dict(
             time_step          = Numerics['TimeStep'],
             time_step_nature   = "global",
+            temporal_scheme    = "implicit",
         ))
 
         # TODO include 1st or 2nd order time marching ?
@@ -118,6 +121,7 @@ def put_numerics_in_tree(fast_numerics, tree):
         Fast._setNum2Base(base, num_base) # TODO setParameters ?
         Fast._setNum2Zones(base, num_zone) # TODO setParameters ?
     tree.setParameters('.Solver#define',**num_base) 
+    tree = cgns.castNode(tree)
 
 
 def get_cfl_setup(cfl):

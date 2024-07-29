@@ -37,13 +37,13 @@ def apply_to_solver(workflow):
 def add_ghost_cells(workflow):
     t = workflow.tree
     I._addGhostCells(t,t,2,adaptBCs=1,fillCorner=0)
-    workflow.tree = t
+    workflow.tree = cgns.castNode(t)
 
 def create_cell_center_tree(workflow):
     tc = C.node2Center(workflow.tree)
     # C._rmVars(tc, 'FlowSolution')
     # I._rmNodesFromName(tc,'GridCoordinates')
-    workflow._treeCellCenter = tc
+    workflow._treeCellCenter = cgns.castNode(tc)
 
 def set_multibloc_transfer_data(workflow):
     t = workflow.tree

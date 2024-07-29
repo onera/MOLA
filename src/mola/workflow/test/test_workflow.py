@@ -786,4 +786,4 @@ def test_wip():
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
-    test_submit()
+    test_workflow_sphere_struct_local()
