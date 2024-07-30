@@ -36,7 +36,7 @@ def apply(workflow):
         if 'Positioning' not in component: continue
 
         for operation in component['Positioning']:
-            if operation['Type'] == 'scale':
+            if operation['Type'] == 'Scale':
                 s = float(operation['Scale'])
                 try:
                     rescale_with_maia(base, s)

@@ -392,7 +392,7 @@ def get_workflow_sphere_hybrid(RunDirectory):
             dict(
                 Name='sphere',
                 Source='/stck/mola/data/mesh/sphere/sphere_hybrid.cgns',
-                Positioning=[dict(Type='scale', Scale=1e-3)], # since Pointwise mesh is in mm
+                Positioning=[dict(Type='Scale', Scale=1e-3)], # since Pointwise mesh is in mm
                 )
         ],
 
@@ -444,7 +444,7 @@ def get_workflow_sphere_unstruct(RunDirectory):
             dict(
                 Name='sphere',
                 Source='/stck/mola/data/mesh/sphere/sphere_unstructured.cgns',
-                Positioning=[dict(Type='scale', Scale=1e-3)], # since Pointwise mesh is in mm
+                Positioning=[dict(Type='Scale', Scale=1e-3)], # since Pointwise mesh is in mm
                 )
         ],
 

@@ -18,10 +18,10 @@
 import numpy as np
 from typing import Union
 
-from . import WorkflowInterface
+from .rotating_component_interface import WorkflowRotatingComponentInterface
 
 
-class WorkflowTurbomachineryInterface(WorkflowInterface):
+class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
 
     def add_to_RawMeshComponents(self,
         Mesher        : str  = 'Autogrid',
@@ -45,20 +45,6 @@ class WorkflowTurbomachineryInterface(WorkflowInterface):
         local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
         super().set_SplittingAndDistribution(**local_kwargs)
-
-    def set_ApplicationContext(self,
-            ShaftAxis : Union[list,
-                            tuple,
-                            np.ndarray] = [1,0,0],
-            
-            Rows : dict = None,
-            HubRotationSpeed : list = None,
-            ShaftRotationSpeed : float = None,
-            NormalizationCoefficient : dict = None):
-        # shall make _get_comp accessible (staticmethod?)
-        self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.get_default_values_from_local_signature())
-
-        self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
 
     def set_Numerics(self,
             Scheme : str   = 'Roe',

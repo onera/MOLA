@@ -16,44 +16,65 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+from typing import Union
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
 from ..families import join_families
 from .reader import read
 
-SCALE_DICT = dict(
-    mm = 0.001,
-    cm = 0.01,
-    dm = 0.1,
-    m  = 1.
-)
+# def set_reader_defaults(
+#         Name             : str = 'auto',
+#         InitialFrame     : dict = dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]),
+#         DefaultToleranceForConnection : float = 1e-8,
+#         Unit             : str  = 'm',
+#         CleaningMacro    : str  = None,
+#         Families         : list = None,
+#         Positioning      : list = [],
+#         Connection       : list = [],
+#         OversetOptions   : dict = None,
+#         *,
+#         Source           : Union[str, cgns.tree.Tree, cgns.base.Base, cgns.zone.Zone],
+#         ):
+#     # This function is mandatory to be called by WorkflowInterface.
+#     # Its signature will be checked.
+#     # from mola.workflow.workflow_interface import WorkflowInterface
+#     # default_values = WorkflowInterface.get_default_values_from_local_signature()
+
+#     DefaultRotation =  dict(
+#         Type='TranslationAndRotation',
+#         InitialFrame=InitialFrame,
+#         RequestedFrame=dict(
+#             Point=[0,0,0],
+#             Axis1=[1,0,0],
+#             Axis2=[0,1,0],
+#             Axis3=[0,0,1]),
+#     )
+#     if not any([item['Type'] == 'TranslationAndRotation' for item in Positioning]):
+#         Positioning.append(DefaultRotation)
+
 
 def reader(w, component):
 
     name = component['Name'] if 'Name' in component else ''
     mola_logger.info(f'Read component {name} with Autogrid reader')
-        
-    component.setdefault('Tolerance', 1e-8)
-    unit = component.get('Unit', 'm')
+    
+    component.setdefault('DefaultToleranceForConnection', 1e-8)
     InitialFrame = component.get('InitialFrame', dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]))
 
-    DefaultPositioning = [
-        dict(
-            Type='TranslationAndRotation',
-            InitialFrame=InitialFrame,
-            RequestedFrame=dict(
-                Point=[0,0,0],
-                Axis1=[1,0,0],
-                Axis2=[0,1,0],
-                Axis3=[0,0,1]),
-            ),
-        dict(
-            Type  = 'scale',
-            Scale = SCALE_DICT[unit],
-            ),
-    ]
+    DefaultRotation =  dict(
+        Type='TranslationAndRotation',
+        InitialFrame=InitialFrame,
+        RequestedFrame=dict(
+            Point=[0,0,0],
+            Axis1=[1,0,0],
+            Axis2=[0,1,0],
+            Axis3=[0,0,1]),
+    )
 
-    component.setdefault('Positioning', DefaultPositioning)
+    component.setdefault('Positioning', [])
+    if not any([item['Type'] == 'TranslationAndRotation' for item in component['Positioning']]):
+        component['Positioning'].append(DefaultRotation)
+
     component.setdefault('Connection', [])
 
     mesh = read(w, component['Source'])
@@ -116,9 +137,9 @@ def shorten_zones_names(t):
 def update_Connection_from_mesh(mesh, component, axis):
     # Only if grid connectivities are not already in the mesh
     # TODO: Test on the presence of GC
-    # component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
+    # component['Connection'].append(dict(Type='Match', Tolerance=component['DefaultToleranceForConnection']))
 
-    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['Tolerance'], axis)
+    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], axis)
     component['Connection'] += periodic_connections
 
 def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance, axis=np.array([1,0,0])):

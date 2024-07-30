@@ -18,7 +18,8 @@
 import copy
 import numpy as np
 
-from . import WorkflowInterface, Workflow
+from . import Workflow
+from .rotating_component_interface import WorkflowRotatingComponentInterface
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
 from  mola.cfd.preprocess.mesh import duplicate
@@ -57,26 +58,9 @@ class WorkflowRotatingComponent(Workflow):
 
         self.Name = self.__class__.__name__
         self.tree = tree
-        self._interface = WorkflowInterface(self, **kwargs)
+        self._interface = WorkflowRotatingComponentInterface(self, **kwargs)
         if tree is not None:
             self.get_workflow_parameters_from_tree()
-        else:
-            self.set_rotation_speed()
-
-            # Axis of the engine
-            self.ApplicationContext.setdefault('ShaftAxis', np.array([1.,0,0]))
-            self.Flow['Direction'] = self.ApplicationContext['ShaftAxis']
-
-    def set_rotation_speed(self):
-        if not 'ShaftRotationSpeed' in self.ApplicationContext \
-            and not 'RPM' in self.ApplicationContext:
-            raise MolaAssertionError('ShaftRotationSpeed (in rad/s) or RPM (in rpm) must be provided in ApplicationContext.')
-        elif 'RPM' in self.ApplicationContext:
-            self.ApplicationContext['ShaftRotationSpeed'] = self.ApplicationContext['RPM'] * np.pi / 30
-        elif 'ShaftRotationSpeed' in self.ApplicationContext: 
-            self.ApplicationContext['RPM'] = self.ApplicationContext['ShaftRotationSpeed'] * 30 / np.pi
-        else:
-            raise MolaAssertionError('Cannot provide both ShaftRotationSpeed and RPM.')
 
     def define_families(self):
         super().define_families()
@@ -92,8 +76,6 @@ class WorkflowRotatingComponent(Workflow):
             if not self.tree.get(Name=row, Type='Family', Depth=2):
                 raise MolaException(f'The family {row} given in ApplicationContext is not found in the mesh.')
 
-            rowParams.setdefault('IsRotating', False)
-
             if hasattr(self, 'BodyForceInputData') and row in self.BodyForceInputData:
                 # Replace the number of blades to be consistant with the body-force mesh
                 deltaTheta = self.compute_azimuthal_extension_from_family(self.tree, row, self.ApplicationContext['ShaftAxis'])
@@ -101,7 +83,6 @@ class WorkflowRotatingComponent(Workflow):
                 rowParams['NumberOfBladesInInitialMesh'] = 1
                 mola_logger.info(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
 
-            rowParams.setdefault('NumberOfBladesSimulated', 1)
             rowParams.setdefault('NumberOfBladesInInitialMesh', self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades']))     
 
     def set_motion(self):
@@ -241,6 +222,13 @@ class WorkflowRotatingComponent(Workflow):
         Nb = NumberOfBlades * deltaTheta / (2*np.pi)
         Nb = int(np.round(Nb))
         mola_logger.info(f'Number of blades in initial mesh for {FamilyName}: {Nb}')
+        if Nb < 1:
+            raise MolaAssertionError(
+                f'The number of blades in initial mesh {FamilyName} cannot be computed correctly.'
+                ' Please check the orientation and scale of the mesh. If the mesh is correct,'
+                ' but the error is persistent, you may use the argument NumberOfBladesInInitialMesh'
+                ' in ApplicationContext to fix manually fix this.'
+                )
         return Nb
 
     @staticmethod
