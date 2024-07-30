@@ -58,6 +58,7 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
     from mpi4py import MPI
     import maia
     t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD)
+    copyRelevantUserDefinedDataNodes(tree, t, MPI.COMM_WORLD)
     t = cgns.castNode(t)
 
 
@@ -68,6 +69,33 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
         
     t = cgns.castNode(t)
     return t
+
+def copyRelevantUserDefinedDataNodes(dist_tree, part_tree, comm):
+    
+    from packaging.version import Version
+    import maia
+
+    maia_version = maia.__version__
+    if maia_version.startswith("dev-"):
+        maia_version = maia_version.replace('dev-','')+'dev'
+    if Version( maia_version ) < Version("1.5"): return
+
+    import maia.pytree as PT
+    match_name = lambda name: name == 'WorkflowParameters' or \
+                              name.startswith('.Solver#') or \
+                              name.startswith('.MOLA')
+
+    to_copy = lambda n : PT.get_label(n) == 'UserDefinedData_t' and match_name(PT.get_name(n))
+
+    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, [to_copy], comm)
+    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, ['CGNSBase_t', to_copy], comm)
+    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, ['CGNSBase_t', 'Zone_t', to_copy], comm)
+    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, ['CGNSBase_t', 'Family_t', to_copy], comm)
+    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, ['CGNSBase_t', 'Zone_t', 'ZoneBC_t', 'BC_t', to_copy], comm)
+
+
+
+
 
 def to_full_tree_at_rank_0(tree : cgns.Tree):
     is_dist = bool(tree.get(':CGNS#Distribution'))

@@ -77,6 +77,7 @@ def apply_to_solver(workflow):
     else:
 
         import maia4elsA
+        from mola.cfd.preprocess.mesh.tools import copyRelevantUserDefinedDataNodes
 
         is_to_split_with_maia = workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation' \
             and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia'
@@ -86,6 +87,7 @@ def apply_to_solver(workflow):
         if is_to_split_with_maia:
             workflow.read_tree('maia')
             part_tree = maia.factory.partition_dist_tree(workflow.tree, comm)
+            copyRelevantUserDefinedDataNodes(workflow.tree, part_tree, comm)
 
         elif was_already_split:
             # distribution = D2.getProcDict(workflow.tree, prefixByBase=True)   
@@ -93,6 +95,7 @@ def apply_to_solver(workflow):
             if workflow.RunManagement['NumberOfProcessors'] == 1:
                 workflow.read_tree('maia')
                 part_tree = maia.factory.partition_dist_tree(workflow.tree, comm)
+                copyRelevantUserDefinedDataNodes(workflow.tree, part_tree, comm)
             else:
                 part_tree = maia.io.file_to_part_tree(workflow.tree, comm) 
 

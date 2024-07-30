@@ -20,7 +20,7 @@ import numpy as np
 from treelab import cgns
 from mola.workflow.workflow import Workflow
 from mola.cfd.preprocess.initialization import initialization
-
+import mola.naming_conventions as names
 
 def get_debug_mesh():
     base = cgns.Base(Name='cart')
@@ -30,6 +30,15 @@ def get_debug_mesh():
     zone = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
     base.addChild(zone)
     return base
+
+def make_tree():
+    tree = cgns.Tree()
+    tree.addChild( get_debug_mesh())
+
+    tree.useEquation("{field1}=1.0", Container=names.CONTAINER_INITIAL_FIELDS)
+    tree.useEquation("{field2}=2.0", Container=names.CONTAINER_INITIAL_FIELDS)
+    
+    return tree
 
 def apply_all_previous_stages(workflow):
     workflow.assemble()
@@ -42,7 +51,7 @@ def apply_all_previous_stages(workflow):
     workflow.set_motion()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
+@pytest.mark.cost_level_0
 def test_initialization_copy_not_existing_file():
     mesh = get_debug_mesh()
     workflow = Workflow(
@@ -61,3 +70,29 @@ def test_initialization_copy_not_existing_file():
     else:
         raise AssertionError('Should raise an exception when the source file for initialization does not exist.')
     
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_compute_turbulent_distance_with_maia():
+
+    tree = make_tree()
+    tree = initialization.compute_turbulent_distance_with_maia(tree)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_force_grid_location_as_first_sibling():
+    
+    tree = make_tree()
+    
+    GridLocation = tree.get('GridLocation')
+    FlowSolution = GridLocation.parent()
+    GridLocation.dettach()
+    GridLocation.attachTo(FlowSolution, position='last')
+
+    initialization.force_grid_location_as_first_sibling(tree)
+
+    FlowSolution = tree.get(Type='FlowSolution_t')
+    assert FlowSolution.children()[0].name() == 'GridLocation'
+
+if __name__ == '__main__':
+    test_force_grid_location_as_first_sibling()
