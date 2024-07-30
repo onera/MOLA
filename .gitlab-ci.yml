@@ -40,9 +40,10 @@ test_unit_elsa:
   stage: test 
   tags: 
     - juno-slurm
-  before_script:
-    - source $MOLA_ENV_ELSA
+  variables:
+    SCHEDULER_PARAMETERS: "--qos=co_short_std --ntasks=1 --time=00:15:00"
   script:
+    - source $MOLA_ENV_ELSA
     - coverage run --data-file=.coverage_test_unit_elsa -m pytest -m unit 
   artifacts:
     paths:
@@ -53,9 +54,8 @@ test_unit_sonics:
   stage: test 
   tags: 
     - juno-slurm
-  before_script:
-    - source $MOLA_ENV_SONICS
   script:
+    - source $MOLA_ENV_SONICS
     - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
   artifacts:
     paths:
