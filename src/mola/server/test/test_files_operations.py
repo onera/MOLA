@@ -137,7 +137,7 @@ def test_scp_local_destination_and_source_are_the_same(tmp_path):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_read_text_file_from_errors(tmp_path):
+def test_read_text_file_from_errors_local(tmp_path):
     source = tmp_path / '.dummy_test_err_file.log'
     expected_err_msg = (
         'From this line the file is registered, since there is the word ERROR\n'
@@ -145,7 +145,8 @@ def test_read_text_file_from_errors(tmp_path):
         'and this one.\n')
     with open(source, 'w') as fi:
         fi.write('This line will not be catched by scanner\n')
-        fi.write('this one neither.\n')
+        fi.write('this one neither, even if it contains word UserWarning.\n')
+        fi.write('this one neither, even if it contains both ERROR and UserWarning.\n')
         fi.write(expected_err_msg)
 
     err_msg = FOP.read_text_file_from_errors(source)
@@ -171,4 +172,6 @@ def test_read_text_file_from_errors_sator():
     assert 'SCANNED_ERRORS\n'+expected_err_msg+'\n' == err_msg
 
 if __name__ == '__main__':
-    test_read_text_file_from_errors_sator()
+    import pathlib
+    module_directory = pathlib.Path(__file__).parent.resolve()
+    test_read_text_file_from_errors_local(module_directory)

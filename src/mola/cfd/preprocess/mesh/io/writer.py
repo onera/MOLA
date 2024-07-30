@@ -20,7 +20,6 @@ import glob
 from .utils import get_io_tool
 from treelab import cgns
 import mola.naming_conventions as names
-from mola.cfd.coprocess import mola_logger
 
 def write(w, tree, dst, io_tool=None):
     if tree.get(Name=':CGNS#Ppart', Depth=3):

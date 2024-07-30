@@ -23,7 +23,8 @@ from mola.logging import mola_logger, MolaException
 from . import remote
 
 def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000,
-        start_scan_keywords=['error','warning','traceback','abort']):
+        start_keywords=['error','traceback','abort'],
+        skip_keywords=['userwarning','warnings.warn']):
 
     separator_line = 'SCANNED_ERRORS\n'
     if remote.run_on_localhost(machine=machine, run_directory=filepath):
@@ -32,7 +33,9 @@ def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000
         result_lines = [separator_line]
         with open(filepath, 'r') as f:
             for line in f:
-                if found_info or any([word in line.lower() for word in start_scan_keywords]):
+                if found_info or any([word in line.lower() for word in start_keywords]):
+                    if any([word in line.lower() for word in skip_keywords]):
+                        continue
                     found_info = True
                     result_lines += [line]
                     if len(result_lines) > max_lines: break

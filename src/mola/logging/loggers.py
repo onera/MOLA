@@ -23,6 +23,7 @@ It should only contains class named <something>Logger
 import sys
 import os
 import logging
+import warnings
 import numpy as np
 
 from .formatters import CustomFormatter
@@ -108,6 +109,8 @@ class MolaLogger(logging.Logger):
     def warning(self, msg, rank=None, *args, **kwargs):
         if self._has_something_to_write(rank): 
             super().warning(self.preffix+msg, *args, **kwargs)
+            warnings.warn(self.preffix+msg)
+
     
     def error(self, msg, rank=None, *args, **kwargs):
         if self._has_something_to_write(rank): 
