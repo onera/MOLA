@@ -25,37 +25,19 @@ variables:
 
 default:
   tags: 
-    - shell
+    - juno-shell
   id_tokens:
     CI_JOB_JWT:
       aud: https://gitlab.onera.net
 
 stages:
-  - init
   - test
+  - code-quality
   - deploy
 
 
-radon_complexity:
-  stage: init
-  before_script:
-    - source $MOLA_ENV_DEFAULT
-    - pip install radon
-  script:
-    - radon cc --min D src > radon_cc_complexity_report_min_D.txt  
-    - radon mi --min B src > radon_mi_complexity_report_min_B.txt
-  artifacts:
-    paths:
-      - radon_cc_complexity_report_min_D.txt
-      - radon_mi_complexity_report_min_B.txt
-  # after_script:  # to stop the pipeline if code quality is too bad
-  #   - if [ -s radon_cc_complexity_report_min_D.txt ]; then false; fi
-  #   - if [ -s radon_mi_complexity_report_min_B.txt ]; then false; fi
-
 test_unit_elsa: 
-  stage: test
-  tags: 
-    - juno-shell 
+  stage: test 
   before_script:
     - source $MOLA_ENV_ELSA
   script:
@@ -66,9 +48,7 @@ test_unit_elsa:
     expire_in: 1 hour
   
 test_unit_sonics: 
-  stage: test
-  tags: 
-    - juno-shell 
+  stage: test 
   before_script:
     - source $MOLA_ENV_SONICS
   script:
@@ -91,9 +71,7 @@ test_unit_sonics:
 #     expire_in: 1 hour
 
 coverage_report:
-  stage: deploy
-  tags: 
-    - juno-shell 
+  stage: code-quality
   dependencies:
     - test_unit_elsa
     - test_unit_sonics
@@ -109,6 +87,22 @@ coverage_report:
         path: coverage.xml
     paths:
       - coverage.xml
+
+radon_complexity:
+  stage: code-quality
+  before_script:
+    - source $MOLA_ENV_DEFAULT
+    - pip install radon
+  script:
+    - radon cc --min D src > radon_cc_complexity_report_min_D.txt  
+    - radon mi --min B src > radon_mi_complexity_report_min_B.txt
+  artifacts:
+    paths:
+      - radon_cc_complexity_report_min_D.txt
+      - radon_mi_complexity_report_min_B.txt
+  # after_script:  # to stop the pipeline if code quality is too bad
+  #   - if [ -s radon_cc_complexity_report_min_D.txt ]; then false; fi
+  #   - if [ -s radon_mi_complexity_report_min_B.txt ]; then false; fi
 
 pages:    # Nom à utiliser
   stage: deploy
