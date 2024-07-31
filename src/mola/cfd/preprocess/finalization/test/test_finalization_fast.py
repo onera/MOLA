@@ -81,16 +81,19 @@ def test_create_cell_center_tree():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_multibloc_transfer_data():
-    solver_fast.X
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Connector.PyTree as X
+
     NbOfPts = 5
     workflow = FakeWorkflowTwoBlocks(NbOfPts)
     t = workflow.tree
     
-    t = solver_fast.X.connectMatch(t, tol=1e-8, dim=3)
+    t = X.connectMatch(t, tol=1e-8, dim=3)
     
-    solver_fast.I._addGhostCells(t,t,2,adaptBCs=1,fillCorner=0)
+    I._addGhostCells(t,t,2,adaptBCs=1,fillCorner=0)
     
-    tc = solver_fast.C.node2Center(t)
+    tc = C.node2Center(t)
 
     workflow.tree = cgns.castNode(t)
     workflow._treeCellCenter = cgns.castNode(tc)

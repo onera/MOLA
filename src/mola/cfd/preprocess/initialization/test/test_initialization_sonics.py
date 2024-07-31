@@ -73,16 +73,16 @@ def test_initialization_uniform():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_initialization_copy():    
-    ref_fs = cgns.Node(['FSolution#CellCenter#Init', None, [
-        ['GridLocation', 'CellCenter', [], 'GridLocation_t'], 
-        ['Density', np.array([[[3.]],[[4.]]]), [], 'DataArray_t'], 
-        ['MomentumX', np.array([[[50.]],[[-5.]]]), [], 'DataArray_t'], 
-        ['MomentumY', np.array([[[0.1]],[[0.5]]]), [], 'DataArray_t'], 
-        ['MomentumZ', np.array([[[0.]],[[1.]]]), [], 'DataArray_t'], 
-        ['EnergyStagnationDensity', np.array([[[2e5]],[[3e5]]]), [], 'DataArray_t'], 
-        ['TurbulentEnergyKineticDensity', np.array([[[0.2]],[[0.5]]]), [], 'DataArray_t'], 
-        ['TurbulentDissipationRateDensity', np.array([[[125.]],[[12.]]]), [], 'DataArray_t']
-    ], 'FlowSolution_t'])
+
+    ref_fs = cgns.Node(Name='FSolution#CellCenter#Init', Type='FlowSolution_t')
+    cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
+    cgns.Node(Name='Density', Value=np.array([[[3.]],[[4.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumX', Value=np.array([[[50.]],[[-5.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumY', Value=np.array([[[0.1]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumZ', Value=np.array([[[0.0]],[[1.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='EnergyStagnationDensity', Value=np.array([[[2.0e5]],[[3.0e5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='TurbulentEnergyKineticDensity', Value=np.array([[[0.2]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='TurbulentDissipationRateDensity', Value=np.array([[[125.0]],[[12.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
 
     mesh = get_debug_mesh()
     source = mesh.copy(deep=True)
@@ -99,4 +99,5 @@ def test_initialization_copy():
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)
 
-    assert str(workflow.tree.get(Name='FSolution#CellCenter#Init')) == str(ref_fs)
+    fs = workflow.tree.get(Name='FSolution#CellCenter#Init')
+    assert str(fs) == str(ref_fs)
