@@ -19,9 +19,6 @@ from treelab import cgns
 
 from mola.logging import mola_logger, MolaException, MolaUserError
 
-import Connector.PyTree as X
-import Converter.PyTree as C
-import Converter.Internal as I
 
 def apply_to_solver(workflow):
 
@@ -35,17 +32,26 @@ def apply_to_solver(workflow):
 
 
 def add_ghost_cells(workflow):
+    
+    import Converter.Internal as I
+    
     t = workflow.tree
     I._addGhostCells(t,t,2,adaptBCs=1,fillCorner=0)
     workflow.tree = cgns.castNode(t)
 
 def create_cell_center_tree(workflow):
+    
+    import Converter.PyTree as C
+    
     tc = C.node2Center(workflow.tree)
     # C._rmVars(tc, 'FlowSolution')
     # I._rmNodesFromName(tc,'GridCoordinates')
     workflow._treeCellCenter = cgns.castNode(tc)
 
 def set_multibloc_transfer_data(workflow):
+
+    import Connector.PyTree as X
+
     t = workflow.tree
     tc= workflow._treeCellCenter
     tc = X.setInterpData(t, tc, nature=1, loc='centers', storage='inverse', 
