@@ -266,6 +266,7 @@ def get_workflow_sphere_struct(RunDirectory):
         RunManagement=dict(
             NumberOfProcessors=1,
             RunDirectory=RunDirectory,
+            LauncherCommand=f'cd {RunDirectory}; bash job.sh',
             ),
         )
     
