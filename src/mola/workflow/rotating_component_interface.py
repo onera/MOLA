@@ -32,7 +32,7 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
             NormalizationCoefficient : dict = None,
             *,
             ShaftRotationSpeed : float = None,
-            Rows : dict,
+            Rows : dict = dict(),
             ):
         kwargs = self.get_default_values_from_local_signature()
         self.ApplicationContext = self._get_comp(self.set_ApplicationContext, kwargs)
