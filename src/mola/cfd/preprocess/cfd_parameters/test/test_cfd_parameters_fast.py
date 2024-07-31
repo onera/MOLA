@@ -97,6 +97,57 @@ def test_get_cfl_setup_dict():
     assert cfl['cfl'] == 1.0
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_fluid_setup():
+    params = solver_fast.get_fluid_setup(dict(PrandtlTurbulent=1.0))
+    assert params['Num2Zones']['prandtltb'] == 1.0
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_DNS():
+    params = solver_fast.get_turbulence_setup(dict(Model='DNS'))
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_LES():
+    params = solver_fast.get_turbulence_setup(dict(Model='LES'))
+    assert params['Num2Zones']['sgsmodel'] == 'smsm'
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_Euler():
+    params = solver_fast.get_turbulence_setup(dict(Model='Euler'))
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_zdes2():
+    params = solver_fast.get_turbulence_setup(dict(Model='ZDES-2'))
+    assert params['Num2Zones']['DES'] == 'zdes2'
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_SA():
+    params = solver_fast.get_turbulence_setup(dict(Model='SA'))
+    assert params['Num2Zones']['ransmodel'] == 'SA'
+    assert params['Num2Zones']['ratiom']
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_model():
+    workflow = FakeWorkflowMonoBlock(5)
+    workflow.Fluid = dict( PrandtlTurbulent = 1)
+    workflow.Turbulence = dict( Model = 'SA' )
+    solver_fast.set_model(workflow)
+
+    assert workflow.SolverParameters['Num2Zones']["prandtltb"] == 1
+    assert workflow.SolverParameters['Num2Zones']['ransmodel'] == 'SA'
+
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -115,8 +166,12 @@ def test_set_numerics():
 def test_apply_to_solver():
     workflow = FakeWorkflowMonoBlock(5)
     workflow.Numerics = dict( TimeMarching = "Steady", Scheme='ausm+', CFL=1 )
+    workflow.Fluid = dict( PrandtlTurbulent = 1)
+    workflow.Turbulence = dict( Model = 'SA' )
     solver_fast.apply_to_solver(workflow)
 
     assert workflow.SolverParameters['Num2Base']["temporal_scheme"] == "implicit"
     assert workflow.SolverParameters['Num2Zones']["scheme"] == "ausmpred"
     assert workflow.SolverParameters['Num2Zones']["cfl"] == 1
+    assert workflow.SolverParameters['Num2Zones']["prandtltb"] == 1
+    assert workflow.SolverParameters['Num2Zones']['ransmodel'] == 'SA'

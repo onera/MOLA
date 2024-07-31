@@ -59,15 +59,53 @@ def apply_to_solver(workflow):
     # https://fast.onera.fr/Fast.html#Fast.PyTree.setNum2Base
     # https://fast.onera.fr/Fast.html#Fast.PyTree.setNum2Zones
 
-    # set_model(workflow) # TODO to be implemented
+    set_model(workflow) 
     set_numerics(workflow)
     
+
+def set_model(workflow):
+    deep_update( workflow.SolverParameters, get_fluid_setup(workflow.Fluid) )
+    deep_update( workflow.SolverParameters, get_turbulence_setup(workflow.Turbulence) )
+
 
 def set_numerics(workflow):
 
     deep_update( workflow.SolverParameters, get_spatial_fluxes(workflow.Numerics) )
     deep_update( workflow.SolverParameters, get_time_marching_setup(workflow.Numerics) )
 
+
+def get_fluid_setup( Fluid : dict ) -> dict:
+    
+    Parameters = dict(Num2Base={}, 
+                      Num2Zones={'prandtltb': Fluid['PrandtlTurbulent']})
+    
+    return Parameters
+
+def get_turbulence_setup( Turbulence : dict ) -> dict:
+    
+    Parameters = dict(Num2Base={}, Num2Zones={})
+    
+    requested_model = Turbulence['Model']
+    if requested_model in ['LES', 'ILES', 'DNS', 'Laminar']:
+
+        if requested_model=='LES':
+            # https://doi.org/10.1002/(SICI)1097-0363(20000229)32:4<369::AID-FLD943>3.0.CO;2-6
+            Parameters['Num2Zones']['sgsmodel'] = 'smsm'
+
+
+    elif requested_model.startswith('ZDES'):
+        zdes_mode = requested_model.split('-')[1]
+        Parameters['Num2Zones']['DES'] = 'zdes'+zdes_mode
+    
+    else: # RANS modeling
+        if requested_model != 'SA':
+            mola_logger.warning("RANS model %s not implemented in Fast. Switching to 'SA'"%requested_model)
+            Turbulence['Model'] = 'SA' 
+        
+        Parameters['Num2Zones']['ransmodel'] = 'SA'
+        Parameters['Num2Zones']['ratiom'] = 1e4 
+
+    return Parameters
 
 def get_spatial_fluxes(Numerics : dict):
 
