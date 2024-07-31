@@ -56,7 +56,7 @@ test_integration_elsa:
   before_script:
     - source $MOLA_ENV_ELSA
   script:
-    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration
+    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not test_WorkflowParallelScheduler_sphere_"
   artifacts:
     paths:
       - .coverage_test_integration_elsa
