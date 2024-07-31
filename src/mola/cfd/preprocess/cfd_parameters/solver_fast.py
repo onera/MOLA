@@ -15,11 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola.logging import mola_logger, MolaException, MolaUserError
+from mola.logging import mola_logger, MolaUserError
 
-
-from treelab import cgns
-from mola.cfd.preprocess.cfd_parameters import cfd_parameters
+from mola.cfd.preprocess.cfd_parameters.cfd_parameters import deep_update
 
 keys_to_store_in_bases = [
     "temporal_scheme",
@@ -28,30 +26,52 @@ keys_to_store_in_bases = [
 
 
 keys_to_store_in_zones = [
-    "time_step",
-    "scheme",
-    "time_step_nature",
+    'scheme',
+    'slope',
+    'senseurType',
+    'coef_hyper',
+    'motion',
+    'time_step',
+    'time_step_nature',
+    'epsi_newton',
+    'inj1_newton_tol',
+    'inj1_newton_nit',
+    'psiroe',
+    'cfl',
+    'model',
+    'prandtltb',
+    'ransmodel',
+    'DES',
+    'DES_debug',
+    'sgsmodel',
+    'extract_res',
+    'source',
+    'ratiom',
+    
+    # not documented:
     "ssdom_IJK",
-    "psiroe",
-    "cfl",
     "nb_relax",
-    "epsi_newton", ]
+    ]
+
 
 def apply_to_solver(workflow):
 
+    # https://fast.onera.fr/Fast.html#Fast.PyTree.setNum2Base
+    # https://fast.onera.fr/Fast.html#Fast.PyTree.setNum2Zones
+
+    # set_model(workflow) # TODO to be implemented
     set_numerics(workflow)
     
 
 def set_numerics(workflow):
 
-    workflow.SolverParameters['numerics'] = dict(
-        **get_spatial_fluxes(workflow.Numerics),
-        **get_time_marching_setup(workflow.Numerics),
-    )
-    put_numerics_in_tree(workflow.SolverParameters['numerics'], workflow.tree)
-    workflow.tree = cgns.castNode(workflow.tree)
+    deep_update( workflow.SolverParameters, get_spatial_fluxes(workflow.Numerics) )
+    deep_update( workflow.SolverParameters, get_time_marching_setup(workflow.Numerics) )
 
-def get_spatial_fluxes(Numerics):
+
+def get_spatial_fluxes(Numerics : dict):
+
+    Parameters = dict(Num2Base={}, Num2Zones={})
 
     if Numerics['Scheme'] == 'Jameson':
         mola_logger.warning("Jameson scheme not implemented in Fast. Switching to Roe.")
@@ -59,70 +79,57 @@ def get_spatial_fluxes(Numerics):
 
     # Convective flux 
     if Numerics['Scheme'] == 'ausm+':
-        SchemeSetup = dict(
+        Parameters['Num2Zones'].update( dict(
         scheme             = "ausmpred", # "ausmpred", "roe_min", "senseur"
         slope              = "o3",
-        )
+        ))
     elif Numerics['Scheme'] == 'Roe':
-        SchemeSetup = dict(
+        Parameters['Num2Zones'].update( dict(
         scheme = 'roe_min',
         psiroe = 0.01,
         slope = "o3", # "minmod" or "o3"
-        )
+        ))
     else:
         raise MolaUserError(f'Numerical scheme {Numerics["Scheme"]} not recognized for the solver fast')
     
-    return SchemeSetup
+    return Parameters
+
 
 def get_time_marching_setup(Numerics):
-    TimeMarchingSetup = dict(
-        ssdom_IJK=[10000,10000,10000],
-        epsi_newton=0.01, 
-        nb_relax=1, # newton
-        ss_iteration=5,
-    )
+
+    Parameters = dict(
+        Num2Base =dict(ss_iteration=5,
+                       temporal_scheme = "implicit"),
+    
+        Num2Zones=dict( # ssdom_IJK=[10000,10000,10000], # TODO investigate this key
+                       nb_relax=1, # newton
+                       epsi_newton=0.01
+                       ))
 
     if Numerics['TimeMarching'] == 'Steady':
-
-        TimeMarchingSetup.update({
-            "temporal_scheme": "implicit", # or "explicit"
-            "time_step_nature": "local",
-            "ss_iteration":1,
-            "time_step": 1e-6, # must exist even in steady
-            "modulo_verif":10,
-        })
-
-        TimeMarchingSetup.update(get_cfl_setup(Numerics['CFL']))
+        
+        Parameters['Num2Base'].update(dict(
+            ss_iteration=1,
+            modulo_verif=10,
+        ))
+        
+        Parameters['Num2Zones'].update(dict(
+            time_step_nature = "local",
+            time_step = 1e-6, # must exist even if ignored ?
+        ))
+        
+        Parameters['Num2Zones'].update(get_cfl_setup(Numerics['CFL']))
 
     else:
 
-        TimeMarchingSetup.update(dict(
+        Parameters['Num2Zones'].update(dict(
             time_step          = Numerics['TimeStep'],
             time_step_nature   = "global",
-            temporal_scheme    = "implicit",
         ))
 
         # TODO include 1st or 2nd order time marching ?
 
-    return TimeMarchingSetup
-
-def put_numerics_in_tree(fast_numerics, tree):
-    import Fast.PyTree as Fast # TODO setParameters ?
-    num_base = dict()
-    for k_base in keys_to_store_in_bases:
-        if k_base in fast_numerics:
-            num_base[k_base] = fast_numerics[k_base]
-
-    num_zone = dict()
-    for kzone in keys_to_store_in_zones:
-        if kzone in fast_numerics:
-            num_zone[kzone] = fast_numerics[kzone]
-
-    for base in tree.bases():
-        Fast._setNum2Base(base, num_base) # TODO setParameters ?
-        Fast._setNum2Zones(base, num_zone) # TODO setParameters ?
-    tree.setParameters('.Solver#define',**num_base) 
-    tree = cgns.castNode(tree)
+    return Parameters
 
 
 def get_cfl_setup(cfl):

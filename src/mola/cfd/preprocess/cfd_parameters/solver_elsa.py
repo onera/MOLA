@@ -20,14 +20,29 @@ from mola.logging import mola_logger, MolaException
 from treelab import cgns
 from mola.cfd.preprocess.cfd_parameters import cfd_parameters
 
-K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
-            'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
-            'SST-V2003', 'SST', 'SST-V',  'BSL', 'BSL-V']
+K_OMEGA_TWO_EQN_MODELS = [
+    'Wilcox2006-klim',
+    'Wilcox2006-klim-V',
+    'Wilcox2006',
+    'Wilcox2006-V',
+    'SST-2003',
+    'SST-V2003',
+    'SST',
+    'SST-V',
+    'BSL',
+    'BSL-V',
+    ]
 
-K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [ 'SST-2003-LM2009',
-                 'SST-V2003-LM2009', 'SSG/LRR-RSM-w2012']
+K_OMEGA_MODELS = K_OMEGA_TWO_EQN_MODELS + [
+    'SST-2003-LM2009',
+    'SST-V2003-LM2009',
+    'SSG/LRR-RSM-w2012',
+    ]
 
-AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
+AvailableTurbulenceModels = K_OMEGA_MODELS + [
+    'smith',
+    'SA',
+    ]
 
 TURBULENCE_ELSA_KEYS = {
 

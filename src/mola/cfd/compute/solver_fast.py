@@ -42,8 +42,13 @@ def apply_to_solver(workflow):
 
     t,tc,ts,graph = Fast.load(names.FILE_INPUT_SOLVER, 'tc.cgns', restart=False)
 
+    Fast._setNum2Base( t, workflow.SolverParameters['Num2Base'])
+    Fast._setNum2Zones(t, workflow.SolverParameters['Num2Zones'])
+
     (t, tc, metrics) = FastS.warmup(t, tc, graph)
-    for it in range(inititer, niter+inititer):
+    
+    for it in range( inititer, inititer+niter ):
+    
         print("it=%d"%it)
         FastS._compute(t, metrics, it, tc, graph)
                 
