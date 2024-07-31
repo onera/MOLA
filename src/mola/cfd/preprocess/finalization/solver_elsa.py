@@ -21,5 +21,27 @@ from mola.logging import mola_logger
 
 def apply_to_solver(workflow):
 
-    mola_logger.warning("motion to be implemented for FAST solver")
+    add_elsaHybrid_nodes_if_needed(workflow.tree)  # in elsA v5.3.01, it seems to be still mandatory for some hybrid meshes
+    if hasattr(workflow, '_FULL_CGNS_MODE'):
+        add_elsa_keys_to_cgns(workflow)
 
+def add_elsaHybrid_nodes_if_needed(t):
+    if not t.isStructured():
+        import Converter.Internal as I
+        I._createElsaHybrid(t, method=1)
+        t = cgns.castNode(t)
+    return t
+
+def add_elsa_keys_to_cgns(workflow):
+    '''
+    Include node ``.Solver#Compute`` , where elsA keys are set in full CGNS mode.
+    '''
+    workflow.tree.findAndRemoveNodes(Name='.Solver#Compute', Depth=2)
+
+    # Put all solver keys in a unique and flat dictionary
+    AllElsAKeys = dict()
+    for keySet in workflow.SolverParameters.values():
+        AllElsAKeys.update(keySet)
+      
+    for base in workflow.tree.bases(): 
+        base.setParameters('.Solver#Compute', **AllElsAKeys)

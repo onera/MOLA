@@ -17,7 +17,7 @@
 
 import numpy as np
 from treelab import cgns
-from mola.cfd.preprocess.write_cfd_files import solver_elsa, write_cfd_files
+from mola.cfd.preprocess.finalization import solver_elsa
 
 import pytest
 pytestmark = pytest.mark.elsa
@@ -35,13 +35,6 @@ class FakeWorkflow():
                 param_num2 = 'active',
             ),
         )
-
-
-# def test_add_reference_state():
-#     assert False, 'Not yet implemented'
-
-# def test_add_governing_equations():
-#     assert False, 'Not yet implemented'
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -68,5 +61,3 @@ def test_add_elsa_keys_to_cgns():
         assert sc is not None
         assert str(sc) == str(ref_sc)
     
-# def test_write_data_files():
-#     assert False, 'Not yet implemented'
