@@ -22,7 +22,7 @@ variables:
   MOLA_ENV_DEFAULT: src/mola/env/onera/env.sh
   MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
   MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
-  # SCHEDULER_PARAMETERS: "--qos=co_short_std --ntasks=1 --time=00:15:00" #Slurm default parameters
+  SCHEDULER_PARAMETERS: "--ntasks=1"  #Slurm default parameters
 
 default:
   tags: 
@@ -46,22 +46,13 @@ test_unit_elsa:
   artifacts:
     paths:
       - .coverage_test_unit_elsa
-    expire_in: 1 hour
+    expire_in: 1 day
   
-test_unit_sonics: 
-  stage: test 
-  before_script:
-    - source $MOLA_ENV_SONICS
-  script:
-    - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
-  artifacts:
-    paths:
-      - .coverage_test_unit_sonics
-    expire_in: 1 hour
-
 test_integration_elsa:  
   stage: test
   needs: ["test_unit_elsa"]
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4"
   before_script:
     - source $MOLA_ENV_ELSA
   script:
@@ -69,7 +60,20 @@ test_integration_elsa:
   artifacts:
     paths:
       - .coverage_test_integration_elsa
-    expire_in: 1 hour
+    expire_in: 1 day
+
+test_unit_sonics: 
+  stage: test 
+  tags: 
+    - juno-shell
+  before_script:
+    - source $MOLA_ENV_SONICS
+  script:
+    - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
+  artifacts:
+    paths:
+      - .coverage_test_unit_sonics
+    expire_in: 1 day
 
 coverage_report:
   stage: code-quality
