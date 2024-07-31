@@ -46,6 +46,7 @@ def apply(workflow):
     initialize_flow_with_given_method(workflow, FlowSolution_name)
     check_initial_flow_is_in_all_zones(workflow, FlowSolution_name)
     workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
+    force_grid_location_as_first_sibling(workflow.tree) # HACK
     
     apply_to_solver(workflow)
 
@@ -130,6 +131,7 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
         zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
 
+
 def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
     for zone in workflow.tree.zones():
         if not zone.get(Name=FlowSolution_name, Type='FlowSolution', Depth=1):
@@ -143,12 +145,14 @@ def compute_turbulent_distance_with_maia(dist_tree):
     import maia
     import maia.pytree as PT
     from mpi4py import MPI
+    from mola.cfd.preprocess.mesh.tools import copyRelevantUserDefinedDataNodes
     comm = MPI.COMM_WORLD
 
     # TODO Add test to check that the tree was read with maia
     # This function needs to be after the definition of boundary conditions
 
     part_tree = maia.factory.partition_dist_tree(dist_tree, comm)
+    copyRelevantUserDefinedDataNodes(dist_tree, part_tree, comm)
     maia.algo.part.compute_wall_distance(part_tree, comm) #, out_fs_name='FlowSolution#Init')  # create a FlowSolution container named WallDistance
     maia.transfer.part_tree_to_dist_tree_all(dist_tree, part_tree, comm)
 
@@ -162,3 +166,15 @@ def compute_turbulent_distance_with_maia(dist_tree):
         PT.add_child(FlowSolution, TurbulentDistance)
         PT.rm_child(zone, WallDistance)
 
+def force_grid_location_as_first_sibling( tree : cgns.Tree ):
+    
+    tree = cgns.castNode(tree)
+
+    for fs in tree.group(Type='FlowSolution_t', Depth=4):
+        
+        gl = fs.get(Type='GridLocation_t', Depth=1)
+    
+        if not gl: continue
+
+        gl.dettach()
+        gl.attachTo(fs, position=0)

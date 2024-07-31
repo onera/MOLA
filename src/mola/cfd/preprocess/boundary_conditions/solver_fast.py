@@ -15,10 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import numpy as np
-
-import Converter.PyTree as C
-import Converter.Internal as I
 
 from treelab import cgns
 from mola.logging import mola_logger, MolaException, mute_stdout

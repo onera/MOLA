@@ -31,6 +31,9 @@ source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh
 # source /stck/tbontemp/softs/sonics/build/source.sh
 # export PYTHONPATH=/tmp_user/juno/mola/miles:$PYTHONPATH
 
+unset I_MPI_TCP_NETMASK 
+unset I_MPI_FABRICS_LIST
+
 # external python packages
 export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH
 export PATH=$MOLAext/spiro_el8/bin:$PATH

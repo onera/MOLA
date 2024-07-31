@@ -20,6 +20,8 @@ source $SCRIPT_DIR/../network.sh
 
 source /tmp_user/juno/elsa/Public/$ELSAVERSION/Dist/bin/juno_mpi/.env_elsA &>/dev/null
 unset I_MPI_PMI_LIBRARY
+unset I_MPI_TCP_NETMASK 
+unset I_MPI_FABRICS_LIST
 
 # maia
 module use --append /tmp_user/juno/sonics/usr/modules/
