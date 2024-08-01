@@ -22,10 +22,11 @@ variables:
   MOLA_ENV_DEFAULT: src/mola/env/onera/env.sh
   MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
   MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
+  SCHEDULER_PARAMETERS: "--ntasks=1"  #Slurm default parameters
 
 default:
   tags: 
-    - juno-shell
+    - juno-slurm
   id_tokens:
     CI_JOB_JWT:
       aud: https://gitlab.onera.net
@@ -45,10 +46,26 @@ test_unit_elsa:
   artifacts:
     paths:
       - .coverage_test_unit_elsa
-    expire_in: 1 hour
+    expire_in: 1 day
   
+test_integration_elsa:  
+  stage: test
+  needs: ["test_unit_elsa"]
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4"
+  before_script:
+    - source $MOLA_ENV_ELSA
+  script:
+    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not test_WorkflowParallelScheduler_sphere_ and not _remote_sator"
+  artifacts:
+    paths:
+      - .coverage_test_integration_elsa
+    expire_in: 1 day
+
 test_unit_sonics: 
   stage: test 
+  tags: 
+    - juno-shell
   before_script:
     - source $MOLA_ENV_SONICS
   script:
@@ -56,19 +73,7 @@ test_unit_sonics:
   artifacts:
     paths:
       - .coverage_test_unit_sonics
-    expire_in: 1 hour
-
-# test_integration_elsa:   # does not work because it requires to handle job submission
-#   stage: test
-#   needs: ["test_unit_elsa"]
-#   before_script:
-#     - source $MOLA_ENV_ELSA
-#   script:
-#     - coverage run -m pytest -m integration 
-#   artifacts:
-#     paths:
-#       - .coverage
-#     expire_in: 1 hour
+    expire_in: 1 day
 
 coverage_report:
   stage: code-quality
@@ -78,8 +83,10 @@ coverage_report:
   before_script:
     - source $MOLA_ENV_DEFAULT
   script:
-    - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics
-    - coverage xml -o coverage.xml
+    - coverage combine .coverage_test_unit_elsa .coverage_test_integration_elsa .coverage_test_unit_sonics
+    - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
+    - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
+    # - tar -czf htmlcov.tar.gz htmlcov
   artifacts:
     reports:
       coverage_report:
@@ -87,6 +94,7 @@ coverage_report:
         path: coverage.xml
     paths:
       - coverage.xml
+      - htmlcov
 
 radon_complexity:
   stage: code-quality
@@ -106,6 +114,8 @@ radon_complexity:
 
 pages:    # Nom à utiliser
   stage: deploy
+  tags: 
+    - juno-shell
   rules:   # Bloc  facultatif : ça permet de déployer la doc que si on a pushé sur la branche master
     - if: $CI_COMMIT_BRANCH == "master" # $CI_DEFAULT_BRANCH when master-v2 becomes the default branch
   script:   # Le dossier html qui défini le site web doit se trouver à la racine du working directory et s'appeller public. Ici, on l'a déjà généré avant donc on a juste à copier

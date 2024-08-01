@@ -111,21 +111,36 @@ class WorkflowInterface(object):
         
 
     def add_to_RawMeshComponents(self,
-        Mesher        : str  = None,
-        CleaningMacro : str  = None,
-        Families      : list = None,
-        Positioning   : list = None,
-        Connection    : list = None,
-        OversetOptions: dict = None,
+        Mesher           : str  = None,
+        Unit             : str  = 'm',
+        CleaningMacro    : str  = None,
+        Families         : list = None,
+        Positioning      : list = None,
+        Connection       : list = None,
+        OversetOptions   : dict = None,
         *,
-        Name          : str,
-        Source        : Union[ str,
-                               Tree,
-                               Base,
-                               Zone ],
+        Name             : str,
+        Source           : Union[ str, Tree, Base, Zone],
         ):
+        Positioning = self._add_scaling_according_to_unit(Positioning, Unit)    
         self.RawMeshComponents.append(self._get_comp(
             WorkflowInterface.add_to_RawMeshComponents, self.get_default_values_from_local_signature()))
+    
+    @staticmethod
+    def _add_scaling_according_to_unit(Positioning, Unit):
+        SCALE_DICT = dict(
+            mm = 0.001,
+            cm = 0.01,
+            dm = 0.1,
+            m  = 1.,
+            inches = 0.0254,
+        )
+        if Unit != 'm':
+            if Positioning is None:
+                Positioning = []
+            if not any([item['Type'] == 'Scale' for item in Positioning]):
+                Positioning.append(dict(Type='Scale', Scale=SCALE_DICT[Unit]))
+        return Positioning
 
     def set_RawMeshComponents(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)

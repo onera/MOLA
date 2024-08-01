@@ -126,7 +126,7 @@ def merge_all_unstructured_zones_from_families(t):
         mola_logger.info(f' --> merging zones of family {family}')
         try:
             base_name = zone_paths[0].split('/')[0]
-            maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD, output_path=f'{base_name}/{family}Zone')
+            maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD, output_path=f'{base_name}/{family}Zone', subset_merge='family')
         except BaseException as e:
             mola_logger.warning(f'Could not merge zones using maia, received error:\n{e}\nwill not merge zones')
 

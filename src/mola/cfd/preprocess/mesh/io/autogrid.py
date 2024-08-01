@@ -16,61 +16,77 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+from typing import Union
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
 from ..families import join_families
 from .reader import read
 
-SCALE_DICT = dict(
-    mm = 0.001,
-    cm = 0.01,
-    dm = 0.1,
-    m  = 1.
-)
+# def set_reader_defaults(
+#         Name             : str = 'auto',
+#         InitialFrame     : dict = dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]),
+#         DefaultToleranceForConnection : float = 1e-8,
+#         Unit             : str  = 'm',
+#         CleaningMacro    : str  = None,
+#         Families         : list = None,
+#         Positioning      : list = [],
+#         Connection       : list = [],
+#         OversetOptions   : dict = None,
+#         *,
+#         Source           : Union[str, cgns.tree.Tree, cgns.base.Base, cgns.zone.Zone],
+#         ):
+#     # This function is mandatory to be called by WorkflowInterface.
+#     # Its signature will be checked.
+#     # from mola.workflow.workflow_interface import WorkflowInterface
+#     # default_values = WorkflowInterface.get_default_values_from_local_signature()
+
+#     DefaultRotation =  dict(
+#         Type='TranslationAndRotation',
+#         InitialFrame=InitialFrame,
+#         RequestedFrame=dict(
+#             Point=[0,0,0],
+#             Axis1=[1,0,0],
+#             Axis2=[0,1,0],
+#             Axis3=[0,0,1]),
+#     )
+#     if not any([item['Type'] == 'TranslationAndRotation' for item in Positioning]):
+#         Positioning.append(DefaultRotation)
+
 
 def reader(w, component):
 
-    name = component['Name'] if 'Name' in component else ''
-    mola_logger.info(f'Read component {name} with Autogrid reader')
-        
-    component.setdefault('Tolerance', 1e-8)
-    unit = component.get('Unit', 'm')
-    InitialFrame = component.get('InitialFrame', dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]))
+    mola_logger.info(f'Read component {component["Name"]} with Autogrid reader')
+    
+    # TODO These parameters should be managed by an interface
+    #################################################################################
+    component.setdefault('CleaningMacro', 'Autogrid') 
+    JoinHubAndShroudFamilies = True
 
-    DefaultPositioning = [
-        dict(
-            Type='TranslationAndRotation',
-            InitialFrame=InitialFrame,
-            RequestedFrame=dict(
-                Point=[0,0,0],
-                Axis1=[1,0,0],
-                Axis2=[0,1,0],
-                Axis3=[0,0,1]),
-            ),
-        dict(
-            Type  = 'scale',
-            Scale = SCALE_DICT[unit],
-            ),
-    ]
-
-    component.setdefault('Positioning', DefaultPositioning)
+    # Defaults for Connection
+    component.setdefault('DefaultToleranceForConnection', 1e-8)
     component.setdefault('Connection', [])
 
+    # Defaults for Positioning
+    InitialFrame = component.get('InitialFrame', dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]))
+    DefaultRotation =  dict(
+        Type='TranslationAndRotation',
+        InitialFrame=InitialFrame,
+        RequestedFrame=dict(
+            Point=[0,0,0],
+            Axis1=[1,0,0],
+            Axis2=[0,1,0],
+            Axis3=[0,0,1]),
+    )
+    component.setdefault('Positioning', [])
+    if not any([item['Type'] == 'TranslationAndRotation' for item in component['Positioning']]):
+        component['Positioning'].append(DefaultRotation)
+    #################################################################################
+    
     mesh = read(w, component['Source'])
-    clean_autogrid_log_bases(mesh)
-    shorten_zones_names(mesh)
-
-    # Join HUB and SHROUD families
-    join_families(mesh, 'HUB')
-    join_families(mesh, 'SHROUD')
-
     update_Connection_from_mesh(mesh, component, w.ApplicationContext['ShaftAxis'])
-    clean_grid_connectivities(mesh)
-    clean_family_properties(mesh)
 
-    # # Clean RS interfaces
-    # t.findAndRemoveNodes(Type='InterfaceType')
-    # t.findAndRemoveNodes(Type='DonorFamily')
+    if component['CleaningMacro'] == 'Autogrid':
+        apply_cleaning_macro_autogrid(mesh, JoinHubAndShroudFamilies)
 
     nb_of_bases = len(mesh.bases())
     if nb_of_bases != 1:
@@ -84,6 +100,29 @@ def reader(w, component):
 
     return base
 
+def update_Connection_from_mesh(mesh, component, axis):
+    # Only if grid connectivities are not already in the mesh
+    # TODO: Test on the presence of GC
+    # component['Connection'].append(dict(Type='Match', Tolerance=component['DefaultToleranceForConnection']))
+
+    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], axis)
+    component['Connection'] += periodic_connections
+
+def apply_cleaning_macro_autogrid(mesh, JoinHubAndShroudFamilies=True):
+    clean_autogrid_log_bases(mesh)
+    shorten_zones_names(mesh)
+    clean_family_properties(mesh)
+    mesh.findAndRemoveNodes(Type='ZoneGridConnectivity_t') # TODO: The objective should be to keep GC if there are already in the tree
+    # remove_gc_abutting(mesh)
+    remove_periodic_bc_and_families(mesh)
+
+    if JoinHubAndShroudFamilies:
+        join_families(mesh, 'HUB')
+        join_families(mesh, 'SHROUD')
+
+    # # Clean RS interfaces
+    # t.findAndRemoveNodes(Type='InterfaceType')
+    # t.findAndRemoveNodes(Type='DonorFamily')
 
 def clean_autogrid_log_bases(t):
     t.findAndRemoveNodes(Name='Numeca*', Type='CGNSBase', Depth=1)
@@ -91,6 +130,7 @@ def clean_autogrid_log_bases(t):
     t.findAndRemoveNodes(Name='tools_base', Type='CGNSBase', Depth=1)
 
     t.findAndRemoveNodes(Name='blockName', Type='UserDefinedData', Depth=3)
+    t.findAndRemoveNodes(Name='NumecaBlockName', Type='Descriptor', Depth=3)
 
 def clean_family_properties(t):
     # Clean Names
@@ -113,27 +153,8 @@ def shorten_zones_names(t):
                 for node in t.group(Value=name):
                     node.setValue(new_name)
 
-def update_Connection_from_mesh(mesh, component, axis):
-    # Only if grid connectivities are not already in the mesh
-    # TODO: Test on the presence of GC
-    # component['Connection'].append(dict(Type='Match', Tolerance=component['Tolerance']))
-
-    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['Tolerance'], axis)
-    component['Connection'] += periodic_connections
-
 def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance, axis=np.array([1,0,0])):
     base = mesh.bases()[0]
-    # angles = set()
-    # for node in base.group(Name='BladeNumber'):
-    #     angles.add(360./float(node.value()))
-    
-    # Connections = []
-    # for angle in angles:
-    #     mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
-    #     Connections.append(
-    #         dict(Type='PeriodicMatch', Tolerance=Tolerance, RotationAngle=[angle,0.,0.])
-    #         )
-        
     Connections = []
     for family in base.group(Type='Family', Depth=1):
         node = family.get(Name='BladeNumber')
@@ -154,11 +175,13 @@ def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance, axis=np.array(
         
     return Connections
 
-def clean_grid_connectivities(t):
-    # Clean Joins & Periodic Joins
-    # TODO: The objective should be to keep GC if there are already in the tree
-    t.findAndRemoveNodes(Type='ZoneGridConnectivity_t')
+def remove_gc_abutting(t):
+    for gc in t.group(Type='GridConnectivity'):
+        if gc.get(Type='GridConnectivityType', Value='Abutting'):
+            gc.remove()
 
+def remove_periodic_bc_and_families(t):
+    # In a mesh from Autogrid, Periodic connectivities are stored as BC
     periodicFamilies = t.group(Name='*PER*', Type='Family', Depth=2)
     for familyNode in periodicFamilies:
         for BC in t.group(Type='BC'):

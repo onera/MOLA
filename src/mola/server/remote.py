@@ -27,7 +27,12 @@ from mola import __MOLA_PATH__
 
 def submit_command(command, machine, input=None, user=None, use_mola_env=False,
         remote_solver=os.environ.get('MOLA_SOLVER'),
-        false_errors_contains=['sbatch: soumission depuis noeud', 'warning']):
+        false_errors_contains=[
+            'sbatch: soumission depuis noeud', 
+            'sbatch: Pas de partition specifiee,',  # on juno if not qos is given
+            'sbatch: Le job est oriente dans la QOS', # on juno if not qos is given
+            'warning',
+            ]):
 
     ssh_host = get_ssh_host_command(machine=machine, user=user)
     env = os.environ.copy()

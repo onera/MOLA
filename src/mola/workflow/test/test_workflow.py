@@ -392,7 +392,7 @@ def get_workflow_sphere_hybrid(RunDirectory):
             dict(
                 Name='sphere',
                 Source='/stck/mola/data/mesh/sphere/sphere_hybrid.cgns',
-                Positioning=[dict(Type='scale', Scale=1e-3)], # since Pointwise mesh is in mm
+                Positioning=[dict(Type='Scale', Scale=1e-3)], # since Pointwise mesh is in mm
                 )
         ],
 
@@ -444,7 +444,7 @@ def get_workflow_sphere_unstruct(RunDirectory):
             dict(
                 Name='sphere',
                 Source='/stck/mola/data/mesh/sphere/sphere_unstructured.cgns',
-                Positioning=[dict(Type='scale', Scale=1e-3)], # since Pointwise mesh is in mm
+                Positioning=[dict(Type='Scale', Scale=1e-3)], # since Pointwise mesh is in mm
                 )
         ],
 
@@ -672,7 +672,7 @@ def test_workflow_sphere_struct_local(tmp_path):
     w = get_workflow_sphere_struct(tmp_path)
     w.prepare()
     w.write_cfd_files()
-    w.submit()
+    w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
     w.remove_cfd_files()
 
@@ -683,7 +683,7 @@ def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path):
     w = get_workflow_sphere_struct_mpi_to_connect(tmp_path)
     w.prepare()
     w.write_cfd_files()
-    w.submit()
+    w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
     w.remove_cfd_files()
 
@@ -695,7 +695,7 @@ def test_workflow_sphere_struct_local_dist(tmp_path):
     w = get_workflow_sphere_struct_dist(tmp_path)
     w.prepare()
     w.write_cfd_files()
-    w.submit()
+    w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
     w.remove_cfd_files()
 
@@ -710,7 +710,7 @@ def test_workflow_sphere_unstruct_local(tmp_path):
         raise MolaUserError(e)
 
     w.write_cfd_files()
-    w.submit()
+    w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
     w.remove_cfd_files()
 
@@ -720,7 +720,7 @@ def test_workflow_sphere_unstruct_local(tmp_path):
 #     w = get_workflow_sphere_hybrid(tmp_path)
 #     w.prepare()
 #     w.write_cfd_files()
-#     w.submit()
+#     w.submit(f'cd {tmp_path}; bash job.sh')
 #     w.simulation_status()
 #     w.remove_cfd_files()
 
