@@ -21,7 +21,6 @@ FILE_INPUT_SOLVER = 'main.cgns'
 
 # OUTPUTS
 DIRECTORY_OUTPUT = 'OUTPUT'
-FILE_OUTPUT_RESTART = 'restart.cgns'
 FILE_OUTPUT_3D = 'fields.cgns' 
 FILE_OUTPUT_2D = 'extractions.cgns'
 FILE_OUTPUT_1D = 'signals.cgns'

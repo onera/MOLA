@@ -279,56 +279,56 @@ def OutflowMassFlow(workflow, bc):
     return [bc['Family']], dict(MassFlow=MassFlowOnBC) 
 
 def getPrimitiveTurbulentFieldForInjection(workflow, bc):
-        '''
-        Get the primitive (without the Density factor) turbulent variables (names and values) 
-        to inject in an inflow boundary condition.
+    '''
+    Get the primitive (without the Density factor) turbulent variables (names and values) 
+    to inject in an inflow boundary condition.
 
-        For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
+    For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
 
-        Parameters
-        ----------
-        workflow, bc
+    Parameters
+    ----------
+    workflow, bc
 
-        Returns
-        -------
-        dict
-            Imposed turbulent variables
-        '''
-        # FIXME Fix this function, the behavior was corrected in MOLA v1
-        TurbulenceLevel = bc.get('TurbulenceLevel', None)
-        Viscosity_EddyMolecularRatio = bc.get('Viscosity_EddyMolecularRatio', None)
-        if TurbulenceLevel and Viscosity_EddyMolecularRatio:
-            
-            FlowGen = workflow._FlowGenerator() 
-            FlowGen.Turbulence.update(
-                dict(Level=TurbulenceLevel, Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio)
-            )
-            FlowGen.set_turbulence_properties()
-            Turbulence = FlowGen.Turbulence
+    Returns
+    -------
+    dict
+        Imposed turbulent variables
+    '''
+    # FIXME Fix this function, the behavior was corrected in MOLA v1
+    TurbulenceLevel = bc.get('TurbulenceLevel', None)
+    Viscosity_EddyMolecularRatio = bc.get('Viscosity_EddyMolecularRatio', None)
+    if TurbulenceLevel and Viscosity_EddyMolecularRatio:
+        
+        FlowGen = workflow._FlowGenerator() 
+        FlowGen.Turbulence.update(
+            dict(Level=TurbulenceLevel, Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio)
+        )
+        FlowGen.set_turbulence_properties()
+        Turbulence = FlowGen.Turbulence
 
-        else:
-            Turbulence = workflow.Turbulence
+    else:
+        Turbulence = workflow.Turbulence
 
-        turbDict = dict()
-        for name, value in Turbulence['Conservatives'].items():
-            # If the 'conservative' value is given in kwargs
-            value = bc.get(name, value)
+    turbDict = dict()
+    for name, value in Turbulence['Conservatives'].items():
+        # If the 'conservative' value is given in kwargs
+        value = bc.get(name, value)
 
-            if name.endswith('Density'):
-                name = name.replace('Density', '')
-                value /= workflow.Flow['Density']
-            elif name == 'ReynoldsStressDissipationScale':
-                name = 'TurbulentDissipationRate'
-                value /= workflow.Flow['Density']
-            elif name.startswith('ReynoldsStress'):
-                name = name.replace('ReynoldsStress', 'VelocityCorrelation')
-                value /= workflow.Flow['Density']
-            turbDict[name] = value
+        if name.endswith('Density'):
+            name = name.replace('Density', '')
+            value /= workflow.Flow['Density']
+        elif name == 'ReynoldsStressDissipationScale':
+            name = 'TurbulentDissipationRate'
+            value /= workflow.Flow['Density']
+        elif name.startswith('ReynoldsStress'):
+            name = name.replace('ReynoldsStress', 'VelocityCorrelation')
+            value /= workflow.Flow['Density']
+        turbDict[name] = value
 
-            # If the 'primitive' value is given in kwargs
-            turbDict[name] = bc.get(name, value)
-            
-        return turbDict
+        # If the 'primitive' value is given in kwargs
+        turbDict[name] = bc.get(name, value)
+        
+    return turbDict
 
 def OutflowRadialEquilibrium(workflow, bc):
     # kwargs = dict(

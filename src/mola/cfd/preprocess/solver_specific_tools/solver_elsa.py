@@ -156,12 +156,12 @@ def translate_to_elsa(Variables, type='node'):
 
     '''
     if type == 'node':
-        CGNS2ElsaDict = CGNS2ElsaInCGNSNode
+        CGNS2ElsaDict = CGNS2ElsaInCGNSNode.copy()  # ensure not to modify the reference dict
         if isinstance(Variables, (dict, list)) and 'VelocityCorrelationXX' in Variables:
             # For RSM models
             CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
     else:
-        CGNS2ElsaDict = CGNS2ElsaInVarNode
+        CGNS2ElsaDict = CGNS2ElsaInVarNode.copy()  # ensure not to modify the reference dict
 
     elsAVariables = CGNS2ElsaDict.values()
 
