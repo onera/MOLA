@@ -45,8 +45,8 @@ def test_get_spatial_fluxes_jameson():
     Numerics = dict(Scheme='Jameson')
     SchemeSetup = solver_fast.get_spatial_fluxes(Numerics)
     assert Numerics['Scheme'] == "Roe"
-    assert SchemeSetup['scheme'] == "roe_min"
-    assert SchemeSetup['psiroe']
+    assert SchemeSetup['Num2Zones']['scheme'] == "roe_min"
+    assert SchemeSetup['Num2Zones']['psiroe']
 
 
 @pytest.mark.unit
@@ -55,8 +55,8 @@ def test_get_spatial_fluxes_roe():
     Numerics = dict(Scheme='Roe')
     SchemeSetup = solver_fast.get_spatial_fluxes(Numerics)
     assert Numerics['Scheme'] == "Roe"
-    assert SchemeSetup['scheme'] == "roe_min"
-    assert SchemeSetup['psiroe']
+    assert SchemeSetup['Num2Zones']['scheme'] == "roe_min"
+    assert SchemeSetup['Num2Zones']['psiroe']
 
 
 @pytest.mark.unit
@@ -64,7 +64,7 @@ def test_get_spatial_fluxes_roe():
 def test_get_spatial_fluxes_ausm():
     Numerics = dict(Scheme='ausm+')
     SchemeSetup = solver_fast.get_spatial_fluxes(Numerics)
-    assert SchemeSetup['scheme'] == "ausmpred"
+    assert SchemeSetup['Num2Zones']['scheme'] == "ausmpred"
 
 
 @pytest.mark.unit
@@ -72,7 +72,7 @@ def test_get_spatial_fluxes_ausm():
 def test_get_time_marching_setup_steady():
     Numerics = dict(TimeMarching='Steady', CFL=1)
     SchemeSetup = solver_fast.get_time_marching_setup(Numerics)
-    assert SchemeSetup["temporal_scheme"] == "implicit"
+    assert SchemeSetup['Num2Base']["temporal_scheme"] == "implicit"
 
 
 @pytest.mark.unit
@@ -80,7 +80,7 @@ def test_get_time_marching_setup_steady():
 def test_get_time_marching_setup_unsteady():
     Numerics = dict(TimeMarching='UnsteadyFirstOrder', TimeStep=0.1)
     SchemeSetup = solver_fast.get_time_marching_setup(Numerics)
-    assert SchemeSetup["time_step"] == Numerics['TimeStep']
+    assert SchemeSetup['Num2Zones']["time_step"] == Numerics['TimeStep']
 
 
 @pytest.mark.unit
@@ -99,29 +99,54 @@ def test_get_cfl_setup_dict():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_put_numerics_in_tree():
+def test_get_fluid_setup():
+    params = solver_fast.get_fluid_setup(dict(PrandtlTurbulent=1.0))
+    assert params['Num2Zones']['prandtltb'] == 1.0
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_DNS():
+    params = solver_fast.get_turbulence_setup(dict(Model='DNS'))
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_LES():
+    params = solver_fast.get_turbulence_setup(dict(Model='LES'))
+    assert params['Num2Zones']['sgsmodel'] == 'smsm'
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_Euler():
+    params = solver_fast.get_turbulence_setup(dict(Model='Euler'))
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_zdes2():
+    params = solver_fast.get_turbulence_setup(dict(Model='ZDES-2'))
+    assert params['Num2Zones']['DES'] == 'zdes2'
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_turbulence_setup_SA():
+    params = solver_fast.get_turbulence_setup(dict(Model='SA'))
+    assert params['Num2Zones']['ransmodel'] == 'SA'
+    assert params['Num2Zones']['ratiom']
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_model():
     workflow = FakeWorkflowMonoBlock(5)
-    fast_num = dict(
-        temporal_scheme = "implicit_local",
-        ss_iteration=5,
-        ssdom_IJK=[10000,10000,10000],
-        epsi_newton=0.01, 
-        nb_relax=1, 
-        modulo_verif=10,
-        invalidkey="ThisWillNotBeStoredInTree",
-        time_step = 0.1,
-        time_step_nature = "local",
-        cfl = 1.0
-    )
-    tree = workflow.tree
-    solver_fast.put_numerics_in_tree(fast_num, workflow.tree)
+    workflow.Fluid = dict( PrandtlTurbulent = 1)
+    workflow.Turbulence = dict( Model = 'SA' )
+    solver_fast.set_model(workflow)
 
-    base = tree.bases()[0]
-    zone = base.zones()[0]
-
-    assert tree.get(".Solver#define",Depth=1)
-    assert base.get(".Solver#define",Depth=1)
-    assert zone.get(".Solver#define",Depth=1)
+    assert workflow.SolverParameters['Num2Zones']["prandtltb"] == 1
+    assert workflow.SolverParameters['Num2Zones']['ransmodel'] == 'SA'
 
 
 @pytest.mark.unit
@@ -131,13 +156,9 @@ def test_set_numerics():
     workflow.Numerics = dict( TimeMarching = "Steady", Scheme='ausm+', CFL=1 )
     solver_fast.set_numerics(workflow)
 
-    tree = workflow.tree
-    base = tree.bases()[0]
-    zone = base.zones()[0]
-
-    assert tree.get(".Solver#define",Depth=1)
-    assert base.get(".Solver#define",Depth=1)
-    assert zone.get(".Solver#define",Depth=1)
+    assert workflow.SolverParameters['Num2Base']["temporal_scheme"] == "implicit"
+    assert workflow.SolverParameters['Num2Zones']["scheme"] == "ausmpred"
+    assert workflow.SolverParameters['Num2Zones']["cfl"] == 1
 
 
 @pytest.mark.unit
@@ -145,12 +166,12 @@ def test_set_numerics():
 def test_apply_to_solver():
     workflow = FakeWorkflowMonoBlock(5)
     workflow.Numerics = dict( TimeMarching = "Steady", Scheme='ausm+', CFL=1 )
+    workflow.Fluid = dict( PrandtlTurbulent = 1)
+    workflow.Turbulence = dict( Model = 'SA' )
     solver_fast.apply_to_solver(workflow)
 
-    tree = workflow.tree
-    base = tree.bases()[0]
-    zone = base.zones()[0]
-
-    assert tree.get(".Solver#define",Depth=1)
-    assert base.get(".Solver#define",Depth=1)
-    assert zone.get(".Solver#define",Depth=1)
+    assert workflow.SolverParameters['Num2Base']["temporal_scheme"] == "implicit"
+    assert workflow.SolverParameters['Num2Zones']["scheme"] == "ausmpred"
+    assert workflow.SolverParameters['Num2Zones']["cfl"] == 1
+    assert workflow.SolverParameters['Num2Zones']["prandtltb"] == 1
+    assert workflow.SolverParameters['Num2Zones']['ransmodel'] == 'SA'

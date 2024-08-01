@@ -40,13 +40,28 @@ def add_governing_equations(workflow):
     '''
     Add the nodes corresponding to `FlowEquationSet_t`
     '''
-    FlowEquationSet = cgns.Node(Name='FlowEquationSet', Type='FlowEquationSet')
-    if workflow.Turbulence['Model'] not in ['LES','DNS','Laminar']:
-        cgns.Node(Parent=FlowEquationSet, Name='GoverningEquations', Type='GoverningEquations', Value='NSTurbulent')
-    else:
-        raise MolaException(f"Turbulence modeling {workflow.Turbulence['Model']} not yet implemented in MOLA")
-    cgns.Node(Parent=FlowEquationSet, Name='EquationDimension', Type='EquationDimension', Value=workflow.ProblemDimension)
 
-    workflow.tree.findAndRemoveNodes(Type='FlowEquationSet', Depth=2)
+    FlowEquationSet = cgns.Node(Name='FlowEquationSet', Type='FlowEquationSet_t')
+
+    if workflow.Turbulence['Model'] in ['LES', 'ILES', 'DNS','Laminar']:
+        Value = 'NSLaminar'
+
+    elif workflow.Turbulence['Model'] == 'Euler':
+        Value = 'Euler'
+
+    else:
+        Value = 'NSTurbulent'
+
+    cgns.Node(Parent=FlowEquationSet,
+              Name='GoverningEquations',
+              Type='GoverningEquations_t',
+              Value=Value)
+
+    cgns.Node(Parent=FlowEquationSet,
+              Name='EquationDimension',
+              Type='EquationDimension_t',
+              Value=workflow.ProblemDimension)
+
+    workflow.tree.findAndRemoveNodes(Type='FlowEquationSet_t', Depth=2)
     for base in workflow.tree.bases():
         base.addChild(FlowEquationSet)

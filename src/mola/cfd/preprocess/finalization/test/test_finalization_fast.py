@@ -81,9 +81,10 @@ def test_create_cell_center_tree():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_multibloc_transfer_data():
+    
+    import Connector.PyTree as X
     import Converter.PyTree as C
     import Converter.Internal as I
-    import Connector.PyTree as X
 
     NbOfPts = 5
     workflow = FakeWorkflowTwoBlocks(NbOfPts)
@@ -115,7 +116,6 @@ def test_multibloc_transfer_data():
     ID_block1 = block2.get(Name='ID_block.1', Type='ZoneSubRegion_t', Depth=1)
     assert ID_block1
     assert ID_block1.value() == 'block.1'
-
 
 
 @pytest.mark.unit

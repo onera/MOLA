@@ -194,6 +194,81 @@ class WorkflowInterface(object):
         TurbulenceCutOffRatio        : float = 1e-8,
         TransitionMode               :   str = None,
                        ):
+        '''
+        Sets the turbulence modeling parameters
+
+        Parameters
+        ----------
+
+        Viscosity_EddyMolecularRatio : float
+            Ratio of :math:`\mu_t/\mu` used at freestream in order to set the 
+            dissipation scale of turbulence models accordingly
+
+        Level : float
+            Level of freestream turbulence :math:`T_u`, typically used to set
+            the first scale of turbulence models accordingly
+
+        Model : str
+            Choose the turbulence modeling strategy. This will set appropriate
+            values for each solver. If more solver-specific adjustments are 
+            desired, these shall be done using **SolverParameters** attribute.
+            For RANS turbulence models, please note that we tend to use the same
+            name as NASA's convention <https://turbmodels.larc.nasa.gov/>`__ .
+            The covered models are (availability depends on the employed solver):
+
+            * ``'Euler'``
+                The Euler equations are solved
+
+            * ``'DNS'`` or ``'ILES'`` or ``'Laminar'``
+                The Navier-Stokes laminar equations are solved
+
+            * ``'LES'``
+                Use Large Eddy Simulation
+
+            * ``'ZDES-1'``
+
+            * ``'ZDES-2'``
+
+            * ``'ZDES-3'``
+
+            * ``'Wilcox2006-klim'``
+
+            * ``'Wilcox2006-klim-V'``
+
+            * ``'Wilcox2006'``
+
+            * ``'Wilcox2006-V'``
+
+            * ``'SST-2003'``
+
+            * ``'SST-V2003'``
+
+            * ``'SST'``
+
+            * ``'SST-V'``
+
+            * ``'BSL'``
+
+            * ``'BSL-V'``
+
+            * ``'SST-2003-LM2009'``
+
+            * ``'SST-V2003-LM2009'``
+
+            * ``'SSG/LRR-RSM-w2012'``
+
+            * ``'smith'``
+
+            * ``'SA'``
+
+        TurbulenceCutOffRatio : float
+            The minimum allowed value of the turbulence quantities based upon 
+            the turbulence level :math:`T_u`
+
+        
+
+        
+        '''
         self.Turbulence = self._get_comp(WorkflowInterface.set_Turbulence, self.get_default_values_from_local_signature())
 
     def set_BoundaryConditions(self, user_list : list):

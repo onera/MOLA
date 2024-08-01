@@ -22,7 +22,7 @@ variables:
   MOLA_ENV_DEFAULT: src/mola/env/onera/env.sh
   MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
   MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
-  SCHEDULER_PARAMETERS: "--ntasks=1"  #Slurm default parameters
+  SCHEDULER_PARAMETERS: "--ntasks=1 --time=00:30:00"  #Slurm default parameters
 
 default:
   tags: 
@@ -50,14 +50,15 @@ test_unit_elsa:
   
 test_integration_elsa:  
   stage: test
+  tags: 
+    - slurm
   needs: ["test_unit_elsa"]
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4"
+    SCHEDULER_PARAMETERS: "--qos=co_short_std  --ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_ELSA
   script:
-    - coverage run --data-file=.coverage_test_integration_elsa -m \
-        pytest -m integration -k "not test_WorkflowParallelScheduler_sphere_ and not _remote_sator"
+    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not test_WorkflowParallelScheduler_sphere_ and not _remote_sator"
   artifacts:
     paths:
       - .coverage_test_integration_elsa
@@ -84,9 +85,7 @@ coverage_report:
   before_script:
     - source $MOLA_ENV_DEFAULT
   script:
-    - coverage combine .coverage_test_unit_elsa \
-                       .coverage_test_integration_elsa \
-                       .coverage_test_unit_sonics
+    - coverage combine .coverage_test_unit_elsa .coverage_test_integration_elsa .coverage_test_unit_sonics
     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
     # - tar -czf htmlcov.tar.gz htmlcov
