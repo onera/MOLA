@@ -50,11 +50,11 @@ test_unit_elsa:
   
 test_integration_elsa:  
   stage: test
-  tags: 
-    - slurm
   needs: ["test_unit_elsa"]
+  #tags: 
+  #  - slurm
   variables:
-    SCHEDULER_PARAMETERS: "--qos=co_short_std  --ntasks=4 --time=00:30:00"
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"  #"--qos=co_short_std  --ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_ELSA
   script:
@@ -82,6 +82,7 @@ coverage_report:
   dependencies:
     - test_unit_elsa
     - test_unit_sonics
+    - test_integration_elsa
   before_script:
     - source $MOLA_ENV_DEFAULT
   script:
