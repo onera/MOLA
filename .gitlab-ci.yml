@@ -56,8 +56,7 @@ test_integration_elsa:
   before_script:
     - source $MOLA_ENV_ELSA
   script:
-    - coverage run --data-file=.coverage_test_integration_elsa -m \
-        pytest -m integration -k "not test_WorkflowParallelScheduler_sphere_ and not _remote_sator"
+    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not test_WorkflowParallelScheduler_sphere_ and not _remote_sator"
   artifacts:
     paths:
       - .coverage_test_integration_elsa
@@ -84,9 +83,7 @@ coverage_report:
   before_script:
     - source $MOLA_ENV_DEFAULT
   script:
-    - coverage combine .coverage_test_unit_elsa \
-                       .coverage_test_integration_elsa \
-                       .coverage_test_unit_sonics
+    - coverage combine .coverage_test_unit_elsa .coverage_test_integration_elsa .coverage_test_unit_sonics
     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
     # - tar -czf htmlcov.tar.gz htmlcov
