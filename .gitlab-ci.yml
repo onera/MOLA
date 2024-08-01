@@ -50,6 +50,8 @@ test_unit_elsa:
   
 test_integration_elsa:  
   stage: test
+  tags: 
+    - slurm
   needs: ["test_unit_elsa"]
   variables:
     SCHEDULER_PARAMETERS: "--ntasks=4"
