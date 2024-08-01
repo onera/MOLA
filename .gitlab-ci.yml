@@ -77,27 +77,27 @@ test_unit_sonics:
       - .coverage_test_unit_sonics
     expire_in: 1 day
 
-coverage_report:  # Miss integration tests for now
-  stage: code-quality
-  dependencies:
-    - test_unit_elsa
-    - test_unit_sonics
-    # - test_integration_elsa
-  before_script:
-    - source $MOLA_ENV_DEFAULT
-  script:
-    - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics # .coverage_test_integration_elsa
-    - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
-    - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
-    # - tar -czf htmlcov.tar.gz htmlcov
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
-    paths:
-      - coverage.xml
-      - htmlcov
+# coverage_report:  # Miss integration tests for now
+#   stage: code-quality
+#   dependencies:
+#     - test_unit_elsa
+#     - test_unit_sonics
+#     # - test_integration_elsa
+#   before_script:
+#     - source $MOLA_ENV_DEFAULT
+#   script:
+#     - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics # .coverage_test_integration_elsa
+#     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
+#     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
+#     - tar -czf htmlcov.tar.gz htmlcov
+#   artifacts:
+#     reports:
+#       coverage_report:
+#         coverage_format: cobertura
+#         path: coverage.xml
+#     paths:
+#       - coverage.xml
+#       - htmlcov.tar.gz
 
 radon_complexity:
   stage: code-quality
