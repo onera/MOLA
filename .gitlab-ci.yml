@@ -54,7 +54,7 @@ test_integration_elsa:
     - slurm
   needs: ["test_unit_elsa"]
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4"
+    SCHEDULER_PARAMETERS: "--qos=co_short_std  --ntasks=4"
   before_script:
     - source $MOLA_ENV_ELSA
   script:
