@@ -51,17 +51,20 @@ test_unit_elsa:
 test_integration_elsa:  
   stage: test
   needs: ["test_unit_elsa"]
-  #tags: 
-  #  - slurm
+  tags: 
+    - slurm
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"  #"--qos=co_short_std  --ntasks=4 --time=00:30:00"
+    SCHEDULER_PARAMETERS: "--qos=co_short_std  --ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_ELSA
   script:
     - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not test_WorkflowParallelScheduler_sphere_ and not _remote_sator"
+    - mkdir -p  ~/.jacamar-ci/tmp/
+    - cp .coverage_test_integration_elsa ~/.jacamar-ci/tmp/
   artifacts:
     paths:
-      - .coverage_test_integration_elsa
+      # - .coverage_test_integration_elsa
+      - ~/.jacamar-ci/tmp/.coverage_test_integration_elsa
     expire_in: 1 day
 
 test_unit_sonics: 
@@ -86,7 +89,7 @@ coverage_report:
   before_script:
     - source $MOLA_ENV_DEFAULT
   script:
-    - coverage combine .coverage_test_unit_elsa .coverage_test_integration_elsa .coverage_test_unit_sonics
+    - coverage combine .coverage_test_unit_elsa ~/.jacamar-ci/tmp/.coverage_test_integration_elsa .coverage_test_unit_sonics
     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
     # - tar -czf htmlcov.tar.gz htmlcov
