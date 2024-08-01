@@ -151,7 +151,9 @@ def restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes):
         for FS in empty_FlowSolution_nodes:
             saved_FS = cgns.readNode(dst, FS.path()) 
             if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
-                FS.saveThisNodeOnly(dst, backend='pycgns')  # it does nothing with h5py2cgns, and it freezes with cassiopee
+                FS.saveThisNodeOnly(dst) 
+                for child in FS.children():
+                    child.saveThisNodeOnly(dst) 
 
 def _remove_PyPart_suffix(path):
     path_split = path.split('/')
