@@ -18,48 +18,44 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-export MAIAVERSION=dev #1.4
 
-export MACHINE=ld
+export MACHINE=juno
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
 source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
 
-module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode/1.85.2
 
-export OPENMPIOVERSUBSCRIBE='--use-hwthread-cpus'
 
 unset I_MPI_PMI_LIBRARY
-export OMPI_MCA_mca_base_component_show_load_errors=0
+unset I_MPI_TCP_NETMASK 
+unset I_MPI_FABRICS_LIST
+
+# maia
+module use --append /tmp_user/juno/sonics/usr/modules/
+module load maia/$MAIAVERSION-dsi-cfd6
+
+# VPM
+export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
+export PATH=$VPMPATH:$PATH
+export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
+export PYTHONPATH=$VPMPATH:$PYTHONPATH
+export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
 
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-export DIST="ld"
-MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export DIST="visung"; fi
-export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA
+export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
+export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
-# maia
-module use --append /home/sonics/LD8/modules/
-module load maia/$MAIAVERSION-dsi-ompi405 &> /dev/null
-
-# trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
-pdf()
-{
-    export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
-    okular "$1" &
-    export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
-}
-
+# external python packages
+export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH
+export PATH=$MOLAext/spiro_el8/bin:$PATH
+export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
-
-export MOLA_SOLVER=fast

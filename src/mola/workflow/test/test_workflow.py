@@ -674,7 +674,7 @@ def test_workflow_sphere_struct_local(tmp_path):
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
-    w.remove_cfd_files()
+    # w.remove_cfd_files()
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
@@ -760,4 +760,4 @@ def test_print_interface_1():
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
-    test_workflow_sphere_struct_local('sphere_local')
+    test_workflow_sphere_struct_local('sphere_local_'+os.environ.get("MOLA_SOLVER"))
