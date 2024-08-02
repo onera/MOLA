@@ -20,11 +20,14 @@ source $SCRIPT_DIR/../network.sh
 
 export MAIAVERSION=1.4
 
-export CASSIOPEE=/tmp_user/sator/benoit/Cassiopee
-export MACHINE=sator_cas
-source $CASSIOPEE/Dist/sh_Cassiopee_r8 &> /dev/null
+export MACHINE=sator_sph
+export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
+source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
 
 unset I_MPI_PMI_LIBRARY
+unset I_MPI_TCP_NETMASK 
+unset I_MPI_FABRICS_LIST
+
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
 # Treelab
@@ -32,12 +35,12 @@ export OMPI_MCA_mca_base_component_show_load_errors=0
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export PYTHONPATH=/tmp_user/sator/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # maia
 module use --append /tmp_user/sator/sonics/usr/modules/
-module load maia/$MAIAVERSION-dsi-cfd5 &> /dev/null
+module load maia/$MAIAVERSION-dsi-cfd6 &> /dev/null
 
 # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
 pdf()

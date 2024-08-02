@@ -545,7 +545,7 @@ class WorkflowInterface(object):
             Name : str = None, # if None, will be based on Position
             ExtractionPeriod : int = 5000,
             SavePeriod : int = 5000,
-            Frame : str = 'relative',
+            Frame : str = 'relative', # TODO add warning for fast (only 'absolute' possible)
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = False,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             Container : str = 'FlowSolution#Output', 

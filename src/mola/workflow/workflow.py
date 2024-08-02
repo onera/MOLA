@@ -73,7 +73,6 @@ class Workflow(object):
         self.set_extractions()
         self.check_preprocess() # empty BCs... maybe solver-specific
         self.finalize_preprocess() # solver-specific
-        self.set_workflow_parameters_in_tree()
         # self.set_workflow_parameters_in_file()
 
     def check_consistency_between_solver_and_environment(self):
@@ -92,21 +91,25 @@ class Workflow(object):
 
     def positioning(self):
         positioning.apply(self)
+        self.set_workflow_parameters_in_tree()
 
     def connect(self):
         connect.apply(self)
+        self.set_workflow_parameters_in_tree()
 
     def define_families(self):
         families.apply(self)
+        self.set_workflow_parameters_in_tree()
 
     def read_meshes(self):
         io.read(self)
 
     def split_and_distribute(self):
         split.apply(self)
+        self.set_workflow_parameters_in_tree()
 
     def process_overset(self):
-        pass
+        self.set_workflow_parameters_in_tree()
 
     def compute_flow_and_turbulence(self):
         # mola-generic set of parameters
@@ -115,21 +118,27 @@ class Workflow(object):
         self.Fluid = FlowGen.Fluid
         self.Flow = FlowGen.Flow
         self.Turbulence = FlowGen.Turbulence
+        self.set_workflow_parameters_in_tree()
 
     def initialize_flow(self):
         initialization.apply(self)
+        self.set_workflow_parameters_in_tree()
     
     def set_boundary_conditions(self):
         boundary_conditions.apply(self)
+        self.set_workflow_parameters_in_tree()
 
     def set_motion(self):
         motion.apply(self)
+        self.set_workflow_parameters_in_tree()
 
     def set_cfd_parameters(self):
         cfd_parameters.apply(self)
+        self.set_workflow_parameters_in_tree()
 
     def set_extractions(self):
         extractions.apply(self)
+        self.set_workflow_parameters_in_tree()
 
     def finalize_preprocess(self):
         finalization.apply(self)
@@ -173,6 +182,8 @@ class Workflow(object):
                 mola_logger.error('UNDEFINED BC IN TREE')
             else:
                 mola_logger.info('\033[92mNo undefined BC found in tree\033[0m')
+
+        self.set_workflow_parameters_in_tree()
 
 
 

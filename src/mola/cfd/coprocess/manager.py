@@ -134,6 +134,7 @@ class CoprocessManager():
             files_to_save = dict()
             for extraction in self.Extractions:
                 if 'Data' not in extraction: continue
+
                 if extraction['IsToSave'] and extraction['Data'] is not None:
                     if extraction['Type'] == 'Restart':
                         filename = extraction['File']
@@ -148,8 +149,9 @@ class CoprocessManager():
                         filename = f'{name}_AfterIter{self.iteration}.{fmt}'
                     files_to_save.setdefault(filename, [])
                     files_to_save[filename].append(extraction['Data'])
+                
             return files_to_save
-        
+
         files_to_save = sort_extractions_to_save_by_file()
         for filename, data_pytrees in files_to_save.items():
             tree_to_save = cgns.merge(data_pytrees)

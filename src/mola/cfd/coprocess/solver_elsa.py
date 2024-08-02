@@ -31,7 +31,7 @@ import mola.naming_conventions as names
 from mola.cfd.coprocess import mola_logger, rank, comm
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
-
+from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
 def perform_extractions(workflow, coprocess_manager):
     output_tree = get_elsa_output_tree(workflow._Skeleton)
@@ -288,14 +288,6 @@ def deduce_container_for_slicing(IsoSurfaceField):
     
     else:
         return 'FlowSolution#EndOfRun'
-
-def get_family_to_BCType(t):
-    families_to_bctype = dict()
-    for famnode in t.group(Type='Family', Depth=2):
-        bctype = famnode.get(Type='FamilyBC')
-        if bctype is not None:
-            families_to_bctype[famnode.name()] = bctype.value()
-    return families_to_bctype
 
 def move_log_files(w):
     if rank == 0:

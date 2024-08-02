@@ -31,6 +31,7 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
             'sbatch: soumission depuis noeud', 
             'sbatch: Pas de partition specifiee,',  # on juno if not qos is given
             'sbatch: Le job est oriente dans la QOS', # on juno if not qos is given
+            'sbatch: Pas de partition specifiee, la partition par defaut intel est utilisee',
             'warning',
             ]):
 

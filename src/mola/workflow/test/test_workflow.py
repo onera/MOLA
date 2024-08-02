@@ -260,7 +260,12 @@ def get_workflow_sphere_struct(RunDirectory):
         Extractions=[
             dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
-            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1.e-6),
+            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ',
+                 IsoSurfaceValue=1.e-6, ExtractionPeriod=5, SavePeriod=5,
+                 Override=False),
+            dict(Type='3D', Fields=['Density','MomentumX','MomentumY','MomentumZ'],
+                 GridLocation='Vertex', GhostCells = False,
+                 ExtractAtEndOfRun=True),
             ],
 
         RunManagement=dict(
@@ -668,13 +673,13 @@ def test_prepare_workflow_dist():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
-def test_workflow_sphere_struct_local(tmp_path):
+def test_workflow_sphere_struct_local(tmp_path, remove_cfd_files=True):
     w = get_workflow_sphere_struct(tmp_path)
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
-    # w.remove_cfd_files()
+    if remove_cfd_files: w.remove_cfd_files()
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
@@ -760,4 +765,4 @@ def test_print_interface_1():
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
-    test_workflow_sphere_struct_local('sphere_local_'+os.environ.get("MOLA_SOLVER"))
+    test_workflow_sphere_struct_local('sphere_local_'+os.environ.get("MOLA_SOLVER"),False)

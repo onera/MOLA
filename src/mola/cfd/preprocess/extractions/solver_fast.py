@@ -15,14 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from treelab import cgns
-import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
-
-import copy
-
-
 def apply_to_solver(workflow):
 
-    mola_logger.warning("extractions to be implemented in fast")
+    pass # nothing to do

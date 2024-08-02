@@ -22,8 +22,8 @@ comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
 NumberOfProcessors = comm.Get_size()
 
+from treelab import cgns
 import mola.naming_conventions as names
-from mola.cfd.coprocess.manager import CoprocessManager
 
 def apply_to_solver(workflow):
 
@@ -35,6 +35,7 @@ def apply_to_solver(workflow):
         os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
         os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
 
+    from mola.cfd.coprocess.manager import CoprocessManager
     workflow._coprocess_manager = CoprocessManager(workflow)
 
     inititer = workflow.Numerics['IterationAtInitialState']
@@ -46,10 +47,18 @@ def apply_to_solver(workflow):
     Fast._setNum2Zones(t, workflow.SolverParameters['Num2Zones'])
 
     (t, tc, metrics) = FastS.warmup(t, tc, graph)
+    workflow._metrics = metrics
     
+    t = cgns.castNode(t)
+    tc = cgns.castNode(tc)
+    
+    workflow.tree = t
+    workflow._treeAtCenters = tc 
+
+    # time-marching loop
     for it in range( inititer, inititer+niter ):
     
-        print("it=%d"%it)
+        workflow._coprocess_manager.run_iteration()
         FastS._compute(t, metrics, it, tc, graph)
                 
     workflow._coprocess_manager.finalize()
