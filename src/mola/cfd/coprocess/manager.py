@@ -22,12 +22,13 @@ import timeit
 import copy
 
 from treelab import cgns
-from mola.logging import MolaException, MolaAssertionError, MolaUserError, CYAN, ENDC, GREEN
+from mola.logging import (MolaException, MolaAssertionError, MolaUserError,
+                          MolaLogger, CYAN, ENDC, GREEN)
 import mola.naming_conventions as names
 from mola.cfd import call_solver_specific_function
 from mola.cfd.preprocess.mesh.io.writer import write
 
-from . import mola_logger, rank, comm
+from . import rank, comm
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
 from .user_interface import update_operations_from_user_signal
 
@@ -45,12 +46,34 @@ class CoprocessManager():
     def __init__(self, workflow):
         self.workflow = workflow
 
+        run_dir = self.workflow.RunManagement.get('RunDirectory','.')
+        
+        if run_dir == "." or run_dir == os.path.basename(os.getcwd()):
+            output_dir = names.DIRECTORY_OUTPUT
+            log_dir = names.DIRECTORY_LOG
+            colog_file_path = names.FILE_COLOG
+
+        else: 
+            output_dir = os.path.join(run_dir,names.DIRECTORY_OUTPUT)
+            log_dir = os.path.join(run_dir,names.DIRECTORY_LOG)
+            colog_file_path = os.path.join(run_dir, names.FILE_COLOG)
+                
+            
+        if rank==0:
+            print(f'making {output_dir=}')
+            os.makedirs(output_dir, exist_ok=True)
+            print(f'making {log_dir=}')
+            os.makedirs(log_dir, exist_ok=True)
+
+        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path, level='DEBUG')
+
         self.iteration = self.workflow.Numerics['IterationAtInitialState'] - 1
         self.launch_time = timeit.default_timer()
         if self.workflow.Numerics['NumberOfIterations'] == 0:
             err_msg = 'NumberOfIterations=0 => simulation cannot begin. Please change this value and submit again.'
-            mola_logger.error(err_msg, rank=0)
+            self.mola_logger.error(err_msg, rank=0)
             raise MolaUserError(err_msg)
+
 
         self._status = 'BEFORE_FIRST_ITERATION'
 
@@ -73,7 +96,7 @@ class CoprocessManager():
 
     def __del__(self):
         if self.status != 'COMPLETED':
-            mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
+            self.mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
                  
     def run_iteration(self):
         self.update_iteration()
@@ -93,7 +116,7 @@ class CoprocessManager():
             extraction['IsToSave'] = False
 
         self.iteration += 1
-        mola_logger.info(f'iteration {self.iteration:d}', rank=0)
+        self.mola_logger.info(f'iteration {self.iteration:d}', rank=0)
 
         self.update_extractions_to_perform()
 
@@ -108,7 +131,7 @@ class CoprocessManager():
                     
     def apply_operations(self):
         if any([extraction['IsToExtract'] for extraction in self.Extractions]):
-            mola_logger.debug(f'Performing extractions..', rank=0)
+            self.mola_logger.debug(f'Performing extractions..', rank=0)
             self.perform_extractions()
 
             if any([extraction['Type'] == 'Restart' and extraction['IsToExtract']  for extraction in self.Extractions]):
@@ -117,7 +140,7 @@ class CoprocessManager():
         comm.barrier()
 
         if any([extraction['IsToSave'] for extraction in self.Extractions]):
-            mola_logger.debug(f'Saving data...', rank=0)
+            self.mola_logger.debug(f'Saving data...', rank=0)
             self.save_data()
     
     def end_simulation(self):
@@ -158,16 +181,16 @@ class CoprocessManager():
             self.save(tree_to_save, filename)
 
     def save(self, data, filename):
-        mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
+        self.mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
         if self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
             io_tool = 'cassiopee_mpi'
         else:
             io_tool = None
         write(self.workflow, data, filename, io_tool=io_tool)
-        mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
+        self.mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
          
     def finalize(self):
-        mola_logger.info(f'>> finalize', rank=0)
+        self.mola_logger.info(f'>> finalize', rank=0)
         for extraction in self.Extractions:
             if extraction['ExtractAtEndOfRun']:
                 extraction['IsToExtract'] = True

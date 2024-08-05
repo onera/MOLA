@@ -17,7 +17,6 @@
 
 from mpi4py import MPI
 
-from mola.logging import MolaLogger
 import mola.naming_conventions as names
 
 
@@ -25,4 +24,4 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 NumberOfProcessors = comm.Get_size()
 
-mola_logger = MolaLogger(stream=False, filename=names.FILE_COLOG, level='DEBUG')
+

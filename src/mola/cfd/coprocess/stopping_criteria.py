@@ -19,11 +19,15 @@ import timeit
 import datetime
 
 from mola.logging import GREEN, ENDC
-from . import mola_logger, rank, comm
+from . import rank, comm
+
+# TODO transform all these functions to methods of coproces_manager
 
 def check_timeout(coprocess_manager):
     if coprocess_manager.status == 'RUNNING':
-        ReachedTimeOutMargin = _has_reached_timeout(coprocess_manager.launch_time, coprocess_manager.workflow.RunManagement['TimeOutInSeconds'])
+        ReachedTimeOutMargin = _has_reached_timeout(coprocess_manager.launch_time,
+            coprocess_manager.workflow.RunManagement['TimeOutInSeconds'],
+            coprocess_manager)
         if ReachedTimeOutMargin :
             if rank == 0:
                 with open('NEWJOB_REQUIRED', 'w') as f: 
@@ -38,7 +42,7 @@ def check_max_iteration(coprocess_manager):
     if coprocess_manager.status == 'RUNNING':
         Numerics = coprocess_manager.workflow.Numerics
         if coprocess_manager.iteration >= Numerics['IterationAtInitialState'] + Numerics['NumberOfIterations']:
-            mola_logger.warning(f'{GREEN}REACHED itmax{ENDC}', rank=0)
+            coprocess_manager.mola_logger.warning(f'{GREEN}REACHED itmax{ENDC}', rank=0)
             if rank == 0:
                 with open('COMPLETED', 'w') as f: 
                     f.write('COMPLETED')
@@ -51,10 +55,12 @@ def check_max_iteration(coprocess_manager):
 def check_convergence_criteria(coprocess_manager):
     has_done_enough_iterations = (coprocess_manager.iteration - coprocess_manager.workflow.Numerics['IterationAtInitialState']) > coprocess_manager.workflow.Numerics['MinimumNumberOfIterations'] 
     if has_done_enough_iterations and coprocess_manager.status == 'RUNNING':
-        if _is_converged(coprocess_manager.workflow.ConvergenceCriteria, coprocess_manager.Extractions, coprocess_manager.iteration):
+        if _is_converged(coprocess_manager.workflow.ConvergenceCriteria,
+            coprocess_manager.Extractions, coprocess_manager.iteration,
+            coprocess_manager):
             coprocess_manager.status = 'TO_STOP'
 
-def _is_converged(ConvergenceCriteria, Extractions, iteration):
+def _is_converged(ConvergenceCriteria, Extractions, iteration, coprocess_manager):
     '''
     This method is used to determine if the current simulation is converged by
     looking at user-provided convergence criteria.
@@ -103,7 +109,7 @@ def _is_converged(ConvergenceCriteria, Extractions, iteration):
                     return extraction['Data'].get(Name=criterion['Variable']).value()
                 except:
                     pass
-                    # mola_logger.warning(f'Cannot evaluate convergence for criterion {criterion}, because the variable is not found in extracted data.')
+                    coprocess_manager.mola_logger.warning(f'Cannot evaluate convergence for criterion {criterion}, because the variable is not found in extracted data.')
             
         return 
 
@@ -124,7 +130,7 @@ def _is_converged(ConvergenceCriteria, Extractions, iteration):
 
                 Flux = get_data_to_test_criterion(criterion, Extractions)
                 if Flux is None and criterion['Condition'] == 'Necessary':
-                    mola_logger.warning(f"requested convergence variable {criterion['Variable']} not found in {criterion['ExtractionName']}", rank=0)
+                    coprocess_manager.mola_logger.warning(f"requested convergence variable {criterion['Variable']} not found in {criterion['ExtractionName']}", rank=0)
                     AllNecessaryCriteria = False
                     continue
                 criterion['FoundValue'] = Flux[-1]
@@ -149,16 +155,16 @@ def _is_converged(ConvergenceCriteria, Extractions, iteration):
                 txt = f'''{GREEN}*******************************************
 {MSG} 
 *******************************************{ENDC}'''
-                mola_logger.info(txt, rank=0)
+                coprocess_manager.mola_logger.info(txt, rank=0)
         except BaseException as e:
-            mola_logger.error(f'_is_converged failed: {e}', rank=0)
+            coprocess_manager.mola_logger.error(f'_is_converged failed: {e}', rank=0)
 
     comm.barrier()
     CONVERGED = comm.bcast(CONVERGED, root=0)
 
     return CONVERGED
 
-def _has_reached_timeout(LaunchTime, TimeOutInSeconds):
+def _has_reached_timeout(LaunchTime, TimeOutInSeconds, coprocess_manager):
 
     ReachedTimeOutMargin = False
     if rank == 0:
@@ -166,7 +172,7 @@ def _has_reached_timeout(LaunchTime, TimeOutInSeconds):
         ReachedTimeOutMargin = ElapsedTime >= TimeOutInSeconds
         if ReachedTimeOutMargin:
             date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            mola_logger.warning(f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION', rank=0)
+            coprocess_manager.mola_logger.warning(f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION', rank=0)
     comm.Barrier()
     ReachedTimeOutMargin = comm.bcast(ReachedTimeOutMargin,root=0)
 

@@ -19,6 +19,7 @@ import os
 import glob
 import shutil
 from fnmatch import fnmatch
+import warnings
 
 import elsAxdt
 
@@ -28,7 +29,7 @@ from mola.logging import MolaException
 import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
-from mola.cfd.coprocess import mola_logger, rank, comm
+from mola.cfd.coprocess import rank, comm
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
@@ -45,7 +46,7 @@ def perform_extractions(workflow, coprocess_manager):
         if extraction['IsToExtract'] == False:
             continue
 
-        mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
+        coprocess_manager.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
         
         if extraction['Type'] == 'Restart':
             update_restart_fields(workflow, output_tree)
@@ -75,7 +76,7 @@ def perform_extractions(workflow, coprocess_manager):
         #     extraction['Data'] = extract_probe(output_tree)
 
         else:
-            mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
+            coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
             extraction['Data'] = cgns.Tree()
 
         # Remove PyPart nodes for data that are not 3D (important to save them without PyPart)
@@ -155,6 +156,9 @@ def extract_fields(output_tree, extraction):
     return t
 
 def extract_bc(output_tree, extraction, DictBCNames2Type):
+    
+    # TODO factorize elsa <-> fast
+    
     SurfacesTree = cgns.Tree()
 
     for BCFamilyName in DictBCNames2Type:
@@ -169,8 +173,6 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
             family = BCFamilyName
         else:
             continue
-
-        mola_logger.debug(f'  family={family}', rank=0)
     
         data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
         data_tree = cgns.castNode(data_tree)
@@ -267,7 +269,7 @@ def extract_integral(output_tree, NormalizationCoefficients=None):
     return t
 
 def extract_probe(output_tree):
-    mola_logger.warning('skip extraction of type Probe (not implemented yet)', rank=0)
+    warnings.warning('skip extraction of type Probe (not implemented yet)', rank=0)
     return cgns.Tree()
 
 def update_elsa_input(new_tree):

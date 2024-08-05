@@ -17,4 +17,6 @@
 
 def apply_to_solver(workflow):
 
-    pass # nothing to do
+    workflow._interface.add_to_Extractions_Restart(
+        Container='FlowSolution#Centers'
+        )

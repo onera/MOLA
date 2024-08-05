@@ -22,7 +22,7 @@ from treelab import cgns
 from mola.logging import MolaException
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
-from mola.cfd.coprocess import mola_logger, rank, comm
+from mola.cfd.coprocess import rank, comm
 
 
 def perform_extractions(workflow, coprocess_manager):
@@ -33,7 +33,7 @@ def perform_extractions(workflow, coprocess_manager):
         if extraction['IsToExtract'] == False:
             continue
 
-        mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
+        self.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
         
         if extraction['Type'] == 'Restart':
             coprocess_manager.iteration = workflow.Numerics['NumberOfIterations']
@@ -53,7 +53,7 @@ def perform_extractions(workflow, coprocess_manager):
         #     extraction['Data'] = extract_residuals(output_tree)
 
         else:
-            mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
+            self.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
             extraction['Data'] = cgns.Tree()
 
 def update_restart_fields(workflow, output_tree):

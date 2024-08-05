@@ -19,6 +19,7 @@ import os
 import glob
 import shutil
 from fnmatch import fnmatch
+import warnings
 
 from treelab import cgns
 
@@ -26,7 +27,7 @@ from mola.logging import MolaException, MolaUserError
 import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
-from mola.cfd.coprocess import mola_logger, rank, comm
+from mola.cfd.coprocess import rank, comm
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
@@ -68,17 +69,16 @@ def perform_extractions(workflow, coprocess_manager):
         if extraction['IsToExtract'] == False:
             continue
 
-        mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
+        coprocess_manager.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
         
         if extraction['Type'] == 'Restart':
-            update_restart_fields(workflow, output_tree) # TODO
             extraction['Data'] = workflow.tree
         
         elif extraction['Type'] == '3D':
             extraction['Data'] = extract_fields(output_tree, extraction)
 
         elif extraction['Type'] == 'BC':
-            extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype)
+            extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype, workflow._metrics)
         
         elif extraction['Type'] == 'IsoSurface':
             extraction['Data'] = extract_isosurface(output_tree, extraction)
@@ -98,7 +98,7 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_probe(output_tree)
 
         else:
-            mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
+            coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
             extraction['Data'] = cgns.Tree()
 
         # Remove PyPart nodes for data that are not 3D (important to save them without PyPart)
@@ -119,10 +119,6 @@ def get_output_tree(workflow, coprocess_manager):
     return output_tree
 
 
-def update_restart_fields(workflow, output_tree):
-    mola_logger.warn("update_restart_fields TODO -> to be implemented for fast")
-
-
 def extract_fields(output_tree, extraction) -> cgns.Tree:
 
     t = output_tree.copy()
@@ -134,8 +130,61 @@ def extract_fields(output_tree, extraction) -> cgns.Tree:
 
     return t
 
-def extract_bc(output_tree, extraction, families_to_bctype):
-    mola_logger.warn("extract_bc TODO -> to be implemented for fast")
+def extract_bc(output_tree, extraction, families_to_bctype, metrics):
+
+    # TODO factorize elsa <-> fast
+
+    import FastS.PyTree as FastS
+
+    SurfacesTree = cgns.Tree()
+
+    for BCFamilyName in families_to_bctype:
+        BCType = families_to_bctype[BCFamilyName]
+        if fnmatch(BCType, extraction['Source']):
+            # Case of source matching one or several names of BC: 'BCWall', 'BCInflow*', '*', etc.
+            source = BCType
+            family = BCFamilyName
+        elif fnmatch(BCFamilyName, extraction['Source']):
+            # Case of source matching a family name
+            source = BCFamilyName
+            family = BCFamilyName
+        else:
+            continue
+
+        data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
+        data_tree = cgns.castNode(data_tree)
+
+        stress_tree = FastS.createStressNodes(output_tree, [extraction['Source']])
+
+        # TODO optimize by providing stress to integral extractions Data
+        stress = FastS._computeStress(output_tree, stress_tree, metrics)
+        stress_tree = cgns.castNode(stress_tree)
+
+        for base_data, base_stress in zip(data_tree.bases(), stress_tree.bases()):
+            base_stress.setName(base_data.name())
+            for zone_data, zone_stress in zip(data_tree.zones(), stress_tree.zones()):
+                zone_stress.setName(zone_data.name())
+
+        data_tree.merge(stress_tree)
+
+        SurfacesTree.merge(data_tree)
+
+    if extraction['Name'] != 'ByFamily':
+        # merge all bases and rename the unique base
+        base0 =  SurfacesTree.bases()[0]
+        base0.setName(extraction['Name'])
+        i = 0
+        for zone in base0.zones():
+            zone.setName(f"{extraction['Name']}_R{rank}N{i}")
+            i += 1
+        for base in SurfacesTree.bases()[1:]:
+            for zone in base.zones():
+                zone.setName(f"{extraction['Name']}_R{rank}N{i}")
+                i += 1
+                zone.moveTo(base0)
+            base.remove()
+
+    return SurfacesTree
 
 def extract_isosurface(output_tree, extraction):
     if extraction['IsoSurfaceContainer'] == 'auto':
@@ -154,13 +203,13 @@ def extract_isosurface(output_tree, extraction):
 
 
 def extract_residuals(output_tree):
-    mola_logger.warn("extract_residuals TODO -> to be implemented for fast")
+    warnings.warn("extract_residuals TODO -> to be implemented for fast")
 
 def extract_integral(output_tree, NormalizationCoefficients):
-    mola_logger.warn("extract_integral TODO -> to be implemented for fast")
+    warnings.warn("extract_integral TODO -> to be implemented for fast")
 
 def extract_probe(output_tree):
-    mola_logger.warn("extract_probe TODO -> to be implemented for fast")
+    warnings.warn("extract_probe TODO -> to be implemented for fast")
 
 
 def deduce_container_for_slicing(IsoSurfaceField):
@@ -177,10 +226,10 @@ def deduce_container_for_slicing(IsoSurfaceField):
         return 'FlowSolution#Centers'
 
 
-def get_field_names( t : cgns.Tree) -> list:
+def get_field_names( t : cgns.Tree, container : str ='FlowSolution#Centers') -> list:
     
     zone = t.get(Type='CGNSBase_t',Depth=1).get(Type='Zone_t',Depth=1)
-    fs = zone.get(Name='FlowSolution#Centers',Depth=1)
+    fs = zone.get(Name=container,Depth=1)
     return [n.name() for n in fs.children() if n.type()=='DataArray_t']
 
 
@@ -189,6 +238,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
     import FastS.PyTree as FastS
     import Post.PyTree as P
     import Converter.PyTree as C
+    import Converter.Internal as I
 
     existing_field_names = get_field_names(t)
 
@@ -210,8 +260,15 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
                                     **thermodynamic_const)
 
         elif requested_field_name in post_fields_using_cassiopee_computeExtraVariable: 
-            P._computeExtraVariable(t, "centers:"+requested_field_name,
-                                        **thermodynamic_const)
+            tRef = P.computeExtraVariable(t, "centers:"+requested_field_name,
+                                          **thermodynamic_const)
+                
+
+            # HACK, because computeExtraVariable does not exist in-place...
+            for z_ref, z in zip(I.getZones(tRef), I.getZones(t)):
+                fs_ref = I.getNodeFromName1(z_ref,'FlowSolution#Centers')
+                fs = I.getNodeFromName1(z,'FlowSolution#Centers')
+                fs[2] = fs_ref[2]
 
         elif requested_field_name.startswith('Momentum'):
             coord = requested_field_name.replace('Momentum','')
@@ -222,9 +279,14 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
         else:
             raise MolaUserError('cannot extract '+requested_field_name)
 
+    cgns.castNode(t)
+
     
 def remove_not_requested_fields( t : cgns.Tree, requested_field_names : list):
     
+    if 'Vorticity' in requested_field_names:
+        requested_field_names += ['VorticityX', 'VorticityY', 'VorticityZ']
+
     for zone in t.zones():
         FlowSolution = zone.get(Name='FlowSolution#Centers', Depth=1)
         if FlowSolution is None: raise MolaException('FATAL expected FlowSolution#Centers at '+zone.path())

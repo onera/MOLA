@@ -30,18 +30,14 @@ def apply_to_solver(workflow):
     import Fast.PyTree as Fast
     import FastS.PyTree as FastS
 
-
-    if rank==0:
-        os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
-        os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
-
     from mola.cfd.coprocess.manager import CoprocessManager
     workflow._coprocess_manager = CoprocessManager(workflow)
 
     inititer = workflow.Numerics['IterationAtInitialState']
     niter = workflow.Numerics['NumberOfIterations']
 
-    t,tc,ts,graph = Fast.load(names.FILE_INPUT_SOLVER, 'tc.cgns', restart=False)
+    t,tc,ts,graph = Fast.load(names.FILE_INPUT_SOLVER, 'tc.cgns',
+                              restart=True if inititer>1 else False)
 
     Fast._setNum2Base( t, workflow.SolverParameters['Num2Base'])
     Fast._setNum2Zones(t, workflow.SolverParameters['Num2Zones'])
