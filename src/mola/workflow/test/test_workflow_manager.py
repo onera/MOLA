@@ -219,6 +219,7 @@ def test_WorkflowParallelScheduler_sphere_local(tmp_path):
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
     w = get_workflow_sphere_struct('.')
+    w.RunManagement["Scheduler"] = "local"
 
     dispatcher = WM.WorkflowDispatcher(w)
     for BCWall in ['WallViscous', 'WallInviscid']:
@@ -238,11 +239,15 @@ def test_WorkflowParallelScheduler_sphere_local(tmp_path):
     scheduler.prepare()
     scheduler.submit()
 
+    # this requires job to have finished, which is the case only if we 
+    # impose w.RunManagement["Scheduler"] = "local". Otherwise we have a 
+    # synchronicity issue (jobs are submitted, and the following checks are
+    # done before the simulations are run)
     for BCWall in ['WallViscous', 'WallInviscid']:
         for velocity in [50., 20., 80.]:
             COMPLETED_PATH = os.path.join(scheduler.root_directory, BCWall, f'Velocity_{velocity}', names.FILE_JOB_COMPLETED)
             if not os.path.exists(COMPLETED_PATH):
-                raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
+                raise MolaException(f'simulation did not end as expected: unable to find file {COMPLETED_PATH}')
 
 @pytest.mark.network_onera
 @pytest.mark.integration

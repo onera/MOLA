@@ -34,6 +34,12 @@ unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK
 unset I_MPI_FABRICS_LIST
 
+# for avoiding error bootstrap
+# https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
+# https://slurm.schedmd.com/mpi_guide.html
+export I_MPI_HYDRA_BOOTSTRAP=ssh
+
+
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab

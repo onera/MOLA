@@ -60,9 +60,7 @@ class CoprocessManager():
                 
             
         if rank==0:
-            print(f'making {output_dir=}')
             os.makedirs(output_dir, exist_ok=True)
-            print(f'making {log_dir=}')
             os.makedirs(log_dir, exist_ok=True)
 
         self.mola_logger = MolaLogger(stream=False, filename=colog_file_path, level='DEBUG')

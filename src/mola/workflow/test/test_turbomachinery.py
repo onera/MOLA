@@ -170,6 +170,7 @@ def test_duplicate(tmp_path):
 @pytest.mark.cost_level_4
 def test_compressor_example_local(tmp_path):
     w = get_compressor_example(tmp_path)
+    w.RunManagement['Scheduler'] = "local" # otherwise we will have sync problem at simulation_status
     w.prepare()
     w.write_cfd_files()
     w.submit()

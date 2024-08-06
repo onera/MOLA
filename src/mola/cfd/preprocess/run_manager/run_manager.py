@@ -67,11 +67,15 @@ def set_default_machine(RunManagement):
 
 
 def get_scheduler_and_options(RunManagement):
+
     # Get default options from the machine scheduler_defaults.py
-    scheduler_defaults = SV.get_scheduler_defaults(RunManagement['Machine'], mola_target_path=RunManagement['mola_target_path'])
+    scheduler_defaults = SV.get_scheduler_defaults(RunManagement['Machine'],
+                            mola_target_path=RunManagement['mola_target_path'])
+    
     if scheduler_defaults is None:
         scheduler = None
         scheduler_options = dict()
+    
     else:
         try:
             scheduler = scheduler_defaults.JOB_SCHEDULER
@@ -95,6 +99,7 @@ def get_scheduler_and_options(RunManagement):
     except KeyError:
         pass
 
+
     # update with options from the user
     try:
         for key, option in MolaToScheduler[scheduler].items():
@@ -103,7 +108,13 @@ def get_scheduler_and_options(RunManagement):
     except KeyError:
         pass
 
-    RunManagement['Scheduler'] = scheduler
+    # possibly want to run locally (e.g. within same slurm node) without
+    # submitting new sbatch jobs (and having to wait for them), which is
+    # required by test_WorkflowParallelScheduler_sphere_local when running
+    # in juno. Otherwise, jobs would be launched, test will continue and raise
+    # and exception because the tests cannot be completed
+    RunManagement['Scheduler'] = RunManagement.get('Scheduler',scheduler)
+
 
     return scheduler, scheduler_options
 

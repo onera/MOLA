@@ -27,13 +27,11 @@ from mola import __MOLA_PATH__
 
 def submit_command(command, machine, input=None, user=None, use_mola_env=False,
         remote_solver=os.environ.get('MOLA_SOLVER'),
-        false_errors_contains=[
-            'sbatch: soumission depuis noeud', 
-            'sbatch: Pas de partition specifiee,',  # on juno if not qos is given
-            'sbatch: Le job est oriente dans la QOS', # on juno if not qos is given
-            'sbatch: Pas de partition specifiee, la partition par defaut intel est utilisee',
-            'warning',
-            ]):
+
+        # due to abusive redirection to stderr of slurm commands:
+        false_errors_contain=['warning',],
+        false_errors_start_with='sbatch:',
+        true_errors_start_with='sbatch: error:'):
 
     ssh_host = get_ssh_host_command(machine=machine, user=user)
     env = os.environ.copy()
@@ -54,9 +52,17 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
                 capture_output=True, env=env, encoding='UTF-8')
     errlines = [] 
     for line in output.stderr.split('\n')[:-1]:
-        if any([false_error in line.lower() for false_error in false_errors_contains]):
+
+        if line.startswith(true_errors_start_with):
+            errlines += [line]
+        
+        elif line.startswith(false_errors_start_with) or \
+                any([false_error in line.lower() for false_error in false_errors_contain]):
             continue
-        errlines += [line]
+
+        else:
+            errlines += [line]
+
     if errlines:
         msg = f'got error using command: {command} with input:\n{input}, error is:\n'
         raise MolaException(msg+'\n'.join(errlines))

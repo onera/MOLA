@@ -20,7 +20,7 @@ import copy
 import pathlib
 import numpy as np
 import copy
-import multiprocessing
+
 from mpi4py import MPI
 from treelab.cgns.tree import Tree
 from treelab.cgns.base import Base
@@ -622,7 +622,7 @@ class WorkflowInterface(object):
         JobName : str = None,
         RunDirectory : Union[str, pathlib.PosixPath] = '.',
         NumberOfProcessors : int = MPI.COMM_WORLD.Get_size(),
-        NumberOfThreads : int = multiprocessing.cpu_count(),
+        NumberOfThreads : int = None,
         Machine : str = None,
         User : str = None,
         TimeOutInSeconds : float = None,
@@ -630,6 +630,7 @@ class WorkflowInterface(object):
         LauncherCommand : str = 'auto',
         FilesAndDirectories : list = [],
         mola_target_path : str = None,
+        Scheduler : str = None, # None : chosed auto. "SLURM": will launch sbatch; "local" will launch ./job
         AER : str = None,
         ):
         RunDirectory = str(RunDirectory)

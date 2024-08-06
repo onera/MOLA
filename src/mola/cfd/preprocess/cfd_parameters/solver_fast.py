@@ -86,7 +86,7 @@ def get_turbulence_setup( Turbulence : dict ) -> dict:
     Parameters = dict(Num2Base={}, Num2Zones={})
     
     requested_model = Turbulence['Model']
-    if requested_model in ['LES', 'ILES', 'DNS', 'Laminar']:
+    if requested_model in ['LES', 'ILES', 'DNS', 'Laminar', 'Euler']:
 
         if requested_model=='LES':
             # https://doi.org/10.1002/(SICI)1097-0363(20000229)32:4<369::AID-FLD943>3.0.CO;2-6
@@ -96,7 +96,7 @@ def get_turbulence_setup( Turbulence : dict ) -> dict:
     elif requested_model.startswith('ZDES'):
         zdes_mode = requested_model.split('-')[1]
         Parameters['Num2Zones']['DES'] = 'zdes'+zdes_mode
-    
+
     else: # RANS modeling
         if requested_model != 'SA':
             mola_logger.warning("RANS model %s not implemented in Fast. Switching to 'SA'"%requested_model)
