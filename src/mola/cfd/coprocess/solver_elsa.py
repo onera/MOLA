@@ -253,15 +253,15 @@ def extract_integral(output_tree, NormalizationCoefficients=None):
                 pass
     
     t = cgns.Tree()
-    base = cgns.Base(Name='Base', Parent=t)
-    zone = cgns.Zone(Name='Integral', Parent=base)
+    base = cgns.Base(Name='Integral', Parent=t)
     for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):
         Family = IntegralDataNode.name().split('-')[0]
         IntegralDataNode.dettach()
-        IntegralDataNode.setName(Family)
+        IntegralDataNode.setName('FlowSolution')
+        IntegralDataNode.setType('FlowSolution_t')
         if NormalizationCoefficients:
             _normalize_data(IntegralDataNode, Family, NormalizationCoefficients)
-        zone.addChild(IntegralDataNode)
+        cgns.Zone(Name=Family, Parent=base, Children=[IntegralDataNode])
 
     comm.barrier()
     trees = comm.allgather(t)
