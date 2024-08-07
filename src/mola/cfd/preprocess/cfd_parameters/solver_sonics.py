@@ -120,6 +120,10 @@ def apply_to_solver(workflow):
 
 def get_spatial_fluxes_template(Numerics):
     # from miles.solver import configuration_templates
+    scheme = Numerics['Scheme']
+    if Numerics['Scheme'] != 'Roe':
+        mola_logger.warning(f'sonics Scheme={scheme} not implemented, using Roe instead')
+    Numerics['Scheme'] = 'Roe'
 
     # Convective flux 
     if Numerics['Scheme'] == 'Roe':

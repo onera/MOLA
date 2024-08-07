@@ -121,6 +121,7 @@ def get_workflow_dist():
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateY', IsoSurfaceValue=1.e-6, Fields=['Mach','cellN']),
             ],
 
+        RunManagement=dict(Scheduler='local'),
 
         )
     return w
@@ -205,6 +206,7 @@ def get_workflow2_parameters():
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateY', IsoSurfaceValue=1.e-6, Fields=['Mach','cellN']),
             ],
 
+        RunManagement=dict(Scheduler='local'),
 
         )
     return params

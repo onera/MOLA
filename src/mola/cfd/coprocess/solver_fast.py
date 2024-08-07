@@ -18,6 +18,7 @@
 import os
 import glob
 import shutil
+import numpy as np
 from fnmatch import fnmatch
 import warnings
 
@@ -84,6 +85,7 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_isosurface(output_tree, extraction)
 
         elif extraction['Type'] == 'Residuals':
+            coprocess_manager.mola_logger.warn('extract residuals requires solving https://github.com/onera/Fast/issues/13')
             extraction['Data'] = extract_residuals(output_tree)
         
         elif extraction['Type'] == 'Integral':
@@ -203,7 +205,31 @@ def extract_isosurface(output_tree, extraction):
 
 
 def extract_residuals(output_tree):
-    warnings.warn("extract_residuals TODO -> to be implemented for fast")
+    residuals = output_tree.group(Type='ConvergenceHistory_t', Depth=4)
+    if not residuals: return cgns.Tree()
+
+    t = cgns.Tree()
+    base = cgns.Base(Name='Residuals', Parent=t)
+    for residual in residuals:
+        parent_name = residual.parent().name()
+        
+        node = residual.copy(deep=True)
+        
+        unstack_residual(node)
+
+        node.setType('FlowSolution_t')
+        node.setName('FlowSolution')
+        
+        cgns.Zone(Name=parent_name, Parent=base, Children=[node])
+
+    comm.barrier()
+    trees = comm.allgather(t)
+    t = cgns.merge(trees)
+    comm.barrier() 
+
+    return t
+    
+    
 
 def extract_integral(output_tree, NormalizationCoefficients):
     warnings.warn("extract_integral TODO -> to be implemented for fast")
@@ -343,3 +369,23 @@ def remove_not_requested_containers(t : cgns.Tree, container : str):
             # --> remove this zone
             zone.remove()
             continue
+
+
+def unstack_residual( residual : cgns.Node ):
+
+    it_nb_node = residual.get('IterationNumber')
+    
+    if not it_nb_node: return
+    
+    it_nb = it_nb_node.value()
+
+    for r in residual.children()[:]:
+        if not r.name().startswith('RSD_'): continue
+        r.dettach()
+        array = r.value()
+        it_qty = len(it_nb)
+        fields_qty = int( len(array) / it_qty )
+        array = np.reshape( array, (fields_qty,it_qty) )
+        
+        for i in range(fields_qty):
+            cgns.Node(Name=r.name()+'_%d'%i, Value=np.copy(array[i,:]), Parent=residual)

@@ -82,6 +82,8 @@ def write_job_launcher(RunManagement, scheduler_options):
         elif RunManagement['Scheduler'] == 'local':
             import multiprocessing
             nthreads = multiprocessing.cpu_count()
+        elif RunManagement['Scheduler'] is None:
+            raise MolaUserError(f"for solver fast you must provide RunManagement['Scheduler'] value")
         else:
             raise MolaUserError(f"Scheduler {RunManagement['Scheduler']} not supported")
 

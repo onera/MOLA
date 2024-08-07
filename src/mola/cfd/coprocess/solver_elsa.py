@@ -212,15 +212,17 @@ def extract_isosurface(output_tree, extraction):
 
 def extract_residuals(output_tree):
     residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
-    if not residuals:
-        return cgns.Tree()
+    if not residuals: return cgns.Tree()
     residuals = cgns.castNode(residuals)
     residuals.findAndRemoveNode(Name='.Solver#Output')
     t = cgns.Tree()
-    base = cgns.Base(Name='Base', Parent=t)
-    cgns.Zone(Name='Monitoring', Parent=base, Children=[residuals])
-    # NOTE maybe it would be better to put the ConvergenceHistory node under the base (not the zone),
-    # but for now it seems to be not permitted with treelab
+    base = cgns.Base(Name='Residuals', Parent=t)
+
+    # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
+    residuals.setType('FlowSolution_t')
+    residuals.setName('FlowSolution')
+
+    cgns.Zone(Name=base.name(), Parent=base, Children=[residuals])
 
     comm.barrier()
     trees = comm.allgather(t)

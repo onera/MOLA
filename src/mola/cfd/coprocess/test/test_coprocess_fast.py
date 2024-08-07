@@ -24,15 +24,15 @@ import os
 from treelab import cgns
 from mola.cfd.coprocess import solver_fast
 
-def get_fake_workflow_with_coprocess_manager(RunDirectory):
+def get_rans_tree():
+
     import Converter.PyTree as C
     import Generator.PyTree as G
-    import FastS.PyTree as FastS
-    import FastC.PyTree as FastC
+    import Fast.PyTree as Fast
     import Initiator.PyTree as Init
 
-    npts = 5 
-    dx = 0.1
+    npts = 5
+    dx = 0.5
     z = G.cart((0.0,0.0,0.0), (dx,dx,dx), (npts,npts,npts))
     C._addBC2Zone(z, 'WALL', 'FamilySpecified:WALL', 'imin')
     C._fillEmptyBCWith(z, 'FARFIELD', 'FamilySpecified:FARFIELD', dim=3)
@@ -49,11 +49,51 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory):
     walls = C.extractBCOfType(t, 'BCWall')
     DTW._distance2Walls(t, walls, loc='centers', type='ortho')
 
-    numb = { 'temporal_scheme': 'implicit' }
-    numz = { 'scheme':'ausmpred', 'time_step':1e-5 }
-    FastC._setNum2Zones(t, numz); FastC._setNum2Base(t, numb)
+    numb = { 'temporal_scheme': 'implicit', 'ss_iteration':3, 'modulo_verif':1}
+    numz = { 'scheme':'roe', 'slope':'minmod',
+        'time_step':0.0007,'time_step_nature':'local', 'cfl':4}
+    Fast._setNum2Zones(t, numz); Fast._setNum2Base(t, numb)
 
-    (t, tc, metrics) = FastS.warmup(t, None)
+    return t
+
+def get_euler_tree():
+
+    import Converter.PyTree as C
+    import Generator.PyTree as G
+    import Fast.PyTree as Fast
+    import Initiator.PyTree as Init
+
+    npts = 5
+    dx = 0.5
+    z = G.cart((0.0,0.0,0.0), (dx,dx,dx), (npts,npts,npts))
+    C._fillEmptyBCWith(z, 'FARFIELD', 'FamilySpecified:FARFIELD', dim=3)
+    C._addState(z, 'GoverningEquations', 'Euler')
+    Init._initConst(z, MInf=0.4, loc='centers')
+    C._addState(z, MInf=0.4)
+    t = C.newPyTree(['Base', z])
+    C._tagWithFamily(t,'FARFIELD')
+    C._addFamily2Base(t, 'FARFIELD', bndType='BCFarfield')
+
+    numb = { 'temporal_scheme': 'implicit', 'ss_iteration':3, 'modulo_verif':1}
+    numz = { 'scheme':'roe', 'slope':'minmod',
+        'time_step':0.0007,'time_step_nature':'local', 'cfl':4}
+    Fast._setNum2Zones(t, numz); Fast._setNum2Base(t, numb)
+
+    return t
+
+def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
+
+    if type_of_tree == 'rans':
+        t = get_rans_tree()
+
+    elif type_of_tree == 'euler':
+        t = get_euler_tree()
+
+    else:
+        raise ValueError(f'wrong type_of_tree={type_of_tree}')
+    
+    import FastS.PyTree as FastS
+    t, tc, metrics = FastS.warmup(t, None)
 
     class FakeWorkflow():
         def __init__(self):
@@ -262,9 +302,49 @@ def test_extract_bc(tmp_path):
 
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_extract_residuals(tmp_path):
+
+    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'euler')
+    
+    workflow._coprocess_manager.Extractions = [dict(Type='Residuals')]
+    workflow.Extractions = workflow._coprocess_manager.Extractions
+
+    import Converter.Internal as I
+    import FastS.PyTree as FastS
+
+    t = workflow.tree
+    tc = None
+    metrics = workflow._metrics
+    graph = None
+
+    I._rmNodesByName(t, "ZoneConvergenceHistory")
+    I._rmNodesByName(t, "GlobalConvergenceHistory")
+
+    niter = 10
+    FastS.createConvergenceHistory(t, niter)
+
+
+    for it in range( niter ):
+        FastS._compute(t, metrics, it, tc, graph)
+
+        # FIXME not available in RANS https://github.com/onera/Fast/issues/13 
+        FastS.display_temporal_criteria(t, metrics, it, format='store')
+    
+    workflow.tree = cgns.castNode(t)
+    
+    output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
+    residuals = solver_fast.extract_residuals(output_tree)
+    # residuals.save(os.path.join(tmp_path,'test.cgns'))
+
+    workflow._coprocess_manager._status = 'COMPLETED'
+
+
 if __name__ == '__main__':
     # test_compute_missing_fields_at_cell_centers('wkflw_fields','Vorticity')
     # test_get_output_tree('wkflw_'+os.environ.get("MOLA_SOLVER"))
     # test_extract_fields('wkflw2', 'CellCenter', True)
     # test_remove_not_requested_fields()
-    test_extract_bc('bc')
+    # test_extract_bc('bc')
+    test_extract_residuals('residuals')
