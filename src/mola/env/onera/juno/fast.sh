@@ -21,7 +21,7 @@ source $SCRIPT_DIR/../network.sh
 
 export MACHINE=juno
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
-source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 

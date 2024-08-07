@@ -53,7 +53,7 @@ test_integration_elsa:
   stage: test
   needs: ["test_unit_elsa"]
   tags: 
-    - slurm
+    - slurm # "slurm" seems to be spiro ?
   variables:
     SCHEDULER_PARAMETERS: "--qos=co_short_std  --ntasks=4 --time=00:30:00"
   before_script:
@@ -80,7 +80,7 @@ test_integration_fast:
   stage: test
   needs: ["test_unit_fast"]
   tags: 
-    - slurm
+    - slurm # "slurm" seems to be spiro ?
   variables:
     SCHEDULER_PARAMETERS: "--qos=co_short_std  --ntasks=4 --time=00:30:00"
   before_script:

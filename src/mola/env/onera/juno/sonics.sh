@@ -28,7 +28,7 @@ export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 export MACHINE=juno
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
-source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 # source /tmp_user/juno/sonics/dist/socle_cfd6/source.sh
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh

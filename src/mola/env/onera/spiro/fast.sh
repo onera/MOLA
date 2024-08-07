@@ -20,7 +20,7 @@ source $SCRIPT_DIR/../network.sh
 
 export MACHINE=spiro_el8
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
-source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 # to avoid message:
 # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
@@ -35,12 +35,12 @@ unset I_MPI_FABRICS_LIST
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
+export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # maia
 module use --append /scratchm/sonics/usr/modules/
-module load maia/$MAIAVERSION-dsi-cfd6
+module load maia/1.4-dsi-cfd5
 
 # VPM
 export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH

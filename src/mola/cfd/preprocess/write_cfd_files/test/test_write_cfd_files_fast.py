@@ -31,7 +31,7 @@ module_directory = str(pathlib.Path(__file__).parent.resolve())
 class FakeWorkflow():
     def __init__(self):
         self.RunManagement = dict(RunDirectory=module_directory,
-                            Machine=os.getenv('MAC'),
+                            Machine=os.getenv('MOLA_MACHINE'),
                             NumberOfProcessors=2,
                             NumberOfThreads=3,
                             Scheduler=None,
@@ -54,7 +54,7 @@ def test_write_compute():
 def test_write_job_launcher():
 
     RunManagement = dict(RunDirectory=module_directory,
-                         Machine=os.getenv('MAC'),
+                         Machine=os.getenv('MOLA_MACHINE'),
                          NumberOfProcessors=2,
                          NumberOfThreads=3,
                          Scheduler=None,

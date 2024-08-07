@@ -22,7 +22,7 @@ export MAIAVERSION=1.4
 
 export MACHINE=sator_sph
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
-source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 

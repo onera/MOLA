@@ -171,7 +171,7 @@ def plotSurfaces(surfaces, frame='FRAMES/frame.png', camera={},
                        additionalDisplayOptions={},
                        additionalStateOptions={})]):
 
-    machine = os.getenv('MAC')
+    machine = os.getenv('MOLA_MACHINE')
     if machine in ['spiro','ld']:
         offscreen=5 # MESA TODO solve bug https://elsa.onera.fr/issues/10536 
     elif machine in ['visung', 'visio', 'sator']:

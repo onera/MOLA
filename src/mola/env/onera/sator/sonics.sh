@@ -29,7 +29,7 @@ export PYTHONPATH=/tmp_user/sator/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DU
 
 export MACHINE=sator_sph
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
-source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 source /tmp_user/sator/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh 
 export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
