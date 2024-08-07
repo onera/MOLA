@@ -55,7 +55,7 @@ test_integration_elsa:
   tags: 
     - slurm
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"  #"--qos=co_short_std  --ntasks=4 --time=00:30:00"
+    SCHEDULER_PARAMETERS: "--qos=co_short_std  --ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_ELSA
   script:
@@ -82,7 +82,7 @@ test_integration_fast:
   tags: 
     - slurm
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"  #"--qos=co_short_std  --ntasks=4 --time=00:30:00"
+    SCHEDULER_PARAMETERS: "--qos=co_short_std  --ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_FAST
   script:
