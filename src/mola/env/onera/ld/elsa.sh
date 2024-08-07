@@ -44,13 +44,6 @@ export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 module use --append /home/sonics/LD8/modules/
 module load maia/$MAIAVERSION-dsi-ompi405
 
-# PUMA
-export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_os8
-export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages:$PYTHONPATH
-export PYTHONPATH=$PumaRootDir/lib/python3.8/site-packages/PUMA:$PYTHONPATH
-export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.8:$LD_LIBRARY_PATH
-export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
 # turbo 
 export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
 

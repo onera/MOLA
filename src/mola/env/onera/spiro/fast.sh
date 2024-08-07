@@ -18,7 +18,9 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA &>/dev/null
+export MACHINE=spiro_el8
+export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
+source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
 
 # to avoid message:
 # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
