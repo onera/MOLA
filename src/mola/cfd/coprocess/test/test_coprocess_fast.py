@@ -81,6 +81,35 @@ def get_euler_tree():
 
     return t
 
+def get_laminar_tree():
+
+    import Converter.PyTree as C
+    import Generator.PyTree as G
+    import Fast.PyTree as Fast
+    import Initiator.PyTree as Init
+
+    npts = 5
+    dx = 0.5
+    z = G.cart((0.0,0.0,0.0), (dx,dx,dx), (npts,npts,npts))
+    C._addBC2Zone(z, 'WALL', 'FamilySpecified:WALL', 'imin')
+    C._fillEmptyBCWith(z, 'FARFIELD', 'FamilySpecified:FARFIELD', dim=3)
+    C._addState(z, 'GoverningEquations', 'NSLaminar')
+    Init._initConst(z, MInf=0.4, loc='centers')
+    C._addState(z, MInf=0.4)
+    t = C.newPyTree(['Base', z])
+    C._tagWithFamily(t,'FARFIELD')
+    C._tagWithFamily(t,'WALL')
+    C._addFamily2Base(t, 'FARFIELD', bndType='BCFarfield')
+    C._addFamily2Base(t, 'WALL', bndType='BCWall')
+
+    numb = { 'temporal_scheme': 'implicit', 'ss_iteration':3, 'modulo_verif':1}
+    numz = { 'scheme':'roe', 'slope':'minmod',
+        'time_step':0.0007,'time_step_nature':'local', 'cfl':4}
+    Fast._setNum2Zones(t, numz); Fast._setNum2Base(t, numb)
+
+    return t
+
+
 def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
 
     if type_of_tree == 'rans':
@@ -88,6 +117,10 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
 
     elif type_of_tree == 'euler':
         t = get_euler_tree()
+
+    elif type_of_tree == 'laminar':
+        t = get_laminar_tree()
+
 
     else:
         raise ValueError(f'wrong type_of_tree={type_of_tree}')
@@ -100,7 +133,9 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
             self.tree = cgns.castNode(t)
             self._metrics = metrics
             self.Numerics = dict(IterationAtInitialState=1,
-                                          NumberOfIterations=1)
+                                      NumberOfIterations=1,
+                                      TimeAtInitialState=0.0,
+                                            TimeMarching='Steady')
             self.Extractions = []
             self.RunManagement = dict(RunDirectory=RunDirectory)
             self._expected_field_names = [
@@ -341,10 +376,83 @@ def test_extract_residuals(tmp_path):
     workflow._coprocess_manager._status = 'COMPLETED'
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_stress_and_state(tmp_path):
+    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'laminar')
+    
+    workflow._coprocess_manager.Extractions = [
+        dict(Type='Integral', Source='WALL', Name='WALL_LOADS')]
+    workflow.Extractions = workflow._coprocess_manager.Extractions
+
+    output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
+    stress, state = solver_fast.get_stress_and_state(output_tree, 'WALL',
+                                                     workflow._metrics)
+    
+    expected_stress_keys=('fx','fy','fz','t0x','t0y','t0z','S','m','ForceX','ForceY','ForceZ')
+    for k in expected_stress_keys: assert k in stress
+
+    expected_state_keys=('Density','MomentumX','MomentumY','MomentumZ')
+    for k in expected_state_keys: assert k in state
+
+    workflow._coprocess_manager._status = 'COMPLETED'
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_dimensionalize_torque():
+
+    stress = dict(t0x=1.0, t0y=1.0, t0z=1.0, S=0.1)
+    state = dict(Density=1.0, MomentumX=1.0, MomentumY=1.0, MomentumZ=1.0)
+
+    solver_fast.dimensionalize_torque(stress, state)
+
+    expected_stress_keys = ('Torque0X', 'Torque0Y', 'Torque0Z')
+    for k in expected_stress_keys: assert k in stress
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_extract_integral(tmp_path):
+    
+    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'laminar')
+    
+    extraction = dict(Type='Integral', Source='WALL', Name='WALL_LOADS')
+    workflow._coprocess_manager.Extractions = [ extraction ]
+    workflow.Extractions = workflow._coprocess_manager.Extractions
+
+    import FastS.PyTree as FastS
+
+    niter = 3
+    for it in range( niter ):
+        FastS._compute(workflow.tree, workflow._metrics, it)
+    
+        workflow.tree = cgns.castNode(workflow.tree)
+
+        output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
+        
+        t = solver_fast.extract_integral(output_tree, extraction, workflow)
+
+    flow_sol = t.get('FlowSolution')
+    
+    assert flow_sol
+
+    expected_integrals = ('IterationNumber','ForceX',  'ForceY',   'ForceZ',
+                          'MassFlow',     'Torque0X','Torque0Y', 'Torque0Z')
+    for k in expected_integrals: 
+        expected_node = flow_sol.get(k)
+        assert expected_node
+        assert len(expected_node.value()) == niter
+
+    workflow._coprocess_manager._status = 'COMPLETED'
+
+
+
 if __name__ == '__main__':
     # test_compute_missing_fields_at_cell_centers('wkflw_fields','Vorticity')
     # test_get_output_tree('wkflw_'+os.environ.get("MOLA_SOLVER"))
     # test_extract_fields('wkflw2', 'CellCenter', True)
     # test_remove_not_requested_fields()
     # test_extract_bc('bc')
-    test_extract_residuals('residuals')
+    # test_extract_residuals('residuals')
+    test_extract_integral('integral')

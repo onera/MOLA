@@ -29,6 +29,7 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
@@ -61,10 +62,6 @@ post_fields_using_cassiopee_computeExtraVariable = [
 def perform_extractions(workflow, coprocess_manager):
     output_tree = get_output_tree(workflow, coprocess_manager)
     families_to_bctype = get_family_to_BCType(output_tree)
-
-    # extract all integral data at once, so once by iteration, 
-    # whatever the number of Extractions with type Integral
-    integral_data_already_extracted = False 
     
     for extraction in coprocess_manager.Extractions:
         if extraction['IsToExtract'] == False:
@@ -89,12 +86,7 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_residuals(output_tree)
         
         elif extraction['Type'] == 'Integral':
-            if not integral_data_already_extracted:
-                NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
-                extraction['Data'] = extract_integral(output_tree, NormalizationCoefficients)
-                integral_data_already_extracted = True
-            else:
-                extraction['Data'] = cgns.Tree()
+            extract_integral(output_tree, extraction, workflow)
 
         elif extraction['Type'] == 'Probe': 
             extraction['Data'] = extract_probe(output_tree)
@@ -186,6 +178,11 @@ def extract_bc(output_tree, extraction, families_to_bctype, metrics):
                 zone.moveTo(base0)
             base.remove()
 
+    for type_to_remove in 'Rind_t', 'ConvergenceHistory_t':
+        SurfacesTree.findAndRemoveNodes(Type=type_to_remove)
+
+    remove_spurious_data_from_output(SurfacesTree)
+
     return SurfacesTree
 
 def extract_isosurface(output_tree, extraction):
@@ -200,6 +197,8 @@ def extract_isosurface(output_tree, extraction):
         Name = extraction['Name'],
         tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
         )
+    
+    remove_spurious_data_from_output(isosurface)
     
     return isosurface
 
@@ -222,17 +221,41 @@ def extract_residuals(output_tree):
         
         cgns.Zone(Name=parent_name, Parent=base, Children=[node])
 
-    comm.barrier()
-    trees = comm.allgather(t)
-    t = cgns.merge(trees)
-    comm.barrier() 
-
-    return t
+    return mpi_allgather_and_merge_trees(t)
     
     
 
-def extract_integral(output_tree, NormalizationCoefficients):
-    warnings.warn("extract_integral TODO -> to be implemented for fast")
+def extract_integral(output_tree, extraction, workflow):
+    
+    stress, state = get_stress_and_state(output_tree, extraction['Source'],
+                                         workflow._metrics)
+    dimensionalize_torque(stress, state)    
+
+    fields = initialize_integral_fields_dict(workflow._coprocess_manager)
+
+    fields.update(dict(ForceX  = np.array([stress['ForceX']]),
+                       ForceY  = np.array([stress['ForceY']]),
+                       ForceZ  = np.array([stress['ForceZ']]),
+                       Torque0X= np.array([stress['Torque0X']]),
+                       Torque0Y= np.array([stress['Torque0Y']]),
+                       Torque0Z= np.array([stress['Torque0Z']]),
+                       MassFlow= np.array([stress['m']])))
+    
+    t = cgns.Tree()
+    base = cgns.Base(Name='Integral', Parent=t)
+    zone = cgns.utils.newZoneFromDict( extraction['Name'], fields )
+    zone.attachTo(base)
+
+    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+
+    if 'Data' in extraction:
+        and_previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+        return and_previous_signals_to_be_updated
+    else: 
+        extraction['Data'] = current_iteration_signals
+        return current_iteration_signals
+
 
 def extract_probe(output_tree):
     warnings.warn("extract_probe TODO -> to be implemented for fast")
@@ -331,12 +354,16 @@ def remove_ghost_cells( t : cgns.Tree ):
 def put_fields_in_vertex( t : cgns.Tree ):
 
     import Converter.PyTree as C
+    import Converter.Internal as I
 
     for field_name in get_field_names(t):
         C._center2Node__(t, 'centers:'+field_name, 0)
 
     cgns.castNode(t)
 
+    for fs in t.group(Name=I.__FlowSolutionNodes__, Type='FlowSolution_t',Depth=4):
+        GridLocation_node = cgns.Node(Name='GridLocation', Value='Vertex', Type='GridLocation_t')
+        GridLocation_node.attachTo(fs, position=0)
 
 def rename_flow_solution_container(t : cgns.Tree, extraction : dict):
 
@@ -389,3 +416,86 @@ def unstack_residual( residual : cgns.Node ):
         
         for i in range(fields_qty):
             cgns.Node(Name=r.name()+'_%d'%i, Value=np.copy(array[i,:]), Parent=residual)
+
+
+def get_stress_and_state(output_tree : cgns.Tree , source : str, metrics) -> list:
+    
+    import FastS.PyTree as FastS
+    stress_tree = FastS.createStressNodes(output_tree, [source])
+    stress_list = FastS._computeStress(output_tree, stress_tree, metrics)
+
+    fx, fy, fz, t0x, t0y, t0z, S, m, ForceX, ForceY, ForceZ = stress_list
+    stress_dict = dict(fx=fx,
+                       fy=fy,
+                       fz=fz,
+                       t0x=t0x,
+                       t0y=t0y,
+                       t0z=t0z,
+                       S=S,
+                       m=m,
+                       ForceX=ForceX,
+                       ForceY=ForceY,
+                       ForceZ=ForceZ)
+
+    stress_tree = cgns.castNode(stress_tree)
+    reference_state = stress_tree.get(Type='ReferenceState_t', Depth=3)
+    state_dict = reference_state.parent().getParameters(reference_state.name())
+
+    return stress_dict, state_dict
+
+def dimensionalize_torque(stress : dict, state : dict) -> None:
+
+    rho = state['Density']
+    one_over_rho = 1.0/rho
+    Ux = one_over_rho * state['MomentumX']
+    Uy = one_over_rho * state['MomentumY']
+    Uz = one_over_rho * state['MomentumZ']
+
+    PressureDynamic = 0.5 * rho * (Ux**2 + Uy**2 + Uz**2)
+    LengthReference = 1.0 # 1 meter (cf private comm I.M. 8/8/24)
+
+    torque_coef = PressureDynamic * stress['S'] * LengthReference # M^1 L^2 T^-2
+    
+    stress['Torque0X'] = float(torque_coef * stress['t0x'])
+    stress['Torque0Y'] = float(torque_coef * stress['t0y'])
+    stress['Torque0Z'] = float(torque_coef * stress['t0z'])
+
+def remove_spurious_data_from_output( t : cgns.Tree ) -> None:
+
+    for type_to_remove in 'Rind_t', 'ConvergenceHistory_t':
+        t.findAndRemoveNodes(Type=type_to_remove)
+
+    for name_to_remove in  '.Solver#define', '.Solver#ownData':
+        t.findAndRemoveNodes(Name=name_to_remove)
+
+def initialize_integral_fields_dict(coprocess_manager) -> dict:
+    it = coprocess_manager.iteration
+    fields = dict(IterationNumber=np.array([it]))
+
+    if coprocess_manager.workflow.Numerics['TimeMarching'] != 'Steady':
+        time = coprocess_manager.time
+        fields['Time'] = np.array([time])
+
+    return fields
+
+def update_signals_using( current_iteration_signals : cgns.Tree,
+                          and_previous_signals_to_be_updated : cgns.Tree ) -> None:
+    
+    previous_tree = and_previous_signals_to_be_updated
+    current_tree = current_iteration_signals
+
+    for previous_zone, current_zone in zip(previous_tree.zones(),current_tree.zones()):
+        previous_flow_sol = previous_zone.get(Name='FlowSolution',Depth=1)
+        current_flow_sol  =  current_zone.get(Name='FlowSolution',Depth=1)
+
+        for node_being_updated in previous_flow_sol.children():
+            if node_being_updated.type() != 'DataArray_t': continue
+            
+            current_field_node = current_flow_sol.get(Name=node_being_updated.name())
+
+            if not current_field_node:
+                expected_field_name = node_being_updated.name()
+                raise MolaException(f"expected to get field {expected_field_name} in node {current_flow_sol.path()}")
+
+            node_being_updated.setValue(np.hstack((node_being_updated.value(),
+                                                   current_field_node.value())))

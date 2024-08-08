@@ -30,6 +30,7 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
@@ -66,8 +67,14 @@ def perform_extractions(workflow, coprocess_manager):
         
         elif extraction['Type'] == 'Integral':
             if not integral_data_already_extracted:
+
+                # NOTE LB: is ApplicationContext/NormalizationCoefficient the right place ?
+                # perhaps specific NormalizationCoefficients should be incorporated into
+                # the extraction dict. These could be set using ApplicationContext/NormalizationCoefficient
+                # in the workflow
                 NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
-                extraction['Data'] = extract_integral(output_tree, NormalizationCoefficients)
+                extraction['Data'] = extract_integral(output_tree, extraction, 
+                                                      NormalizationCoefficients)
                 integral_data_already_extracted = True
             else:
                 extraction['Data'] = cgns.Tree()
@@ -224,24 +231,21 @@ def extract_residuals(output_tree):
 
     cgns.Zone(Name=base.name(), Parent=base, Children=[residuals])
 
-    comm.barrier()
-    trees = comm.allgather(t)
-    t = cgns.merge(trees)
-    comm.barrier() 
-    
-    return t
+    return mpi_allgather_and_merge_trees(t)
 
-def extract_integral(output_tree, NormalizationCoefficients=None):
+def extract_integral(output_tree, extraction, NormalizationCoefficients=None):
 
     def _normalize_data(IntegralDataNode, Family, NormalizationCoefficients):
         data_to_normalize = dict(
             convflux_ro = dict(Name='MassFlow', Coef='FluxCoef'),
-            CL = dict(Name='CL', Coef='FluxCoef'),
-            CD = dict(Name='CD', Coef='FluxCoef'),
-            CY = dict(Name='CY', Coef='FluxCoef'),
-            Cn = dict(Name='Cn', Coef='TorqueCoef'),
-            Cl = dict(Name='Cl', Coef='TorqueCoef'),
-            Cm = dict(Name='Cm', Coef='TorqueCoef'),
+                     CL = dict(Name='CL',       Coef='FluxCoef'),
+                     CD = dict(Name='CD',       Coef='FluxCoef'),
+                     CX = dict(Name='CX',       Coef='FluxCoef'),
+                     CY = dict(Name='CY',       Coef='FluxCoef'),
+                     CZ = dict(Name='CZ',       Coef='FluxCoef'),
+                     Cn = dict(Name='Cn',       Coef='TorqueCoef'),
+                     Cl = dict(Name='Cl',       Coef='TorqueCoef'),
+                     Cm = dict(Name='Cm',       Coef='TorqueCoef'),
         )
         for name, params in data_to_normalize.items():
             new_name = params['Name']
@@ -259,19 +263,15 @@ def extract_integral(output_tree, NormalizationCoefficients=None):
         IntegralDataNode.dettach()
         IntegralDataNode.setName('FlowSolution')
         IntegralDataNode.setType('FlowSolution_t')
+        for n in IntegralDataNode.children(): n.setType('DataArray_t')
         if NormalizationCoefficients:
             _normalize_data(IntegralDataNode, Family, NormalizationCoefficients)
-        cgns.Zone(Name=Family, Parent=base, Children=[IntegralDataNode])
+        cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
 
-    comm.barrier()
-    trees = comm.allgather(t)
-    t = cgns.merge(trees)
-    comm.barrier() 
-
-    return t
+    return mpi_allgather_and_merge_trees(t)
 
 def extract_probe(output_tree):
-    warnings.warning('skip extraction of type Probe (not implemented yet)', rank=0)
+    warnings.warning('skip extraction of type Probe (not implemented yet)')
     return cgns.Tree()
 
 def update_elsa_input(new_tree):

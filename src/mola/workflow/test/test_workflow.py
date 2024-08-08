@@ -118,7 +118,7 @@ def get_workflow_dist():
             dict(Type='3D', Fields=['Mach', 'q_criterion']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['normalvector', 'frictionvector']),
             dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
-            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateY', IsoSurfaceValue=1.e-6, Fields=['Mach','cellN']),
+            dict(Type='IsoSurface', Name='MySlice', IsoSurfaceField='CoordinateY', IsoSurfaceValue=1.e-6, Fields=['Mach','cellN']),
             ],
 
         RunManagement=dict(Scheduler='local'),
@@ -250,7 +250,7 @@ def get_workflow_sphere_struct(RunDirectory):
         Solver=os.environ.get('MOLA_SOLVER'),
 
         Numerics = dict(
-            NumberOfIterations=10,
+            NumberOfIterations=2,
             CFL=1.,
         ),
 
@@ -263,11 +263,10 @@ def get_workflow_sphere_struct(RunDirectory):
             dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ',
-                 IsoSurfaceValue=1.e-6, ExtractionPeriod=5, SavePeriod=5,
-                 Override=False),
+                 IsoSurfaceValue=1.e-6),
+            dict(Type='Integral', Source='Wall'),
             dict(Type='3D', Fields=['Density','MomentumX','MomentumY','MomentumZ'],
-                 GridLocation='Vertex', GhostCells = False,
-                 ExtractAtEndOfRun=True),
+                 GridLocation='Vertex', GhostCells = False),
             ],
 
         RunManagement=dict(
@@ -278,7 +277,7 @@ def get_workflow_sphere_struct(RunDirectory):
     
     return w
 
-def get_workflow_sphere_struct_mpi_to_connect(RunDirectory):
+def get_workflow_sphere_struct_cassiopee_mpi_to_connect(RunDirectory):
     from mpi4py import MPI
     w = Workflow(
         RawMeshComponents=[
@@ -295,7 +294,8 @@ def get_workflow_sphere_struct_mpi_to_connect(RunDirectory):
 
         SplittingAndDistribution=dict(
             Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
-            Splitter='maia', # or 'maia', 'PyPart' etc..
+            Splitter='Cassiopee', 
+            Distributor='Cassiopee', 
             ComponentsToSplit='all', # 'all', or None or ['first', 'second'...]
             ),
 
@@ -312,7 +312,7 @@ def get_workflow_sphere_struct_mpi_to_connect(RunDirectory):
         Solver=os.environ.get('MOLA_SOLVER'),
 
         Numerics = dict(
-            NumberOfIterations=10,
+            NumberOfIterations=2,
             CFL=1.,
         ),
 
@@ -324,7 +324,11 @@ def get_workflow_sphere_struct_mpi_to_connect(RunDirectory):
         Extractions=[
             dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
-            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1.e-6),
+            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ',
+                 IsoSurfaceValue=1.e-6),
+            dict(Type='Integral', Source='Wall'),
+            dict(Type='3D', Fields=['Density','MomentumX','MomentumY','MomentumZ'],
+                 GridLocation='Vertex', GhostCells = False),
             ],
 
         RunManagement=dict(
@@ -383,6 +387,8 @@ def get_workflow_sphere_struct_dist(RunDirectory):
             dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1.e-6),
+            dict(Type='3D', Fields=['Density','MomentumX','MomentumY','MomentumZ'],
+                 GridLocation='CellCenter', GhostCells = False),
             ],
 
         RunManagement=dict(
@@ -559,6 +565,70 @@ def get_workflow1():
 
     return w
 
+
+def get_workflow_cart_monoproc(RunDirectory):
+
+    x, y, z = np.meshgrid( np.linspace(0,1,5),
+                           np.linspace(0,1,5),
+                           np.linspace(0,1,5), indexing='ij')
+    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+
+
+    w = Workflow(
+        RawMeshComponents=[
+            dict(
+                Name='sphere',
+                Source=mesh,
+                Families=[
+                    dict(Name='Ground',
+                         Location='kmin'),
+                    dict(Name='Farfield',
+                         Location='remaining'),
+                ],
+                )
+        ],
+
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+            Distributor='Cassiopee', 
+            ComponentsToSplit=None, # 'all', or None or ['first', 'second'...]
+            ),
+
+        Flow=dict(
+            Density = 0.2,
+            Temperature = 100.,
+            Velocity = 50.,
+                 ),
+
+        Turbulence = dict(
+            Model = 'SA',
+        ),
+
+        Solver=os.environ.get('MOLA_SOLVER'),
+
+        Numerics = dict(
+            NumberOfIterations=2,
+            CFL=1.,
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Ground',   Type='Wall'),
+            dict(Family='Farfield', Type='Farfield'),
+        ],
+
+        Extractions=[dict(Type='Integral', Source='Ground')],
+
+        RunManagement=dict(
+            NumberOfProcessors=1,
+            RunDirectory=RunDirectory,
+            ),
+        )
+    
+    return w
+
+
+
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_init():
@@ -674,6 +744,18 @@ def test_prepare_workflow_dist():
 
 
 @pytest.mark.integration
+@pytest.mark.cost_level_0
+def test_workflow_cart_monoproc(tmp_path, remove_cfd_files=True):
+    w = get_workflow_cart_monoproc(tmp_path)
+    w.RunManagement['Scheduler'] = 'local'
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+    if remove_cfd_files: w.remove_cfd_files()
+
+
+@pytest.mark.integration
 @pytest.mark.cost_level_3
 def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
     w = get_workflow_sphere_struct(tmp_path)
@@ -687,27 +769,27 @@ def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
-def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path):
-    w = get_workflow_sphere_struct_mpi_to_connect(tmp_path)
+def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=True):
+    w = get_workflow_sphere_struct_cassiopee_mpi_to_connect(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
-    w.remove_cfd_files()
+    if remove_cfd_files: w.remove_cfd_files()
 
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
-def test_workflow_sphere_struct_local_dist(tmp_path):
+def test_workflow_sphere_struct_local_dist(tmp_path,remove_cfd_files=True):
     w = get_workflow_sphere_struct_dist(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
-    w.remove_cfd_files()
+    if remove_cfd_files: w.remove_cfd_files()
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
@@ -771,5 +853,8 @@ def test_print_interface_1():
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
-    # test_workflow_sphere_struct_local_monoproc('sphere_local_'+os.environ.get("MOLA_SOLVER"),False)
-    test_workflow_sphere_struct_local_dist('sphere_dist_'+os.environ.get("MOLA_SOLVER"))
+    # test_workflow_sphere_struct_local_monoproc('sphere_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
+    # test_workflow_cart_monoproc('cart_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
+    # test_workflow_sphere_struct_local_dist('sphere_dist_'+os.environ.get("MOLA_SOLVER"))
+    # test_workflow_sphere_struct_local_cassiopee_mpi('sphere_struct_cassmpi_'+os.environ.get("MOLA_SOLVER"),False)
+    test_workflow_sphere_struct_local_dist('sphere_struct_dist_'+os.environ.get("MOLA_SOLVER"),False)

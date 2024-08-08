@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+
 import Converter.PyTree as C
 import Converter.Internal as I
 import Converter.Mpi as Cmpi
@@ -81,6 +83,26 @@ def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
         locations_node = I.getNodeFromName1(tags_containers, 'locations')
 
         containers_names = I.getNodeFromName1(tags_containers, 'containers_names')
+        if not containers_names:
+            # this means that there is no FlowSolution_t and slice is done on coords.
+            # so slice it and skip
+
+            if I.getNodeFromType1(zone,'FlowSolution_t'):
+                C.convertPyTree2File(t,'debug.cgns')
+                raise ValueError(
+                    f'missing node in zone:{zone[0]}/tags_containers/containers_names '
+                    'and existing FlowSolution_t, which should not happen.\n'
+                    'Check debug.cgns')
+
+            if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+                C.convertPyTree2File(t,'debug.cgns')
+                raise ValueError(
+                    f'missing node in zone:{zone[0]}/tags_containers/containers_names '
+                    f'and slice was requested for field {fieldname}, which should not happen.\n'
+                    'Check debug.cgns')
+            isosurfs +=  P.isoSurfMC(zone, fieldname, value) 
+            continue
+                
         if fieldname not in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
             fieldnameWithTag = None
             for cn in containers_names[2]:

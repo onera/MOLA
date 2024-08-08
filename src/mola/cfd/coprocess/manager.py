@@ -46,32 +46,16 @@ class CoprocessManager():
     def __init__(self, workflow):
         self.workflow = workflow
 
-        run_dir = self.workflow.RunManagement.get('RunDirectory','.')
-        
-        if run_dir == "." or run_dir == os.path.basename(os.getcwd()):
-            output_dir = names.DIRECTORY_OUTPUT
-            log_dir = names.DIRECTORY_LOG
-            colog_file_path = names.FILE_COLOG
-
-        else: 
-            output_dir = os.path.join(run_dir,names.DIRECTORY_OUTPUT)
-            log_dir = os.path.join(run_dir,names.DIRECTORY_LOG)
-            colog_file_path = os.path.join(run_dir, names.FILE_COLOG)
-                
-            
-        if rank==0:
-            os.makedirs(output_dir, exist_ok=True)
-            os.makedirs(log_dir, exist_ok=True)
-
-        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path, level='DEBUG')
+        self.make_directories_and_log()
 
         self.iteration = self.workflow.Numerics['IterationAtInitialState'] - 1
+        self.time = self.workflow.Numerics['TimeAtInitialState']
+
         self.launch_time = timeit.default_timer()
         if self.workflow.Numerics['NumberOfIterations'] == 0:
             err_msg = 'NumberOfIterations=0 => simulation cannot begin. Please change this value and submit again.'
             self.mola_logger.error(err_msg, rank=0)
             raise MolaUserError(err_msg)
-
 
         self._status = 'BEFORE_FIRST_ITERATION'
 
@@ -115,6 +99,9 @@ class CoprocessManager():
 
         self.iteration += 1
         self.mola_logger.info(f'iteration {self.iteration:d}', rank=0)
+
+        if self.workflow.Numerics['TimeMarching'] != 'Steady':
+            self.time += self.workflow.Numerics['TimeStep']
 
         self.update_extractions_to_perform()
 
@@ -214,7 +201,29 @@ class CoprocessManager():
         apply(self.workflow)
 
         self.workflow.set_workflow_parameters_in_tree()
-    
+
+    def make_directories_and_log(self):
+
+        run_dir = self.workflow.RunManagement.get('RunDirectory','.')
+        
+        if run_dir == "." or run_dir == os.path.basename(os.getcwd()):
+            output_dir = names.DIRECTORY_OUTPUT
+            log_dir = names.DIRECTORY_LOG
+            colog_file_path = names.FILE_COLOG
+
+        else: 
+            output_dir = os.path.join(run_dir,names.DIRECTORY_OUTPUT)
+            log_dir = os.path.join(run_dir,names.DIRECTORY_LOG)
+            colog_file_path = os.path.join(run_dir, names.FILE_COLOG)
+                
+            
+        if rank==0:
+            os.makedirs(output_dir, exist_ok=True)
+            os.makedirs(log_dir, exist_ok=True)
+
+        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path,
+                                      level='DEBUG')
+
 
 def move_log_files():
     if rank == 0:
@@ -249,3 +258,11 @@ def check_stderr():
         except FileNotFoundError:
             pass
 
+def mpi_allgather_and_merge_trees(local_tree : cgns.Tree, comm=comm ) -> cgns.Tree:
+
+    comm.barrier()
+    trees = comm.allgather(local_tree)
+    merged_tree = cgns.merge(trees)
+    comm.barrier() 
+
+    return merged_tree
