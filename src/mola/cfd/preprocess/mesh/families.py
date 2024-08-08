@@ -224,3 +224,10 @@ def join_families(t, pattern, mode=2):
             mola_logger.debug(f'Add family {fam}')
             cgns.Node(Name=fam, Type='Family', Parent=base)
 
+def get_family_to_BCType( t : cgns.Tree ) -> dict:
+    families_to_bctype = dict()
+    for famnode in t.group(Type='Family', Depth=2):
+        bctype = famnode.get(Type='FamilyBC')
+        if bctype is not None:
+            families_to_bctype[famnode.name()] = bctype.value()
+    return families_to_bctype

@@ -27,10 +27,6 @@ from mola.cfd.compute.read_cfd_files import read_cfd_files
 
 def apply_to_solver(workflow):
 
-    if rank==0:
-        os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
-        os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
-
     import elsAxdt
     elsAxdt.trace(0)
 

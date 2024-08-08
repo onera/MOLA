@@ -2,12 +2,12 @@
 #
 #    This file is part of MOLA.
 #
-#    MOLA is free software: you can redistribute self.iteration and/or modify
-#    self.iteration under the terms of the GNU Lesser General Public License as published by
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Lesser General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
-#    MOLA is distributed in the hope that self.iteration will be useful,
+#    MOLA is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU Lesser General Public License for more details.
@@ -15,13 +15,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mpi4py import MPI
+from treelab import cgns
 
-import mola.naming_conventions as names
+from mola.logging import mola_logger
 
+def apply_to_solver(workflow):
 
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-NumberOfProcessors = comm.Get_size()
-
-
+    mola_logger.info('SONICS FINALIZATION TO BE IMPLEMENTED') # TODO 
+    pass

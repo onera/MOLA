@@ -22,7 +22,7 @@ export MAIAVERSION=dev #1.4
 
 export MACHINE=ld
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
-source $CASSIOPEE/Cassiopee/Envs/sh_Cassiopee_r8 &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 module load vscode/1.85.2

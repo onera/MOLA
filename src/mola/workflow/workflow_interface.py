@@ -20,7 +20,7 @@ import copy
 import pathlib
 import numpy as np
 import copy
-import multiprocessing
+
 from mpi4py import MPI
 from treelab.cgns.tree import Tree
 from treelab.cgns.base import Base
@@ -418,7 +418,7 @@ class WorkflowInterface(object):
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
-            Frame : str = 'relative',
+            Frame : str = 'absolute',
             TimeAveragingFirstIteration : int = 1000,
             TimeAveragingIterations : int = 1000,
             PostprocessOperations : list = None,
@@ -468,7 +468,7 @@ class WorkflowInterface(object):
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
-            ExtractAtEndOfRun : bool = False,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             GridLocation : str = 'CellCenter',
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
@@ -492,7 +492,7 @@ class WorkflowInterface(object):
             ExtractionPeriod : int = 100,
             SavePeriod : int = 100,
             Override : bool = True, # if False, will tag with iteration
-            ExtractAtEndOfRun : bool = False,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             GridLocation : str = 'Vertex',
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
@@ -545,9 +545,9 @@ class WorkflowInterface(object):
             Name : str = None, # if None, will be based on Position
             ExtractionPeriod : int = 5000,
             SavePeriod : int = 5000,
-            Frame : str = 'relative',
+            Frame : str = 'relative', # TODO add warning for fast (only 'absolute' possible)
             Override : bool = True, # if False, will tag with iteration
-            ExtractAtEndOfRun : bool = False,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             Container : str = 'FlowSolution#Output', 
             GridLocation : str = 'Vertex',
             GhostCells : bool = False,
@@ -622,7 +622,7 @@ class WorkflowInterface(object):
         JobName : str = None,
         RunDirectory : Union[str, pathlib.PosixPath] = '.',
         NumberOfProcessors : int = MPI.COMM_WORLD.Get_size(),
-        NumberOfThreads : int = multiprocessing.cpu_count(),
+        NumberOfThreads : int = None,
         Machine : str = None,
         User : str = None,
         TimeOutInSeconds : float = None,
@@ -630,6 +630,7 @@ class WorkflowInterface(object):
         LauncherCommand : str = 'auto',
         FilesAndDirectories : list = [],
         mola_target_path : str = None,
+        Scheduler : str = None, # None : chosed auto. "SLURM": will launch sbatch; "local" will launch ./job
         AER : str = None,
         ):
         RunDirectory = str(RunDirectory)

@@ -45,7 +45,8 @@ def apply(workflow):
 
     initialize_flow_with_given_method(workflow, FlowSolution_name)
     check_initial_flow_is_in_all_zones(workflow, FlowSolution_name)
-    workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
+    if workflow.Solver.lower() != 'sonics': # HACK, should not fail
+        workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
     force_grid_location_as_first_sibling(workflow.tree) # HACK
     
     apply_to_solver(workflow)

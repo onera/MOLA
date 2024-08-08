@@ -78,6 +78,7 @@ def process_extractions_3d(workflow):
     for zone in workflow.tree.zones():
         for Extraction in workflow.Extractions:
             if Extraction['Type'] in ['3D', 'Restart'] and is_zone_in_extraction_family(zone, Extraction):
+
                 add_3d_extraction_to_zone(zone, Extraction)
 
 def is_zone_in_extraction_family(zone, Extraction):
@@ -93,7 +94,12 @@ def is_zone_in_extraction_family(zone, Extraction):
         return True
 
 def add_3d_extraction_to_zone(zone, Extraction):
-    EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
+    
+    if 'Container' in Extraction:
+        EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
+    else:
+        EoRnode = None
+
     options = Extraction.get('OtherOptions', dict())
     if not EoRnode:
         create_new_container_for_3d_extraction(zone, Extraction['Fields'], Extraction['Container'], 

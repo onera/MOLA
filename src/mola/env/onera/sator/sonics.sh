@@ -26,6 +26,11 @@ export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export PYTHONPATH=/tmp_user/sator/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
+
+export MACHINE=sator_sph
+export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
 source /tmp_user/sator/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh 
 export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
 

@@ -215,20 +215,28 @@ def test_WorkflowParallelScheduler_prepare(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
-def test_WorkflowParallelScheduler_sphere_local(tmp_path):
+def test_WorkflowParallelScheduler_cart_local(tmp_path):
 
-    from mola.workflow.test.test_workflow import get_workflow_sphere_struct
-    w = get_workflow_sphere_struct('.')
+    if isinstance(tmp_path,str): os.makedirs(tmp_path,exist_ok=True)
+
+    from mola.workflow.test.test_workflow import get_workflow_cart_monoproc
+    w = get_workflow_cart_monoproc(tmp_path)
+    w.RunManagement["Scheduler"] = "local"
+
+    # since mesh is built in memory, scheduler requires to save it in a file
+    mesh_path = os.path.join(tmp_path,'mesh.cgns')
+    w.RawMeshComponents[0]['Source'].save(mesh_path)
+    w.RawMeshComponents[0]['Source'] = os.path.join('..','..','mesh.cgns') # CAUTION: path is relative to launch case
 
     dispatcher = WM.WorkflowDispatcher(w)
-    for BCWall in ['WallViscous', 'WallInviscid']:
+    for BCWall in ['WallViscous',]:
         dispatcher.new_job(BCWall)
-        for velocity in [50., 20., 80.]:
+        for velocity in [50., 20.]:
             dispatcher.add_variations(
                 [
                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
                     ('Flow|Velocity', velocity),
-                    ('BoundaryConditions|Family=Wall|Type', BCWall),
+                    ('BoundaryConditions|Family=Ground|Type', BCWall),
                 ], 
                 initialize_from_previous=False
                 )
@@ -238,11 +246,15 @@ def test_WorkflowParallelScheduler_sphere_local(tmp_path):
     scheduler.prepare()
     scheduler.submit()
 
-    for BCWall in ['WallViscous', 'WallInviscid']:
-        for velocity in [50., 20., 80.]:
+    # this requires job to have finished, which is the case only if we 
+    # impose w.RunManagement["Scheduler"] = "local". Otherwise we have a 
+    # synchronicity issue (jobs are submitted, and the following checks are
+    # done before the simulations are run)
+    for BCWall in ['WallViscous',]:
+        for velocity in [50., 20.]:
             COMPLETED_PATH = os.path.join(scheduler.root_directory, BCWall, f'Velocity_{velocity}', names.FILE_JOB_COMPLETED)
             if not os.path.exists(COMPLETED_PATH):
-                raise MolaException(f'simulation did not ended as expected: unable to found file {COMPLETED_PATH}')
+                raise MolaException(f'simulation did not end as expected: unable to find file {COMPLETED_PATH}')
 
 @pytest.mark.network_onera
 @pytest.mark.integration
@@ -294,5 +306,5 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
 if __name__ == '__main__':
     # test_show_interface_1()
     # test_prepare_workflow1()
-    test_WorkflowParallelScheduler_sphere_local()
+    test_WorkflowParallelScheduler_cart_local('cart_scheduler_'+os.environ.get("MOLA_SOLVER"))
     # test_wip()

@@ -40,13 +40,6 @@ export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 module use --append /scratchm/sonics/usr/modules/
 module load maia/$MAIAVERSION-dsi-cfd6
 
-# PUMA
-export PumaRootDir=/stck/rboisard/bin/local/x86_64z/Puma_${PUMAVERSION}_spiro3
-export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$PumaRootDir/lib/python3.7/site-packages/PUMA:$PYTHONPATH
-export LD_LIBRARY_PATH=$PumaRootDir/lib/python3.7:$LD_LIBRARY_PATH
-export PUMA_LICENCE=$PumaRootDir/pumalicence.txt
-
 # VPM
 export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
 export PATH=$VPMPATH:$PATH

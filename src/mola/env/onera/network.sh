@@ -51,11 +51,10 @@ export PYTHONUNBUFFERED=true # cf ticket 9685, but simulation is slower cf ticke
 export TREELABVERSION=v0.2.0
 export MAIAVERSION=dev #1.4
 export VPMVERSION=Dev
-export PUMAVERSION=v2.0.3
 export TURBOVERSION=v1.3
 export ERSTAZVERSION=v1.6.3
 
-export ELSAVERSION=v5.3.01
+export ELSAVERSION=v5.3.02
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849

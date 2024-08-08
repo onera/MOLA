@@ -16,9 +16,10 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from . import mola_logger, comm, rank
+from . import comm, rank
 
-def get_user_signal(filename):
+# TODO make this a proper method of coproces_manager
+def get_user_signal(coprocess_manager, filename):
     '''
     Get a signal using an temporary auxiliar file technique.
 
@@ -53,38 +54,39 @@ def get_user_signal(filename):
         try:
             os.remove(filename)
             isOrder = True
-            mola_logger.info(f'Received signal {filename}', rank=0)
+            coprocess_manager.mola_logger.info(f'Received signal {filename}', rank=0)
         except:
             pass
     comm.Barrier()
     isOrder = comm.bcast(isOrder,root=0)
     return isOrder
 
+# TODO make this a proper method of coproces_manager
 def update_operations_from_user_signal(coprocess_manager):
 
     # Control Flags for interactive control using command 'touch <flag>'
 
-    if get_user_signal('QUIT'): 
+    if get_user_signal(coprocess_manager,'QUIT'): 
         os._exit(0)
     
-    if get_user_signal('CONVERGED'):
+    if get_user_signal(coprocess_manager,'CONVERGED'):
         coprocess_manager.status = 'TO_STOP'
         return
 
-    if get_user_signal('COMPUTE_BODYFORCE'):
+    if get_user_signal(coprocess_manager,'COMPUTE_BODYFORCE'):
         coprocess_manager.operations_stack.append('COMPUTE_BODYFORCE')
-    if get_user_signal('SAVE_BODYFORCE'):
+    if get_user_signal(coprocess_manager,'SAVE_BODYFORCE'):
         coprocess_manager.operations_stack.append('SAVE_BODYFORCE')
     
-    if get_user_signal('SAVE_RESTART'):
+    if get_user_signal(coprocess_manager,'SAVE_RESTART'):
         coprocess_manager.operations_stack.append('SAVE_RESTART')
-    if get_user_signal('SAVE_FIELDS'):
+    if get_user_signal(coprocess_manager,'SAVE_FIELDS'):
         coprocess_manager.operations_stack.append('SAVE_FIELDS')
-    if get_user_signal('SAVE_EXTRACTIONS'):
+    if get_user_signal(coprocess_manager,'SAVE_EXTRACTIONS'):
         coprocess_manager.operations_stack.append('SAVE_EXTRACTIONS')
-    if get_user_signal('SAVE_SIGNALS'):
+    if get_user_signal(coprocess_manager,'SAVE_SIGNALS'):
         coprocess_manager.operations_stack.append('SAVE_SIGNALS')
-    if get_user_signal('SAVE_ALL'):
+    if get_user_signal(coprocess_manager,'SAVE_ALL'):
         coprocess_manager.operations_stack.extend(['SAVE_RESTART', 'SAVE_FIELDS', 'SAVE_EXTRACTIONS', 'SAVE_SIGNALS'])
     
     # TODO Signal RELOAD_SETUP not plugged yet

@@ -19,7 +19,7 @@ import os
 
 import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
+from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_logger
 from mola import server as SV
 from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text
 
@@ -74,13 +74,28 @@ def write_job_launcher(RunManagement, scheduler_options):
         scheduler_options['threads-per-core'] = 1
 
     nranks = RunManagement["NumberOfProcessors"]
-    nthreads = RunManagement["NumberOfThreads"]
+
+    if "NumberOfThreads" not in RunManagement or \
+        RunManagement["NumberOfThreads"] is None:
+        if RunManagement['Scheduler'] == 'SLURM':
+            nthreads = '$SLURM_CPUS_PER_TASK'
+        elif RunManagement['Scheduler'] == 'local':
+            import multiprocessing
+            nthreads = multiprocessing.cpu_count()
+        elif RunManagement['Scheduler'] is None:
+            raise MolaUserError(f"for solver fast you must provide RunManagement['Scheduler'] value")
+        else:
+            raise MolaUserError(f"Scheduler {RunManagement['Scheduler']} not supported")
+
+    else:
+        nthreads = RunManagement["NumberOfThreads"]
 
 
     job_text = get_job_text('fast', RunManagement, scheduler_options)+'\n\n'
     job_text += 'export KMP_WARNINGS=FALSE\n'
     job_text += 'export OMP_PLACES=cores\n'
     job_text += f'kpython -n {nranks} -t {nthreads} {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}'
+
     SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 

@@ -33,9 +33,6 @@ def apply_to_solver(workflow):
 
     import maia
 
-    if rank==0:
-        os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
-        os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
 
     workflow.tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
 

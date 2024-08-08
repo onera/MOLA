@@ -23,6 +23,11 @@ unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
 unset I_MPI_FABRICS_LIST
 
+# for avoiding error bootstrap
+# https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
+# https://slurm.schedmd.com/mpi_guide.html
+export I_MPI_HYDRA_BOOTSTRAP=ssh
+
 # maia
 module use --append /tmp_user/juno/sonics/usr/modules/
 module load maia/$MAIAVERSION-dsi-cfd6
@@ -40,7 +45,7 @@ export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # external python packages

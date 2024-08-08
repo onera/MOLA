@@ -26,8 +26,8 @@ def apply_to_solver(workflow):
     add_reynolds_to_reference_state(workflow)
     add_Rok_to_reference_state(workflow) # CAVEAT, not even CGNS standard name
     add_RoOmega_to_reference_state(workflow) # CAVEAT, not even CGNS standard name
-    add_ghost_cells(workflow)
-    create_cell_center_tree(workflow)
+    add_ghost_cells(workflow) # TODO is it multi-container ? What happens with FlowSolution#Height ?
+    create_cell_center_tree(workflow) # TODO is it multi-container ? What happens with FlowSolution#Height ?
     set_multibloc_transfer_data(workflow)
 
 

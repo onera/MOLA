@@ -16,13 +16,26 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from treelab import cgns
-import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
-
-import copy
-
 
 def apply_to_solver(workflow):
 
-    mola_logger.warning("extractions to be implemented in fast")
+    workflow._interface.add_to_Extractions_Restart(
+        Container='FlowSolution#Centers'
+        )
+
+    for Extraction in workflow.Extractions: 
+        if Extraction['Type'] == 'Residuals':
+            add_convergence_history(workflow, Extraction['ExtractionPeriod'])
+            Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
+        elif Extraction['Type'] == 'Integral':
+            Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
+
+
+
+def add_convergence_history(worfklow, ExtactionPeriod=1):
+
+    import FastS.PyTree as FastS
+
+    FastS.createConvergenceHistory(worfklow.tree, ExtactionPeriod)
+    cgns.castNode(worfklow.tree)
+

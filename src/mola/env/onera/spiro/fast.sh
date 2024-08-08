@@ -18,13 +18,9 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-source /etc/bashrc
-module purge &>/dev/null
-unset PYTHONPATH
-shopt -s expand_aliases
-ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
-
-module load python/3.10.8-gnu831
+export MACHINE=spiro_el8
+export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 # to avoid message:
 # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
@@ -34,23 +30,38 @@ unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK
 unset I_MPI_FABRICS_LIST
 
-# for avoiding error bootstrap
-# https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
-# https://slurm.schedmd.com/mpi_guide.html
-export I_MPI_HYDRA_BOOTSTRAP=ssh
-
-
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
+
+# maia
+module use --append /scratchm/sonics/usr/modules/
+module load maia/1.4-dsi-cfd5
+
+# VPM
+export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
+export PATH=$VPMPATH:$PATH
+export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/opencascade/lib:/opt/tools/hdf5-1.10.5-intel-19-impi-19/lib
+export PYTHONPATH=$VPMPATH:$PYTHONPATH
+export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
+
+# turbo
+export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro3_mpi/lib/python3.7/site-packages/:$PYTHONPATH
+
+# ErstaZ
+export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
+export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
 # external python packages
-export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH
-export PATH=$MOLAext/spiro_el8/bin:$PATH
-export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
+# export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH
+# export PATH=$MOLAext/spiro_el8/bin:$PATH
+# export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
@@ -58,3 +69,4 @@ export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
+
