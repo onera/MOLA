@@ -86,7 +86,7 @@ def reader(w, component):
     update_Connection_from_mesh(mesh, component, w.ApplicationContext['ShaftAxis'])
 
     if component['CleaningMacro'] == 'Autogrid':
-        apply_cleaning_macro_autogrid(mesh, JoinHubAndShroudFamilies)
+        apply_cleaning_macro_autogrid(mesh, w.Solver, JoinHubAndShroudFamilies)
 
     nb_of_bases = len(mesh.bases())
     if nb_of_bases != 1:
@@ -108,13 +108,14 @@ def update_Connection_from_mesh(mesh, component, axis):
     periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], axis)
     component['Connection'] += periodic_connections
 
-def apply_cleaning_macro_autogrid(mesh, JoinHubAndShroudFamilies=True):
+def apply_cleaning_macro_autogrid(mesh, solver, JoinHubAndShroudFamilies=True):
     clean_autogrid_log_bases(mesh)
     shorten_zones_names(mesh)
     clean_family_properties(mesh)
     mesh.findAndRemoveNodes(Type='ZoneGridConnectivity_t') # TODO: The objective should be to keep GC if there are already in the tree
     # remove_gc_abutting(mesh)
-    remove_periodic_bc_and_families(mesh)
+    if solver != 'sonics':
+        remove_periodic_bc_and_families(mesh)
 
     if JoinHubAndShroudFamilies:
         join_families(mesh, 'HUB')

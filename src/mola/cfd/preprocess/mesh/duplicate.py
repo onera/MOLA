@@ -213,8 +213,7 @@ def duplicate_workflow_with_maia(workflow):
 
     if any([p['number_of_duplications']>0 for p in duplication_parameters.values()]):
         mola_logger.info('Duplication:')
-    
-    workflow.tree = duplicate_with_maia(workflow.tree, duplication_parameters, merge_zones=workflow.tree.isUnstructured())
+        workflow.tree = duplicate_with_maia(workflow.tree, duplication_parameters, merge_zones=workflow.tree.isUnstructured())
 
 @MaiaParallel
 def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):

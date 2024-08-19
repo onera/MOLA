@@ -26,9 +26,10 @@ def apply(workflow):
         return
     
     try:
+        assert workflow.Solver != 'sonics'
         apply_with_cassiopee(workflow)
 
-    except ModuleNotFoundError:
+    except (AssertionError, ModuleNotFoundError):
         _check_can_apply_maia_connect(workflow)     
         apply_with_maia(workflow)
         
@@ -130,30 +131,26 @@ def apply_with_maia(workflow):
     for operation in component['Connection']:
         ConnectionType = operation['Type']
         mola_logger.info(f'  > connecting type {ConnectionType}', rank=0)
-        try: 
-            tolerance = operation['Tolerance']
-        except KeyError:
-            tolerance = 1e-8
-            mola_logger.warning(f'    connection tolerance not defined. Using tolerance={tolerance}')
             
         if ConnectionType == 'PeriodicMatch':
             rotation_center = operation.get('RotationCenter', [0., 0., 0.])
             rotation_angle = operation.get('RotationAngle', [0., 0., 0.])
             translation = operation.get('Translation', [0., 0., 0.])
-            rotation_angle = np.array(rotation_angle) * np.pi / 180
             mola_logger.debug(f'    RotationCenter = {rotation_center}')
             mola_logger.debug(f'    RotationAngle = {rotation_angle}')
             mola_logger.debug(f'    Translation = {translation}')
             # Work only on a top Tree, not on a Base
-            connect_periodic_with_maia(workflow.tree, operation['Families'], rotation_center, rotation_angle, translation, tolerance)
+            connect_periodic_with_maia(workflow.tree, operation['Families'], rotation_center, rotation_angle, translation)
 
         else:
             raise MolaException(f'  Connection type {ConnectionType} not implemented')
+    
+    workflow.tree = cgns.castNode(workflow.tree)
 
 def _check_can_apply_maia_connect(workflow):
     if not workflow.tree.isUnstructured():
             raise MolaException('Periodic Match with Maia is possible only for unstructured mesh')
-        
+
     for component in workflow.RawMeshComponents:
         for connection in component['Connection']:
             if connection['Type'] != 'PeriodicMatch':
@@ -162,8 +159,11 @@ def _check_can_apply_maia_connect(workflow):
                 raise MolaException('PeriodicMatch with Maia needs Families.')
             elif not len(connection['Families']) == 2:
                 raise MolaException('Families must be a tuple of length 2.')
-            elif not any([workflow.tree(Type='Family', Depth=2, Name=fam[0]) for fam in connection['Families']]):
-                raise MolaException('PeriodicMatch with Maia needs Families.')
+            elif not any([workflow.tree.get(Type='Family', Depth=2, Name=fam) for fam in connection['Families']]):
+                raise MolaException(
+                    f'Families {connection["Families"]}, '
+                    'needed to perform PeriodicMatch operation with Maia, '
+                    'cannot be found in the mesh tree.')
 
 def _check_connections(connections):
     '''
@@ -178,7 +178,8 @@ def _check_connections(connections):
 
 
 @MaiaParallel
-def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, translation, tol):
+def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, translation):
+    # tolerance is relative with maia, to 0.01 by default
     # TODO Should be replace by a function from Miles
 
     import maia
@@ -187,10 +188,11 @@ def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, 
     def _check_unmatched_faces(tree):
         unmatched_gc = maia.pytree.get_nodes_from_name(tree, '*_unmatched')
         if len(unmatched_gc) > 0:
+            maia.io.dist_tree_to_file(tree, 'debug_bad_geometry.cgns', MPI.COMM_WORLD)
             raise MolaException(f"Bad geometry (check mesh or tolerance)")
 
     periodic = dict(
-        rotation_angle = np.array(rotation_angle)*np.pi/180.,
+        rotation_angle = np.radians(rotation_angle),
         rotation_center = np.array(rotation_center),
         translation = np.array(translation),
     )
@@ -201,7 +203,6 @@ def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, 
             families,
             comm=MPI.COMM_WORLD,
             periodic=periodic, 
-            tol=tol
         )
         _check_unmatched_faces(tree)
     except ZeroDivisionError:
@@ -214,7 +215,6 @@ def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, 
                 families[::-1],
                 comm=MPI.COMM_WORLD,
                 periodic=periodic, 
-                tol=tol
             )
             _check_unmatched_faces(tree)
         except ZeroDivisionError:
