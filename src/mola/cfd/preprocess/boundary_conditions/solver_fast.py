@@ -15,13 +15,9 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-
 from treelab import cgns
-from mola.logging import mola_logger, MolaException, mute_stdout
-from mola.cfd.preprocess.boundary_conditions import boundary_conditions
-from mola.cfd.preprocess.motion import motion
 
-def BCWall(workflow, Family, Motion=None):
+def BCWall(workflow, Family):
     '''
     Set a wall boundary condition.
 
@@ -33,21 +29,10 @@ def BCWall(workflow, Family, Motion=None):
         Family : str
             Name of the family on which the boundary condition will be imposed
 
-        Motion : dict, optional
-            Example:
-
-            .. code-block:: python
-                Motion = dict(
-                    RotationSpeed = [1000., 0., 0.],
-                    RotationAxisOrigin = [0., 0., 0.],
-                    TranslationSpeed = [0., 0., 0.]
-                    )
     '''
     wall_family = workflow.tree.get(Name=Family, Type='Family', Depth=2)
     wall_family.findAndRemoveNodes(Type='FamilyBC', Depth=1)
-    cgns.Node( Name='FamilyBC', Value='BCWall', Type='FamilyBC', Parent=wall_family )
-
-    if not motion.is_mobile(Motion): return
+    cgns.Node( Name='FamilyBC', Value='BCWall', Type='FamilyBC', Parent=wall_family)
 
 
 def BCFarfield(workflow, Family):
@@ -62,15 +47,6 @@ def BCFarfield(workflow, Family):
         Family : str
             Name of the family on which the boundary condition will be imposed
 
-        Motion : dict, optional
-            Example:
-
-            .. code-block:: python
-                Motion = dict(
-                    RotationSpeed = [1000., 0., 0.],
-                    RotationAxisOrigin = [0., 0., 0.],
-                    TranslationSpeed = [0., 0., 0.]
-                    )
     '''
     farfield_family = workflow.tree.get(Name=Family, Type='Family', Depth=2)
     farfield_family.findAndRemoveNodes(Type='FamilyBC', Depth=1)

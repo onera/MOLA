@@ -17,29 +17,30 @@
 
 import pytest
 
-from mola.cfd.preprocess.boundary_conditions import solver_fast
+from mola.cfd.preprocess.boundary_conditions import solver_elsa
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
 from mola.cfd.preprocess.boundary_conditions.test.test_boundary_conditions import get_workflow_prepared_to_test_bcs
 
-pytestmark = pytest.mark.fast
+pytestmark = pytest.mark.elsa
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_functions_well_defined():
-    BoundaryConditionsNamesInfast = set(v['fast'] for v in BoundaryConditionsNames.values() if 'fast' in v)
-    for fun_name in BoundaryConditionsNamesInfast:
-        assert getattr(solver_fast, fun_name)
+    BoundaryConditionsNamesInElsa = set(v['elsa'] for v in BoundaryConditionsNames.values() if 'elsa' in v)
+    for fun_name in BoundaryConditionsNamesInElsa:
+        assert getattr(solver_elsa, fun_name)
+
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1
 def test_bc():
     BoundaryConditions=[
-            dict(Family='imin', Type='BCWall'),
-            dict(Family='imax', Type='BCFarfield'),
-            dict(Family='jmin', Type='BCSymmetryPlane'),
-            dict(Family='jmax', Type='BCFarfield'),
-            dict(Family='kmin', Type='BCFarfield'),
-            dict(Family='kmax', Type='BCFarfield'),
+            dict(Family='imin', Type='WallViscous'),
+            dict(Family='imax', Type='Farfield'),
+            dict(Family='jmin', Type='InflowStagnation'),
+            dict(Family='jmax', Type='InflowMassFlow', MassFlow=1.),
+            dict(Family='kmin', Type='OutflowPressure'),
+            dict(Family='kmax', Type='OutflowMassFlow', MassFlow=1.),
         ]
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
     workflow.set_boundary_conditions()

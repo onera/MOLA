@@ -16,10 +16,10 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 import os
 import copy
+import numpy as np
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
-from mola.cfd.preprocess.motion import motion
+from mola.logging import mola_logger, MolaException, MolaUserError
 
 BoundaryConditionsNames = dict(
     Farfield                     = dict(elsa='nref',
@@ -31,11 +31,11 @@ BoundaryConditionsNames = dict(
     OutflowMassFlow              = dict(elsa='outmfr2'),
     OutflowRadialEquilibrium     = dict(elsa='outradeq'),
     MixingPlane                  = dict(elsa='stage_mxpl'),
-    UnsteadyRotorStatorInterface = dict(elsa='stage_red'),
+    # UnsteadyRotorStatorInterface = dict(elsa='stage_red'),
     WallViscous                  = dict(elsa='walladia',
                                         sonics='BCWallViscous',
                                         fast='BCWall'),
-    WallViscousIsothermal        = dict(elsa='wallisoth', sonics='BCWallViscousIsothermal'),
+    # WallViscousIsothermal        = dict(elsa='wallisoth', sonics='BCWallViscousIsothermal'),
     WallInviscid                 = dict(elsa='wallslip',
                                         sonics='BCWallInviscid',
                                         fast='BCWall'),
@@ -54,6 +54,13 @@ BoundaryConditionsNames.update(
 permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'OutflowPressure', 'OutflowMassFlow', 'OutflowRadialEquilibrium']
 turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface']
 
+# def check_name_is_one_of_authorized_names(name, authorized_names):
+#     import difflib
+#     closest_names = difflib.get_close_matches(name, possibilities=authorized_names)
+#     closest_msg = ""
+#     if len(closest_names) > 0:
+#         closest_msg = f"Did you mean {' or '.join(closest_names)}?"
+#     raise NameError(f"Invalid name '{name}'. "+closest_msg)
 
 def apply(workflow, selected_boundaries_conditions=None):
     '''
@@ -82,26 +89,22 @@ def apply(workflow, selected_boundaries_conditions=None):
 
         _check_family_exists(workflow.tree, bc['Family'])
         
-        bcName = bc['Type']
-        if bcName == 'InterfaceBetweenWorkflows':
+        bc_type = bc.pop('Type')
+        if bc_type == 'InterfaceBetweenWorkflows':
             continue
         if 'LinkedFamily' in bc:
-            mola_logger.info(f'  > {bcName} between families {bc["Family"]} and {bc["LinkedFamily"]}', rank=0)
+            mola_logger.info(f'  > {bc_type} between families {bc["Family"]} and {bc["LinkedFamily"]}', rank=0)
         else:
-            mola_logger.info(f'  > {bcName} on family {bc["Family"]}', rank=0)
+            mola_logger.info(f'  > {bc_type} on family {bc["Family"]}', rank=0)
         
-        if bcName in available_bc_names:
-            # Define in the main MOLA preprocess, lower in this file
-            MOLAGenericFunction = globals()[bcName]
-            solverSpecificFunctionName = BoundaryConditionsNames[bcName][workflow.Solver]
-            args, kwargs = MOLAGenericFunction(workflow, bc)
-        elif bcName in alternative_available_bc_names:
+        if bc_type in available_bc_names:
+            solverSpecificFunctionName = BoundaryConditionsNames[bc_type][workflow.Solver]
+        elif bc_type in alternative_available_bc_names:
             # Defined only in the specific solver module
-            solverSpecificFunctionName = bcName
-            args, kwargs = bc['args'], bc['kwargs']
+            solverSpecificFunctionName = bc_type
         else:
             raise MolaUserError(
-                f'Boundary condition {bcName} is not available. ' 
+                f'Boundary condition {bc_type} is not available. ' 
                 f'Please choose one among conditions currently available for solver {workflow.Solver}: '
                 f'{", ".join(available_bc_names)}'
                  )
@@ -114,7 +117,7 @@ def apply(workflow, selected_boundaries_conditions=None):
         except AttributeError:
             raise MolaException(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
         else:
-            solverSpecificFunction(workflow, *args, **kwargs)
+            solverSpecificFunction(workflow, **bc)
 
 def _check_family_exists(tree, family_name):
     if not tree.get(Name=family_name, Type='Family', Depth=2):
@@ -190,160 +193,90 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
 
     return bc_dict      
 
-def Wall(workflow, bc):
-    Motion = bc.get('Motion', dict())
-    motion.update_motion_with_defaults(Motion)
-    return [bc['Family']], dict(Motion=Motion) 
+def get_fields_from_file(t, FamilyName, filename, var2interp, fileformat=None):
 
-WallViscous = Wall
-WallInviscid = Wall
+    # TODO This function is not working yet. The function migrateFields must be replaced.
 
-def Farfield(workflow, bc):
-    return [bc['Family']], dict() 
+    import Converter.PyTree as C
+    import Converter.Internal as I
+ 
+    input_data_from_file = dict()
+    donor_tree = C.convertFile2PyTree(filename, format=fileformat)
+    inlet_BC_nodes = C.extractBCOfName(t, f'FamilySpecified:{FamilyName}', reorder=False)
 
-def InflowStagnation(workflow, bc): 
-    '''
-    Set a Boundary Condition ``inj1``
-    '''
-    PressureStagnation    = bc.get('PressureStagnation', workflow.Flow['PressureStagnation'])
-    TemperatureStagnation = bc.get('TemperatureStagnation', workflow.Flow['TemperatureStagnation'])
-    EnthalpyStagnation    = bc.get('EnthalpyStagnation', workflow.Fluid['cp'] * TemperatureStagnation)
-    VelocityUnitVectorX   = bc.get('VelocityUnitVectorX', workflow.Flow['Direction'][0])
-    VelocityUnitVectorY   = bc.get('VelocityUnitVectorY', workflow.Flow['Direction'][1])
-    VelocityUnitVectorZ   = bc.get('VelocityUnitVectorZ', workflow.Flow['Direction'][2])
-    variableForInterpolation = bc.get('variableForInterpolation', 'ChannelHeight')   
+    I._adaptZoneNamesForSlash(inlet_BC_nodes)
+    I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
+    J.migrateFields(donor_tree, inlet_BC_nodes)  # THIS LINE MUST BE REPLACED
 
-    ImposedVariables = dict(
-        PressureStagnation  = PressureStagnation,
-        EnthalpyStagnation  = EnthalpyStagnation,
-        VelocityUnitVectorX = VelocityUnitVectorX,
-        VelocityUnitVectorY = VelocityUnitVectorY,
-        VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **getPrimitiveTurbulentFieldForInjection(workflow, bc)
-        )
-
-    return [bc['Family']], dict(ImposedVariables=ImposedVariables, variableForInterpolation=variableForInterpolation) 
-
-def InflowMassFlow(workflow, bc):
-    Surface = bc.get('Surface', None)
-    if not Surface:
-        from mola.cfd.preprocess.mesh.tools import get_surface_of_family
-        Surface = get_surface_of_family(workflow.tree, bc['Family'])
-        try:
-            Surface *= workflow.ApplicationContext['NormalizationCoefficient'][bc['Family']]['FluxCoef']
-        except:
-            pass
-
-    MassFlow              = bc.get('MassFlow', workflow.Flow['MassFlow'])
-    SurfacicMassFlow      = bc.get('SurfacicMassFlow', MassFlow / Surface)
-
-    TemperatureStagnation = bc.get('TemperatureStagnation', workflow.Flow['TemperatureStagnation'])
-    EnthalpyStagnation    = bc.get('EnthalpyStagnation', workflow.Fluid['cp'] * TemperatureStagnation)
-    VelocityUnitVectorX   = bc.get('VelocityUnitVectorX', workflow.Flow['Direction'][0])
-    VelocityUnitVectorY   = bc.get('VelocityUnitVectorY', workflow.Flow['Direction'][1])
-    VelocityUnitVectorZ   = bc.get('VelocityUnitVectorZ', workflow.Flow['Direction'][2])
-    variableForInterpolation = bc.get('variableForInterpolation', 'ChannelHeight')    
-    # if not 'MassFlow' in bc:
-    #     # used for getPrimitiveTurbulentFieldForInjection
-    #     bc['MassFlow'] = SurfacicMassFlow * Surface
-
-    ImposedVariables = dict(
-        SurfacicMassFlow    = SurfacicMassFlow,
-        EnthalpyStagnation  = EnthalpyStagnation,
-        VelocityUnitVectorX = VelocityUnitVectorX,
-        VelocityUnitVectorY = VelocityUnitVectorY,
-        VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **getPrimitiveTurbulentFieldForInjection(workflow, bc)
-        )
-    return [bc['Family']], dict(ImposedVariables=ImposedVariables, variableForInterpolation=variableForInterpolation) 
-
-def OutflowPressure(workflow, bc):
-    Pressure = bc.get('Pressure', workflow.Flow['Pressure'])
-    return [bc['Family']], dict(Pressure=Pressure) 
-
-def OutflowMassFlow(workflow, bc):
-    MassFlow = bc.get('MassFlow')
-    if not MassFlow:
-        MassFlow = workflow.Flow.get('MassFlow')
-    if not MassFlow:
-        from mola.cfd.preprocess.mesh.tools import get_surface_of_family
-        surface = get_surface_of_family(workflow.tree, bc['Family'])
-        MassFlow = workflow.Flow['Density']*workflow.Flow['Velocity']*surface
-
-    try:
-        fluxcoeff = workflow.ApplicationContext['NormalizationCoefficient'][bc['Family']]['FluxCoef']
-    except: 
-        fluxcoeff = 1.
-
-    MassFlowOnBC = MassFlow / fluxcoeff
-    return [bc['Family']], dict(MassFlow=MassFlowOnBC) 
-
-def getPrimitiveTurbulentFieldForInjection(workflow, bc):
-    '''
-    Get the primitive (without the Density factor) turbulent variables (names and values) 
-    to inject in an inflow boundary condition.
-
-    For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
-
-    Parameters
-    ----------
-    workflow, bc
-
-    Returns
-    -------
-    dict
-        Imposed turbulent variables
-    '''
-    # FIXME Fix this function, the behavior was corrected in MOLA v1
-    TurbulenceLevel = bc.get('TurbulenceLevel', None)
-    Viscosity_EddyMolecularRatio = bc.get('Viscosity_EddyMolecularRatio', None)
-    if TurbulenceLevel and Viscosity_EddyMolecularRatio:
+    for w in inlet_BC_nodes:
+        bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
+        zname, wname = bcLongName.split('\\')
+        znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
+        bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
+        ImposedVariables = dict()
+        for var in var2interp:
+            FS = I.getNodeFromName(w, I.__FlowSolutionCenters__)
+            varNode = I.getNodeFromName(FS, var) 
+            if varNode:
+                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode))
+            else:
+                raise TypeError('variable {} not found in {}'.format(var, filename))
         
-        FlowGen = workflow._FlowGenerator() 
-        FlowGen.Turbulence.update(
-            dict(Level=TurbulenceLevel, Viscosity_EddyMolecularRatio=Viscosity_EddyMolecularRatio)
-        )
-        FlowGen.set_turbulence_properties()
+        input_data_from_file[bcnode] = ImposedVariables
+    
+    return input_data_from_file
+
+def recompute_turbulence_variables(workflow, **kwargs):
+
+    if 'TurbulenceLevel' in kwargs or 'Viscosity_EddyMolecularRatio' in kwargs:   
+        mola_logger.info('  recomputing turbulent variables for this BC...')       
+
+        workflow_copy = copy.copy(workflow)
+        for name, value in kwargs.items():
+            if name in workflow_copy.Fluid:
+                workflow_copy.Fluid[name] = value
+            elif name in workflow_copy.Flow:
+                workflow_copy.Flow[name] = value
+            elif name in workflow_copy.Turbulence:
+                workflow_copy.Turbulence[name] = value
+            elif name in workflow_copy.ApplicationContext:
+                workflow_copy.ApplicationContext[name] = value
+            else:
+                raise MolaException(f'Variable {name} cannot be updated neither in Fluid, Flow, Turbulence or ApplicationContext attributes.')
+
+        FlowGen = workflow.Flow['Generator']
+        FlowGen.Turbulence.update(workflow_copy.Turbulence)
+        FlowGen.Turbulence.update(workflow_copy.Turbulence)
+        FlowGen.Turbulence.update(workflow_copy.Turbulence)
+        FlowGen.Turbulence.update(workflow_copy.Turbulence)
+        FlowGen.generate()
         Turbulence = FlowGen.Turbulence
+
+        del workflow_copy
 
     else:
         Turbulence = workflow.Turbulence
+    
+    return Turbulence
 
+def get_turbulent_primitives(Turbulence, Density, **kwargs):
     turbDict = dict()
     for name, value in Turbulence['Conservatives'].items():
         # If the 'conservative' value is given in kwargs
-        value = bc.get(name, value)
+        value = kwargs.get(name, value)
 
         if name.endswith('Density'):
             name = name.replace('Density', '')
-            value /= workflow.Flow['Density']
+            value /= Density
         elif name == 'ReynoldsStressDissipationScale':
             name = 'TurbulentDissipationRate'
-            value /= workflow.Flow['Density']
+            value /= Density
         elif name.startswith('ReynoldsStress'):
             name = name.replace('ReynoldsStress', 'VelocityCorrelation')
-            value /= workflow.Flow['Density']
+            value /= Density
         turbDict[name] = value
 
         # If the 'primitive' value is given in kwargs
-        turbDict[name] = bc.get(name, value)
-        
+        turbDict[name] = kwargs.get(name, value)
     return turbDict
-
-def OutflowRadialEquilibrium(workflow, bc):
-    # kwargs = dict(
-    #     valve_type = bc.get('valve_type', 0),
-    #     valve_ref_pres = bc.get('valve_ref_pres'),
-    #     valve_ref_mflow = bc.get('valve_ref_pres'), 
-    #     valve_relax = bc.get('valve_relax', 0.1), 
-    #     indpiv = bc.get('indpiv', 1),
-    # )
-    kwargs = copy.deepcopy(bc)
-    kwargs.pop('Family')
-    kwargs.pop('Type')
-    return [bc['Family']], kwargs
-
-
-def MixingPlane(workflow, bc):
-    return [bc['Family'], bc['LinkedFamily']], dict() 
 

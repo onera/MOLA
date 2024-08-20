@@ -18,41 +18,53 @@
 import pytest
 import numpy as np
 
-from mola.cfd.preprocess.boundary_conditions import boundary_conditions as BC
 from treelab import cgns
+from mola.workflow.workflow import Workflow
 
-        
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_Wall():
-    class FakeWorkflow():
-        def __init__(self):
-            self.BoundaryConditions = [dict(Family='WING', Type='BCWall')]
+def get_workflow_prepared_to_test_bcs(BoundaryConditions):
 
-    workflow = FakeWorkflow()
-    bc = workflow.BoundaryConditions[0]
-    args, kwargs = BC.WallViscous(workflow, bc)
+    x, y, z = np.meshgrid( np.linspace(0,1,5),
+                           np.linspace(0,1,5),
+                           np.linspace(0,1,5), indexing='ij')
+    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
 
-    assert args == [bc['Family']]
-    assert kwargs['Motion'] == dict(
-        RotationSpeed      = [0., 0., 0.],
-        RotationAxisOrigin = [0., 0., 0.],
-        TranslationSpeed   = [0., 0., 0.],
-    )
+    params = dict(
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_Farfield():
-    class FakeWorkflow():
-        def __init__(self):
-            self.BoundaryConditions = [dict(Family='UPSTREAM', Type='BCFarfield')]
+        RawMeshComponents=[
+            dict(
+                Name='cartesian',
+                Source=mesh,
+                Families=[
+                    dict(Name='imin', Location='imin'),
+                    dict(Name='imax', Location='imax'),
+                    dict(Name='jmin', Location='jmin'),
+                    dict(Name='jmax', Location='jmax'),
+                    dict(Name='kmin', Location='kmin'),
+                    dict(Name='kmax', Location='kmax'),
+                ],
+                )
+        ],
 
-    workflow = FakeWorkflow()
-    bc = workflow.BoundaryConditions[0]
-    args, kwargs = BC.Farfield(workflow, bc)
+        Flow=dict(Velocity = 100.),
 
-    assert args == [bc['Family']]
-    assert kwargs == dict()
+        Turbulence = dict(Model = 'SA',),
 
+        Numerics = dict(
+            NumberOfIterations = 2,
+            CFL=1.0,
+        ),
 
+        BoundaryConditions=BoundaryConditions,
+
+        )
+    workflow = Workflow(**params)
+    workflow.assemble()
+    workflow.positioning()
+    workflow.define_families() 
+    workflow.connect()
+    workflow.split_and_distribute() 
+    workflow.process_overset()
+    workflow.compute_flow_and_turbulence()
+    workflow.set_motion()
+    return workflow
 

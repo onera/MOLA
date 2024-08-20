@@ -265,9 +265,6 @@ class WorkflowInterface(object):
             The minimum allowed value of the turbulence quantities based upon 
             the turbulence level :math:`T_u`
 
-        
-
-        
         '''
         self.Turbulence = self._get_comp(WorkflowInterface.set_Turbulence, self.get_default_values_from_local_signature())
 
@@ -275,16 +272,16 @@ class WorkflowInterface(object):
         self._set_by_user_list(self._method_name(), user_list)
 
     def add_to_BoundaryConditions(self,
-        Pressure      : float = None,
-        MassFlow      : float = None,
-        Motion        : dict  = None, # TODO check this
-        LinkedFamily  : str   = None,
         *,
         Family        : str   = None,
         Type          : str   = None,
+        **kwargs
         ):
+        parameters  = self.get_default_values_from_local_signature()
+        parameters['kwargs'] = kwargs
         self.BoundaryConditions.append(self._get_comp(
-            WorkflowInterface.add_to_BoundaryConditions, self.get_default_values_from_local_signature()))
+            WorkflowInterface.add_to_BoundaryConditions, parameters))
+ 
 
     def set_SplittingAndDistribution(self,
         Strategy                         : str = 'AtPreprocess',
@@ -776,8 +773,15 @@ class WorkflowInterface(object):
         signature = inspect.signature(fun)
         parameter_annotations = get_type_hints(fun)
         new_component = dict()
-        for name, param in signature.parameters.items():
-            if name == 'self': continue
+        for name in list(signature.parameters):
+            if name == 'self': 
+                continue
+            elif name == 'kwargs':
+                # last possible parameters in the signature
+                # --> update new_component with all that remains in kwargs
+                new_component.update(kwargs['kwargs'])
+                break
+
             try:
                 value = kwargs[name]
             except KeyError:

@@ -27,6 +27,14 @@ from mola.cfd.preprocess.motion import motion
 from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa
 from mola.cfd.preprocess.boundary_conditions import boundary_conditions
 
+def get_bcs(t, Family):
+    bcs = []
+    all_bcs = t.group(Type='BC')
+    for bc in all_bcs:
+        if bc.get('FamilyName') == Family:
+            bcs.append(bc)
+    return bc
+
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
     familyNode.findAndRemoveNode(Name='.Solver#BC', Depth=1)
@@ -38,6 +46,31 @@ def impose_bc_fields(workflow, bc_path, ImposedVariables):
     bc_node = workflow.tree.getAtPath(bc_path)
     BCDataSet = cgns.Node( Name='BCDataSet#Init', Value='Null', Type='BCDataSet', Parent=bc_node )
     BCDataSet.setParameters('NeumannData', ContainerType='BCData', **ImposedVariables)
+
+def get_turbulent_primitives_for_injection(workflow, **kwargs):
+    '''
+    Get the primitive (without the Density factor) turbulent variables (names and values) 
+    to inject in an inflow boundary condition.
+
+    For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
+
+    Parameters
+    ----------
+    workflow, bc
+
+    Returns
+    -------
+    dict
+        Imposed turbulent variables
+    '''
+    if 'TurbulenceLevel' in kwargs or 'Viscosity_EddyMolecularRatio' in kwargs:   
+        boundary_conditions.recompute_turbulence_variables(workflow, **kwargs)
+    else:
+        Turbulence = workflow.Turbulence
+        
+    turbDict = boundary_conditions.get_turbulent_primitives(Turbulence, workflow.Flow['Density'], **kwargs)
+        
+    return turbDict
 
 def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa='walladia'):
     '''
@@ -68,6 +101,10 @@ def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa
             Type of the bc in elsA convention, value of the node 'type'.    
     '''
     wall = define_bc_family(workflow, Family, bctype_cgns)
+
+    if Motion is None: 
+        Motion = dict()
+    motion.update_motion_with_defaults(Motion)
 
     if not motion.is_mobile(Motion):
         return
@@ -116,7 +153,19 @@ def walladia(workflow, Family, Motion=None):
     '''
     wall(workflow, Family, Motion=Motion, bctype_cgns='BCWallViscous', bctype_elsa='walladia')
 
-def nref(workflow, Family):
+def sym(workflow, Family):
+    '''
+    Set a symmetry boundary condition.
+
+    .. note:: see `elsA Tutorial about symmetry condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#symmetry/>`_
+
+    '''
+    define_bc_family(workflow, Family, 'BCSymmetryPlane')
+
+
+# Physical boundary conditions
+    
+def nref(workflow, Family, **kwargs):
     '''
     Set a nref boundary condition.
 
@@ -130,129 +179,226 @@ def nref(workflow, Family):
             Name of the family on which the boundary condition will be imposed
 
     '''
-    define_bc_family(workflow, Family, 'BCFarfield')
- 
-def get_bcs(t, Family):
-    bcs = []
-    all_bcs = t.group(Type='BC')
-    for bc in all_bcs:
-        if bc.get('FamilyName') == Family:
-            bcs.append(bc)
-    return bc
-
-def inj1(workflow, Family, ImposedVariables, bc=None, variableForInterpolation='ChannelHeight'):
-    '''
-    Generic function to impose a Boundary Condition ``inj1``. The following
-    functions are more specific:
-
-        * :py:func:`setBC_inj1_uniform`
-
-        * :py:func:`setBC_inj1_interpFromFile`
-
-    .. note::
-        see `elsA Tutorial about inj1 condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#inj1/>`_
-
-    Parameters
-    ----------
-
-        workflow.tree : PyTree
-            Tree to modify
-
-        Family : str
-            Name of the family on which the boundary condition will be imposed
-
-        ImposedVariables : dict
-            Dictionary of variables to imposed on the boudary condition. Keys
-            are variable names and values must be:
-
-                * either scalars: in that case they are imposed once for the
-                  family **FamilyName** in the corresponding ``Family_t`` node.
-
-                * or numpy arrays: in that case they are imposed for the ``BC_t``
-                  node **bc**.
-
-        bc : PyTree
-            ``BC_t`` node on which the boundary condition will be imposed. Must
-            be :py:obj:`None` if the condition must be imposed once in the
-            ``Family_t`` node.
-        
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.
-
-    See also
-    --------
-
-    setBC_inj1_uniform, setBC_inj1_interpFromFile
-    '''
-    if not bc and not all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc in get_bcs(workflow.tree, Family):
-            setBCwithImposedVariables(workflow, Family, ImposedVariables,
-                FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
+    if not kwargs:
+        define_bc_family(workflow, Family, 'BCFarfield')
     else:
-        setBCwithImposedVariables(workflow, Family, ImposedVariables,
-            FamilyBC='BCInflowSubsonic', BCType='inj1', bc=bc, variableForInterpolation=variableForInterpolation)
+        variables_from_file = ['Density', 'MomentumX', 'MomentumY', 'MomentumZ', 'EnergyStagnationDensity']
+        variables_from_file += list(workflow.Turbulence['Conservatives'])
 
-def injmfr1(workflow, Family, ImposedVariables, variableForInterpolation='ChannelHeight'):
-    setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC='BCInflowSubsonic', BCType='injmfr1', variableForInterpolation=variableForInterpolation)
+        set_physical_boundary(workflow, Family, 
+                            FamilyBC='BCFarfield', BCType='nref', interface_function=nref_interface,
+                            variables_from_file=variables_from_file,
+                            **kwargs
+                            )
 
-def outpres(workflow, Family, Pressure, bc=None, variableForInterpolation='ChannelHeight'):
-    '''
-    Impose a Boundary Condition ``outpres``.
+def inj1(workflow, Family, **kwargs):
+    set_physical_boundary(workflow, Family, 
+                          FamilyBC='BCInflowSubsonic', BCType='inj1', interface_function=inj1_interface,
+                          **kwargs
+                          )
 
-    .. note::
-        see `elsA Tutorial about outpres condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#outpres/>`_
+def injmfr1(workflow, Family, **kwargs):
+    set_physical_boundary(workflow, Family, 
+                          FamilyBC='BCInflowSubsonic', BCType='injmfr1', interface_function=injmfr1_interface,
+                          **kwargs
+                          )
 
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        FamilyName : str
-            Name of the family on which the boundary condition will be imposed
-
-        Pressure : :py:class:`float` or :py:class:`numpy.ndarray` or :py:class:`dict`
-            Value of pressure to impose on the boundary conditions. May be:
-
-                * either a scalar: in that case it is imposed once for the
-                  family **FamilyName** in the corresponding ``Family_t`` node.
-
-                * or a numpy array: in that case it is imposed for the ``BC_t``
-                  node **bc**.
-
-            Alternatively, **Pressure** may be a :py:class:`dict` of the form:
-
-            >>> Pressure = dict(Pressure=value)
-
-            In that case, the same requirements that before stands for *value*.
-
-        bc : PyTree
-            ``BC_t`` node on which the boundary condition will be imposed. Must
-            be :py:obj:`None` if the condition must be imposed once in the
-            ``Family_t`` node.
+def outpres(workflow, Family, **kwargs):   
+    set_physical_boundary(workflow, Family, 
+                          FamilyBC='BCOutflowSubsonic', BCType='outpres', interface_function=outpres_interface,
+                          **kwargs
+                          )
         
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.
+def outmfr2(workflow, Family, **kwargs):
+    set_physical_boundary(workflow, Family, 
+                          FamilyBC='BCOutflowSubsonic', BCType='outmfr2', interface_function=outmfr2_interface,
+                          **kwargs
+                          )
+  
 
+
+def nref_interface(workflow, **kwargs):
+    conservatives = workflow.Flow['Conservatives'] + workflow.Turbulence['Conservatives']
+    for key, value in kwargs.items():
+        if key in conservatives:
+            conservatives[key] = value
+    return conservatives
+
+def inj1_interface(workflow, **kwargs):
     '''
-    ImposedVariables = dict(Pressure=Pressure)
+    This interface function must return a dict with the variables really expected by elsA
+    '''
+    PressureStagnation    = kwargs.get('PressureStagnation', workflow.Flow['PressureStagnation'])
+    TemperatureStagnation = kwargs.get('TemperatureStagnation', workflow.Flow['TemperatureStagnation'])
+    EnthalpyStagnation    = kwargs.get('EnthalpyStagnation', workflow.Fluid['cp'] * TemperatureStagnation)
+    VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', workflow.Flow['Direction'][0])
+    VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', workflow.Flow['Direction'][1])
+    VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', workflow.Flow['Direction'][2])
 
-    if not bc and not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc in get_bcs(workflow.tree, Family):
-            setBCwithImposedVariables(workflow, Family, ImposedVariables,
-                                      FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
+    ImposedVariables = dict(
+        PressureStagnation  = PressureStagnation,
+        EnthalpyStagnation  = EnthalpyStagnation,
+        VelocityUnitVectorX = VelocityUnitVectorX,
+        VelocityUnitVectorY = VelocityUnitVectorY,
+        VelocityUnitVectorZ = VelocityUnitVectorZ,
+        **get_turbulent_primitives_for_injection(workflow, **kwargs)
+        )
+    return ImposedVariables
+       
+def injmfr1_interface(workflow, **kwargs):
+    Surface = kwargs.get('Surface')
+    if not Surface:
+        from mola.cfd.preprocess.mesh.tools import get_surface_of_family
+        Surface = get_surface_of_family(workflow.tree, kwargs['Family'])
+        try:
+            Surface *= workflow.ApplicationContext['NormalizationCoefficient'][kwargs['Family']]['FluxCoef']
+        except:
+            pass
+
+    MassFlow = kwargs.get('MassFlow')
+    if MassFlow is None:
+        try:
+            MassFlow = workflow.Flow['MassFlow']
+        except:
+            MolaException('Error for InflowMassFlow boundary condition: '
+                          'MassFlow is neither given by user as a boundary parameter, '
+                          'nor foundable in workflow Flow attribute.')
+            
+    SurfacicMassFlow      = kwargs.get('SurfacicMassFlow', MassFlow / Surface)
+
+    TemperatureStagnation = kwargs.get('TemperatureStagnation', workflow.Flow['TemperatureStagnation'])
+    EnthalpyStagnation    = kwargs.get('EnthalpyStagnation', workflow.Fluid['cp'] * TemperatureStagnation)
+    VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', workflow.Flow['Direction'][0])
+    VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', workflow.Flow['Direction'][1])
+    VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', workflow.Flow['Direction'][2])
+
+    ImposedVariables = dict(
+        SurfacicMassFlow    = SurfacicMassFlow,
+        EnthalpyStagnation  = EnthalpyStagnation,
+        VelocityUnitVectorX = VelocityUnitVectorX,
+        VelocityUnitVectorY = VelocityUnitVectorY,
+        VelocityUnitVectorZ = VelocityUnitVectorZ,
+        **get_turbulent_primitives_for_injection(workflow, **kwargs)
+        )
+    return ImposedVariables
+
+def outpres_interface(workflow, **kwargs):
+    ImposedVariables = dict(
+        Pressure = kwargs.get('Pressure', workflow.Flow['Pressure'])
+        )
+    return ImposedVariables
+
+def outmfr2_interface(workflow, groupmassflow=1, **kwargs):
+    MassFlow = kwargs.get('MassFlow')
+    if not MassFlow:
+        MassFlow = workflow.Flow.get('MassFlow')
+
+    if not MassFlow:
+        from mola.cfd.preprocess.mesh.tools import get_surface_of_family
+        surface = get_surface_of_family(workflow.tree, kwargs['Family'])
+        MassFlow = workflow.Flow['Density']*workflow.Flow['Velocity']*surface
+
+    try:
+        fluxcoeff = workflow.ApplicationContext['NormalizationCoefficient'][kwargs['Family']]['FluxCoef']
+    except: 
+        fluxcoeff = 1.
+
+    MassFlowOnBC = MassFlow / fluxcoeff
+
+    ImposedVariables = dict(
+        globalmassflow = MassFlowOnBC,
+        groupmassflow = groupmassflow,
+        )
+    return ImposedVariables
+
+def outradeq_interface(workflow, Family, **kwargs):
+
+    def _get_default_valve_ref_mflow():
+        bcs = get_bcs(workflow.tree, Family)
+        bc = bcs[0]
+        zone = bc.getParent(Type='Zone_t')
+        row = zone.get(Type='FamilyName').value()
+        try:
+            rowParams = workflow.ApplicationContext['Rows'][row]
+        except:
+            raise MolaException('Worklow must have an attribute ApplicationContext with a dict named "Rows" inside.')
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+        try:
+            valve_ref_mflow = workflow.Flow['MassFlow'] / fluxcoeff
+        except:
+            raise MolaException('Miss MassFlow in Flow attribute')
+        
+        return valve_ref_mflow
+
+    valve_type = kwargs.get('valve_type', 0)
+
+    valve_ref_pres = kwargs.get('valve_ref_pres')
+    if not valve_ref_pres:
+        valve_ref_pres = kwargs.get('Pressure', workflow.Flow['Pressure'])
+    
+    if valve_type == 0:
+        valve_ref_mflow = None
     else:
-        setBCwithImposedVariables(workflow, Family, ImposedVariables,
-                                FamilyBC='BCOutflowSubsonic', BCType='outpres', bc=bc, variableForInterpolation=variableForInterpolation)
+        valve_ref_mflow = kwargs.get('valve_ref_mflow')
+        if not valve_ref_mflow:
+            valve_ref_mflow = kwargs.get('MassFlow', _get_default_valve_ref_mflow())
 
-def outmfr2(workflow, Family, MassFlow, groupmassflow=1):
-    ImposedVariables = dict(globalmassflow=MassFlow, groupmassflow=groupmassflow)
-    setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC='BCOutflowSubsonic', BCType='outmfr2')
+    parameters = dict(
+        valve_type = valve_type, 
+        valve_ref_pres = valve_ref_pres,
+        valve_ref_mflow = valve_ref_mflow, 
+        valve_relax = kwargs.get('valve_relax', 0.1),
+        indpiv = kwargs.get('indpiv', 1),
+        )
+    return parameters
 
+
+
+def set_physical_boundary(workflow, Family, 
+                          FamilyBC, BCType, interface_function,
+                          File=None, variableForInterpolation='ChannelHeight', 
+                          **kwargs 
+                          ):
+    
+    kwargs['Family'] = Family
+    ImposedVariables = interface_function(workflow, **kwargs)
+
+    if File is not None:
+
+        input_data_from_file = boundary_conditions.get_fields_from_file(
+            workflow.tree, Family, File, var2interp=list(ImposedVariables)
+            )
+        for bc, ImposedVariables in input_data_from_file.items():  
+            setBCwithImposedVariables(
+                workflow, 
+                Family, 
+                ImposedVariables,
+                FamilyBC=FamilyBC, 
+                BCType=BCType, 
+                bc=bc,
+                variableForInterpolation=variableForInterpolation
+                )
+    elif not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
+        for bc, ImposedVariables in get_bcs(workflow.tree, Family):
+            setBCwithImposedVariables(
+                workflow, 
+                Family, 
+                ImposedVariables,
+                FamilyBC=FamilyBC, 
+                BCType=BCType, 
+                bc=bc,
+                variableForInterpolation=variableForInterpolation
+                )
+    else:
+        setBCwithImposedVariables(
+            workflow, 
+            Family, 
+            ImposedVariables,
+            FamilyBC=FamilyBC, 
+            BCType=BCType, 
+            variableForInterpolation=variableForInterpolation
+            )
+        
 def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCType,
     bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
     '''
@@ -404,10 +550,14 @@ def checkVariables(ImposedVariables):
         'txv', 'tyv', 'tzv']
 
     def positive(value):
+        if value is None: 
+            return False
         if isinstance(value, np.ndarray): return np.all(value>0)
         else: return value>0
 
     def unitComponent(value):
+        if value is None: 
+            return False
         if isinstance(value, np.ndarray): return np.all(np.absolute(value)<=1)
         else: return abs(value)<=1
 
@@ -468,8 +618,7 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
             break
 
 @mute_stdout
-def outradeq(workflow, FamilyName, valve_type=0, valve_ref_pres=None,
-    valve_ref_mflow=None, valve_relax=0.1, indpiv=1):
+def outradeq(workflow, Family, **kwargs):
     '''
     Set an outflow boundary condition of type ``outradeq``.
 
@@ -534,37 +683,20 @@ def outradeq(workflow, FamilyName, valve_type=0, valve_ref_pres=None,
     import etc.transform as trf
     t = workflow.tree
 
-    if valve_ref_pres is None:
-        try:
-            valve_ref_pres = workflow.Flow['Pressure']
-        except:
-            raise MolaException('valve_ref_pres or ReferenceValues must be not None')
-    if valve_type != 0 and valve_ref_mflow is None:
-        try:
-            bc = C.getFamilyBCs(t, FamilyName)[0]
-            zone = I.getParentFromType(t, bc, 'Zone_t')
-            row = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
-            rowParams = workflow.ApplicationContext['Rows'][row]
-            fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
-            valve_ref_mflow = workflow.Flow['MassFlow'] / fluxcoeff
-        except:
-            raise MolaException('Either valve_ref_mflow or both ReferenceValues and TurboConfiguration must be not None')
+    params = outradeq_interface(workflow, Family, **kwargs)
 
     # Delete previous BC if it exists
-    for bc in C.getFamilyBCs(t, FamilyName):
+    for bc in C.getFamilyBCs(t, Family):
         I._rmNodesByName(bc, '.Solver#BC')
-    # Create Family BC
-    family_node = I.getNodeFromNameAndType(t, FamilyName, 'Family_t')
-    I._rmNodesByName(family_node, '.Solver#BC')
-    I.newFamilyBC(value='BCOutflowSubsonic', parent=family_node)
+    define_bc_family(workflow, Family, 'BCOutflowSubsonic')
 
     from etc.globborder.globborder_dict import globborder_dict
-    gbd = globborder_dict(t, FamilyName, config="axial")
+    gbd = globborder_dict(t, Family, config="axial")
 
-    for bcn in C.getFamilyBCs(t, FamilyName):
+    for bcn in C.getFamilyBCs(t, Family):
         bcpath = I.getPath(t, bcn)
         bc = trf.BCOutRadEq(t, bcn)
-        bc.indpiv = indpiv
+        bc.indpiv = params['indpiv']
         bc.dirorder = -1
         # Valve laws:
         # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
@@ -574,14 +706,14 @@ def outradeq(workflow, FamilyName, valve_type=0, valve_ref_pres=None,
         #              (4, 'QHyperbolic'),  # p(it+1) = pref + relax*(Q(it)/Qref)**2               # relax = Pascal    # comp. exp.
         #              (5, 'SlopePiQ')]     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -pi(it)) # relax = sans dim. # isoPi/Q
         # for law 5, pref = reference total pressure
-        if valve_type == 0:
-            bc.prespiv = valve_ref_pres
+        if params['valve_type'] == 0:
+            bc.prespiv = params['valve_ref_pres']
         else:
             valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
                               3: 'QLinear', 4: 'QHyperbolic'}
-            bc.valve_law(valve_law_dict[valve_type], valve_ref_pres,
-                         valve_ref_mflow, valve_relax=valve_relax, valve_file=f'prespiv_{FamilyName}.log')
-        globborder = bc.glob_border(current=FamilyName)
+            bc.valve_law(valve_law_dict[params['valve_type']], params['valve_ref_pres'],
+                         params['valve_ref_mflow'], valve_relax=params['valve_relax'], valve_file=f'prespiv_{Family}.log')
+        globborder = bc.glob_border(current=Family)
         globborder.i_poswin = gbd[bcpath]['i_poswin']
         globborder.j_poswin = gbd[bcpath]['j_poswin']
         globborder.glob_dir_i = gbd[bcpath]['glob_dir_i']
@@ -593,7 +725,7 @@ def outradeq(workflow, FamilyName, valve_type=0, valve_ref_pres=None,
     workflow.tree = cgns.castNode(t)
 
 @mute_stdout
-def stage_mxpl(workflow, left, right):
+def stage_mxpl(workflow, Family, LinkedFamily):
     '''
     Set a mixing plane condition between families **left** and **right**.
 
@@ -605,13 +737,12 @@ def stage_mxpl(workflow, left, right):
         t : PyTree
             Tree to modify
 
-        left : str
+        Family : str
             Name of the family on the left side.
 
-        right : str
+        LinkedFamily : str
             Name of the family on the right side.
     '''
-
     import etc.transform as trf
 
     # HACK: must change the type of all FamilyName to array
@@ -620,14 +751,14 @@ def stage_mxpl(workflow, left, right):
     for FamilyName in workflow.tree.group(Type='FamilyName'):
         FamilyName.setValue(FamilyName.value())
 
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (left, right))
-    workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, left, right)
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
+    workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, Family, LinkedFamily)
 
     stage.jtype = 'nomatch_rad_line'
     stage.create()
 
     workflow.tree = cgns.castNode(workflow.tree)
-    set_turbomachinery_interface_FamilyBC(workflow.tree, left, right)
+    set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
     I._correctPyTree(workflow.tree, level=4)
 

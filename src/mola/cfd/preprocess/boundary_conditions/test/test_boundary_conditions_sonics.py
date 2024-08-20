@@ -20,6 +20,7 @@ import pytest
 from mola.logging import mola_logger
 from mola.cfd.preprocess.boundary_conditions import solver_sonics
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
+from mola.cfd.preprocess.boundary_conditions.test.test_boundary_conditions import get_workflow_prepared_to_test_bcs
 
 pytestmark = pytest.mark.sonics
 
@@ -30,3 +31,16 @@ def test_functions_well_defined():
     for fun_name in BoundaryConditionsNamesInSONICS:
         assert getattr(solver_sonics, fun_name)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_bc():
+    BoundaryConditions=[
+            dict(Family='imin', Type='BCFarfield'),
+            dict(Family='imax', Type='BCInflowSubsonicPressure'),
+            dict(Family='jmin', Type='BCInflowSubsonicMassFlow', MassFlow=1),
+            dict(Family='jmax', Type='BCOutflowSubsonic'),
+            dict(Family='kmin', Type='BCWallViscous'),
+            dict(Family='kmax', Type='BCWallInviscid'),
+        ]
+    workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
+    workflow.set_boundary_conditions()
