@@ -995,7 +995,7 @@ def computePerfoRotor(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=N
     etaIs = (PtRatio**((gamma-1.)/gamma) - 1.) / (TtRatio - 1.)
 
     perfos = dict(
-        IterationNumber            = CurrentIteration-1,  # Because extraction before current iteration (next_state=16)
+        IterationNumber            = CurrentIteration,  
         MassFlowIn                 = dataUpstream['MassFlow']*fluxcoeff,
         MassFlowOut                = dataDownstream['MassFlow']*fluxcoeffOut,
         PressureStagnationRatio    = PtRatio,
@@ -1015,7 +1015,7 @@ def computePerfoStator(dataUpstream, dataDownstream, fluxcoeff=1., fluxcoeffOut=
     meanPsIn  =             dataUpstream['Pressure'] /       dataUpstream['Area']
 
     perfos = dict(
-        IterationNumber         = CurrentIteration-1,  # Because extraction before current iteration (next_state=16)
+        IterationNumber         = CurrentIteration,  
         MassFlowIn              = dataUpstream['MassFlow']*fluxcoeff,
         MassFlowOut             = dataDownstream['MassFlow']*fluxcoeffOut,
         PressureStagnationRatio = meanPtOut / meanPtIn,
@@ -2038,7 +2038,7 @@ def isConverged(ConvergenceCriteria):
 
             CONVERGED = OneSufficientCriterion and AllNecessaryCriteria
             if CONVERGED:
-                MSG = 'CONVERGED at iteration {} since:'.format(CurrentIteration-1)
+                MSG = 'CONVERGED at iteration {} since:'.format(CurrentIteration)
                 for criterion in ConvergenceCriteria:
                     if criterion['Condition'] == 'Necessary' \
                         or criterion['Variable'] == OneSufficientCriterion:
@@ -2378,7 +2378,7 @@ def adaptEndOfRun(to):
     I._renameNode(to, 'cellnf', 'cellN')
     I._renameNode(to, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
     I._rmNodesByName(to, 'FlowSolution#Init-1')
-    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration-1:04d}', 'FlowSolution#Init-1')
+    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration:04d}', 'FlowSolution#Init-1')
 
 
 def moveCoordsFromEndOfRunToGridCoords(to):
@@ -3087,7 +3087,7 @@ def appendProbes2Arrays_extractMesh(t, arrays, Probes, order=2):
 
     ProbesDict = dict()
     for probeZone in I.getZones(probesTree):
-        ProbesDict = dict( IterationNumber = CurrentIteration-1 )
+        ProbesDict = dict( IterationNumber = CurrentIteration )
         GC = I.getNodeByName1(probeZone, 'GridCoordinates')
         FS = I.getNodeByName1(probeZone, I.__FlowSolutionCenters__)
         if not FS: continue
@@ -3115,7 +3115,7 @@ def appendProbes2Arrays(t, arrays):
             continue
         if Probe['rank'] != rank:
             continue
-        ProbesDict = dict( IterationNumber = CurrentIteration-1 )
+        ProbesDict = dict( IterationNumber = CurrentIteration )
         if setup.elsAkeysNumerics['time_algo'] != 'steady': 
             ProbesDict['Time'] = ProbesDict['IterationNumber'] * setup.elsAkeysNumerics['timestep']
 
@@ -3440,7 +3440,7 @@ def _extendSurfacesWithWorkflowQuantities(surfaces, arrays=None):
                                 for node in I.getNodesFromType1(FS, 'DataArray_t'):
                                     averagesDict[I.getName(node)] = I.getValue(node)
 
-                                averagesDict['IterationNumber'] = CurrentIteration-1
+                                averagesDict['IterationNumber'] = CurrentIteration
                                 appendDict2Arrays(arrays, averagesDict, zoneName)
             
                 else:
