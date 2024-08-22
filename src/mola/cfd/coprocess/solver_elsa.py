@@ -74,7 +74,7 @@ def perform_extractions(workflow, coprocess_manager):
                 # in the workflow
                 NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
                 extraction['Data'] = extract_integral(output_tree, extraction, 
-                                                      NormalizationCoefficients)
+                                                      NormalizationCoefficients)            
                 integral_data_already_extracted = True
             else:
                 extraction['Data'] = cgns.Tree()

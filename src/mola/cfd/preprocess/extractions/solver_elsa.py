@@ -30,6 +30,7 @@ def apply_to_solver(workflow):
     add_extractions_for_overset_components(workflow)
     process_extractions_3d(workflow)
     process_extractions_2d(workflow)
+    process_extractions_1d(workflow)
     add_trigger(workflow.tree)
     for Extraction in workflow.Extractions: 
         if Extraction['Type'] == 'Residuals':
@@ -139,42 +140,76 @@ def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocat
 
 def process_extractions_2d(workflow):
 
-    # Get elsA parameters for extractions, depending on the type of the BC
-    default_bc_parameters, default_bc_wall_parameters = get_default_parameters_for_2d_extractions(workflow.SolverParameters, workflow.Flow['Pressure'])
+    families = workflow.tree.group(Type='Family', Depth=2)
+    familiesBC = [node for node in families if node.get(Type='FamilyBC', Depth=1)]
+
+    for Extraction in workflow.Extractions:
+
+        if Extraction['Type'] != 'BC': continue 
+
+        requested_source = Extraction['Source']
+
+        for familyBC in familiesBC:
+
+            family = familyBC.parent()
+            family_name = family.name()
+            bc_type = familyBC.value() 
+
+            if requested_source not in [family_name, bc_type]: continue # TODO : allow regex ?
+            
+            add_2d_extractions_in_SolverOutput(family, Extraction, workflow)
+
+
+def process_extractions_1d(workflow):
+    ...
+
+
+def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
     
-    FamilyNodes = workflow.tree.group(Type='Family', Depth=2)
-    BCFamilyNodes = [node for node in FamilyNodes if node.get(Type='FamilyBC', Depth=1)]
+    bc_type = FamilyNode.get(Name='FamilyBC').value()
 
-    # Among all extractions, get all the BCType that are asked
-    AllBCExtractions = []
-    for Extraction in workflow.Extractions:
-        if Extraction['Type'] == 'BC' and Extraction['Source'].startswith('BC'):
-            AllBCExtractions.append(Extraction['Source'])
+    fields_to_extract = adapt_variables_for_2d_extraction(workflow, Extraction, bc_type)
 
-    for Extraction in workflow.Extractions:
+    if fields_to_extract != []:
 
-        is_integral_on_bc = Extraction['Type'] == 'Integral' \
-            and (Extraction['Source'].startswith('BC') or Extraction['Source'] in BCFamilyNodes)
-        if Extraction['Type'] != 'BC' and not is_integral_on_bc:
-            # extraction not handled with that function
-            continue
+        elsa_var_list = translate_to_elsa(fields_to_extract, type='var')       
 
-        # TODO : manage the case with no BCType given but a Family instead
-        ExtractBCTypeRequired = Extraction['Source'] # It may contain *
+        solver_output_name = '.Solver#Output#'+Extraction['Name'] # note that we may have several outputs (e.g. different requested frames)
 
-        for FamilyNode in BCFamilyNodes:
-            FamilyBCNode = FamilyNode.get(Type='FamilyBC', Value=ExtractBCTypeRequired, Depth=1)
-            if FamilyBCNode:
-                ExtractBCType = FamilyBCNode.value()
+        raise_error_if_solver_output_already_defined(solver_output_name, FamilyNode)
 
-                ExtractVariablesList = adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType)
-                add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters)
+        output_keys = get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list)
 
-def get_default_parameters_for_2d_extractions(SolverParameters, pinf):
-    # Default keys to write in the .Solver#Output of the Family node
-    # The node 'var' will be fill later depending on the BCType
-    default_bc_parameters = dict(
-        period        = 1,
+        FamilyNode.setParameters(solver_output_name, **output_keys)
+        
+    else:
+        mola_logger.warning(f'Caution: the list of fields to extract on family {FamilyNode.name()} is empty')
+
+
+def raise_error_if_solver_output_already_defined(solver_output_name, FamilyNode):
+    
+    solver_output_already_defined = bool(FamilyNode.get(Name=solver_output_name, Depth=1))
+
+    if solver_output_already_defined:
+        raise MolaException(f'{solver_output_name} already defined in {FamilyNode.path()}')
+
+
+
+def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) -> dict:
+
+    # get loc
+    requested_location = Extraction["GridLocation"]
+    if requested_location == "CellCenter":
+        loc = 'interface'
+    elif requested_location == "Vertex":
+        loc = 'node'
+    else:
+        extraction_name = Extraction["Name"]
+        raise MolaException(f"requested location {requested_location} for Extraction {extraction_name} not supported for elsA")
+
+
+    output_keys = dict(
+        period        = Extraction["ExtractionPeriod"],
 
         # TODO make ticket:
         # BUG with writingmode=2 and Cfdpb.compute() (required by unsteady overset) 
@@ -183,29 +218,53 @@ def get_default_parameters_for_2d_extractions(SolverParameters, pinf):
         #                        versus :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU_Annexe/CGNS/CGNS.html#Solver-Output
         writingmode   = 2, # NOTE requires extract_filtering='inactive'
 
-        loc           = 'interface',
+        loc           = loc,
         fluxcoeff     = 1.0,
-        writingframe  = 'absolute',
+        writingframe  = Extraction['Frame'],
     )
 
-    # Keys to write in the .Solver#Output for wall Families
-    default_bc_wall_parameters = dict()
-    default_bc_wall_parameters.update(default_bc_parameters)
-    default_bc_wall_parameters.update(dict(
-        delta_compute = SolverParameters['model']['delta_compute'],
-        vortratiolim  = SolverParameters['model']['vortratiolim'],
-        shearratiolim = SolverParameters['model']['shearratiolim'],
-        pressratiolim = SolverParameters['model']['pressratiolim'],
-        pinf          = pinf,
-        torquecoeff   = 1.0,
-        xtorque       = 0.0,
-        ytorque       = 0.0,
-        ztorque       = 0.0,
-        writingframe  = 'relative', # absolute incompatible with unstructured mesh
-        geomdepdom    = 2, # see #8127#note-26
-        delta_cell_max= 300,
-    ))
-    return default_bc_parameters, default_bc_wall_parameters
+    is_wall = 'Wall' in bc_type
+    is_inviscid_wall = is_wall and 'Inviscid' in bc_type
+    is_viscous_wall = is_wall and not is_inviscid_wall
+
+    if is_wall:
+        output_keys.update(dict(
+            pinf = workflow.Flow['Pressure'],
+            torquecoeff   = 1.0,
+            xtorque       = 0.0,
+            ytorque       = 0.0,
+            ztorque       = 0.0,
+        ))
+
+
+        if is_viscous_wall:
+
+            if Extraction['Frame'] == 'absolute' and not workflow.tree.isStructured():
+                output_keys["writingframe"] = "relative"
+                mola_logger.warning(f"Extraction {Extraction['Name']} requested absolute frame, but elsA cannot extract bc wall quantities in absolute frame for not structured grids. Switching to relative.")
+            
+            boundary_layer_requested = any([v.startswith('bl_') for v in elsa_var_list])
+            
+            if boundary_layer_requested:
+            
+                output_keys.update(dict(
+                    delta_compute = workflow.SolverParameters['model']['delta_compute'],
+                    vortratiolim  = workflow.SolverParameters['model']['vortratiolim'],
+                    shearratiolim = workflow.SolverParameters['model']['shearratiolim'],
+                    pressratiolim = workflow.SolverParameters['model']['pressratiolim'],
+                    geomdepdom    = 2, # see #8127#note-26
+                    delta_cell_max= 300,
+                ))
+
+
+
+    if "OtherOptions" in Extraction:
+        output_keys.update(Extraction["OtherOptions"])
+        output_keys.update(Extraction["OtherOptions"])
+
+    output_keys['var'] = elsa_var_list
+
+    return output_keys
 
 def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
     ExtractVariablesList = copy.deepcopy(Extraction['Fields'])
@@ -238,35 +297,6 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
     
     return ExtractVariablesList
 
-def add_2d_extractions_in_SolverOutput(FamilyNode, ExtractBCType, ExtractVariablesList, default_bc_parameters, default_bc_wall_parameters):
-    if ExtractVariablesList != []:
-        varList = translate_to_elsa(ExtractVariablesList, type='var')
-        SolverOutput = FamilyNode.get(Name='.Solver#Output', Depth=1) 
-        
-        if not SolverOutput:
-            mola_logger.debug('setting .Solver#Output to FamilyNode '+FamilyNode.name())
-            if 'BCWall' in ExtractBCType:
-                SolverOutputKeys = dict(**default_bc_wall_parameters, var=' '.join(varList))
-            else:
-                SolverOutputKeys = dict(**default_bc_parameters, var=' '.join(varList))
-            FamilyNode.setParameters('.Solver#Output', **SolverOutputKeys)
-        else:
-            mola_logger.debug('adding variables in .Solver#Output to FamilyNode '+FamilyNode.name())
-            # Add variables that are not already in the node
-            varNode = SolverOutput.get(Name='var', Depth=1)
-            varListAlreadyPresent = varNode.value()
-            if isinstance(varListAlreadyPresent, str):
-                # only one variable in node var, so varListAlreadyPresent is a str
-                # Careful, doing list(varListAlreadyPresent) gives a wrong result!
-                # For example, list('psta') = ['p', 's', 't', 'a']
-                varListAlreadyPresent = [varListAlreadyPresent]
-            newVarList = copy.deepcopy(varListAlreadyPresent)
-            for var in varList:
-                if not var in varListAlreadyPresent:
-                    newVarList.append(var)
-            varNode.setValue(' '.join(newVarList))
-    else:
-        mola_logger.warning(f'Caution: the list of fields to extract on {FamilyNode.name()} is empty')
 
 
 def add_trigger(t, coprocessFilename=names.FILE_COPROCESS):

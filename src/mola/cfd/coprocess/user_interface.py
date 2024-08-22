@@ -18,16 +18,15 @@
 import os
 from . import comm, rank
 
-# TODO make this a proper method of coproces_manager
 def get_user_signal(coprocess_manager, filename):
     '''
-    Get a signal using an temporary auxiliar file technique.
+    Get a signal using an temporary auxiliary file technique.
 
     If the intermediary file exists (signal received) then self.iteration is removed, and
     the function returns :py:obj:`True` to all processors. Otherwise, self.iteration returns
     :py:obj:`False` to all processors.
 
-    This function is employed for controling a simulation in a simple manner,
+    This function is employed for controlling a simulation in a simple manner,
     for example using UNIX command ``touch``:
 
     .. code-block:: bash
@@ -51,8 +50,9 @@ def get_user_signal(coprocess_manager, filename):
     '''
     isOrder = False
     if rank == 0:
+        filepath = path_accounting_for_exec_location(filename, coprocess_manager)
         try:
-            os.remove(filename)
+            os.remove(filepath)
             isOrder = True
             coprocess_manager.mola_logger.info(f'Received signal {filename}', rank=0)
         except:
@@ -61,34 +61,21 @@ def get_user_signal(coprocess_manager, filename):
     isOrder = comm.bcast(isOrder,root=0)
     return isOrder
 
-# TODO make this a proper method of coproces_manager
-def update_operations_from_user_signal(coprocess_manager):
 
-    # Control Flags for interactive control using command 'touch <flag>'
+def write_tagfile(tag : str, coprocess_manager):
 
-    if get_user_signal(coprocess_manager,'QUIT'): 
-        os._exit(0)
-    
-    if get_user_signal(coprocess_manager,'CONVERGED'):
-        coprocess_manager.status = 'TO_STOP'
-        return
+    if rank == 0:
+        path_newjob_required = path_accounting_for_exec_location(tag, coprocess_manager)
+        with open(path_newjob_required, 'w') as f: 
+            f.write(tag)
 
-    if get_user_signal(coprocess_manager,'COMPUTE_BODYFORCE'):
-        coprocess_manager.operations_stack.append('COMPUTE_BODYFORCE')
-    if get_user_signal(coprocess_manager,'SAVE_BODYFORCE'):
-        coprocess_manager.operations_stack.append('SAVE_BODYFORCE')
-    
-    if get_user_signal(coprocess_manager,'SAVE_RESTART'):
-        coprocess_manager.operations_stack.append('SAVE_RESTART')
-    if get_user_signal(coprocess_manager,'SAVE_FIELDS'):
-        coprocess_manager.operations_stack.append('SAVE_FIELDS')
-    if get_user_signal(coprocess_manager,'SAVE_EXTRACTIONS'):
-        coprocess_manager.operations_stack.append('SAVE_EXTRACTIONS')
-    if get_user_signal(coprocess_manager,'SAVE_SIGNALS'):
-        coprocess_manager.operations_stack.append('SAVE_SIGNALS')
-    if get_user_signal(coprocess_manager,'SAVE_ALL'):
-        coprocess_manager.operations_stack.extend(['SAVE_RESTART', 'SAVE_FIELDS', 'SAVE_EXTRACTIONS', 'SAVE_SIGNALS'])
-    
-    # TODO Signal RELOAD_SETUP not plugged yet
+def path_accounting_for_exec_location(requested_path : str, coprocess_manager) -> str:
 
+    run_dir = coprocess_manager.workflow.RunManagement.get('RunDirectory','.')
+
+    if run_dir == "." or run_dir == os.path.basename(os.getcwd()):
+        return requested_path
+
+    else: 
+        return os.path.join(run_dir,requested_path)
 
