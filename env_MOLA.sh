@@ -7,7 +7,7 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLAVER=v1.18
+export MOLAVER=v1.18.1
 export MOLA=/stck/mola/$MOLAVER
 export MOLASATOR=/tmp_user/sator/mola/$MOLAVER
 export MOLAJUNO=/tmp_user/juno/mola/$MOLAVER
