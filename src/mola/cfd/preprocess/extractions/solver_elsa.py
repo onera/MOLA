@@ -28,9 +28,8 @@ def apply_to_solver(workflow):
 
     add_extractions_for_restart(workflow)
     add_extractions_for_overset_components(workflow)
-    process_extractions_3d(workflow)
-    process_extractions_2d(workflow)
-    process_extractions_1d(workflow)
+    process_extractions_of_type_field(workflow)
+    process_extractions_of_type_bc_and_integral(workflow)
     add_trigger(workflow.tree)
     for Extraction in workflow.Extractions: 
         if Extraction['Type'] == 'Residuals':
@@ -68,7 +67,7 @@ def add_extractions_for_restart(workflow):
         Fields=list(workflow.Flow['ReferenceState']),
         )
 
-def process_extractions_3d(workflow):
+def process_extractions_of_type_field(workflow):
 
     # For 3D averaged field : 
     #   dict(type='3D', Container='FlowSolution#Average', fields=[...], options=dict(average='time', period_init='inactive'))
@@ -138,14 +137,12 @@ def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocat
         raise MolaException('several 3D extractions are incompatible together')
 
 
-def process_extractions_2d(workflow):
+def process_extractions_of_type_bc_and_integral(workflow):
 
-    families = workflow.tree.group(Type='Family', Depth=2)
-    familiesBC = [node for node in families if node.get(Type='FamilyBC', Depth=1)]
+    familiesBC = get_familiesBC_nodes(workflow)
 
     for Extraction in workflow.Extractions:
-
-        if Extraction['Type'] != 'BC': continue 
+        if Extraction['Type'] not in ['Integral', 'BC']: continue 
 
         requested_source = Extraction['Source']
 
@@ -155,14 +152,22 @@ def process_extractions_2d(workflow):
             family_name = family.name()
             bc_type = familyBC.value() 
 
-            if requested_source not in [family_name, bc_type]: continue # TODO : allow regex ?
+            # TODO : allow regex ?
+            if requested_source not in [family_name, bc_type] or 'Fields' not in Extraction:
+                continue 
             
             add_2d_extractions_in_SolverOutput(family, Extraction, workflow)
 
+def get_familiesBC_nodes(workflow):
 
-def process_extractions_1d(workflow):
-    ...
+    families = workflow.tree.group(Type='Family', Depth=2)
+    familiesBC = []
+    for family in families:
+        familyBC = family.get(Type='FamilyBC', Depth=1)
+        if familyBC:
+            familiesBC += [ familyBC ]
 
+    return familiesBC
 
 def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
     
@@ -179,6 +184,9 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
         raise_error_if_solver_output_already_defined(solver_output_name, FamilyNode)
 
         output_keys = get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list)
+
+        # import pprint
+        # print(f"including SolverOutput for {Extraction['Name']} using:\n {pprint.pformat(output_keys)}")
 
         FamilyNode.setParameters(solver_output_name, **output_keys)
         
@@ -197,17 +205,6 @@ def raise_error_if_solver_output_already_defined(solver_output_name, FamilyNode)
 
 def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) -> dict:
 
-    # get loc
-    requested_location = Extraction["GridLocation"]
-    if requested_location == "CellCenter":
-        loc = 'interface'
-    elif requested_location == "Vertex":
-        loc = 'node'
-    else:
-        extraction_name = Extraction["Name"]
-        raise MolaException(f"requested location {requested_location} for Extraction {extraction_name} not supported for elsA")
-
-
     output_keys = dict(
         period        = Extraction["ExtractionPeriod"],
 
@@ -218,11 +215,22 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
         #                        versus :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU_Annexe/CGNS/CGNS.html#Solver-Output
         writingmode   = 2, # NOTE requires extract_filtering='inactive'
 
-        loc           = loc,
         fluxcoeff     = 1.0,
         writingframe  = Extraction['Frame'],
     )
 
+    
+    if Extraction["Type"] == "BC":
+        requested_location = Extraction["GridLocation"]
+        if requested_location == "CellCenter":
+            output_keys["loc"] = 'interface'
+        elif requested_location == "Vertex":
+            output_keys["loc"] = 'node'
+        else:
+            extraction_name = Extraction["Name"]
+            raise MolaException(f"requested location {requested_location} for Extraction {extraction_name} not supported for elsA")
+
+    
     is_wall = 'Wall' in bc_type
     is_inviscid_wall = is_wall and 'Inviscid' in bc_type
     is_viscous_wall = is_wall and not is_inviscid_wall
@@ -240,7 +248,7 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
         if is_viscous_wall:
 
             if Extraction['Frame'] == 'absolute' and not workflow.tree.isStructured():
-                output_keys["writingframe"] = "relative"
+                output_keys["writingframe"] = "relative" # TODO identify elsA ticket
                 mola_logger.warning(f"Extraction {Extraction['Name']} requested absolute frame, but elsA cannot extract bc wall quantities in absolute frame for not structured grids. Switching to relative.")
             
             boundary_layer_requested = any([v.startswith('bl_') for v in elsa_var_list])
@@ -256,8 +264,6 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
                     delta_cell_max= 300,
                 ))
 
-
-
     if "OtherOptions" in Extraction:
         output_keys.update(Extraction["OtherOptions"])
         output_keys.update(Extraction["OtherOptions"])
@@ -269,6 +275,7 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
 def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
     ExtractVariablesList = copy.deepcopy(Extraction['Fields'])
 
+    # TODO since in unstructured it is now possible
     if not workflow.tree.isStructured():
         if 'BoundaryLayer' in ExtractVariablesList:
             ExtractVariablesList.remove('BoundaryLayer')

@@ -438,7 +438,7 @@ def test_extract_integral(tmp_path):
     assert flow_sol
 
     expected_integrals = ('IterationNumber','ForceX',  'ForceY',   'ForceZ',
-                          'MassFlow',     'Torque0X','Torque0Y', 'Torque0Z')
+                          'MassFlow',     'TorqueX','TorqueY', 'TorqueZ')
     for k in expected_integrals: 
         expected_node = flow_sol.get(k)
         assert expected_node

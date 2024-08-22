@@ -236,14 +236,16 @@ def extract_integral(output_tree, extraction, workflow):
     fields.update(dict(ForceX  = np.array([stress['ForceX']]),
                        ForceY  = np.array([stress['ForceY']]),
                        ForceZ  = np.array([stress['ForceZ']]),
-                       Torque0X= np.array([stress['Torque0X']]),
-                       Torque0Y= np.array([stress['Torque0Y']]),
-                       Torque0Z= np.array([stress['Torque0Z']]),
+                       TorqueX = np.array([stress['Torque0X']]),
+                       TorqueY = np.array([stress['Torque0Y']]),
+                       TorqueZ = np.array([stress['Torque0Z']]),
                        MassFlow= np.array([stress['m']])))
     
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
     zone = cgns.utils.newZoneFromDict( extraction['Name'], fields )
+    extraction_log = {key: value for key, value in extraction.items() if key != 'Data'}
+    zone.setParameters('MOLA:Extraction-Log',**extraction_log)
     zone.attachTo(base)
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)

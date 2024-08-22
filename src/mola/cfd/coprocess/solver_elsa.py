@@ -34,15 +34,12 @@ from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
+from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_elsa_CGNS_field_names_to_MOLA
 
 def perform_extractions(workflow, coprocess_manager):
     output_tree = get_elsa_output_tree(workflow._Skeleton)
     families_to_bctype = get_family_to_BCType(output_tree)
-
-    # extract all integral data at once, so once by iteration, 
-    # whatever the number of Extractions with type Integral
-    integral_data_already_extracted = False 
-    
+   
     for extraction in coprocess_manager.Extractions:
         if extraction['IsToExtract'] == False:
             continue
@@ -66,18 +63,14 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_residuals(output_tree)
         
         elif extraction['Type'] == 'Integral':
-            if not integral_data_already_extracted:
 
-                # NOTE LB: is ApplicationContext/NormalizationCoefficient the right place ?
-                # perhaps specific NormalizationCoefficients should be incorporated into
-                # the extraction dict. These could be set using ApplicationContext/NormalizationCoefficient
-                # in the workflow
-                NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
-                extraction['Data'] = extract_integral(output_tree, extraction, 
-                                                      NormalizationCoefficients)            
-                integral_data_already_extracted = True
-            else:
-                extraction['Data'] = cgns.Tree()
+            # NOTE LB: is ApplicationContext/NormalizationCoefficient the right place ?
+            # perhaps specific NormalizationCoefficients should be incorporated into
+            # the extraction dict. These could be set using ApplicationContext/NormalizationCoefficient
+            # in the workflow
+            NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
+            extraction['Data'] = extract_integral(output_tree, extraction, 
+                                                    NormalizationCoefficients)            
 
         # elif extraction['Type'] == 'Probe':
         #     extraction['Data'] = extract_probe(output_tree)
@@ -259,14 +252,26 @@ def extract_integral(output_tree, extraction, NormalizationCoefficients=None):
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
     for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):
-        Family = IntegralDataNode.name().split('-')[0]
+        full_name_parts = IntegralDataNode.name().split('-')
+
+        if len(full_name_parts) > 1 and full_name_parts[1].startswith('#'):
+            IntegralName = full_name_parts[1][1:-1]
+
+        else:
+            IntegralName = full_name_parts[0]
+
+        if IntegralName != extraction['Name']: continue
+
         IntegralDataNode.dettach()
         IntegralDataNode.setName('FlowSolution')
         IntegralDataNode.setType('FlowSolution_t')
         for n in IntegralDataNode.children(): n.setType('DataArray_t')
+        translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
         if NormalizationCoefficients:
-            _normalize_data(IntegralDataNode, Family, NormalizationCoefficients)
-        cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+            _normalize_data(IntegralDataNode, IntegralName, NormalizationCoefficients)
+        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+        zone.setParameters('MOLA:Extraction-Log',**extraction)
+        break
 
     return mpi_allgather_and_merge_trees(t)
 

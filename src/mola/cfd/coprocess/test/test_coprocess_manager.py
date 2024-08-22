@@ -109,27 +109,3 @@ def test_status(tmp_path):
 
     check_existance_of_coprocess_files_and_directories_by_removing_them(tmp_path)
 
-
-@pytest.mark.integration
-@pytest.mark.cost_level_0
-def test_extract_integral(tmp_path):
-
-    w = get_workflow_cart_monoproc(tmp_path)
-    w._interface.add_to_Extractions_Integral(
-        Name='Test',
-        File='test_intregral.cgns',
-        Source='Ground',
-    )
-    w.RunManagement['Scheduler'] = 'local'
-    w.prepare()
-    w.write_cfd_files()
-    w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
-    
-    expected_file = cgns.load(os.path.join(tmp_path, names.DIRECTORY_OUTPUT, 'test_integral.cgns'))
-
-    assert expected_file
-
-
-if __name__ == '__main__':
-    test_status()

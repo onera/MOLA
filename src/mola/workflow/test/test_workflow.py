@@ -582,6 +582,8 @@ def get_workflow_cart_monoproc(RunDirectory):
                 Families=[
                     dict(Name='Ground',
                          Location='kmin'),
+                    dict(Name='Inlet',
+                         Location='imin'),
                     dict(Name='Farfield',
                          Location='remaining'),
                 ],
@@ -614,6 +616,7 @@ def get_workflow_cart_monoproc(RunDirectory):
 
         BoundaryConditions=[
             dict(Family='Ground',   Type='Wall'),
+            dict(Family='Inlet',    Type='Farfield'),
             dict(Family='Farfield', Type='Farfield'),
         ],
 

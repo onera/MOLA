@@ -99,12 +99,12 @@ def test_global_convergence_history():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_process_extractions_3d_base():
+def test_process_extractions_of_type_field_base():
     params = get_workflow2_parameters()
     params['Extractions'] = [dict(Type='3D', Fields=['Density', 'Momentum', 'Energy'], Container='FlowSolution#Output')]
     workflow = Workflow(**params)
     workflow.assemble()
-    solver_elsa.process_extractions_3d(workflow)
+    solver_elsa.process_extractions_of_type_field(workflow)
 
     zone = workflow.tree.zones()[0]
     FS = zone.get(Name='FlowSolution#Output', Type='FlowSolution')
@@ -135,7 +135,7 @@ def test_process_extractions_3d_additional_variables():
         ]
     workflow = Workflow(**params)
     workflow.assemble()
-    solver_elsa.process_extractions_3d(workflow)
+    solver_elsa.process_extractions_of_type_field(workflow)
 
     zone = workflow.tree.zones()[0]
     FS = zone.get(Name='FS#Output3D', Type='FlowSolution')
@@ -166,7 +166,7 @@ def test_process_extractions_3d_coords():
     params['Extractions'] = [dict(Type='3D', Container='FlowSolution#EndOfRun#Coords', Fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], GridLocation='Vertex', Frame='absolute')]
     workflow = Workflow(**params)
     workflow.assemble()
-    solver_elsa.process_extractions_3d(workflow)
+    solver_elsa.process_extractions_of_type_field(workflow)
 
     zone = workflow.tree.zones()[0]
     FS = zone.get(Name='FlowSolution#EndOfRun#Coords', Type='FlowSolution')
@@ -194,7 +194,7 @@ def test_process_extractions_3d_average():
     params['Extractions'] = [dict(Type='3D', Container='FlowSolution#Average', Fields=['Density', 'Momentum'], OtherOptions=dict(average='time', period_init='inactive'))]
     workflow = Workflow(**params)
     workflow.assemble()
-    solver_elsa.process_extractions_3d(workflow)
+    solver_elsa.process_extractions_of_type_field(workflow)
 
     zone = workflow.tree.zones()[0]
     FS = zone.get(Name='FlowSolution#Average', Type='FlowSolution')
@@ -235,7 +235,6 @@ def test_adapt_variables_for_2d_extraction_wall():
     assert ExtractVariablesList == ['Pressure', 'BoundaryLayer', 'yPlus', 
                                     'geomdepdom','delta_cell_max','delta_compute',
                                     'vortratiolim','shearratiolim','pressratiolim']
-
 
 
 @pytest.mark.unit
@@ -425,6 +424,44 @@ def test_add_2d_extractions_in_SolverOutput_inflow(field_name):
     )
 
     assert solver_output == solver_output_ref
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_add_integral_extractions_in_wall():
+
+    workflow = get_workflow_1()
+
+    FamilyNode = cgns.Node(Name='FamilyA', Type='Family')
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCWall', Parent=FamilyNode)
+
+    Extraction = dict(Type="Integral",
+                      Fields=['Force', 'Torque'],
+                      Source="FamilyA",
+                      Name="FamilyA",
+                      ExtractionPeriod=1,
+                      Frame="absolute")
+
+    
+    solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow)
+
+    solver_output = FamilyNode.getParameters('.Solver#Output#'+Extraction["Name"],transform_numpy_scalars=True)
+    solver_output_ref = dict(
+        period=Extraction["ExtractionPeriod"],
+        writingmode=2,
+        fluxcoeff = 1.0,
+        writingframe=Extraction["Frame"], 
+        pinf=workflow.Flow['Pressure'],
+        torquecoeff=1.0,
+        xtorque=0.0,
+        ytorque=0.0,
+        ztorque=0.0,
+        var=['flux_rou', 'flux_rov', 'flux_row', 'torque_rou', 'torque_rov', 'torque_row']
+    )
+
+    assert solver_output == solver_output_ref
+
+
 
 if __name__ == '__main__':
     test_add_2d_extractions_in_SolverOutput_wall()

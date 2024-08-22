@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from treelab import cgns
+
 CGNS2ElsaInCGNSNode = dict(
         PressureStagnation       = 'stagnation_pressure',
         EnthalpyStagnation       = 'stagnation_enthalpy',
@@ -116,13 +118,20 @@ CGNS2ElsaInVarNode = {
  'v8': 'rotur3',
  'v9': 'rotur4'}
 
+ElsaCGNS2MOLA = dict(
+    MomentumXFlux = 'ForceX',
+    MomentumYFlux = 'ForceY',
+    MomentumZFlux = 'ForceZ',
+    convflux_ro   = 'MassFlow',
+)
+
 CGNS2ElsaInVarNode.update(dict(
     BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue',
     NormalVector             = 'normalvector',
     Friction                 = 'frictionvector', 
     yPlus                    = 'yplusmeshsize',
-    MomentumFlux             = 'flux_rou flux_rov flux_row',
-    TorqueFlux               = 'torque_rou torque_rov torque_row',
+    Force                    = 'flux_rou flux_rov flux_row',
+    Torque                   = 'torque_rou torque_rov torque_row',
     MassFlow                 = 'convflux_ro',
 ))
 
@@ -186,4 +195,11 @@ def translate_to_elsa(Variables, type='node'):
             return CGNS2ElsaDict[Variables]
     else:
         raise TypeError('Variables must be of type dict, list or string')
+
+def translate_elsa_CGNS_field_names_to_MOLA(container_node : cgns.Node):
+
+    for node in container_node.children():
+        node_name = node.name()
+        if node_name in ElsaCGNS2MOLA:
+            node.setName( ElsaCGNS2MOLA[node_name] )
 
