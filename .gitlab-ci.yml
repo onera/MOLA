@@ -101,8 +101,6 @@ test_unit_sonics:
 
 coverage_report:
   stage: code-quality
-  tags:
-    - juno-shell
   dependencies:
     - test_unit_elsa
     - test_unit_sonics
@@ -112,7 +110,10 @@ coverage_report:
   before_script:
     - source $MOLA_ENV_DEFAULT
   script:
+    - coverage report --data-file=.coverage_test_unit_elsa
+    - coverage report --data-file=.coverage_test_unit_sonics
     - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics
+    - coverage report
     # - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics .coverage_test_unit_fast .coverage_test_integration_fast .coverage_test_integration_elsa 
     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
