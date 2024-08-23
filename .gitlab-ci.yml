@@ -114,7 +114,6 @@ coverage_report:
     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
     - tar -czf htmlcov.tar.gz htmlcov
-  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     reports:
       coverage_report:
