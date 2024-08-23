@@ -95,7 +95,6 @@ test_unit_sonics:
     - source $MOLA_ENV_SONICS
   script:
     - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
-    - coverage report --data-file=.coverage_test_unit_sonics
   artifacts:
     paths:
       - .coverage_test_unit_sonics
@@ -112,10 +111,7 @@ coverage_report:
   before_script:
     - source $MOLA_ENV_DEFAULT
   script:
-    - coverage report --data-file=.coverage_test_unit_elsa
-    - coverage report --data-file=.coverage_test_unit_sonics
     - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics
-    - coverage report
     # - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics .coverage_test_unit_fast .coverage_test_integration_fast .coverage_test_integration_elsa 
     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
