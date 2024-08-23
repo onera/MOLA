@@ -27,11 +27,3 @@ packages = ["src/mola"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
-
-[tool.coverage.run]
-source = [
-    "src/mola/*",
-    ]
-omit = [
-    "*/test/*",
-    ]
