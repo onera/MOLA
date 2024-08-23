@@ -194,7 +194,7 @@ class WorkflowInterface(object):
         TurbulenceCutOffRatio        : float = 1e-8,
         TransitionMode               :   str = None,
                        ):
-        '''
+        r'''
         Sets the turbulence modeling parameters
 
         Parameters
@@ -408,7 +408,7 @@ class WorkflowInterface(object):
             WorkflowInterface.add_to_Extractions_Residuals, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_Integral(self,
-            Fields : list = None, # accepts prefix avg- or std-
+            Fields : list = None, # accepts prefix avg- or std- Accept MOLA keywords "Force" and "Torque"
             File : str = names.FILE_OUTPUT_1D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 1,

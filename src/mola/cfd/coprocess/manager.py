@@ -30,7 +30,7 @@ from mola.cfd.preprocess.mesh.io.writer import write
 
 from . import rank, comm
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
-from .user_interface import update_operations_from_user_signal
+from .user_interface import get_user_signal, write_tagfile
 
 
 AVAILABLE_SIMULATION_STATUS = [
@@ -40,6 +40,21 @@ AVAILABLE_SIMULATION_STATUS = [
     'TO_FINALIZE',
     'COMPLETED', 
 ]
+
+# Control Flags for interactive control using command 'touch <flag>'
+AVAILABLE_SIGNALS = [
+    'CONVERGED',
+    'SAVE_ALL',
+    'COMPUTE_BODYFORCE',
+    'SAVE_BODYFORCE',
+    'SAVE_RESTART',
+    'SAVE_FIELDS',
+    'SAVE_EXTRACTIONS'
+    'SAVE_SIGNALS',
+    'QUIT',
+]
+
+
 
 class CoprocessManager():
 
@@ -64,25 +79,9 @@ class CoprocessManager():
         #   IsToExtract (bool), IsToSave (bool), Data (PyTree or other kind of volumic data)
         # and these elements must not be saved when saving the workflow.
         self.Extractions = copy.deepcopy(workflow.Extractions)
-        
-    @property
-    def status(self):
-        return self._status
-    
-    @status.setter
-    def status(self, value):
-        if value in AVAILABLE_SIMULATION_STATUS:
-            self._status = value
-        else:
-            raise MolaException(f"The value {value} is not among the AVAILABLE_SIMULATION_STATUS ({', '.join(AVAILABLE_SIMULATION_STATUS)})")
-
-    def __del__(self):
-        if self.status != 'COMPLETED':
-            self.mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
-                 
+                         
     def run_iteration(self):
         self.update_iteration()
-        update_operations_from_user_signal(self)
         check_timeout(self)
         self.apply_operations()
         check_max_iteration(self)
@@ -90,6 +89,7 @@ class CoprocessManager():
 
         if self.status == 'TO_STOP':
             self.end_simulation()
+
 
     def update_iteration(self):
         self.status = 'RUNNING'
@@ -104,8 +104,8 @@ class CoprocessManager():
             self.time += self.workflow.Numerics['TimeStep']
 
         self.update_extractions_to_perform()
-
         # TODO add body-force in the operations_stack if needed
+
     
     def update_extractions_to_perform(self):
         for extraction in self.Extractions:
@@ -189,7 +189,9 @@ class CoprocessManager():
             call_solver_specific_function(self.workflow, 'move_log_files', 3)
         except MolaException:
             pass
-        check_simulation_end_and_create_COMPLETED(self.Extractions)
+        
+        check_stderr()
+        write_tagfile(names.FILE_JOB_COMPLETED, self)
 
     def _update_workflow_parameters_for_restart(self):
         self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
@@ -224,6 +226,21 @@ class CoprocessManager():
         self.mola_logger = MolaLogger(stream=False, filename=colog_file_path,
                                       level='DEBUG')
 
+    @property
+    def status(self):
+        return self._status
+    
+    @status.setter
+    def status(self, value):
+        if value in AVAILABLE_SIMULATION_STATUS:
+            self._status = value
+        else:
+            raise MolaException(f"The value {value} is not among the AVAILABLE_SIMULATION_STATUS ({', '.join(AVAILABLE_SIMULATION_STATUS)})")
+
+    def __del__(self):
+        if self.status != 'COMPLETED':
+            self.mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
+
 
 def move_log_files():
     if rank == 0:
@@ -242,11 +259,6 @@ def move_log_files():
 
     comm.barrier()
 
-def check_simulation_end_and_create_COMPLETED(Extractions):
-    check_stderr()
-    if rank == 0:
-        with open(names.FILE_JOB_COMPLETED,'w') as f: 
-            f.write(names.FILE_JOB_COMPLETED)
     
 def check_stderr():
     # TODO Simple check for now, but it should be different if this function is called in the coprocess script

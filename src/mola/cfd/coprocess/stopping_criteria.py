@@ -15,166 +15,156 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import timeit
 import datetime
 
-from mola.logging import GREEN, ENDC
+from mola.logging import MolaException, GREEN, ENDC
 from . import rank, comm
-
-# TODO transform all these functions to methods of coproces_manager
+from mola.cfd.coprocess.user_interface import write_tagfile
 
 def check_timeout(coprocess_manager):
-    if coprocess_manager.status == 'RUNNING':
-        ReachedTimeOutMargin = _has_reached_timeout(coprocess_manager.launch_time,
-            coprocess_manager.workflow.RunManagement['TimeOutInSeconds'],
-            coprocess_manager)
-        if ReachedTimeOutMargin :
-            if rank == 0:
-                with open('NEWJOB_REQUIRED', 'w') as f: 
-                    f.write('NEWJOB_REQUIRED')
+    
+    launch_time = coprocess_manager.launch_time
+    timeout = coprocess_manager.workflow.RunManagement['TimeOutInSeconds']
+    logger = coprocess_manager.mola_logger 
 
+    if coprocess_manager.status == 'RUNNING':
+            
+        if has_reached_timeout( launch_time, timeout, logger):
+            write_tagfile('NEWJOB_REQUIRED', coprocess_manager)
             coprocess_manager.status = 'TO_STOP'
-            coprocess_manager.operations_stack.clear()
 
         comm.barrier()
+
+
 
 def check_max_iteration(coprocess_manager):
+
     if coprocess_manager.status == 'RUNNING':
-        Numerics = coprocess_manager.workflow.Numerics
-        if coprocess_manager.iteration >= Numerics['IterationAtInitialState'] + Numerics['NumberOfIterations']:
-            coprocess_manager.mola_logger.warning(f'{GREEN}REACHED itmax{ENDC}', rank=0)
-            if rank == 0:
-                with open('COMPLETED', 'w') as f: 
-                    f.write('COMPLETED')
+        itinit = coprocess_manager.workflow.Numerics['IterationAtInitialState']
+        itmax  = coprocess_manager.workflow.Numerics['NumberOfIterations']
+
+        if coprocess_manager.iteration >= itinit + itmax:
+            coprocess_manager.mola_logger.info(f'{GREEN}REACHED itmax{ENDC}', rank=0)
+            write_tagfile('COMPLETED', coprocess_manager)
 
             coprocess_manager.status = 'TO_STOP'
-            coprocess_manager.operations_stack.clear()
 
         comm.barrier()
 
+
 def check_convergence_criteria(coprocess_manager):
-    has_done_enough_iterations = (coprocess_manager.iteration - coprocess_manager.workflow.Numerics['IterationAtInitialState']) > coprocess_manager.workflow.Numerics['MinimumNumberOfIterations'] 
+
+    it  = coprocess_manager.iteration
+    itinit = coprocess_manager.workflow.Numerics['IterationAtInitialState']
+    itmin = coprocess_manager.workflow.Numerics['MinimumNumberOfIterations']
+
+    has_done_enough_iterations = (it - itinit) > itmin 
     if has_done_enough_iterations and coprocess_manager.status == 'RUNNING':
-        if _is_converged(coprocess_manager.workflow.ConvergenceCriteria,
-            coprocess_manager.Extractions, coprocess_manager.iteration,
-            coprocess_manager):
+        if is_converged(coprocess_manager):
             coprocess_manager.status = 'TO_STOP'
 
-def _is_converged(ConvergenceCriteria, Extractions, iteration, coprocess_manager):
-    '''
-    This method is used to determine if the current simulation is converged by
-    looking at user-provided convergence criteria.
-    If converged, the signal returns :py:obj:`True` to all ranks and writes a
-    message to ``coprocess.log`` file.
 
-    Parameters
-    ----------
+def is_converged(coprocess_manager):
 
-        ConvergenceCriteria : :py:class:`list` of :py:class:`dict`
-            Each :py:class:`dict` corresponds to a criterion. Its has the
-            following keys:
-
-            * ``ExtractionName``: Name of the zone to monitor (shall exist in
-            ``arrays.cgns``)
-
-            * ``Variable``: Name of the variable to monitor on ``ExtractionName``
-
-            * ``Threshold``: Value of the threshold to consider. The current
-            criterion is satisfied if the value of the last element of
-            ``Variable`` on ``ExtractionName`` in ``arrays.cgns`` is lower than
-            ``Threshold``.
-
-            * ``Condition`` (optinal, 'Necessary' by default): logical
-            requirement for the current criterion. To verify convergence,
-            criteria tagged 'Necessary' must all be satisfied simultaneously
-            and at least one criterion tagged 'Sufficient' must be satisfied.
-            For instance, if CN1 and CN2 are 'Necessary' and CS1 and CS2 are
-            'Sufficient', convergence is reached when:
-            (CN1 AND CN2) AND (CS1 OR CS2)
-
-    Returns
-    -------
-
-        CONVERGED : bool
-            :py:obj:`True` if the convergence criteria are satisfied
-    '''
-    if not ConvergenceCriteria:
-        return False
-    
-    def get_data_to_test_criterion(criterion, Extractions):
-        for extraction in Extractions:
-            if extraction['Type'] in ['Integral', 'Probe'] \
-                and extraction['Name'] == criterion['ExtractionName']:
-                try:
-                    return extraction['Data'].get(Name=criterion['Variable']).value()
-                except:
-                    pass
-                    coprocess_manager.mola_logger.warning(f'Cannot evaluate convergence for criterion {criterion}, because the variable is not found in extracted data.')
-            
-        return 
+    ConvergenceCriteria = coprocess_manager.workflow.ConvergenceCriteria
+    if not ConvergenceCriteria: return False
 
     CONVERGED = False
+    all_necessary_criteria_are_verified = True
+    a_sufficient_criterion_is_verified = False
     if rank == 0:
-        AllNecessaryCriteria = True
-        OneSufficientCriterion = True
-        # Default value of Condition = 'Necessary'
+       
         for criterion in ConvergenceCriteria:
-            if 'Condition' not in criterion:
-                criterion['Condition'] = 'Necessary'
-            elif criterion['Condition'] == 'Sufficient':
-                OneSufficientCriterion = False
-        try:
-            for criterion in ConvergenceCriteria:
-                if OneSufficientCriterion and criterion['Condition'] == 'Sufficient':
-                    continue
+            criterion_is_verified = is_criterion_flux_lower_than_threshold(criterion, coprocess_manager.Extractions)
 
-                Flux = get_data_to_test_criterion(criterion, Extractions)
-                if Flux is None and criterion['Condition'] == 'Necessary':
-                    coprocess_manager.mola_logger.warning(f"requested convergence variable {criterion['Variable']} not found in {criterion['ExtractionName']}", rank=0)
-                    AllNecessaryCriteria = False
-                    continue
-                criterion['FoundValue'] = Flux[-1]
-                IsSatisfied = criterion['FoundValue'] < criterion['Threshold']
-                if criterion['Condition'] == 'Necessary' and not IsSatisfied:
-                    AllNecessaryCriteria = False
-                    break
-                elif criterion['Condition'] == 'Sufficient' and IsSatisfied:
-                    OneSufficientCriterion = criterion['Variable']
+            if not criterion_is_verified and criterion['Necessary']:
+                all_necessary_criteria_are_verified = False
+                break
 
-            CONVERGED = OneSufficientCriterion and AllNecessaryCriteria
-            if CONVERGED:
-                MSG = 'CONVERGED at iteration {} since:'.format(iteration - 1)
-                for criterion in ConvergenceCriteria:
-                    if criterion['Condition'] == 'Necessary' \
-                        or criterion['Variable'] == OneSufficientCriterion:
-                        MSG += '\n  {}={} < {} on {} ({})'.format(criterion['Variable'],
-                                                            criterion['FoundValue'],
-                                                            criterion['Threshold'],
-                                                            criterion['ExtractionName'],
-                                                            criterion['Condition'])
-                txt = f'''{GREEN}*******************************************
-{MSG} 
-*******************************************{ENDC}'''
-                coprocess_manager.mola_logger.info(txt, rank=0)
-        except BaseException as e:
-            coprocess_manager.mola_logger.error(f'_is_converged failed: {e}', rank=0)
+            if criterion_is_verified and criterion['Sufficient']:
+                a_sufficient_criterion_is_verified = True
+                break
+
+        if a_sufficient_criterion_is_verified or all_necessary_criteria_are_verified:
+            CONVERGED = True
+        else:
+            return False
+        
+        txt = get_convergence_message(ConvergenceCriteria, coprocess_manager.iteration)
+        coprocess_manager.mola_logger.info(txt, rank=0)
 
     comm.barrier()
     CONVERGED = comm.bcast(CONVERGED, root=0)
 
     return CONVERGED
 
-def _has_reached_timeout(LaunchTime, TimeOutInSeconds, coprocess_manager):
+
+def is_criterion_flux_lower_than_threshold(criterion, Extractions) -> bool:
+
+    Flux = get_data_to_test_criterion(criterion, Extractions)
+
+    if Flux is None:
+        raise MolaException(
+           f"requested convergence variable {criterion['Variable']} not found in {criterion['ExtractionName']}")
+
+    criterion['FoundValue'] = Flux[-1]
+    criterion_verified = criterion['FoundValue'] < criterion['Threshold']
+    criterion['CriterionVerified'] = True if criterion_verified else False
+
+    return criterion_verified
+
+
+def get_data_to_test_criterion(criterion, Extractions):
+    for extraction in Extractions:
+        if extraction['Type'] in ['Integral', 'Probe'] \
+            and extraction['Name'] == criterion['ExtractionName']:
+
+            if 'Data' not in extraction:
+                raise MolaException(f"data of extraction {extraction['Name']} is not available")
+
+            try:
+                return extraction['Data'].get(Name=criterion['Variable']).value()
+            except:
+                extraction['Data'].save('debug.cgns')
+                raise MolaException(f'Cannot evaluate convergence for criterion {criterion}, because the variable is not found in extracted data.')
+
+
+def get_convergence_message(ConvergenceCriteria, iteration) -> str:
+    
+    MSG = 'CONVERGED at iteration {} since:'.format(iteration)
+    for criterion in ConvergenceCriteria:
+        if 'CriterionVerified' in criterion and criterion['CriterionVerified']:
+            
+            MSG += '\n  {}={} < {} on {} (Sufficient={}, Necessary={})'.format(criterion['Variable'],
+                                                criterion['FoundValue'],
+                                                criterion['Threshold'],
+                                                criterion['ExtractionName'],
+                                                criterion['Sufficient'],
+                                                criterion['Necessary'])
+    stars = 43*'*'
+    txt = f"{GREEN}{stars}\n{MSG}\n{stars}{ENDC}"
+
+    return txt
+
+
+def has_reached_timeout(LaunchTime, TimeOutInSeconds, mola_logger=None):
 
     ReachedTimeOutMargin = False
     if rank == 0:
         ElapsedTime = timeit.default_timer() - LaunchTime
         ReachedTimeOutMargin = ElapsedTime >= TimeOutInSeconds
         if ReachedTimeOutMargin:
-            date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            coprocess_manager.mola_logger.warning(f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION', rank=0)
+            date = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            msg = f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION'
+            if mola_logger:
+                mola_logger.warning(msg, rank=0)
+            else:
+                print(msg)
     comm.Barrier()
     ReachedTimeOutMargin = comm.bcast(ReachedTimeOutMargin,root=0)
 
     return ReachedTimeOutMargin
+
 
