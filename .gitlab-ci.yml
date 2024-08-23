@@ -44,6 +44,7 @@ test_unit_elsa:
     - source $MOLA_ENV_ELSA
   script:
     - coverage run --data-file=.coverage_test_unit_elsa -m pytest -m unit 
+    - coverage report --data-file=.coverage_test_unit_elsa
   artifacts:
     paths:
       - .coverage_test_unit_elsa
@@ -94,6 +95,7 @@ test_unit_sonics:
     - source $MOLA_ENV_SONICS
   script:
     - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
+    - coverage report --data-file=.coverage_test_unit_sonics
   artifacts:
     paths:
       - .coverage_test_unit_sonics
