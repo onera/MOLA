@@ -101,8 +101,8 @@ test_unit_sonics:
 
 coverage_report:
   stage: code-quality
-  # tags:
-  #   - juno-shell
+  tags:
+    - juno-shell
   dependencies:
     - test_unit_elsa
     - test_unit_sonics
