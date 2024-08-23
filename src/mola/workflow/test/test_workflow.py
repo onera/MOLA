@@ -711,6 +711,8 @@ def test_prepare_assemble_dist():
     w.assemble()
 
 
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.cost_level_1
 @pytest.mark.integration
 def test_prepare_workflow1():
@@ -723,7 +725,9 @@ def test_prepare_workflow1():
     w.write_tree('test.cgns')
     try: os.unlink('test.cgns')
     except: pass
-    
+
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_prepare_workflow2():
@@ -733,6 +737,8 @@ def test_prepare_workflow2():
     w.remove_cfd_files()
 
 
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 @pytest.mark.mpi
@@ -743,6 +749,8 @@ def test_prepare_workflow_dist():
     w.remove_cfd_files()
 
 
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_0
 def test_workflow_cart_monoproc(tmp_path, remove_cfd_files=True):
@@ -754,7 +762,8 @@ def test_workflow_cart_monoproc(tmp_path, remove_cfd_files=True):
     w.simulation_status()
     if remove_cfd_files: w.remove_cfd_files()
 
-
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
@@ -766,6 +775,8 @@ def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
     w.simulation_status()
     if remove_cfd_files: w.remove_cfd_files()
 
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
@@ -778,7 +789,8 @@ def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=Tr
     w.simulation_status()
     if remove_cfd_files: w.remove_cfd_files()
 
-
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
@@ -817,6 +829,8 @@ def test_workflow_sphere_unstruct_local(tmp_path):
 #     w.simulation_status()
 #     w.remove_cfd_files()
 
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.network_onera
 @pytest.mark.integration
 @pytest.mark.cost_level_4
@@ -857,4 +871,5 @@ if __name__ == '__main__':
     # test_workflow_cart_monoproc('cart_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
     # test_workflow_sphere_struct_local_dist('sphere_dist_'+os.environ.get("MOLA_SOLVER"))
     # test_workflow_sphere_struct_local_cassiopee_mpi('sphere_struct_cassmpi_'+os.environ.get("MOLA_SOLVER"),False)
-    test_workflow_sphere_struct_local_dist('sphere_struct_dist_'+os.environ.get("MOLA_SOLVER"),False)
+    # test_workflow_sphere_struct_local_dist('sphere_struct_dist_'+os.environ.get("MOLA_SOLVER"),False)
+    test_workflow_sphere_unstruct_local('sphere_unstruct_local_'+os.environ.get("MOLA_SOLVER"))

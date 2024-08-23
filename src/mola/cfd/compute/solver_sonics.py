@@ -16,56 +16,25 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 # ----------------------- IMPORT SYSTEM MODULES ----------------------- #
-import os
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
 NumberOfProcessors = comm.Get_size()
 
-import mola.naming_conventions as names
-
+from mola.cfd.compute.read_cfd_files import read_cfd_files
 
 def apply_to_solver(workflow):
 
     import sonics
-    from sonics.toolkit.execute.run_graph import get_default_iterators
-    from sonics.toolkit.execute.run_graph import get_default_pytriggers
 
-    import maia
-
-
-    workflow.tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
-
-    # default_pytriggers = get_default_pytriggers(workflow.SolverParameters['configuration'], workflow.tree, comm)
-    # pytriggers += default_pytriggers
-    # iterators = get_default_iterators(workflow.SolverParameters['configuration'], pytriggers, comm)
+    workflow.tree, config = read_cfd_files.apply(workflow)
 
     from mola.cfd.coprocess.manager import CoprocessManager
     coprocess_manager = CoprocessManager(workflow)
     workflow._coprocess_manager = coprocess_manager
 
-    # NOTE Finally, sonics.solver.run will take only dist_tree (the configuration will be read inside the tree)
-    workflow.SolverParameters['configuration'] = get_configuration_from_tree(workflow.tree, workflow)
-    sonics.solver.run(workflow.SolverParameters['configuration'], workflow.tree, comm) #, iterators=iterators)
+    sonics.solver.run(config, workflow.tree, comm) #, iterators=iterators)
 
     coprocess_manager.finalize()
     del workflow._coprocess_manager
  
-def get_configuration_from_tree(tree, workflow):
-    import miles
-    import copy
-
-    configuration = copy.copy(workflow.SolverParameters['configuration'])
-
-    my_config = miles.solver.config.Configuration(tree, pure_cgns_mode=False)
-    my_config.add_template(configuration['conf'])
-    my_config.set_numerics(CFL=workflow.Numerics['CFL'])
-    
-    conf = my_config.apply()
-    configuration.update(conf)
-    if rank==0:
-        # print(my_config.spl_product)
-        from pprint import pprint 
-        pprint(configuration)
-    
-    return configuration

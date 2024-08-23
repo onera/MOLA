@@ -212,7 +212,8 @@ def test_WorkflowParallelScheduler_prepare(tmp_path):
     assert set(root_dirs) == {test_dir, f'{test_dir}/model1', f'{test_dir}/model1/test_10', f'{test_dir}/model1/test_30', f'{test_dir}/model1/test_20', f'{test_dir}/model2', f'{test_dir}/model2/test_10', f'{test_dir}/model2/test_30', f'{test_dir}/model2/test_20'}
     assert files_list == [[], [names.FILE_JOB_SEQUENCE], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_JOB_SEQUENCE], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW], [names.FILE_INPUT_WORKLFOW]]
     
-
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_4
 def test_WorkflowParallelScheduler_cart_local(tmp_path):
@@ -256,6 +257,8 @@ def test_WorkflowParallelScheduler_cart_local(tmp_path):
             if not os.path.exists(COMPLETED_PATH):
                 raise MolaException(f'simulation did not end as expected: unable to find file {COMPLETED_PATH}')
 
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.network_onera
 @pytest.mark.integration
 @pytest.mark.cost_level_4

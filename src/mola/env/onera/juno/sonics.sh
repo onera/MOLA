@@ -39,9 +39,9 @@ unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
 unset I_MPI_FABRICS_LIST
 
-# # maia
-# module use --append /tmp_user/juno/sonics/usr/modules/
-# module load maia/$MAIAVERSION-dsi-cfd6
+# maia
+module use --append /tmp_user/juno/sonics/usr/modules/
+module load maia/$MAIAVERSION-dsi-cfd6
 
 # for avoiding error bootstrap
 # https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543

@@ -25,7 +25,7 @@ def prepare_unstructured_mesh_if_needed(workflow, mergeZonesByFamily=True):
     if workflow.tree.isStructured():
         return
         
-    any_not_ngon = any(elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in workflow.tree.getElementsTypes())
+    any_not_ngon = any([elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in workflow.tree.getElementsTypes()])
 
     remove_grid_connectivities = False #any_not_ngon or mergeZonesByFamily
     if remove_grid_connectivities:
@@ -49,7 +49,7 @@ def prepare_unstructured_mesh_if_needed(workflow, mergeZonesByFamily=True):
         for component in workflow.RawMeshComponents:
             connection = component.get('Connection', [])
             if all([d['Type'] != 'Match' for d in connection]):
-                connection.append(dict(Type='Match'))
+                connection.insert(0, dict(Type='Match'))
                 component['Connection'] = connection
 
 def convert_elements_to_ngon(t):

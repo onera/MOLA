@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from pprint import pprint
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException
 
@@ -61,43 +62,37 @@ def apply_to_solver(workflow):
     TurbulenceSetup = TURBULENCE_SONICS_KEYS[workflow.Turbulence['Model']]
     TurbulenceSetup['cutvars'] = get_turbulence_cutoff_setup(workflow.Turbulence)
 
+    # TODO take into account a dict for the CFL
+    # For now, it must be a float
+    if not isinstance(workflow.Numerics['CFL'], float):
+        raise MolaException(f"CFL must be a float (now it is a {type(workflow.Numerics['CFL'])})")
+    
     my_config = miles.solver.config.Configuration(workflow.tree, pure_cgns_mode=False)
-    # my_config.add_template(configuration_templates.mobile)
-    # my_config.add_template(configuration_templates.steady_spectral_ssor)
-
-    my_config.add_template(
-        dict(
-            sonics = dict(
-                formulation = dict(fvm="cell_center"),
-
-                motion = "mobile",
-
-                model = dict(
-                    eos = "perfect_gas",
-                    viscosity = "sutherland_law",
-                    primitive_model = "primitive_model_from_temperature",
-                ),
-
-                execution = dict(hardware = "cpu"),
-            ),
-
-            GasModel = dict(name = 'PerfectGas', SpecificHeatRatio = workflow.Fluid['Gamma']),
-
-            TurbulenceModel = TurbulenceSetup,
-        )
+    # print(my_config.get_feature_diagram())
+    my_config.update(
+        "fvm/cell_center",
+        "motion/mobile",
+        # "perfect_gas",
+        # "sutherland_law",
+        # "primitive_model_from_temperature",
+        # "hardware/cpu",
+        *get_turbulence_template(workflow.Turbulence)[0],
+        *get_spatial_fluxes_template(workflow.Numerics)[0],
+        *get_time_marching_template(workflow.Numerics)[0],
+    )
+    my_config.set(
+        SpecificHeatRatio = workflow.Fluid['Gamma'],
+        # TurbulenceModel = TurbulenceSetup,
+        CFL = workflow.Numerics['CFL'],
+        pctrad = 0.01,
     )
 
-    if not isinstance(workflow.Numerics['CFL'], (int, float)):
-        raise MolaException(f"CFL must be a float (now it is a {type(workflow.Numerics['CFL'])})")
-
-    my_config.add_template(get_turbulence_template(workflow.Turbulence))
-    my_config.add_template(get_spatial_fluxes_template(workflow.Numerics))
-    my_config.add_template(get_time_marching_template(workflow.Numerics))
-    my_config.set_numerics(CFL=workflow.Numerics['CFL'])
-
-    # FIXME pctrad=0.1 currently
-
     configuration = my_config.apply()
+
+    # pprint( my_config.get_active_features())
+    # pprint(my_config.parameters)
+    # pprint(my_config.default_parameters)
+    # pprint(configuration)
 
     configuration.update(
         dict(
@@ -112,80 +107,77 @@ def apply_to_solver(workflow):
     )
 
     # convert to dict to be able to write in cgns tree with treelab
-    configuration['conf']  = configuration['conf'].to_dict(configuration['conf'])
+    # configuration['conf']  = configuration['conf'].to_dict(configuration['conf'])
     del configuration['hpc_conf'] 
 
-    workflow.SolverParameters['configuration'] = configuration
+    workflow.SolverParameters['configuration'] = nested_dict_from_keys(configuration)
+    # pprint(workflow.SolverParameters['configuration'])
+
     workflow.tree = cgns.castNode(workflow.tree)
 
 def get_spatial_fluxes_template(Numerics):
-    # from miles.solver import configuration_templates
     scheme = Numerics['Scheme']
     if Numerics['Scheme'] != 'Roe':
         mola_logger.warning(f'sonics Scheme={scheme} not implemented, using Roe instead')
     Numerics['Scheme'] = 'Roe'
 
+    features = []
+    parameters = dict()
+
     # Convective flux 
     if Numerics['Scheme'] == 'Roe':
-        # template = configuration_templates.roe_second_order_none_cf
-        template = dict(
-            sonics = dict(
-                numeric = dict(
-                    scheme = dict(
-                        upwind_scheme = dict(
-                            upwind_grad_kind = "classic",
-                            upwind_fxc = "roe",
-                            upwind_limiter = "upwind_limiter_vanalbada",
-                            upwind_order = 2,
-                            upwind_sensor = "upwind_sensor_none",
-                        ),
-                    ),
-                )
-            )
-        )
+        features = [
+            "roe",
+            "upwind_order:2",
+            "upwind_limiter_vanalbada",
+            "viscous_flux/vf5p_cor", # shouldn't it be optional ???
+            # "grad_scheme/green_gauss", # shouldn't it be optional ???
+        ]
+        # template = dict(
+        #     sonics = dict(
+        #         numeric = dict(
+        #             scheme = dict(
+        #                 upwind_scheme = dict(
+        #                     upwind_grad_kind = "classic",
+        #                     upwind_fxc = "roe",
+        #                     upwind_limiter = "upwind_limiter_vanalbada",
+        #                     upwind_order = 2,
+        #                     upwind_sensor = "upwind_sensor_none",
+        #                 ),
+        #             ),
+        #         )
+        #     )
+        # )
     else:
         raise MolaException(f"Scheme={Numerics['Scheme']} is not available for solver sonics")
     
-    return template
+    return features, parameters
 
 def get_time_marching_template(Numerics):
-    TimeMarchingSetup = dict(
-        time_algo = 'steady',
-        ode = "explicit",
-        grad_scheme = "green_gauss", # shouldn't it be optional ???
-        time_step = "local", # shouldn't it be optional ???
-        viscous_flux = "vf5p_cor", # shouldn't it be optional ???
-    )
+    features = [
+        "time_algo/steady",
+        "ode/explicit",
+        # "time_step/local", # shouldn't it be optional ???
+    ]
+
+    parameters = dict()
 
     if Numerics['TimeMarching'] != 'Steady':
         raise MolaException(f"Only Steady simulations are implemented yet for soNICS with MOLA")
 
-    template = dict(
-        sonics = dict(numeric = TimeMarchingSetup)
-    )
-
-    return template
+    return features, parameters
 
 def get_turbulence_template(Turbulence):
-    # from miles.solver import configuration_templates
+
+    features = []
+    parameters = dict()
 
     if Turbulence['Model'] == 'SA':
-        # template = configuration_templates.spalart_standard
-        template = dict(
-            sonics = dict(
-                model = dict(
-                    physical_model = dict(
-                        nstur = dict(
-                            turbulence_closure = dict(spalart='spalart_standard')
-                        )
-                    )
-                )
-            )
-        )
+        features = ['spalart_standard']
     else:
         raise MolaException(f"Scheme={Turbulence['Model']} is not available for solver sonics")
 
-    return template
+    return features, parameters
 
 def get_turbulence_cutoff_setup(Turbulence):
     # Definition of cut-off values for turbulence 
@@ -198,3 +190,21 @@ def get_turbulence_cutoff_setup(Turbulence):
         cutoffs = [Turbulence['TurbulenceCutOffRatio'] * v for v in turbValues]
 
     return cutoffs
+
+def nested_dict_from_keys(d):
+    result = {}
+    for key, value in d.items():
+        if isinstance(value, dict):
+            # If the value is a dictionary, apply the function recursively
+            result[key] = nested_dict_from_keys(value)
+        elif '/' in key:
+            # If the key contains a '/', transform it into a nested dictionary
+            keys = key.split('/')
+            temp_dict = result
+            for k in keys[:-1]:  # Traverse all keys except the last one
+                temp_dict = temp_dict.setdefault(k, {})
+            temp_dict[keys[-1]] = value  # Set the value for the last key
+        else:
+            # Otherwise, keep the key-value pair as is
+            result[key] = value
+    return result

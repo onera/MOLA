@@ -68,14 +68,13 @@ def apply(workflow):
                 # TODO BEWARE!! duplicate Component, and handle it properly! 
 
         for zone in base.zones(): 
-            if cgns.castNode(zone).isStructured():
-                try:
-                    import Transform.PyTree as T
-                    T._makeDirect(zone)
-                except ModuleNotFoundError:
-                    if not warning_flag_import_Transform:
-                        mola_logger.warning('Cannot check that the mesh is direct after Positioning operations')
-                        warning_flag_import_Transform = True # To display this warning only once
+            try:
+                import Transform.PyTree as T
+                T._makeDirect(zone)
+            except ModuleNotFoundError:
+                if not warning_flag_import_Transform:
+                    mola_logger.warning('Cannot check that the mesh is direct after Positioning operations')
+                    warning_flag_import_Transform = True # To display this warning only once
 
     if tree_was_distributed: workflow.tree = to_distributed(workflow.tree)
 
