@@ -32,16 +32,4 @@ addopts = "--strict-markers"
 source = ["src/mola"]
 omit = [
     "*/test/*",
-    "*.jacamar-ci/builds/*",
     ]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "def __str__",
-    "raise NotImplementedError",
-    "continue",
-    "break",
-    "return NotImplemented",
-]
