@@ -903,18 +903,17 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
                 ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
                 normals ``nx``, ``ny``, ``nz``. 
 
-        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or
-        :py:class:`numpy.ndarray`
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
             center for the computation of the torque contributions
         
         reference_pressure : float
-            Reference pressure. Put ambiant pressure as a reference for
+            reference pressure. Put ambiant pressure as a reference for
             integration over a surface that is not closed (such as blades).
 
     Returns
     -------
 
-        loads : dict
+        loads : :py:class:`dict`
             dictionary including ``ForceX``, ``ForceY``, ``ForceZ``,
             ``TorqueX``, ``TorqueY`` and ``TorqueZ`` keys with its associated
             values (:py:class:`float`)
@@ -987,35 +986,35 @@ def computeSectionalLoads(surface, distribution = None,
 
             .. note:: 
 
-                for slicing_method = ``Custom``, this function automatically
+                for ``slicing_method`` = ``Custom``, this function automatically
                 recomputes the span :math:`\in [0,1]` to perform the slices. The
-                span is based on the 'custom_variable' and is computed as
+                span is based on the ``custom_variable`` and is computed as
                 follows : :math:`(var-min(var))/(max(var)-min(var))`
 
-        slicing_options : dict
+        slicing_options : :py:class:`dict`
 
             dictionary providing the parameters to perform the slicing along the
             blade span. Two pairs of keywords and associated values can be
             provided:
             
-            * slicing_method : str
+            * slicing_method : :py:class:`str`
 
                 Acceptable values are:
 
-                * SpanBased: Computes the span based on 2 points (see below)
+                * ``SpanBased``: Computes the span based on 2 points (see below)
                   provided by the user. Each section corresponds to an
                   isoSurface of the ``Span`` variable.
 
-                * AbscissaBased: computes the abscissa based on the distance d
+                * ``AbscissaBased``: computes the abscissa based on the distance d
                   to the axis provided by the user. Each section corresponds to
                   an isoSurface of the Abscissa variable. :math:`Abscissa =
                   (d-dmin)/(dmax-dmin)`
 
-                * Custom: uses the ``custom_variable`` parameter provided by the
+                * ``Custom``: uses the ``custom_variable`` parameter provided by the
                   user as the reference variable to perform the isoSurface for
                   each section.
             
-            * custom_variable : str 
+            * custom_variable : :py:class:`str` 
 
                 Name of the variable used to perform slices.
 
@@ -1031,8 +1030,7 @@ def computeSectionalLoads(surface, distribution = None,
             the blade span with the chosen ``slicing_method``. Pairs of keywords
             and associated values can be the following:
             
-            * start_point : 3-float :py:class:`list` or :py:class:`tuple` or
-              :py:class:`numpy.ndarray`
+            * start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
 
                 :math:`(x,y,z)` coordinates of the starting point from which
                 sectional loads are to be computed.
@@ -1040,8 +1038,7 @@ def computeSectionalLoads(surface, distribution = None,
                 .. warning:: 
                     Must be provided for SpanBased slicing and AbscissaBased slicing.
 
-            * end_point : 3-float :py:class:`list` or :py:class:`tuple` or
-              :py:class:`numpy.ndarray`
+            * end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
 
                 :math:`(x,y,z)` coordinates of the end point up to which
                 sectional loads are to be computed. 
@@ -1049,22 +1046,20 @@ def computeSectionalLoads(surface, distribution = None,
                 .. warning:: 
                     Must be provided for SpanBased slicing.
 
-            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or
-              :py:class:`numpy.ndarray`
+            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
 
                 :math:`(x,y,z)` direction of the reference axis along which
                 sectional loads are to be computed.
 
                 .. warning:: Must be provided for AbscissaBased slicing.
 
-        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or
-        :py:class:`numpy.ndarray`
-
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+            
             center for the computation of the torque contributions
 
         reference_pressure : float
 
-            Reference pressure. Put ambiant pressure as a reference for
+            reference pressure. Put ambiant pressure as a reference for
             integration over a surface that is not closed (such as blades).
 
     Returns
@@ -1199,8 +1194,8 @@ def computeSectionalLoads(surface, distribution = None,
                 SectionalSpan=np.array(SectionalSpan))
      
     if slicing_options['slicing_method'] == 'Custom':
-        sloads['Sectional'+custom_variable] = np.array(SectionalCustomVar)
-        sloads['Sectional'+custom_variable+'OverMax'] = np.array(SectionalCustomVarOverMax)
+        sloads['Sectional'+slicing_options['custom_variable']] = np.array(SectionalCustomVar)
+        sloads['Sectional'+slicing_options['custom_variable']+'OverMax'] = np.array(SectionalCustomVarOverMax)
 
     varValues = []
     varNames = []
@@ -1217,7 +1212,7 @@ def computeSectionalLoads(surface, distribution = None,
 
 def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method='SpanBased',custom_variable=None), 
     geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None), 
-    reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None, gamma=1.4, rotation_speed = 0.)):
+    reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None, rotation_speed = 0.)):
     '''
     Compute the pressure coefficient profiles at different positions on a surface along a prescribed direction.
     The computation of the pressure coefficient can take a rotation speed into account. In that case,
@@ -1248,18 +1243,18 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
 
             .. note:: 
 
-                for slicing_method = ``Custom``, this function automatically
+                for ``slicing_method`` = ``Custom``, this function automatically
                 recomputes the span :math:`\in [0,1]` to perform the slices. The
-                span is based on the 'custom_variable' and is computed as
+                span is based on the ``custom_variable`` and is computed as
                 follows : :math:`(var-min(var))/(max(var)-min(var))`
 
-        slicing_options : dict
+        slicing_options : :py:class:`dict`
 
             dictionary providing the parameters to perform the slicing along the
             surface span. Two pairs of keywords and associated values can be
             provided:
             
-            * slicing_method : str
+            * slicing_method : :py:class:`str`
 
                 Acceptable values are:
 
@@ -1276,7 +1271,7 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
                   user as the reference variable to perform the isoSurface for
                   each section.
             
-            * custom_variable : str 
+            * custom_variable : :py:class:`str` 
 
                 Name of the variable used to perform slices.
 
@@ -1323,19 +1318,18 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
             dictionary providing the reference state. Pairs of keywords and
             associated values can be:
 
-            * reference_pressure : float 
+            * reference_pressure : :py:class:`float` 
                 
                 In Pascals.
 
-            * reference_density : float 
+            * reference_density : :py:class:`float` 
 
-                In kg.m^-3
+                In :math:`kg.m^-3`
 
-            * reference_mach : float
+            * reference_mach : :py:class:`float`
 
-            * gamma : float
 
-            * rotation_speed : float
+            * rotation_speed : :py:class:`float`
                
                 Value of the rotation speed of the surface in rad/s. 0 if it is
                 not rotating. This velocity is combined with the freestream
@@ -1360,7 +1354,7 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
     Pinf = reference_state['reference_pressure']
     Roinf = reference_state['reference_density']
     Minf = reference_state['reference_mach']
-    Gamma = reference_state['gamma']
+    Gamma = 1.4
     R = 287.052874
     Tinf = Pinf/(Roinf*R)
     c = np.sqrt(Gamma*R*Tinf)

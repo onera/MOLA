@@ -707,7 +707,7 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
 
                 dmin = C.getMinValue(surface, slicing_options['custom_variable']+customVarContainerTag)
                 dmax = C.getMaxValue(surface, slicing_options['custom_variable']+customVarContainerTag)
-                surface = recoverContainers(surface) 
+                surface = Post.recoverContainers(surface) 
 
     SectionalForceX                 = []
     SectionalForceY                 = []
@@ -803,8 +803,8 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
             sloads['SectionalDistance2Axis'] = np.array(SectionalDistance2Axis)
             sloads['SectionalDistance2AxisOverMax'] = np.array(SectionalDistance2AxisOverMax)   
     if slicing_options['slicing_method'] == 'Custom':
-        sloads['Sectional'+custom_variable] = np.array(SectionalCustomVar)
-        sloads['Sectional'+custom_variable+'OverMax'] = np.array(SectionalCustomVarOverMax)
+        sloads['Sectional'+slicing_var] = np.array(SectionalCustomVar)
+        sloads['Sectional'+slicing_var+'OverMax'] = np.array(SectionalCustomVarOverMax)
 
     varValues = []
     varNames = []
