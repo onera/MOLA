@@ -184,10 +184,10 @@ def initialiseEulerianDomain(Mesh = [], Parameters = {}):
                 "nb_relax":1, # nbre de passages de newton
                 "epsi_newton":0.01, # residu a atteindre
             }
-    t = V.load('tE.cgns')
-    base = I.getBases(t)[0]
+    # t = V.load('tE.cgns')
+    base, = I.getBases(t)
     base[0] = 'EulerianBase'
-    basec = I.getBases(t)[1]
+    basec, = I.getBases(tc)
     basec[0] = 'EulerianBaseCenter'
     Fast._setNum2Base(base, numb)
     Fast._setNum2Zones(base, numz)
@@ -195,16 +195,16 @@ def initialiseEulerianDomain(Mesh = [], Parameters = {}):
     computeFastMetrics(tE)
 
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Fast Warmup (0%) '))
-    n_warmup = 1
+    n_warmup = 1 + 1000
     for ite in range(n_warmup):
         computeFast(tE)
         V.deletePrintedLines()
         V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Fast Warmup (' + \
                                                 '{:d}'.format(int((ite + 1)/n_warmup*100)) + '%) '))
 
-        # if ite%1000 == 0:
-        #     print(np.max(I.getNodeFromName(tE, 'Temperature')[1]))
-        #     Fast.save(V.getEulerianBase(tE), 'tE01.cgns')
+        if ite%250 == 0:
+            print(np.max(I.getNodeFromName(tE, 'Temperature')[1]))
+            Fast.save(V.getEulerianBase(tE), 'tE0.cgns')
 
     V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Done '))
     # save(tE, 'tE0.cgns')
@@ -595,6 +595,7 @@ def filterHybridSources(tL = [], tE = [], tH = []):
     J.invokeFields(Sources, ['VorticityY'])[0][:] = Clusters[7]*Ramp
     J.invokeFields(Sources, ['VorticityZ'])[0][:] = Clusters[8]*Ramp
     J.invokeFields(Sources, ['Sigma'])[0][:] = Clusters[9]
+    J.invokeFields(Sources, ['Volume'])[0][:] = Clusters[9]**3
     J.invokeFields(Sources, ['Layers'])[0][:] = Clusters[10]
     return Sources
 
@@ -1204,16 +1205,32 @@ def computeEulerianNextTimeStep(tL = [], tE = [], tH = []):
     ndt = int(round(dtL[0]/dtE[0]))
     if ndt < 1: raise ValueError(J.FAIL + 'The Eulerian timestep (%g s) can not be bigger '%dtE + \
                                                  'than the Lagrangian timestep (%g s)'%dtL + J.ENDC)
-    # BCM1 = V.getEulerianBC(_tH)
-    # BC = induceEulerianBC(_tL, _tE)
-    # for step in range(ndt):
-    #     updateEulerianBC(_tE, interpolateEulerianBC(BC, BCM1, (step + 1)/ndt))
-    computeFast(_tE)
+    BCM1 = V.getEulerianBC(_tH)
+    tinduceBC = J.tic()
+    BC = induceEulerianBC(_tL, _tE)
+    tinduceBC = J.tic() - tinduceBC
+    tFAST, tupBC = 0, 0
+    for step in range(ndt):
+        dtic = J.tic()
+        updateEulerianBC(_tE, interpolateEulerianBC(BC, BCM1, (step + 1)/ndt))
+        tupBC += J.tic() - dtic
+        dtic = J.tic()
+        computeFast(_tE)
+        tFAST += J.tic() - dtic
 
-    # computeEulerianVorticity(_tE, removeVelocityGradients = True)
-    # updateCFDSources(_tL, _tE)#in that order
-    # updateBEMSources(_tL, _tE)
-    # storeEulerianBC(BC, BCM1)
+    tvort = J.tic()
+    computeEulerianVorticity(_tE, removeVelocityGradients = True)
+    tvort = J.tic() - tvort
+    tupcfd = J.tic()
+    updateCFDSources(_tL, _tE)#in that order
+    tupcfd = J.tic() - tupcfd
+    tupbem = J.tic()
+    updateBEMSources(_tL, _tE)
+    tupbem = J.tic() - tupbem
+    tstore = J.tic()
+    storeEulerianBC(BC, BCM1)
+    tstore = J.tic() - tstore
+    print("induceBC", round(tinduceBC, 3), "upBC", round(tupBC, 3), "FAST", round(tFAST, 3), "vort", round(tvort, 3), "upcfd", round(tupcfd, 3), "upbem", round(tupbem, 3), "store", round(tstore, 3), 'tot', round(tinduceBC + tupBC + tFAST + tvort + tupcfd + tupbem + tstore, 3))
     IterationInfo['Eulerian time'] = J.tic() - IterationInfo['Eulerian time']
     return IterationInfo
 
@@ -1236,13 +1253,23 @@ def shedVorticitySourcesFromHybridDomain(tL = [], tE = [], tH = []):
     if not _tE or not _tL or not _tH: return {}
 
     IterationInfo = {'Eulerian generation time': J.tic()}
+    tfilt = J.tic()
     Sources = filterHybridSources(_tL, _tE, _tH)
+    tfilt = J.tic() - tfilt
+    trm = J.tic()
     IterationInfo['Number of shed particles Eulerian'] = -eraseParticlesInHybridDomain(_tL, _tH)
+    trm = J.tic() - trm
+    tsolv = J.tic()
     IterationInfo.update(solveHybridParticlesStrength(Sources, _tL))
+    tsolv = J.tic() - tsolv
+    tsplit = J.tic()
     redistributeVorticitySources(Sources, _tL)
+    tsplit = J.tic() - tsplit
     IterationInfo['Number of shed particles Eulerian'] += \
                                                      V.getParameter(_tL, 'NumberOfHybridSources')[0]
     IterationInfo['Eulerian generation time'] = J.tic() - IterationInfo['Eulerian generation time']
+    print("filt", round(tfilt, 3), "rm", round(trm, 3), "solv", round(tsolv, 3), "split", round(tsplit, 3), 'tot', round(tfilt + trm + tsolv + tsplit, 3))
+
     return IterationInfo
 
 def updateEulerianBC(tE = [], BC = []):

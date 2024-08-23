@@ -980,7 +980,7 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, keepSeparateBl
                 zones2merge = [zone]
                 for n in range(nDupli-1):
                     ang = 360./nBlades*(n+1)
-                    rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
+                    rot = T.rotate(I.copyTree(zone),(0.,0.,0.), axis, ang, vectors=vectors)
                     I.setName(rot, "{}_{}".format(zone_name, n+2))
                     if keepSeparateBlades:
                         for familyNameNode in I.getNodesFromType(I.getNodesFromType(rot,'ZoneBC_t'),'FamilyName_t'):

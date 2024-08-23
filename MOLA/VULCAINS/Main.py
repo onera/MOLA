@@ -43,6 +43,7 @@ import Geom.PyTree as D
 import Converter.Internal as I
 import Generator.PyTree as G
 import Transform.PyTree as T
+import Post.PyTree as P
 import Connector.PyTree as CX
 import CPlot.PyTree as CPlot
 
@@ -1315,8 +1316,12 @@ def getParticlesNumber(t = [], pointer = False):
         ParticleNumber : :py:class:`int` or numpy.ndarray
             Returns the size of the free particles zone.
     '''
-    if pointer: return getFreeParticles(t)[1][0]
-    return getFreeParticles(t)[1][0][0]
+    FreeParticles = getFreeParticles(t)
+    if FreeParticles: Np = FreeParticles[1][0]
+    else: Np = np.array([0], dtype = np.int32, order = 'F')
+
+    if pointer: return Np
+    return Np[0]
 
 def getBEMParticlesNumber(t = [], pointer = False):
     '''
@@ -1334,8 +1339,12 @@ def getBEMParticlesNumber(t = [], pointer = False):
         ParticleNumber : :py:class:`dict`
             Returns the size of the BEM particles zone.
     '''
-    if pointer: return getBEMParticles(t)[1][0]
-    return getBEMParticles(t)[1][0][0]
+    BEMParticles = getBEMParticles(t)
+    if BEMParticles: Np = BEMParticles[1][0]
+    else: Np = np.array([0], dtype = np.int32, order = 'F')
+
+    if pointer: return Np
+    return Np[0]
 
 def getImmersedParticlesNumber(t = [], pointer = False):
     '''
@@ -1353,8 +1362,12 @@ def getImmersedParticlesNumber(t = [], pointer = False):
         ParticleNumber : :py:class:`dict`
             Returns the size of the Immersed particles zone.
     '''
-    if pointer: return getImmersedParticles(t)[1][0]
-    return getImmersedParticles(t)[1][0][0]
+    ImmersedParticles = getImmersedParticles(t)
+    if ImmersedParticles: Np = ImmersedParticles[1][0]
+    else: Np = np.array([0], dtype = np.int32, order = 'F')
+
+    if pointer: return Np
+    return Np[0]
 
 def addSafeZones(Zones):
     '''
@@ -1435,9 +1448,16 @@ def checkTrees(t = [], Parameters = {}):
     for field in [f + 'Parameters' for f in ['Fluid', 'Modeling', 'Numerical', 'Private']]:
         if field not in newParameters: newParameters[field] = dict()
     for key in Parameters:
-        newParameters[key].update(Parameters[key])
+        if key in newParameters: newParameters[key].update(Parameters[key])
     
+    if 'NumberOfThreads' not in newParameters['NumericalParameters']:
+        newParameters['NumericalParameters']['NumberOfThreads'] = 'auto'
+    
+    newParameters['NumericalParameters']['NumberOfThreads'] = initialiseThreads(\
+                                            newParameters['NumericalParameters']['NumberOfThreads'])
     checkParameters(newParameters)
+    newParameters['PrivateParameters']['NumberOfBEMSources'] = getBEMParticlesNumber(tL)
+    newParameters['PrivateParameters']['NumberOfCFDSources'] = getImmersedParticlesNumber(tL)
     for field in ['Fluid', 'Hybrid', 'Modeling', 'Numerical', 'Private']:
         name = field + 'Parameters'
         if name in newParameters:
@@ -2057,18 +2077,18 @@ def getAerodynamicCoefficientsOnPropeller(tLL = [], StdDeviationSample = 50):
                                                              z - RotationCenter[2]]), axis = 0))
     IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(tLL)
     if 'Total' in IntegralLoads: IntegralLoads = IntegralLoads['Total']
-    T = IntegralLoads['Thrust'][0]
-    P = IntegralLoads['Power'][0]
+    Thrust = IntegralLoads['Thrust'][0]
+    Power = IntegralLoads['Power'][0]
     q0 = Rho*np.square(n*D*D)
-    cT = T/q0       if 1e-6 < q0 else 0.
-    cP = P/(q0*n*D) if 1e-6 < q0 else 0.
-    Eff = np.linalg.norm(U0 - V, axis = 0)*T/P if 1e-3 < P else 0.
+    cT = Thrust/q0       if 1e-6 < q0 else 0.
+    cP = Power/(q0*n*D) if 1e-6 < q0 else 0.
+    Eff = np.linalg.norm(U0 - V, axis = 0)*Thrust/Power if 1e-3 < Power else 0.
     std_Thrust, std_Power = getStandardDeviationBlade(tLL = tLL,
                                                         StdDeviationSample = StdDeviationSample)
-    Loads['Thrust'] = T
-    Loads['Thrust Standard Deviation'] = std_Thrust/T*100. if 1e-6 < np.abs(T) else 0.
-    Loads['Power'] = P
-    Loads['Power Standard Deviation']  = std_Power/P*100.  if 1e-6 < np.abs(P) else 0.
+    Loads['Thrust'] = Thrust
+    Loads['Thrust Standard Deviation'] = std_Thrust/Thrust*100. if 1e-6 < np.abs(Thrust) else 0.
+    Loads['Power'] = Power
+    Loads['Power Standard Deviation']  = std_Power/Power*100.  if 1e-6 < np.abs(Power) else 0.
     Loads['cT'] = cT
     Loads['cP'] = cP
     Loads['Eff'] = Eff
@@ -2101,20 +2121,20 @@ def getAerodynamicCoefficientsOnRotor(tLL = [], StdDeviationSample = 50):
                                                                  z - RotationCenter[2]]), axis = 0))
     IntegralLoads = LL.computeGeneralLoadsOfLiftingLine(tLL)
     if 'Total' in IntegralLoads: IntegralLoads = IntegralLoads['Total']
-    T = IntegralLoads['Thrust'][0]
-    P = IntegralLoads['Power'][0]
+    Thrust = IntegralLoads['Thrust'][0]
+    Power = IntegralLoads['Power'][0]
     U = RPM*np.pi/30.*R
     q0 = Rho*np.square(U)*np.pi*R**2
-    cT = T/q0     if 1e-6 < q0 else 0.
+    cT = Thrust/q0     if 1e-6 < q0 else 0.
     cP = P/(q0*U) if 1e-6 < q0 else 0.
     Eff = np.sqrt(np.abs(cT))*cT/(np.sqrt(2.)*cP) if 1e-12 < np.abs(cP) else 0.
 
     std_Thrust, std_Power = getStandardDeviationBlade(tLL = tLL,
                                                         StdDeviationSample = StdDeviationSample)
-    Loads['Thrust'] = T
-    Loads['Thrust Standard Deviation'] = std_Thrust/T*100. if 1e-6 < np.abs(T) else 0.
-    Loads['Power'] = P
-    Loads['Power Standard Deviation']  = std_Power/P*100.  if 1e-6 < np.abs(P) else 0.
+    Loads['Thrust'] = Thrust
+    Loads['Thrust Standard Deviation'] = std_Thrust/Thrust*100. if 1e-6 < np.abs(Thrust) else 0.
+    Loads['Power'] = Power
+    Loads['Power Standard Deviation']  = std_Power/Power*100.  if 1e-6 < np.abs(Power) else 0.
     Loads['cT'] = cT
     Loads['cP'] = cP
     Loads['Eff'] = Eff
