@@ -568,9 +568,11 @@ def get_workflow1():
 
 def get_workflow_cart_monoproc(RunDirectory):
 
-    x, y, z = np.meshgrid( np.linspace(0,1,5),
-                           np.linspace(0,1,5),
-                           np.linspace(0,1,5), indexing='ij')
+    n_pts_dir = 14
+    assert n_pts_dir > 13 # otherwise RSD_L2_rh == 0 and elsa stops at it=1
+    x, y, z = np.meshgrid( np.linspace(0,1,n_pts_dir),
+                           np.linspace(0,1,n_pts_dir),
+                           np.linspace(0,1,n_pts_dir), indexing='ij')
     mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
 
 
@@ -611,7 +613,7 @@ def get_workflow_cart_monoproc(RunDirectory):
 
         Numerics = dict(
             NumberOfIterations=2,
-            CFL=1.,
+            CFL=1.0,
         ),
 
         BoundaryConditions=[
@@ -857,7 +859,7 @@ if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
     # test_workflow_sphere_struct_local_monoproc('sphere_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
-    # test_workflow_cart_monoproc('cart_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
+    test_workflow_cart_monoproc('cart_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
     # test_workflow_sphere_struct_local_dist('sphere_dist_'+os.environ.get("MOLA_SOLVER"))
     # test_workflow_sphere_struct_local_cassiopee_mpi('sphere_struct_cassmpi_'+os.environ.get("MOLA_SOLVER"),False)
-    test_workflow_sphere_struct_local_dist('sphere_struct_dist_'+os.environ.get("MOLA_SOLVER"),False)
+    # test_workflow_sphere_struct_local_dist('sphere_struct_dist_'+os.environ.get("MOLA_SOLVER"),False)

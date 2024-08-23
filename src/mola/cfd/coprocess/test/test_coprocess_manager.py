@@ -19,11 +19,13 @@ import pytest
 import os
 import shutil
 
+import numpy as np
+
 from treelab import cgns
 from mola.cfd.coprocess import comm, rank, NumberOfProcessors
 from mola.cfd.compute import apply as compute_apply
-from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names
-from mola.workflow.test.test_workflow import get_workflow_cart_monoproc
+from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names, update_signals_using
+
 
 class FakeWorkflow():
     def __init__(self,RunDirectory=None):
@@ -96,8 +98,8 @@ def test_status(tmp_path):
 
     assert coprocess.status == 'BEFORE_FIRST_ITERATION'
 
-    coprocess.status = 'RUNNING'
-    assert coprocess.status == 'RUNNING'
+    coprocess.status = 'RUNNING_BEFORE_ITERATION'
+    assert coprocess.status == 'RUNNING_BEFORE_ITERATION'
 
     try:
         coprocess.status = 'UNEXPECTED'
@@ -109,3 +111,77 @@ def test_status(tmp_path):
 
     check_existance_of_coprocess_files_and_directories_by_removing_them(tmp_path)
 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+@pytest.mark.parametrize('arrays',[
+
+    dict(previous_it    = [1],
+         new_it         =    [2],
+         expected_it    = [1, 2],
+         expected_field = [1, 20]),
+
+    dict(previous_it    = [1],
+         new_it         = [1],
+         expected_it    = [1],
+         expected_field = [10]),
+
+    dict(previous_it    = [2],
+         new_it         = [1],
+         expected_it    = [1],
+         expected_field = [10]),
+
+    dict(previous_it    = [0, 1],
+         new_it         =       [2],
+         expected_it    = [0, 1, 2],
+         expected_field = [0, 1, 20]),
+
+    dict(previous_it    = [0,1],
+         new_it         =   [1],
+         expected_it    = [0,1],
+         expected_field = [0,10]),
+
+    dict(previous_it    = [0,1,2],
+         new_it         =           [4,5,6],
+         expected_it    = [0,1,2,    4,5,6],
+         expected_field = [0,1,2,   40,50,60]),
+
+    dict(previous_it    =           [4,5,6],
+         new_it         = [0,1,2],
+         expected_it    = [0,1,2],
+         expected_field = [0,10,20]),
+])
+def test_update_signals(arrays):
+
+    previous_it = np.array(arrays['previous_it'])
+    previous_field = previous_it
+
+    new_it = np.array(arrays['new_it'])
+    new_field = new_it*10
+
+    previous_tree = cgns.Tree(Integral=cgns.newZoneFromDict('ZoneName',
+                        dict(IterationNumber=previous_it, field=previous_field)))
+    current_tree = cgns.Tree(Integral=cgns.newZoneFromDict('ZoneName',
+                        dict(IterationNumber=new_it, field=new_field)))
+
+    update_signals_using(current_tree, previous_tree)
+
+    updated_it = previous_tree.get('IterationNumber').value()
+    updated_field = previous_tree.get('field').value()
+
+    assert len(updated_it) == len(updated_field)
+
+    assert len(updated_it.shape) == 1
+    assert len(updated_field.shape) == 1
+
+    assert np.allclose(arrays['expected_it'], updated_it )
+    assert np.allclose(arrays['expected_field'], updated_field )
+
+
+
+
+if __name__ == '__main__':
+    test_update_signals(dict(previous_it    = [1],
+                             new_it         =    [2],
+                             expected_it    = [1, 2],
+                             expected_field = [1, 20]))

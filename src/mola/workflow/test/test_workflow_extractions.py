@@ -27,7 +27,7 @@ from mola.workflow.test.test_workflow import get_workflow_cart_monoproc
 @pytest.mark.cost_level_2
 def test_integrals(tmp_path):
     
-    def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames):
+    def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames, expected_number_of_items):
         
         expected_file = os.path.join(tmp_path, names.DIRECTORY_OUTPUT, filename)
         
@@ -54,9 +54,13 @@ def test_integrals(tmp_path):
             fieldnames = [fieldnames]
 
         for fieldname in fieldnames:
-            assert container.get(Name=fieldname, Type='DataArray_t', Depth=1)
+            field_node = container.get(Name=fieldname, Type='DataArray_t', Depth=1)
+            assert field_node 
+
+            assert len(field_node.value()) == expected_number_of_items
 
     separated_filename = 'test_integrals.cgns'
+
 
     w = get_workflow_cart_monoproc(tmp_path)
     w._interface.add_to_Extractions_Integral(
@@ -79,21 +83,27 @@ def test_integrals(tmp_path):
         File=names.FILE_OUTPUT_1D,
         Source='Inlet',
     )
-
+    
+    niter = 10
+    w.Numerics['NumberOfIterations'] = niter
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
+
+    
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
     
+    expected_number_of_items = niter + 1
+
     assert_file_with_relevant_zone_and_fields(separated_filename, "TestSeparatedFile",
-        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'])
+        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], expected_number_of_items)
     
     assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
-        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'])
+        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], expected_number_of_items)
     
     assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals2",
-        "MassFlow")
+        "MassFlow", expected_number_of_items)
 
     
 

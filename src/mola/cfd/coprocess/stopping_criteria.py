@@ -29,7 +29,7 @@ def check_timeout(coprocess_manager):
     timeout = coprocess_manager.workflow.RunManagement['TimeOutInSeconds']
     logger = coprocess_manager.mola_logger 
 
-    if coprocess_manager.status == 'RUNNING':
+    if coprocess_manager.status.startswith('RUNNING'):
             
         if has_reached_timeout( launch_time, timeout, logger):
             write_tagfile('NEWJOB_REQUIRED', coprocess_manager)
@@ -41,7 +41,7 @@ def check_timeout(coprocess_manager):
 
 def check_max_iteration(coprocess_manager):
 
-    if coprocess_manager.status == 'RUNNING':
+    if coprocess_manager.status.startswith('RUNNING'):
         itinit = coprocess_manager.workflow.Numerics['IterationAtInitialState']
         itmax  = coprocess_manager.workflow.Numerics['NumberOfIterations']
 
@@ -61,7 +61,7 @@ def check_convergence_criteria(coprocess_manager):
     itmin = coprocess_manager.workflow.Numerics['MinimumNumberOfIterations']
 
     has_done_enough_iterations = (it - itinit) > itmin 
-    if has_done_enough_iterations and coprocess_manager.status == 'RUNNING':
+    if has_done_enough_iterations and coprocess_manager.status.startswith('RUNNING'):
         if is_converged(coprocess_manager):
             coprocess_manager.status = 'TO_STOP'
 

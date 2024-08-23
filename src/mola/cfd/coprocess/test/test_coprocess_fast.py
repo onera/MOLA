@@ -417,7 +417,8 @@ def test_extract_integral(tmp_path):
     
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'laminar')
     
-    extraction = dict(Type='Integral', Source='WALL', Name='WALL_LOADS')
+    extraction = dict(Type='Integral', Source='WALL', Name='WALL_LOADS',
+                      Fields=['Force','Torque','MassFlow'])
     workflow._coprocess_manager.Extractions = [ extraction ]
     workflow.Extractions = workflow._coprocess_manager.Extractions
 
@@ -427,20 +428,21 @@ def test_extract_integral(tmp_path):
     for it in range( niter ):
         FastS._compute(workflow.tree, workflow._metrics, it)
     
+        workflow._coprocess_manager.iteration = it
         workflow.tree = cgns.castNode(workflow.tree)
 
         output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
         
-        t = solver_fast.extract_integral(output_tree, extraction, workflow)
+        solver_fast.extract_integral(output_tree, extraction, workflow)
 
-    flow_sol = t.get('FlowSolution')
+    flow_sol = extraction['Data'].get('FlowSolution')
     
     assert flow_sol
 
     expected_integrals = ('IterationNumber','ForceX',  'ForceY',   'ForceZ',
                           'MassFlow',     'TorqueX','TorqueY', 'TorqueZ')
     for k in expected_integrals: 
-        expected_node = flow_sol.get(k)
+        expected_node = flow_sol.get(k, Type='DataArray_t')
         assert expected_node
         assert len(expected_node.value()) == niter
 

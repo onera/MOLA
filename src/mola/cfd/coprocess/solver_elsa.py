@@ -30,7 +30,7 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
@@ -63,14 +63,7 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_residuals(output_tree)
         
         elif extraction['Type'] == 'Integral':
-
-            # NOTE LB: is ApplicationContext/NormalizationCoefficient the right place ?
-            # perhaps specific NormalizationCoefficients should be incorporated into
-            # the extraction dict. These could be set using ApplicationContext/NormalizationCoefficient
-            # in the workflow
-            NormalizationCoefficients = workflow.ApplicationContext.get('NormalizationCoefficient')
-            extraction['Data'] = extract_integral(output_tree, extraction, 
-                                                    NormalizationCoefficients)            
+            extract_integral(output_tree, extraction)            
 
         # elif extraction['Type'] == 'Probe':
         #     extraction['Data'] = extract_probe(output_tree)
@@ -226,29 +219,9 @@ def extract_residuals(output_tree):
 
     return mpi_allgather_and_merge_trees(t)
 
-def extract_integral(output_tree, extraction, NormalizationCoefficients=None):
-
-    def _normalize_data(IntegralDataNode, Family, NormalizationCoefficients):
-        data_to_normalize = dict(
-            convflux_ro = dict(Name='MassFlow', Coef='FluxCoef'),
-                     CL = dict(Name='CL',       Coef='FluxCoef'),
-                     CD = dict(Name='CD',       Coef='FluxCoef'),
-                     CX = dict(Name='CX',       Coef='FluxCoef'),
-                     CY = dict(Name='CY',       Coef='FluxCoef'),
-                     CZ = dict(Name='CZ',       Coef='FluxCoef'),
-                     Cn = dict(Name='Cn',       Coef='TorqueCoef'),
-                     Cl = dict(Name='Cl',       Coef='TorqueCoef'),
-                     Cm = dict(Name='Cm',       Coef='TorqueCoef'),
-        )
-        for name, params in data_to_normalize.items():
-            new_name = params['Name']
-            try:
-                coef = NormalizationCoefficients[Family][params['Coef']]
-                node = IntegralDataNode.get(Name=name, Type='DataArray')
-                cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=IntegralDataNode)
-            except:
-                pass
+def extract_integral(output_tree, extraction) -> None:
     
+    # output_tree.save('debug.cgns');exit()
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
     for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):
@@ -267,13 +240,14 @@ def extract_integral(output_tree, extraction, NormalizationCoefficients=None):
         IntegralDataNode.setType('FlowSolution_t')
         for n in IntegralDataNode.children(): n.setType('DataArray_t')
         translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
-        if NormalizationCoefficients:
-            _normalize_data(IntegralDataNode, IntegralName, NormalizationCoefficients)
         zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
         zone.setParameters('MOLA:Extraction-Log',**extraction)
         break
 
-    return mpi_allgather_and_merge_trees(t)
+    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+
+    extraction['Data'] = current_iteration_signals
+
 
 def extract_probe(output_tree):
     warnings.warning('skip extraction of type Probe (not implemented yet)')
@@ -304,3 +278,9 @@ def move_log_files(w):
             shutil.move(fn, os.path.join(names.DIRECTORY_LOG, fn))
 
     comm.barrier()
+
+def get_iteration(workflow):
+    return elsAxdt.iteration()
+
+def get_status(workflow):
+    return 'RUNNING_BEFORE_ITERATION' # TODO: implement this (using elsaXdt?)
