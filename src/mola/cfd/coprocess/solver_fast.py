@@ -29,7 +29,7 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
@@ -76,14 +76,14 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_fields(output_tree, extraction)
 
         elif extraction['Type'] == 'BC':
-            extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype, workflow._metrics)
+            extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype, workflow._fast_metrics)
         
         elif extraction['Type'] == 'IsoSurface':
             extraction['Data'] = extract_isosurface(output_tree, extraction)
 
         elif extraction['Type'] == 'Residuals':
             coprocess_manager.mola_logger.warn('extract residuals requires solving https://github.com/onera/Fast/issues/13')
-            extraction['Data'] = extract_residuals(output_tree)
+            extract_residuals(output_tree, extraction)
         
         elif extraction['Type'] == 'Integral':
             extract_integral(output_tree, extraction, workflow)
@@ -203,7 +203,7 @@ def extract_isosurface(output_tree, extraction):
     return isosurface
 
 
-def extract_residuals(output_tree):
+def extract_residuals(output_tree, extraction):
     residuals = output_tree.group(Type='ConvergenceHistory_t', Depth=4)
     if not residuals: return cgns.Tree()
 
@@ -221,26 +221,41 @@ def extract_residuals(output_tree):
         
         cgns.Zone(Name=parent_name, Parent=base, Children=[node])
 
-    return mpi_allgather_and_merge_trees(t)
+    current_iteration_signals =  mpi_allgather_and_merge_trees(t)
     
+    if 'Data' in extraction and extraction['Data'] is not None:
+        and_previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+    else: 
+        extraction['Data'] = current_iteration_signals
+
     
 
-def extract_integral(output_tree, extraction, workflow):
+def extract_integral(output_tree, extraction, workflow) -> None:
     
+    if 'Fields' not in extraction or not extraction['Fields']:
+        extraction['Data'] = None
+        return
+
     stress, state = get_stress_and_state(output_tree, extraction['Source'],
-                                         workflow._metrics)
+                                         workflow._fast_metrics)
     dimensionalize_torque(stress, state)    
 
     fields = initialize_integral_fields_dict(workflow._coprocess_manager)
 
-    fields.update(dict(ForceX  = np.array([stress['ForceX']]),
-                       ForceY  = np.array([stress['ForceY']]),
-                       ForceZ  = np.array([stress['ForceZ']]),
-                       TorqueX = np.array([stress['Torque0X']]),
-                       TorqueY = np.array([stress['Torque0Y']]),
-                       TorqueZ = np.array([stress['Torque0Z']]),
-                       MassFlow= np.array([stress['m']])))
-    
+    if 'Force' in extraction['Fields']:
+        fields.update(dict(ForceX  = np.array([stress['ForceX']]),
+                           ForceY  = np.array([stress['ForceY']]),
+                           ForceZ  = np.array([stress['ForceZ']])))
+
+    if 'Torque' in extraction['Fields']:
+        fields.update(dict(TorqueX  = np.array([stress['Torque0X']]),
+                           TorqueY  = np.array([stress['Torque0Y']]),
+                           TorqueZ  = np.array([stress['Torque0Z']])))
+
+    if 'MassFlow' in extraction['Fields']:
+        fields['MassFlow'] = np.array([stress['m']])
+
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
     zone = cgns.utils.newZoneFromDict( extraction['Name'], fields )
@@ -250,13 +265,11 @@ def extract_integral(output_tree, extraction, workflow):
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
-    if 'Data' in extraction:
+    if 'Data' in extraction and extraction['Data'] is not None:
         and_previous_signals_to_be_updated = extraction['Data']
         update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
-        return and_previous_signals_to_be_updated
     else: 
         extraction['Data'] = current_iteration_signals
-        return current_iteration_signals
 
 
 def extract_probe(output_tree):
@@ -304,7 +317,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
         if requested_field_name in existing_field_names: continue
 
         if requested_field_name in post_fields_using_fast:
-            FastS._computeVariables(t, workflow._metrics, requested_field_name)
+            FastS._computeVariables(t, workflow._fast_metrics, requested_field_name)
     
         elif requested_field_name in post_fields_using_cassiopee_computeVariables:
             P._computeVariables(t, ["centers:"+requested_field_name], 
@@ -480,24 +493,8 @@ def initialize_integral_fields_dict(coprocess_manager) -> dict:
 
     return fields
 
-def update_signals_using( current_iteration_signals : cgns.Tree,
-                          and_previous_signals_to_be_updated : cgns.Tree ) -> None:
-    
-    previous_tree = and_previous_signals_to_be_updated
-    current_tree = current_iteration_signals
+def get_iteration(workflow):
+    return workflow._iteration
 
-    for previous_zone, current_zone in zip(previous_tree.zones(),current_tree.zones()):
-        previous_flow_sol = previous_zone.get(Name='FlowSolution',Depth=1)
-        current_flow_sol  =  current_zone.get(Name='FlowSolution',Depth=1)
-
-        for node_being_updated in previous_flow_sol.children():
-            if node_being_updated.type() != 'DataArray_t': continue
-            
-            current_field_node = current_flow_sol.get(Name=node_being_updated.name())
-
-            if not current_field_node:
-                expected_field_name = node_being_updated.name()
-                raise MolaException(f"expected to get field {expected_field_name} in node {current_flow_sol.path()}")
-
-            node_being_updated.setValue(np.hstack((node_being_updated.value(),
-                                                   current_field_node.value())))
+def get_status(workflow):
+    return workflow._status

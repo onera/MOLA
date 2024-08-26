@@ -31,6 +31,13 @@ def test_print():
     w = WorkflowInterface()
     print(w)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_add_to_Extractions_Integral():
+    w = WorkflowInterface()
+    w.add_to_Extractions_Integral(Type="Integral", Source="MyFamily")
+    assert w.Extractions[-1]['ExtractionPeriod'] == 1 # since by default we extract every iter
+
 
 if __name__=='__main__':
     test_print()

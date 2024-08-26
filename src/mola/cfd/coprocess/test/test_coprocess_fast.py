@@ -131,7 +131,8 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
     class FakeWorkflow():
         def __init__(self):
             self.tree = cgns.castNode(t)
-            self._metrics = metrics
+            self._fast_metrics = metrics
+            self._status = 'BEFORE_FIRST_ITERATION'
             self.Numerics = dict(IterationAtInitialState=1,
                                       NumberOfIterations=1,
                                       TimeAtInitialState=0.0,
@@ -326,7 +327,7 @@ def test_extract_bc(tmp_path):
 
     for extraction in workflow._coprocess_manager.Extractions:
         tRef = solver_fast.extract_bc(output_tree, extraction, families_to_bctype,
-                                      workflow._metrics)
+                                      workflow._fast_metrics)
         
         computed_fields = solver_fast.get_field_names(tRef,
                                     container='FlowSolution#Centers')
@@ -351,7 +352,7 @@ def test_extract_residuals(tmp_path):
 
     t = workflow.tree
     tc = None
-    metrics = workflow._metrics
+    metrics = workflow._fast_metrics
     graph = None
 
     I._rmNodesByName(t, "ZoneConvergenceHistory")
@@ -370,7 +371,15 @@ def test_extract_residuals(tmp_path):
     workflow.tree = cgns.castNode(t)
     
     output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
-    residuals = solver_fast.extract_residuals(output_tree)
+    
+    extraction = None
+    for e in workflow._coprocess_manager.Extractions:
+        if e["Type"] == "Residuals":
+            extraction = e
+    if extraction is None:
+        raise AttributeError("residuals extraction not found")
+
+    solver_fast.extract_residuals(output_tree, extraction)
     # residuals.save(os.path.join(tmp_path,'test.cgns'))
 
     workflow._coprocess_manager._status = 'COMPLETED'
@@ -387,7 +396,7 @@ def test_get_stress_and_state(tmp_path):
 
     output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
     stress, state = solver_fast.get_stress_and_state(output_tree, 'WALL',
-                                                     workflow._metrics)
+                                                     workflow._fast_metrics)
     
     expected_stress_keys=('fx','fy','fz','t0x','t0y','t0z','S','m','ForceX','ForceY','ForceZ')
     for k in expected_stress_keys: assert k in stress
@@ -417,7 +426,8 @@ def test_extract_integral(tmp_path):
     
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'laminar')
     
-    extraction = dict(Type='Integral', Source='WALL', Name='WALL_LOADS')
+    extraction = dict(Type='Integral', Source='WALL', Name='WALL_LOADS',
+                      Fields=['Force','Torque','MassFlow'])
     workflow._coprocess_manager.Extractions = [ extraction ]
     workflow.Extractions = workflow._coprocess_manager.Extractions
 
@@ -425,22 +435,23 @@ def test_extract_integral(tmp_path):
 
     niter = 3
     for it in range( niter ):
-        FastS._compute(workflow.tree, workflow._metrics, it)
+        FastS._compute(workflow.tree, workflow._fast_metrics, it)
     
+        workflow._coprocess_manager.iteration = it
         workflow.tree = cgns.castNode(workflow.tree)
 
         output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
         
-        t = solver_fast.extract_integral(output_tree, extraction, workflow)
+        solver_fast.extract_integral(output_tree, extraction, workflow)
 
-    flow_sol = t.get('FlowSolution')
+    flow_sol = extraction['Data'].get('FlowSolution')
     
     assert flow_sol
 
     expected_integrals = ('IterationNumber','ForceX',  'ForceY',   'ForceZ',
                           'MassFlow',     'TorqueX','TorqueY', 'TorqueZ')
     for k in expected_integrals: 
-        expected_node = flow_sol.get(k)
+        expected_node = flow_sol.get(k, Type='DataArray_t')
         assert expected_node
         assert len(expected_node.value()) == niter
 
