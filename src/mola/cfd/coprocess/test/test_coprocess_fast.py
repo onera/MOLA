@@ -371,7 +371,15 @@ def test_extract_residuals(tmp_path):
     workflow.tree = cgns.castNode(t)
     
     output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
-    residuals = solver_fast.extract_residuals(output_tree)
+    
+    extraction = None
+    for e in workflow._coprocess_manager.Extractions:
+        if e["Type"] == "Residuals":
+            extraction = e
+    if extraction is None:
+        raise AttributeError("residuals extraction not found")
+
+    solver_fast.extract_residuals(output_tree, extraction)
     # residuals.save(os.path.join(tmp_path,'test.cgns'))
 
     workflow._coprocess_manager._status = 'COMPLETED'

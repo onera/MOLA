@@ -60,7 +60,7 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_isosurface(output_tree, extraction)
 
         elif extraction['Type'] == 'Residuals':
-            extraction['Data'] = extract_residuals(output_tree)
+            extract_residuals(output_tree, extraction)
         
         elif extraction['Type'] == 'Integral':
             extract_integral(output_tree, extraction)            
@@ -203,7 +203,7 @@ def extract_isosurface(output_tree, extraction):
     
     return isosurface
 
-def extract_residuals(output_tree):
+def extract_residuals(output_tree, extraction):
     residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
     if not residuals: return cgns.Tree()
     residuals = cgns.castNode(residuals)
@@ -214,10 +214,18 @@ def extract_residuals(output_tree):
     # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
     residuals.setType('FlowSolution_t')
     residuals.setName('FlowSolution')
+    residuals.setValue(None)
 
     cgns.Zone(Name=base.name(), Parent=base, Children=[residuals])
 
-    return mpi_allgather_and_merge_trees(t)
+    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+
+    if 'Data' in extraction and extraction['Data'] is not None:
+        and_previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+    else: 
+        extraction['Data'] = current_iteration_signals
+
 
 def extract_integral(output_tree, extraction) -> None:
     
@@ -246,7 +254,11 @@ def extract_integral(output_tree, extraction) -> None:
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
-    extraction['Data'] = current_iteration_signals
+    if 'Data' in extraction and extraction['Data'] is not None:
+        and_previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+    else: 
+        extraction['Data'] = current_iteration_signals
 
 
 def extract_probe(output_tree):

@@ -81,7 +81,9 @@ class CoprocessManager():
         #   IsToExtract (bool), IsToSave (bool), Data (PyTree or other kind of volumic data)
         # and these elements must not be saved when saving the workflow.
         self.Extractions = copy.deepcopy(workflow.Extractions)
-                         
+        self.initialize_extraction_data_from_last_run()
+
+
     def run_iteration(self):
         self.update_iteration()
         check_timeout(self)
@@ -130,6 +132,29 @@ class CoprocessManager():
             self.mola_logger.debug(f'Saving data...', rank=0)
             self.save_data()
     
+    def initialize_extraction_data_from_last_run(self):
+
+        for extraction in self.Extractions:
+            if extraction['Type'] not in ['Integral','Residuals','Probe']: continue
+
+            if 'File' not in extraction: continue
+
+            try:
+                previous_tree = cgns.load(os.path.join(names.DIRECTORY_OUTPUT,extraction['File']))
+            except FileNotFoundError:
+                continue
+
+            for base in previous_tree.bases():
+                if base.name() != extraction["Type"]:
+                    base.dettach()
+                
+                if extraction["Type"] == 'Integral':
+                    for zone in base.zones():
+                        if zone.name() != extraction["Name"]:
+                            zone.dettach()
+
+            extraction['Data'] = previous_tree
+
     def end_simulation(self):
         if self.status == 'TO_STOP':
             self.status = 'TO_FINALIZE'
@@ -200,10 +225,8 @@ class CoprocessManager():
         self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1
         if 'TimeStep' in self.workflow.Numerics:
             self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
-        
-        from mola.cfd.preprocess.cfd_parameters import apply
-        apply(self.workflow)
 
+        self.workflow.set_cfd_parameters()
         self.workflow.set_workflow_parameters_in_tree()
 
     def make_directories_and_log(self):
@@ -288,67 +311,83 @@ def update_signals_using( current_iteration_signals : cgns.Tree,
     previous_tree = and_previous_signals_to_be_updated
     current_tree = current_iteration_signals
 
-    for previous_zone in previous_tree.zones():
+    for current_base in current_tree.bases():
+        previous_base = previous_tree.get(Name=current_base.name(), Type='CGNSBase_t', Depth=1)
+        if not previous_base:
+            current_base.attachTo(previous_tree)
+            continue
+
+        for current_zone in current_base.zones():
+            previous_zone = previous_base.get(Name=current_zone.name(), Type='Zone_t', Depth=1)
+            if not previous_zone:
+                current_zone.attachTo(previous_base)
+                continue
         
-        current_zone = current_tree.get(Name=previous_zone.name(), Type='Zone_t', Depth=2)
-
-        previous_flow_sol = previous_zone.get(Name='FlowSolution',Depth=1)
-        current_flow_sol  =  current_zone.get(Name='FlowSolution',Depth=1)
-
-        PreviousIterations = previous_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1).value()
-        CurrentIterations = current_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1).value()
+            _update_signals_zones(current_zone, previous_zone)
 
 
-        override_all = True if CurrentIterations[0] <= PreviousIterations[0] else False
-        stack_all = True if CurrentIterations[0] > PreviousIterations[-1] else False
-        
-        if override_all:
-            _update_signals_container_overriding_all(previous_flow_sol, current_flow_sol)
+def _update_signals_zones(current_zone : cgns.Zone, previous_zone : cgns.Zone) -> None:
 
-        elif stack_all:
-            _update_signals_container_stacking_all(previous_flow_sol, current_flow_sol)
+    previous_flow_sol = previous_zone.get(Name='FlowSolution',Depth=1) # this is modified in-place
+    current_flow_sol  =  current_zone.get(Name='FlowSolution',Depth=1)
 
-        elif not override_all and not stack_all:
-            _update_signals_container_stacking_partially(previous_flow_sol, current_flow_sol)
-        
-        else:
-            raise MolaException(f"unexpected case override_all={override_all} stack_all={stack_all}")
+
+    PreviousIterationsNode = previous_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1)
+    if not PreviousIterationsNode: return
+    PreviousIterations = PreviousIterationsNode.value()
+    CurrentIterationsNode = current_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1)
+    if not CurrentIterationsNode: return
+    CurrentIterations = CurrentIterationsNode.value()
+
+
+    override_all = True if CurrentIterations[0] <= PreviousIterations[0] else False
+    stack_all = True if CurrentIterations[0] > PreviousIterations[-1] else False
+    
+    if override_all:
+        _update_signals_container_overriding_all(previous_flow_sol, current_flow_sol)
+
+    elif stack_all:
+        _update_signals_container_stacking_all(previous_flow_sol, current_flow_sol)
+
+    elif not override_all and not stack_all:
+        _update_signals_container_stacking_partially(previous_flow_sol, current_flow_sol)
+    
+    else:
+        raise MolaException(f"unexpected case override_all={override_all} stack_all={stack_all}")
 
 
 def _update_signals_container_overriding_all(previous_flow_sol, current_flow_sol):
 
-    for node_being_updated in previous_flow_sol.children():
-        if node_being_updated.type() != 'DataArray_t': continue
-        
-        current_field_node = current_flow_sol.get(Name=node_being_updated.name())
+    for current_data in current_flow_sol.children():
+        if current_data.type() != 'DataArray_t': continue
 
-        if not current_field_node:
-            expected_field_name = node_being_updated.name()
-            raise MolaException(f"expected to get field {expected_field_name} in node {current_flow_sol.path()}")
+        previous_data = previous_flow_sol.get(current_data.name(),Type='DataArray_t',Depth=1)
+        if not previous_data:
+            current_data.attachTo(previous_flow_sol)
+            continue
 
-        current_value = current_field_node.value()
-        previous_value = node_being_updated.value()
-
-        node_being_updated.setValue(current_value)
+        previous_data.setValue(current_data.value())
 
 
 def _update_signals_container_stacking_all(previous_flow_sol, current_flow_sol):
 
-    for node_being_updated in previous_flow_sol.children():
-        if node_being_updated.type() != 'DataArray_t': continue
+    for current_data in current_flow_sol.children():
+        if current_data.type() != 'DataArray_t': continue
         
-        current_field_node = current_flow_sol.get(Name=node_being_updated.name())
-
-        if not current_field_node:
-            expected_field_name = node_being_updated.name()
-            raise MolaException(f"expected to get field {expected_field_name} in node {current_flow_sol.path()}")
-
-        current_value = current_field_node.value()
-        previous_value = node_being_updated.value()
-
+        previous_data = previous_flow_sol.get(current_data.name(),Type='DataArray_t',Depth=1)
+        if not previous_data:
+            previous_it = previous_flow_sol.get('IterationNumber',Type='DataArray_t',Depth=1).value()
+            previous_value = np.empty_like(previous_it)
+            previous_value[:] = np.nan
+        else:
+            previous_value = previous_data.value()
+        
+        current_value = current_data.value()
         updated_value = np.hstack((previous_value, current_value))
 
-        node_being_updated.setValue(updated_value)
+        previous_data.setValue(updated_value)
+
+
 
 def _update_signals_container_stacking_partially(previous_flow_sol, current_flow_sol):
 
@@ -356,26 +395,34 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
     CurrentIterations = current_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1).value()
 
     ε = 1e-12
-    UpdatePortion = PreviousIterations > (CurrentIterations[-1] - ε)
-    if len(UpdatePortion) == 1 and all(np.logical_not(UpdatePortion)):
+    UpdatePortion = PreviousIterations > (CurrentIterations[0] - ε)
+    if all(np.logical_not(UpdatePortion)) and len(UpdatePortion) == 1:
         FirstPreviousIndex2Update = len(PreviousIterations) - 1 
     else:
-        FirstPreviousIndex2Update = np.where(UpdatePortion)[0][0]
+        try:
+            FirstPreviousIndex2Update = np.where(UpdatePortion)[0][0]
+        except IndexError:
+            msg = "FATAL: add case to test_update_signals:\n"
+            msg+= f'PreviousIterations:\n{PreviousIterations}\n'
+            msg+=f'CurrentIterations:\n{CurrentIterations}\n'
+            msg+=f'UpdatePortion={UpdatePortion}\n'
+            msg+=f'np.where(UpdatePortion)={np.where(UpdatePortion)}'
+            raise IndexError(msg)
 
+    for current_data in current_flow_sol.children():
+        if current_data.type() != 'DataArray_t': continue
 
-    for node_being_updated in previous_flow_sol.children():
-        if node_being_updated.type() != 'DataArray_t': continue
+        previous_data = previous_flow_sol.get(current_data.name(),Type='DataArray_t',Depth=1)
+        if not previous_data:
+            previous_it = previous_flow_sol.get('IterationNumber',Type='DataArray_t',Depth=1).value()
+            previous_value = np.empty_like(previous_it)
+            previous_value[:] = np.nan
+        else:
+            previous_value = previous_data.value()
         
-        current_field_node = current_flow_sol.get(Name=node_being_updated.name())
-
-        if not current_field_node:
-            expected_field_name = node_being_updated.name()
-            raise MolaException(f"expected to get field {expected_field_name} in node {current_flow_sol.path()}")
-
-        current_value = current_field_node.value()
-        previous_value = node_being_updated.value()
+        current_value = current_data.value()
 
         updated_value = np.hstack((previous_value[:FirstPreviousIndex2Update],
                                    current_value))
 
-        node_being_updated.setValue(updated_value)
+        previous_data.setValue(updated_value)

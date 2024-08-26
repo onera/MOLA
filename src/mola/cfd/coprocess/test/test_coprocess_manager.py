@@ -152,6 +152,12 @@ def test_status(tmp_path):
          new_it         = [0,1,2],
          expected_it    = [0,1,2],
          expected_field = [0,10,20]),
+
+    dict(previous_it    = [0,1,2,3],
+         new_it         =       [3,4],
+         expected_it    = [0,1,2,3,4],
+         expected_field = [0,1,2,30,40]),
+
 ])
 def test_update_signals(arrays):
 

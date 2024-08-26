@@ -83,7 +83,7 @@ def perform_extractions(workflow, coprocess_manager):
 
         elif extraction['Type'] == 'Residuals':
             coprocess_manager.mola_logger.warn('extract residuals requires solving https://github.com/onera/Fast/issues/13')
-            extraction['Data'] = extract_residuals(output_tree)
+            extract_residuals(output_tree, extraction)
         
         elif extraction['Type'] == 'Integral':
             extract_integral(output_tree, extraction, workflow)
@@ -203,7 +203,7 @@ def extract_isosurface(output_tree, extraction):
     return isosurface
 
 
-def extract_residuals(output_tree):
+def extract_residuals(output_tree, extraction):
     residuals = output_tree.group(Type='ConvergenceHistory_t', Depth=4)
     if not residuals: return cgns.Tree()
 
@@ -221,8 +221,14 @@ def extract_residuals(output_tree):
         
         cgns.Zone(Name=parent_name, Parent=base, Children=[node])
 
-    return mpi_allgather_and_merge_trees(t)
+    current_iteration_signals =  mpi_allgather_and_merge_trees(t)
     
+    if 'Data' in extraction and extraction['Data'] is not None:
+        and_previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+    else: 
+        extraction['Data'] = current_iteration_signals
+
     
 
 def extract_integral(output_tree, extraction, workflow) -> None:

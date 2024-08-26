@@ -22,43 +22,48 @@ from treelab import cgns
 from mola import naming_conventions as names
 from mola.workflow.test.test_workflow import get_workflow_cart_monoproc
 
+def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames,
+        path=None, expected_number_of_items=None):
+    
+    if path:
+        expected_file = os.path.join(path, names.DIRECTORY_OUTPUT, filename)
+    else:
+        expected_file = os.path.join(names.DIRECTORY_OUTPUT, filename)
+    
+    assert os.path.isfile(expected_file)
+
+    tree = cgns.load(expected_file)
+
+    assert tree
+
+    base = tree.get(Name="Integral", Type="CGNSBase_t", Depth=1)
+    assert base
+    
+    zone = base.get(Name=zonename, Type="Zone_t", Depth=1)
+    assert zone
+
+    container = zone.get(Name='FlowSolution', Type='FlowSolution_t', Depth=1)
+    assert container
+
+    iterations = container.get(Name='IterationNumber', Type='DataArray_t', Depth=1)
+    assert iterations
+
+    if not isinstance(fieldnames,list):
+        if not isinstance(fieldnames,str): raise AttributeError("wrong fieldnames attribute")
+        fieldnames = [fieldnames]
+
+    for fieldname in fieldnames:
+        field_node = container.get(Name=fieldname, Type='DataArray_t', Depth=1)
+        assert field_node 
+
+        if expected_number_of_items is not None:
+            assert len(field_node.value()) == expected_number_of_items
+
 
 @pytest.mark.integration
 @pytest.mark.cost_level_2
-def test_integrals(tmp_path):
+def test_integrals_one_run(tmp_path):
     
-    def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames, expected_number_of_items):
-        
-        expected_file = os.path.join(tmp_path, names.DIRECTORY_OUTPUT, filename)
-        
-        assert os.path.isfile(expected_file)
-
-        tree = cgns.load(expected_file)
-
-        assert tree
-
-        base = tree.get(Name="Integral", Type="CGNSBase_t", Depth=1)
-        assert base
-        
-        zone = base.get(Name=zonename, Type="Zone_t", Depth=1)
-        assert zone
-
-        container = zone.get(Name='FlowSolution', Type='FlowSolution_t', Depth=1)
-        assert container
-
-        iterations = container.get(Name='IterationNumber', Type='DataArray_t', Depth=1)
-        assert iterations
-
-        if not isinstance(fieldnames,list):
-            if not isinstance(fieldnames,str): raise AttributeError("wrong fieldnames attribute")
-            fieldnames = [fieldnames]
-
-        for fieldname in fieldnames:
-            field_node = container.get(Name=fieldname, Type='DataArray_t', Depth=1)
-            assert field_node 
-
-            assert len(field_node.value()) == expected_number_of_items
-
     separated_filename = 'test_integrals.cgns'
 
 
@@ -97,15 +102,56 @@ def test_integrals(tmp_path):
     expected_number_of_items = niter + 1
 
     assert_file_with_relevant_zone_and_fields(separated_filename, "TestSeparatedFile",
-        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], expected_number_of_items)
+        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
     
     assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
-        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], expected_number_of_items)
+        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
     
     assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals2",
-        "MassFlow", expected_number_of_items)
+        "MassFlow", tmp_path, expected_number_of_items)
+
+
+@pytest.mark.integration
+@pytest.mark.cost_level_3
+def test_integrals_two_runs(tmp_path):
+
+    w = get_workflow_cart_monoproc(tmp_path)
+    w._interface.add_to_Extractions_Integral(
+        Name='TestIntoSignals',
+        Fields=['Force','Torque'],
+        File=names.FILE_OUTPUT_1D,
+        Source='Ground',
+    )
+
+    w.Numerics['NumberOfIterations'] = 5
+    w.RunManagement['Scheduler'] = 'local'
+    w.set_workflow_parameters_in_tree()
+    w.prepare()
 
     
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+    
+    w.tree = os.path.join(tmp_path,names.FILE_INPUT_SOLVER)
+    w.get_workflow_parameters_from_tree()
+    w.read_tree()
+
+    w.Numerics['NumberOfIterations'] = 5
+    w.SolverParameters = dict() # since we do not want to override next run with previous elsa-default SolverParams (inititer, niter)
+    w.set_cfd_parameters()
+    w.set_workflow_parameters_in_tree()
+
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+
+    expected_number_of_items = 10 + 1
+
+    assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
+        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
+
 
 if __name__ == '__main__':
-    test_integrals('extract_integral_'+os.environ.get("MOLA_SOLVER"))
+    # test_integrals_one_run('extract_integrals_one_run_'+os.environ.get("MOLA_SOLVER"))
+    test_integrals_two_runs('extract_integrals_two_runs_'+os.environ.get("MOLA_SOLVER"))
