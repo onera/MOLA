@@ -52,6 +52,8 @@ class FakeWorkflow():
         
         self.ConvergenceCriteria = []
 
+        self._status = 'RUNNING_BEFORE_ITERATION'
+        self._iteration = 0
 
 def check_existance_of_coprocess_files_and_directories_by_removing_them(path):
 

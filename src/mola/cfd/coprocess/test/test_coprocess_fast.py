@@ -131,7 +131,8 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
     class FakeWorkflow():
         def __init__(self):
             self.tree = cgns.castNode(t)
-            self._metrics = metrics
+            self._fast_metrics = metrics
+            self._status = 'BEFORE_FIRST_ITERATION'
             self.Numerics = dict(IterationAtInitialState=1,
                                       NumberOfIterations=1,
                                       TimeAtInitialState=0.0,
@@ -326,7 +327,7 @@ def test_extract_bc(tmp_path):
 
     for extraction in workflow._coprocess_manager.Extractions:
         tRef = solver_fast.extract_bc(output_tree, extraction, families_to_bctype,
-                                      workflow._metrics)
+                                      workflow._fast_metrics)
         
         computed_fields = solver_fast.get_field_names(tRef,
                                     container='FlowSolution#Centers')
@@ -351,7 +352,7 @@ def test_extract_residuals(tmp_path):
 
     t = workflow.tree
     tc = None
-    metrics = workflow._metrics
+    metrics = workflow._fast_metrics
     graph = None
 
     I._rmNodesByName(t, "ZoneConvergenceHistory")
@@ -387,7 +388,7 @@ def test_get_stress_and_state(tmp_path):
 
     output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
     stress, state = solver_fast.get_stress_and_state(output_tree, 'WALL',
-                                                     workflow._metrics)
+                                                     workflow._fast_metrics)
     
     expected_stress_keys=('fx','fy','fz','t0x','t0y','t0z','S','m','ForceX','ForceY','ForceZ')
     for k in expected_stress_keys: assert k in stress
@@ -426,7 +427,7 @@ def test_extract_integral(tmp_path):
 
     niter = 3
     for it in range( niter ):
-        FastS._compute(workflow.tree, workflow._metrics, it)
+        FastS._compute(workflow.tree, workflow._fast_metrics, it)
     
         workflow._coprocess_manager.iteration = it
         workflow.tree = cgns.castNode(workflow.tree)

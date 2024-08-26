@@ -76,7 +76,7 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_fields(output_tree, extraction)
 
         elif extraction['Type'] == 'BC':
-            extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype, workflow._metrics)
+            extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype, workflow._fast_metrics)
         
         elif extraction['Type'] == 'IsoSurface':
             extraction['Data'] = extract_isosurface(output_tree, extraction)
@@ -232,7 +232,7 @@ def extract_integral(output_tree, extraction, workflow) -> None:
         return
 
     stress, state = get_stress_and_state(output_tree, extraction['Source'],
-                                         workflow._metrics)
+                                         workflow._fast_metrics)
     dimensionalize_torque(stress, state)    
 
     fields = initialize_integral_fields_dict(workflow._coprocess_manager)
@@ -311,7 +311,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
         if requested_field_name in existing_field_names: continue
 
         if requested_field_name in post_fields_using_fast:
-            FastS._computeVariables(t, workflow._metrics, requested_field_name)
+            FastS._computeVariables(t, workflow._fast_metrics, requested_field_name)
     
         elif requested_field_name in post_fields_using_cassiopee_computeVariables:
             P._computeVariables(t, ["centers:"+requested_field_name], 
