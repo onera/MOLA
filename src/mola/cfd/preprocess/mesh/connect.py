@@ -219,4 +219,13 @@ def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, 
             _check_unmatched_faces(tree)
         except ZeroDivisionError:
             raise MolaException(f"No Periodic match found. Check translation or rotation input data.")
+        
+    # HACK in SoNICS: for now we need to remove FamilyName in GridConnectivity nodes
+    # otherwise there is a bug in SoNICS
+    import maia.pytree as PT
+    gc_in_families = lambda n: PT.get_label(n, 'GridConnectivity_t') \
+        and PT.get_node_from_label(n, 'FamilyName_t') \
+        and PT.get_value(PT.get_node_from_label(n, 'FamilyName_t')) in families
+    for node in maia.pytree.get_nodes_from_predicate(tree, gc_in_families):
+        maia.pytree.rm_nodes_from_label(node, 'FamilyName_t')
     

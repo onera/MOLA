@@ -59,33 +59,30 @@ def apply_to_solver(workflow):
 
     import miles
 
-    TurbulenceSetup = TURBULENCE_SONICS_KEYS[workflow.Turbulence['Model']]
-    TurbulenceSetup['cutvars'] = get_turbulence_cutoff_setup(workflow.Turbulence)
+    # TurbulenceSetup = TURBULENCE_SONICS_KEYS[workflow.Turbulence['Model']]
+    # TurbulenceSetup['cutvars'] = get_turbulence_cutoff_setup(workflow.Turbulence)
 
     # TODO take into account a dict for the CFL
     # For now, it must be a float
     if not isinstance(workflow.Numerics['CFL'], float):
         raise MolaException(f"CFL must be a float (now it is a {type(workflow.Numerics['CFL'])})")
     
-    my_config = miles.solver.config.Configuration(workflow.tree, pure_cgns_mode=False)
+    my_config = miles.solver.config.Configuration(workflow.tree)
     # print(my_config.get_feature_diagram())
     my_config.update(
-        "fvm/cell_center",
         "motion/mobile",
-        # "perfect_gas",
-        # "sutherland_law",
-        # "primitive_model_from_temperature",
-        # "hardware/cpu",
         *get_turbulence_template(workflow.Turbulence)[0],
         *get_spatial_fluxes_template(workflow.Numerics)[0],
         *get_time_marching_template(workflow.Numerics)[0],
     )
     my_config.set(
-        SpecificHeatRatio = workflow.Fluid['Gamma'],
         # TurbulenceModel = TurbulenceSetup,
         CFL = workflow.Numerics['CFL'],
         pctrad = 0.01,
+        cutvars = get_turbulence_cutoff_setup(workflow.Turbulence),
     )
+    
+    update_fluid_model(my_config, workflow.Fluid)
 
     configuration = my_config.apply()
 
@@ -130,26 +127,12 @@ def get_spatial_fluxes_template(Numerics):
             "roe",
             "upwind_order:2",
             "upwind_limiter_vanalbada",
-            "viscous_flux/vf5p_cor", # shouldn't it be optional ???
-            # "grad_scheme/green_gauss", # shouldn't it be optional ???
         ]
-        # template = dict(
-        #     sonics = dict(
-        #         numeric = dict(
-        #             scheme = dict(
-        #                 upwind_scheme = dict(
-        #                     upwind_grad_kind = "classic",
-        #                     upwind_fxc = "roe",
-        #                     upwind_limiter = "upwind_limiter_vanalbada",
-        #                     upwind_order = 2,
-        #                     upwind_sensor = "upwind_sensor_none",
-        #                 ),
-        #             ),
-        #         )
-        #     )
-        # )
     else:
         raise MolaException(f"Scheme={Numerics['Scheme']} is not available for solver sonics")
+
+    features.append("viscous_flux/vf5p_cor") # shouldn't it be optional ???
+    # features.append("grad_scheme/green_gauss") # shouldn't it be optional ???
     
     return features, parameters
 
@@ -157,7 +140,7 @@ def get_time_marching_template(Numerics):
     features = [
         "time_algo/steady",
         "ode/explicit",
-        # "time_step/local", # shouldn't it be optional ???
+        "time_step/spectral",
     ]
 
     parameters = dict()
@@ -190,6 +173,21 @@ def get_turbulence_cutoff_setup(Turbulence):
         cutoffs = [Turbulence['TurbulenceCutOffRatio'] * v for v in turbValues]
 
     return cutoffs
+
+def update_fluid_model(config, Fluid):
+    translate_to_miles = dict(
+        Gamma = 'SpecificHeatRatio',
+        cv = 'SpecificHeatVolume',
+        cp = 'SpecificHeatPressure',
+        SutherlandViscosity = 'ViscosityMolecularReference',
+        SutherlandTemperature = 'TemperatureReference',
+        SutherlandConstant = 'SutherlandLawConstant',
+    )
+    for key, value in Fluid.items():
+        if key in translate_to_miles:
+            key = translate_to_miles[key]
+        config.set(**{key: value})
+        
 
 def nested_dict_from_keys(d):
     result = {}

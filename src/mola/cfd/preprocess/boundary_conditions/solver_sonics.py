@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from treelab import cgns
+
 from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
 from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
@@ -41,8 +43,20 @@ def function_generator(name):
         if interface is not None:
             kwargs = interface(workflow, Family=Family, **kwargs)
 
+        # TODO These two lines should be put in miles
+        family_node = workflow.tree.get(Name=Family, Type='Family', Depth=2)
+        family_node.findAndRemoveNode(Type='FamilyBC')
+
         miles.bcfactory(workflow.tree, name, Family, **kwargs)
+        workflow.tree = cgns.castNode(workflow.tree)
     return set_bc
+
+# def outradeq():
+#     data_outflow = dict(PressureStagnation=ps,
+#                       PivotPercenthH=0.0001,
+#                      )
+#     type='outradeq'
+
 
 # Define functions with the write name to be called from .boundary_conditions
 for fun_name in BoundaryConditionsNamesInSONICS:
