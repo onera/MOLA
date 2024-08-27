@@ -161,7 +161,7 @@ class Workflow(object):
             mola_logger.warning('could not import Cassiopee Converter. Cannot check if there is any empty BC')
             return
 
-        t = self.tree
+        t = self.tree.copy()
 
         from mpi4py import MPI
         mpi_size = MPI.COMM_WORLD.Get_size()

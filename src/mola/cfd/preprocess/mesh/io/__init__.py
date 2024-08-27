@@ -20,26 +20,26 @@ from . import default, autogrid, utils, reader, writer, unstructured
 
 from treelab import cgns
 
-def read(w):
+def read(workflow):
     meshes = []
-    for component in w.RawMeshComponents:
+    for component in workflow.RawMeshComponents:
         
         if 'Mesher' not in component or component['Mesher'] == 'default':
-            base = default.reader(w, component)
+            base = default.reader(workflow, component)
 
         elif component['Mesher'].lower() == 'autogrid':
-            base = autogrid.reader(w, component)
+            base = autogrid.reader(workflow, component)
 
         else:
             raise MolaException(f"unknown Mesher: {component['Mesher']}")
         
         meshes += [base]
     
-    w.tree = cgns.add(meshes)
+    workflow.tree = cgns.add(meshes)
 
-    dimOfBases = set(base.dim() for base in w.tree.bases())
+    dimOfBases = set(base.dim() for base in workflow.tree.bases())
     if len(dimOfBases) != 1:
         raise MolaUserError('All bases must have the same physical dimension')
-    w.ProblemDimension = int(list(dimOfBases)[0])
+    workflow.ProblemDimension = int(list(dimOfBases)[0])
 
-    unstructured.prepare_unstructured_mesh_if_needed(w)
+    unstructured.apply(workflow)

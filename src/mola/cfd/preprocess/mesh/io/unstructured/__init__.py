@@ -15,42 +15,14 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola.logging import mola_logger
-from ..tools import to_distributed, to_full_tree_at_rank_0
-
+import numpy as np
 from treelab import cgns
+from mola.cfd import apply_to_solver
+from mola.logging import mola_logger
+from ...tools import to_distributed
 
-def prepare_unstructured_mesh_if_needed(workflow, mergeZonesByFamily=True):
-
-    if workflow.tree.isStructured():
-        return
-        
-    any_not_ngon = any([elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in workflow.tree.getElementsTypes()])
-
-    remove_grid_connectivities = False #any_not_ngon or mergeZonesByFamily
-    if remove_grid_connectivities:
-        if workflow.tree.get(Type='ZoneGridConnectivity', Depth=3):
-            mola_logger.warning('Remove connectivities in mesh, they will be recomputed.')
-        workflow.tree.findAndRemoveNodes(Type='ZoneGridConnectivity_t', Depth=3)
-
-    tree_was_full = not(bool(workflow.tree.get(':CGNS#Distribution')) or bool(workflow.tree.get(':CGNS#GlobalNumbering')))
-
-    if any_not_ngon:
-        workflow.tree = convert_elements_to_ngon(workflow.tree)
-
-    if mergeZonesByFamily:
-        workflow.tree = merge_all_unstructured_zones_from_families(workflow.tree)
-
-    if (any_not_ngon or any_not_ngon) and tree_was_full:
-        workflow.tree = to_full_tree_at_rank_0(workflow.tree)
-
-    if remove_grid_connectivities and workflow.tree.numberOfZones() > 1:
-        # Require a Connection of Type='Match' for all components
-        for component in workflow.RawMeshComponents:
-            connection = component.get('Connection', [])
-            if all([d['Type'] != 'Match' for d in connection]):
-                connection.insert(0, dict(Type='Match'))
-                component['Connection'] = connection
+def apply(workflow):
+    apply_to_solver(workflow)
 
 def convert_elements_to_ngon(t):
     from mpi4py import MPI
@@ -92,7 +64,6 @@ def merge_all_unstructured_zones_from_families(t):
     import maia 
 
     def correct_type_i8_to_i4(t):
-        import numpy as np
         nodes = []
         for Elements in t.group(Type='Elements'):
             nodes += Elements.children()
