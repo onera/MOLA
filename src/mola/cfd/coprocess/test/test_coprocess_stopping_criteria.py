@@ -62,7 +62,7 @@ def test_check_timeout(tmp_path):
 
     workflow.RunManagement['TimeOutInSeconds'] = -1 # forces time-out
     
-    coprocess.status = 'RUNNING'
+    coprocess.status = 'RUNNING_BEFORE_ITERATION'
     stopping_criteria.check_timeout(coprocess)
     os.unlink(os.path.join(tmp_path,'NEWJOB_REQUIRED'))
     coprocess.status = 'COMPLETED'
@@ -89,7 +89,7 @@ def test_check_max_iteration(tmp_path):
 
     coprocess.iteration = 1e9 # forces itmax
     
-    coprocess.status = 'RUNNING'
+    coprocess.status = 'RUNNING_BEFORE_ITERATION'
     stopping_criteria.check_max_iteration(coprocess)
     os.unlink(os.path.join(tmp_path,'COMPLETED'))
     coprocess.status = 'COMPLETED'
@@ -105,7 +105,7 @@ def test_check_convergence_criteria_when_empty(tmp_path):
     workflow.ConvergenceCriteria = [] # note this is empty TODO non-empty
     coprocess.iteration = 3 # able to evaluate convergence
     
-    coprocess.status = 'RUNNING'
+    coprocess.status = 'RUNNING_BEFORE_ITERATION'
     stopping_criteria.check_convergence_criteria(coprocess)
     coprocess.status = 'COMPLETED'
 
@@ -131,7 +131,7 @@ def test_check_convergence_criteria_verified(tmp_path):
              {'IterationNumber'    : np.array([1,2,3]),
                         'var1'     : np.array([1.2,1.1,1.0])} )
 
-    coprocess.status = 'RUNNING'
+    coprocess.status = 'RUNNING_BEFORE_ITERATION'
     stopping_criteria.check_convergence_criteria(coprocess)
     assert coprocess.status == 'TO_STOP'
     coprocess.status = 'COMPLETED'

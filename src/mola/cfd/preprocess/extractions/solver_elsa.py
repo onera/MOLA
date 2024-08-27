@@ -37,8 +37,8 @@ def apply_to_solver(workflow):
             # In elsA, the extraction period is defined by add_global_convergence_history
             # Hence, the update of residuals by MOLA can be done at SavePeriod (more is useless)
             Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
-        elif Extraction['Type'] == 'Integral':
-            Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
+        # elif Extraction['Type'] == 'Integral':
+        #     Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
             
 
 def add_extractions_for_overset_components(workflow):
@@ -229,6 +229,12 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
         else:
             extraction_name = Extraction["Name"]
             raise MolaException(f"requested location {requested_location} for Extraction {extraction_name} not supported for elsA")
+    
+    elif Extraction["Type"] == "Integral":
+        output_keys["loc"] = 'interface' # always required by elsA for integrals
+        
+    else:
+        raise MolaException('UNEXPECTED TYPE WHEN SETTING loc TO SOLVER OUTPUT AT EXTRACTION'+Extraction['Name'])
 
     
     is_wall = 'Wall' in bc_type

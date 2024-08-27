@@ -452,6 +452,7 @@ def test_add_integral_extractions_in_wall():
         fluxcoeff = 1.0,
         writingframe=Extraction["Frame"], 
         pinf=workflow.Flow['Pressure'],
+        loc='interface',
         torquecoeff=1.0,
         xtorque=0.0,
         ytorque=0.0,

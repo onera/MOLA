@@ -27,8 +27,6 @@ def apply_to_solver(workflow):
         if Extraction['Type'] == 'Residuals':
             add_convergence_history(workflow, Extraction['ExtractionPeriod'])
             Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
-        elif Extraction['Type'] == 'Integral':
-            Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
 
 
 
