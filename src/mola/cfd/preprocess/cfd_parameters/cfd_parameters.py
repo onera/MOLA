@@ -31,7 +31,7 @@ def deep_update(d, u):
         if isinstance(v, dict):
             d[k] = deep_update(d.get(k, {}), v)
         elif isinstance(v, list):
-            d[k].extent(v)
+            d[k].extend(v)
         else:
             d[k] = v
     return d

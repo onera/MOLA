@@ -34,8 +34,8 @@ def apply_to_solver(workflow):
     coprocess_manager = CoprocessManager(workflow)
     workflow._coprocess_manager = coprocess_manager
 
-    if not hasattr(workflow, '_FULL_CGNS_MODE'):
-        set_parameters_in_elsa_objects(workflow.SolverParameters)
+    if not hasattr(workflow, '_FULL_CGNS_MODE'):  # FIXME Full CGNS mode cannot work well because niter et al. must be taken in workflow.Numerics
+        set_parameters_in_elsa_objects(workflow.SolverParameters, workflow.Numerics)
 
     e = read_cfd_files.apply(workflow)
 
@@ -53,7 +53,7 @@ def apply_to_solver(workflow):
     del workflow._coprocess_manager
     
 
-def set_parameters_in_elsa_objects(SolverParameters):
+def set_parameters_in_elsa_objects(SolverParameters, Numerics):
     import elsA_user
 
     Cfdpb = elsA_user.cfdpb(name='cfd')
@@ -69,6 +69,10 @@ def set_parameters_in_elsa_objects(SolverParameters):
 
     for obj, dic in zip(elsAobjs, elsAdics):
         [obj.set(v,dic[v]) for v in dic if not isinstance(dic[v], dict)]
+
+    Num.set('niter', Numerics['NumberOfIterations'])
+    Num.set('inititer', Numerics['IterationAtInitialState'])
+    Num.set('itime', Numerics['TimeAtInitialState'])
 
     funDict = get_cfl_function(NumDict)
     if funDict:

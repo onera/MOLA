@@ -226,7 +226,6 @@ class CoprocessManager():
         if 'TimeStep' in self.workflow.Numerics:
             self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
 
-        self.workflow.set_cfd_parameters()
         self.workflow.set_workflow_parameters_in_tree()
 
     def make_directories_and_log(self):

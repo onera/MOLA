@@ -33,7 +33,7 @@ def perform_extractions(workflow, coprocess_manager):
         if extraction['IsToExtract'] == False:
             continue
 
-        self.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
+        coprocess_manager.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
         
         if extraction['Type'] == 'Restart':
             coprocess_manager.iteration = workflow.Numerics['NumberOfIterations']
@@ -53,7 +53,7 @@ def perform_extractions(workflow, coprocess_manager):
         #     extraction['Data'] = extract_residuals(output_tree)
 
         else:
-            self.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
+            coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for SoNICS", rank=0)
             extraction['Data'] = cgns.Tree()
 
 def update_restart_fields(workflow, output_tree):

@@ -20,6 +20,7 @@ import os
 
 from treelab import cgns
 from mola import naming_conventions as names
+from mola.workflow import read_workflow
 from mola.workflow.test.test_workflow import get_workflow_cart_monoproc
 
 def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames,
@@ -62,7 +63,7 @@ def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames,
 
 @pytest.mark.integration
 @pytest.mark.cost_level_2
-def test_integrals_one_run(tmp_path):
+def test_integrals_one_run(tmp_path, niter=10):
     
     separated_filename = 'test_integrals.cgns'
 
@@ -89,7 +90,6 @@ def test_integrals_one_run(tmp_path):
         Source='Inlet',
     )
     
-    niter = 10
     w.Numerics['NumberOfIterations'] = niter
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
@@ -113,7 +113,7 @@ def test_integrals_one_run(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.cost_level_3
-def test_integrals_two_runs(tmp_path):
+def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
 
     w = get_workflow_cart_monoproc(tmp_path)
     w._interface.add_to_Extractions_Integral(
@@ -123,30 +123,25 @@ def test_integrals_two_runs(tmp_path):
         Source='Ground',
     )
 
-    w.Numerics['NumberOfIterations'] = 5
+    w.Numerics['NumberOfIterations'] = niter_first_run
     w.RunManagement['Scheduler'] = 'local'
     w.set_workflow_parameters_in_tree()
     w.prepare()
 
-    
-    w.write_cfd_files()
-    w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
-    
-    w.tree = os.path.join(tmp_path,names.FILE_INPUT_SOLVER)
-    w.get_workflow_parameters_from_tree()
-    w.read_tree()
-
-    w.Numerics['NumberOfIterations'] = 5
-    w.SolverParameters = dict() # since we do not want to override next run with previous elsa-default SolverParams (inititer, niter)
-    w.set_cfd_parameters()
-    w.set_workflow_parameters_in_tree()
-
+    # First run
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
 
-    expected_number_of_items = 10 + 1
+    # update NumberOfIterations, it was 0 at the end of the first run
+    os.system(f'cd {tmp_path}; mola_update --NumberOfIterations={niter_second_run}')
+
+    # Second run: we must read the updated file main.cgns with workflow reader
+    w = read_workflow(str(tmp_path/names.FILE_INPUT_SOLVER))
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+
+    expected_number_of_items = niter_first_run + niter_second_run + 1
 
     assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
         ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
