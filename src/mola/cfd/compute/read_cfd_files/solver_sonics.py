@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from treelab import cgns 
+
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = MPI.COMM_WORLD.Get_rank()
@@ -24,17 +26,13 @@ import mola.naming_conventions as names
 
 def apply_to_solver(workflow):
     import maia
-    # from sonics.toolkit.execute.run_graph import get_default_iterators
-    # from sonics.toolkit.execute.run_graph import get_default_pytriggers
 
     workflow.tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
 
-    # default_pytriggers = get_default_pytriggers(workflow.SolverParameters['configuration'], workflow.tree, comm)
-    # pytriggers += default_pytriggers
-    # iterators = get_default_iterators(workflow.SolverParameters['configuration'], pytriggers, comm)
-
     # NOTE Finally, sonics.solver.run will take only dist_tree (the configuration will be read inside the tree)
     workflow.SolverParameters['configuration'] = get_configuration_from_tree(workflow)
+
+    workflow.tree = cgns.castNode(workflow.tree)
 
     return workflow.tree, workflow.SolverParameters['configuration']
 
@@ -53,6 +51,7 @@ def get_configuration_from_tree(workflow):
 
     my_config = miles.solver.config.Configuration(workflow.tree)
     my_config.update(*param_list)
+    # FIXME "tuning" parameters other that CFL are not set here !!
     my_config.set(CFL=workflow.Numerics['CFL'])
     
     conf = my_config.apply()

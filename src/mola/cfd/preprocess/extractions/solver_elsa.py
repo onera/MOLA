@@ -15,12 +15,13 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
+from fnmatch import fnmatch
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
-
-import copy
+from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes
 
 # FIXME Check the writingframe, following what has been done in mola v1
 
@@ -152,22 +153,11 @@ def process_extractions_of_type_bc_and_integral(workflow):
             family_name = family.name()
             bc_type = familyBC.value() 
 
-            # TODO : allow regex ?
-            if requested_source not in [family_name, bc_type] or 'Fields' not in Extraction:
+            family_match_requirement = fnmatch(family_name, requested_source) or fnmatch(bc_type, requested_source) 
+            if not(family_match_requirement and 'Fields' in Extraction):
                 continue 
             
             add_2d_extractions_in_SolverOutput(family, Extraction, workflow)
-
-def get_familiesBC_nodes(workflow):
-
-    families = workflow.tree.group(Type='Family', Depth=2)
-    familiesBC = []
-    for family in families:
-        familyBC = family.get(Type='FamilyBC', Depth=1)
-        if familyBC:
-            familiesBC += [ familyBC ]
-
-    return familiesBC
 
 def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
     

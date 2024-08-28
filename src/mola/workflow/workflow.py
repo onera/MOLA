@@ -26,7 +26,8 @@ from mola import server as SV
 from mola.logging import (mola_logger,
                        MolaException,
                        MolaUserError,
-                       redirect_streams_to_logger)
+                       redirect_streams_to_logger, 
+                       GREEN, ENDC)
 from  mola.cfd.preprocess.mesh import (io,
                                     positioning,
                                     connect,
@@ -181,7 +182,7 @@ class Workflow(object):
             if hasEmpty:
                 mola_logger.error('UNDEFINED BC IN TREE')
             else:
-                mola_logger.info('\033[92mNo undefined BC found in tree\033[0m')
+                mola_logger.info(f'{GREEN}No undefined BC found in tree{ENDC}')
 
         self.set_workflow_parameters_in_tree()
 

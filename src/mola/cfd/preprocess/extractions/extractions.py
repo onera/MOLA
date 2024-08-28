@@ -35,3 +35,14 @@ def process_extractions_2d(workflow):
                 # NOTE Despite the check of the interface, Fields may be a str
                 # when workflow.cgns is read directly, in the context of WorkflowManager
                 Extraction['Fields'] = [Extraction['Fields']]
+
+def get_familiesBC_nodes(workflow):
+
+    families = workflow.tree.group(Type='Family', Depth=2)
+    familiesBC = []
+    for family in families:
+        familyBC = family.get(Type='FamilyBC', Depth=1)
+        if familyBC:
+            familiesBC += [ familyBC ]
+
+    return familiesBC

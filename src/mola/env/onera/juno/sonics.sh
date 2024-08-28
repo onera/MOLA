@@ -30,24 +30,19 @@ export MACHINE=juno
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
-# source /tmp_user/juno/sonics/dist/socle_cfd6/source.sh
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh
-# source /stck/tbontemp/softs/sonics/build/source.sh
-# export PYTHONPATH=/tmp_user/juno/mola/miles:$PYTHONPATH
-unset I_MPI_PMI_LIBRARY
 
+unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
 unset I_MPI_FABRICS_LIST
-
-# maia
-module use --append /tmp_user/juno/sonics/usr/modules/
-module load maia/$MAIAVERSION-dsi-cfd6
-
 # for avoiding error bootstrap
 # https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
 # https://slurm.schedmd.com/mpi_guide.html
 export I_MPI_HYDRA_BOOTSTRAP=ssh
 
+# # maia
+# module use --append /tmp_user/juno/sonics/usr/modules/
+# module load maia/$MAIAVERSION-dsi-cfd6
 
 # external python packages
 export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH

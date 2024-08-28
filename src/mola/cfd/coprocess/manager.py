@@ -226,7 +226,10 @@ class CoprocessManager():
         if 'TimeStep' in self.workflow.Numerics:
             self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
 
-        self.workflow.set_workflow_parameters_in_tree()
+        # self.workflow.set_workflow_parameters_in_tree()  # this line is not compatible with SoNICS workflow for now
+        # Update only Numerics node in tree
+        WorkflowParameters = self.workflow.tree.get(Name=self.workflow._workflow_parameters_container_, Depth=1)
+        WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
 
     def make_directories_and_log(self):
 

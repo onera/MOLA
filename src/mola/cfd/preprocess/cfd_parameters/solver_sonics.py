@@ -95,9 +95,9 @@ def apply_to_solver(workflow):
         dict(
             output_folder = names.DIRECTORY_LOG,
             niter = workflow.Numerics['NumberOfIterations'],
-            niter_period = 1,
-            extracts = {'*': ['conservatives', 'LaminarViscosity', 'TurbulentViscosity','TurbulentViscosity', 'TurbulentDistance', 'Mach', 'primitives']},
-            code_generation = "none",
+            # niter_period = 1,
+            # extracts = {'*': ['conservatives', 'LaminarViscosity', 'TurbulentViscosity','TurbulentViscosity', 'TurbulentDistance', 'Mach', 'primitives']},
+            # code_generation = "none",
             CFL = workflow.Numerics['CFL'],
             # fcfl = lambda iteration: workflow.Numerics['CFL'],
         )
