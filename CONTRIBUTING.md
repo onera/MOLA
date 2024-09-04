@@ -126,4 +126,7 @@ Development
   Tests must be written to work with [pytest](https://docs.pytest.org/en/8.0.x/).
 
 * Documentation and information files (``README.md``, ``CONTRIBUTING.md``, ...), are written in [Markdown](https://www.markdownguide.org/cheat-sheet/).
-  
+
+* The "HACK" tag in source code indicates lines that make a workaround for an issue that rather should be handled by 
+  another software. Normally, the issue should be reported to the support team of this software, and the lines marked
+  with the "HACK" tag in MOLA should be removed once the issue is solved.

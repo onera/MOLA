@@ -565,7 +565,6 @@ def get_workflow1():
 
     return w
 
-
 def get_workflow_cart_monoproc(RunDirectory):
 
     n_pts_dir = 14
@@ -632,6 +631,18 @@ def get_workflow_cart_monoproc(RunDirectory):
     
     return w
 
+def adapt_workflow_for_sonics(w):
+    from mola.cfd.preprocess.mesh import io
+    from mola.cfd.preprocess.mesh import families
+
+    if 'Families' in w.RawMeshComponents[0]:
+        io.read(w)
+        families.apply(w)
+        w.RawMeshComponents[0]['Source'] = w.tree
+        w.RawMeshComponents[0].pop('Families')
+    if 'Connection' in w.RawMeshComponents[0]:
+        w.RawMeshComponents[0].pop('Connection')
+    w.SplittingAndDistribution = dict(Splitter='maia', Strategy='AtComputation')
 
 
 @pytest.mark.unit
@@ -716,12 +727,12 @@ def test_prepare_assemble_dist():
     w.assemble()
 
 
-@pytest.mark.elsa
-@pytest.mark.fast
 @pytest.mark.cost_level_1
 @pytest.mark.integration
 def test_prepare_workflow1():
     w = get_workflow1()
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     w.assemble()
     w.positioning()
     w.connect()
@@ -731,35 +742,35 @@ def test_prepare_workflow1():
     try: os.unlink('test.cgns')
     except: pass
 
-@pytest.mark.elsa
-@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_prepare_workflow2():
     w = get_workflow2()
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     w.prepare()
     w.write_cfd_files()
     w.remove_cfd_files()
 
 
-@pytest.mark.elsa
-@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 @pytest.mark.mpi
 def test_prepare_workflow_dist():
     w = get_workflow_dist()
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     w.prepare()
     w.write_cfd_files()
     w.remove_cfd_files()
 
 
-@pytest.mark.elsa
-@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_0
 def test_workflow_cart_monoproc(tmp_path, remove_cfd_files=True):
     w = get_workflow_cart_monoproc(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -767,12 +778,13 @@ def test_workflow_cart_monoproc(tmp_path, remove_cfd_files=True):
     w.simulation_status()
     if remove_cfd_files: w.remove_cfd_files()
 
-@pytest.mark.elsa
-@pytest.mark.fast
+
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
     w = get_workflow_sphere_struct(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -780,13 +792,13 @@ def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
     w.simulation_status()
     if remove_cfd_files: w.remove_cfd_files()
 
-@pytest.mark.elsa
-@pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
 def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=True):
     w = get_workflow_sphere_struct_cassiopee_mpi_to_connect(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -801,6 +813,8 @@ def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=Tr
 @pytest.mark.mpi
 def test_workflow_sphere_struct_local_dist(tmp_path,remove_cfd_files=True):
     w = get_workflow_sphere_struct_dist(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -834,8 +848,6 @@ def test_workflow_sphere_unstruct_local(tmp_path):
 #     w.simulation_status()
 #     w.remove_cfd_files()
 
-@pytest.mark.elsa
-@pytest.mark.fast
 @pytest.mark.network_onera
 @pytest.mark.integration
 @pytest.mark.cost_level_4
@@ -843,6 +855,8 @@ def test_workflow_sphere_struct_remote_sator():
     w = get_workflow_sphere_struct(
         RunDirectory=f'/tmp_user/sator/$USER/.test_workflow_sphere_struct_remote_sator_{os.getenv("MOLA_SOLVER")}/'
     )
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     scheduler_defaults = SV.get_scheduler_defaults('sator')
     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
     w.RunManagement['TimeLimit'] = '00:30:00'
@@ -874,6 +888,8 @@ if __name__ == '__main__':
     # test_prepare_workflow2()
     # test_workflow_sphere_struct_local_monoproc('sphere_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
     # test_workflow_cart_monoproc('cart_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
+    # test_workflow_sphere_struct_local_dist('sphere_dist_'+os.environ.get("MOLA_SOLVER"))
     # test_workflow_sphere_struct_local_cassiopee_mpi('sphere_struct_cassmpi_'+os.environ.get("MOLA_SOLVER"),False)
     # test_workflow_sphere_struct_local_dist('sphere_struct_dist_'+os.environ.get("MOLA_SOLVER"),False)
-    test_workflow_sphere_unstruct_local('sphere_unstruct_local_'+os.environ.get("MOLA_SOLVER"))
+    # test_workflow_sphere_unstruct_local('sphere_unstruct_local_'+os.environ.get("MOLA_SOLVER"))
+    test_workflow_sphere_struct_local_monoproc('test_sphere', remove_cfd_files=False)

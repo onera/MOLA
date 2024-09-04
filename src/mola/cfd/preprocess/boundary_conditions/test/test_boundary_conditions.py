@@ -20,6 +20,7 @@ import numpy as np
 
 from treelab import cgns
 from mola.workflow.workflow import Workflow
+from mola.workflow.test.test_workflow import adapt_workflow_for_sonics
 
 def get_workflow_prepared_to_test_bcs(BoundaryConditions):
 
@@ -58,6 +59,8 @@ def get_workflow_prepared_to_test_bcs(BoundaryConditions):
 
         )
     workflow = Workflow(**params)
+    if workflow.Solver == 'sonics':
+        adapt_workflow_for_sonics(workflow)
     workflow.assemble()
     workflow.positioning()
     workflow.define_families() 

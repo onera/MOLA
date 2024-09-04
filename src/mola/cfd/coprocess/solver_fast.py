@@ -164,19 +164,7 @@ def extract_bc(output_tree, extraction, families_to_bctype, metrics):
         SurfacesTree.merge(data_tree)
 
     if extraction['Name'] != 'ByFamily':
-        # merge all bases and rename the unique base
-        base0 =  SurfacesTree.bases()[0]
-        base0.setName(extraction['Name'])
-        i = 0
-        for zone in base0.zones():
-            zone.setName(f"{extraction['Name']}_R{rank}N{i}")
-            i += 1
-        for base in SurfacesTree.bases()[1:]:
-            for zone in base.zones():
-                zone.setName(f"{extraction['Name']}_R{rank}N{i}")
-                i += 1
-                zone.moveTo(base0)
-            base.remove()
+        POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
 
     for type_to_remove in 'Rind_t', 'ConvergenceHistory_t':
         SurfacesTree.findAndRemoveNodes(Type=type_to_remove)

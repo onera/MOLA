@@ -22,11 +22,21 @@ from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes
 
 def apply_to_solver(workflow):
 
-    mola_logger.warning('No custom extractions available with SoNICS for now.')
     add_extractions_for_restart(workflow)
     add_AllZones_family(workflow.tree)
     # process_extractions(workflow)
+    adapt_extractions(workflow)
 
+def adapt_extractions(workflow):
+    for ext in workflow.Extractions:
+        if ext['Type'] in  ['BC', 'Residuals']:
+            ext['ExtractionPeriod'] = 1000000000 # Only done at the end of the simulation
+            ext['SavePeriod'] = 1000000000 # Only done at the end of the simulation
+            ext['ExtractAtEndOfRun'] = True
+        elif ext['Type'] == '3D':
+            mola_logger.warning('output container for extraction 3D is changed to FSolution#Vertex#EndOfRun')
+            ext['Container'] = 'FSolution#Vertex#EndOfRun'
+            
 def add_AllZones_family(tree):
     # HACK The current implementation of residual extraction requires to tag zones we want to 
     # integrate into the global residual computation into the "AllZones" family
@@ -38,7 +48,7 @@ def add_AllZones_family(tree):
         for zone_node in base_node.zones():
             family_all_zones_node = zone_node.get(Value='AllZones', Type='FamilyName', Depth=1)
             if not family_all_zones_node:
-                cgns.Node(Name='FamilyAllZones', Type='FamilyName', Value='AllZones', Parent=zone_node)
+                cgns.Node(Name='FamilyAllZones', Type='AdditionalFamilyName', Value='AllZones', Parent=zone_node)
     
 def add_extractions_for_restart(workflow):
     workflow._interface.add_to_Extractions_Restart(
@@ -103,12 +113,16 @@ def add_extractions_for_families(workflow):
 
         extracts = []
         extracts += df.create_zones(treg.conservatives(treg.full), elt_location)
-        extracts += df.create_zones(treg.SurfaceNormal, treg.face)
-        extracts += df.create_zones(treg.primitives(treg.full), elt_location)
-        extracts += df.create_zones(treg.Mach, elt_location)
-        extracts += df.create_zones(treg.grad(treg.primitives(treg.full)), elt_location)
-        extracts += df.create_zones(treg.grad(treg.Velocity), elt_location)
-        extracts += df.create_zones(treg.grad(treg.Temperature), elt_location)
+        # extracts += df.create_zones(treg.SurfaceNormal, treg.face)
+        # extracts += df.create_zones(treg.primitives(treg.full), elt_location)
+        # extracts += df.create_zones(treg.Mach, elt_location)
+        # extracts += df.create_zones(treg.grad(treg.primitives(treg.full)), elt_location)
+        # extracts += df.create_zones(treg.grad(treg.Velocity), elt_location)
+        # extracts += df.create_zones(treg.grad(treg.Temperature), elt_location)
+
+        # extracts += df.create_zones(treg.conservatives(treg.full), treg.vertex)
+        # extracts += df.create_zones(treg.primitives(treg.full), treg.vertex)
+        # extracts += df.create_zones(treg.Mach, treg.vertex)
 
         if (sonics.spl.guards.nslam in conf) or (sonics.spl.guards.nstur in conf):
             extracts += df.create_zones(treg.LaminarViscosity, elt_location)

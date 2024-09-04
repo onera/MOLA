@@ -15,19 +15,28 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import shutil
+from fnmatch import fnmatch
+import numpy as np
+
 import maia
 from mpi4py import MPI
 from treelab import cgns
 
+import mola.naming_conventions as names
 from mola.logging import MolaException
+from mola.cfd.preprocess.mesh.families import get_family_to_BCType
+import mola.cfd.postprocess as POST
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using
 
 
 def perform_extractions(workflow, coprocess_manager):
-    workflow.tree = cgns.castNode(workflow.tree)
-    output_tree = workflow.tree
+    output_tree = get_output_tree(coprocess_manager)
+    families_to_bctype = get_family_to_BCType(output_tree)
 
     for extraction in coprocess_manager.Extractions:
         if extraction['IsToExtract'] == False:
@@ -37,27 +46,41 @@ def perform_extractions(workflow, coprocess_manager):
         
         if extraction['Type'] == 'Restart':
             coprocess_manager.iteration = workflow.Numerics['NumberOfIterations']
-            update_restart_fields(workflow, output_tree)
+            update_restart_fields(workflow, coprocess_manager.output_tree)
             extraction['Data'] = workflow.tree
         
-        # elif extraction['Type'] == '3D':
-        #     extraction['Data'] = extract_fields(output_tree, extraction)
+        elif extraction['Type'] == '3D':
+            extraction['Data'] = extract_fields(output_tree, extraction)
 
-        # elif extraction['Type'] == 'BC':
-        #     extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype)
+        elif extraction['Type'] == 'BC':
+            extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype)
         
-        # elif extraction['Type'] == 'IsoSurface':
-        #     extraction['Data'] = extract_isosurface(output_tree, extraction)
+        elif extraction['Type'] == 'IsoSurface':
+            extraction['Data'] = extract_isosurface(output_tree, extraction)
 
-        # elif extraction['Type'] == 'Residuals':
-        #     extraction['Data'] = extract_residuals(output_tree)
-
+        elif extraction['Type'] == 'Residuals':
+            extract_residuals(extraction, 
+                              coprocess_manager.workflow.Flow['Conservatives'],
+                              coprocess_manager.workflow.Turbulence['Conservatives']
+                              )
+        
         else:
             coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for SoNICS", rank=0)
             extraction['Data'] = cgns.Tree()
 
+def get_output_tree(coprocess_manager):
+    # output_tree is set in compute/solver_sonics.py
+    output_tree = coprocess_manager.output_tree
+    # partionning
+    part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD)
+    maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
+    part_tree = cgns.castNode(part_tree)
+    for zsr in part_tree.group(Type='ZoneSubRegion'):
+        cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=zsr)
+    
+    return part_tree
+
 def update_restart_fields(workflow, output_tree):
-    output_tree = cgns.castNode(output_tree)
     for zone in output_tree.zones():
         zone.findAndRemoveNode(Name='FSolution#CellCenter#Init')
         FS = zone.get(Name='FSolution#CellCenter#EndOfRun')
@@ -76,4 +99,133 @@ def update_restart_fields(workflow, output_tree):
         parent.addChild(node)
     
     workflow.tree = cgns.castNode(workflow.tree)
+
+def extract_fields(output_tree, extraction):
+    t = output_tree.copy()
+ 
+    t.findAndRemoveNodes(Name='GlobalConvergenceHistory', Depth=2)
+    t.findAndRemoveNodes(Type='IntegralData', Depth=2)
+    t.findAndRemoveNodes(Type='ZoneSubRegion', Depth=2)
+
+    for zone in t.zones():
+        # Remove FlowSolution nodes that are not the target
+        for FS in zone.group(Type='FlowSolution', Depth=1):
+            if FS.name() != extraction['Container']:
+                FS.remove()
+        
+        if not zone.get(Type='FlowSolution', Depth=1):
+            # no more FlowSolution in the current zone
+            # --> remove this zone
+            zone.remove()
+            continue
+            
+        # NOTE ZoneBC must be kept for to save tree with PyPart
+        zone.findAndRemoveNodes(Type='BCDataSet')
     
+    return t
+
+def extract_bc(output_tree, extraction, DictBCNames2Type):
+
+    SurfacesTree = cgns.Tree()
+
+    for BCFamilyName in DictBCNames2Type:
+        BCType = DictBCNames2Type[BCFamilyName]
+        if fnmatch(BCType, extraction['Source']):
+            # Case of source matching one or several names of BC: 'BCWall', 'BCInflow*', '*', etc.
+            source = BCType
+            family = BCFamilyName
+        elif fnmatch(BCFamilyName, extraction['Source']):
+            # Case of source matching a family name
+            source = BCFamilyName
+            family = BCFamilyName
+        else:
+            continue
+    
+        data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family, tool='maia_zsr')       
+        data_tree = cgns.castNode(data_tree)
+        SurfacesTree.merge(data_tree)
+    
+    if extraction['Name'] != 'ByFamily':
+        POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
+
+    return SurfacesTree
+
+def extract_isosurface(output_tree, extraction):
+    if extraction['IsoSurfaceContainer'] == 'auto':
+        extraction['IsoSurfaceContainer'] = deduce_container_for_slicing(extraction['IsoSurfaceField'])
+
+    isosurface = POST.iso_surface(
+        output_tree, 
+        IsoSurfaceField = extraction['IsoSurfaceField'], 
+        IsoSurfaceValue = extraction['IsoSurfaceValue'], 
+        IsoSurfaceContainer = extraction['IsoSurfaceContainer'],
+        Name = extraction['Name'],
+        tool = 'maia',
+        )
+    
+    return isosurface
+
+def extract_residuals(extraction, Conservatives, TurbConservatives):
+
+    t = cgns.Tree()
+
+    if rank ==0:
+
+        conservatives_residuals_filename = os.path.join(names.DIRECTORY_LOG, 'residual-normalize(norm_l2(ExplicitIncrement(mean_flow))).npy')
+        turbulence_residuals_filename = os.path.join(names.DIRECTORY_LOG, 'residual-normalize(norm_l2(ExplicitIncrement(turbulence_closure))).npy')
+
+        residuals = dict()
+        if os.path.isfile(conservatives_residuals_filename):
+            with open(conservatives_residuals_filename, 'rb') as f:
+                residuals['IterationNumber'] = np.load(f, allow_pickle=True)
+                data = np.load(f, allow_pickle=True)
+                for i, name in enumerate(Conservatives):
+                    residuals[name] = np.array([d[i] for d in data])
+
+        if os.path.isfile(turbulence_residuals_filename):
+            with open(turbulence_residuals_filename, 'rb') as f:
+                residuals['IterationNumber'] = np.load(f, allow_pickle=True)
+                data = np.load(f, allow_pickle=True)
+                for i, name in enumerate(TurbConservatives):
+                    residuals[name] = np.array([d[i] for d in data])
+
+        if residuals: 
+            size = residuals['IterationNumber'].size
+            # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
+            base = cgns.Base(Name='Residuals', Parent=t)
+            zone = cgns.Zone(Name=base.name(), Parent=base, Value=np.array([[size, size-1, 0]])) 
+            zone.newFields(residuals)
+
+    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+
+    if 'Data' in extraction and extraction['Data'] is not None:
+        and_previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+    else: 
+        extraction['Data'] = current_iteration_signals
+
+def deduce_container_for_slicing(IsoSurfaceField):
+    if IsoSurfaceField in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
+        return 'GridCoordinates'
+
+    elif IsoSurfaceField in ['Radius', 'radius', 'CoordinateR', 'Slice']:
+        return 'FlowSolution'
+
+    elif IsoSurfaceField == 'ChannelHeight':
+        return 'FlowSolution#Height'
+    
+    else:
+        return 'FSolution#CellCenter#Init'
+    
+def move_log_files(w):
+    if rank == 0:
+        filename = 'taskflow-residual-explicit-rank0-sync.dot'
+        shutil.move(filename, os.path.join(names.DIRECTORY_LOG, filename))
+
+    comm.barrier()
+
+def get_iteration(workflow):
+    return workflow.Numerics['NumberOfIterations']  # TODO
+
+def get_status(workflow):
+    return 'RUNNING_BEFORE_ITERATION' # TODO: implement this (using elsaXdt?)

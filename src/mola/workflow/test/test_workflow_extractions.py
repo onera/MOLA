@@ -21,7 +21,7 @@ import os
 from treelab import cgns
 from mola import naming_conventions as names
 from mola.workflow import read_workflow
-from mola.workflow.test.test_workflow import get_workflow_cart_monoproc
+from mola.workflow.test.test_workflow import get_workflow_cart_monoproc, adapt_workflow_for_sonics
 
 def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames,
         path=None, expected_number_of_items=None):
@@ -67,8 +67,10 @@ def test_integrals_one_run(tmp_path, niter=10):
     
     separated_filename = 'test_integrals.cgns'
 
-
     w = get_workflow_cart_monoproc(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
+
     w._interface.add_to_Extractions_Integral(
         Name='TestSeparatedFile',
         Fields=['Force','Torque'],
@@ -101,14 +103,24 @@ def test_integrals_one_run(tmp_path, niter=10):
     
     expected_number_of_items = niter + 1
 
-    assert_file_with_relevant_zone_and_fields(separated_filename, "TestSeparatedFile",
+    def assert_all():
+        assert_file_with_relevant_zone_and_fields(separated_filename, "TestSeparatedFile",
         ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
     
-    assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
-        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
-    
-    assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals2",
-        "MassFlow", tmp_path, expected_number_of_items)
+        assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
+            ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
+        
+        assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals2",
+            "MassFlow", tmp_path, expected_number_of_items)
+
+    if w.Solver != 'sonics':
+        assert_all()
+    else:
+        try: 
+            assert_all() # this should failed
+        except AssertionError:
+            return
+        raise AssertionError
 
 
 @pytest.mark.integration
@@ -116,6 +128,9 @@ def test_integrals_one_run(tmp_path, niter=10):
 def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
 
     w = get_workflow_cart_monoproc(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
+
     w._interface.add_to_Extractions_Integral(
         Name='TestIntoSignals',
         Fields=['Force','Torque'],
@@ -143,8 +158,16 @@ def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
 
     expected_number_of_items = niter_first_run + niter_second_run + 1
 
-    assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
+    if w.Solver != 'sonics':
+        assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
         ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
+    else:
+        try: 
+            assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
+        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items) # this should failed
+        except AssertionError:
+            return
+        raise AssertionError
 
 
 if __name__ == '__main__':

@@ -22,8 +22,6 @@ from mola.logging import mola_logger, MolaException
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 
 def apply(workflow):
-    if not all([('Families' in component) for component in workflow.RawMeshComponents]):
-        return
 
     t = workflow.tree
     from mpi4py import MPI
@@ -43,16 +41,18 @@ def apply(workflow):
         for base in t.bases():
             component = workflow.get_component(base.name())
 
-            if 'Families' not in component: 
-                continue
-            
+            try:
+                families = component['Families']
+            except: 
+                families = []
 
-            for operation in component['Families']:
+            for operation in families:
                 FamilyName = operation['Name']
                 location   = operation.get('Location')
                 set_family_from_location(base, FamilyName, location)
 
             appendFamiliesToBase(base)
+            append_default_family_to_zones(base)
 
     if mpi_size > 1:
         MPI.COMM_WORLD.barrier()
@@ -155,6 +155,17 @@ def appendFamiliesToBase(base):
                 AllFamilyNames.add( FamilyNameNode.value() )
     for FamilyName in AllFamilyNames:
         cgns.Node(Name=FamilyName, Type='Family', Parent=base)
+
+def append_default_family_to_zones(base, default_family_name='DefaultFamily'):
+    must_add_family_in_base = False
+    for zone in base.zones():
+        FamilyName = zone.get(Type='FamilyName', Depth=1)
+        if not FamilyName:
+            cgns.Node(Name='FamilyName', Type='FamilyName', Value=default_family_name, Parent=zone)
+            must_add_family_in_base = True
+
+    if must_add_family_in_base:
+        cgns.Node(Name=default_family_name, Type='Family', Parent=base)
 
 def join_families(t, pattern, mode=2):
     '''

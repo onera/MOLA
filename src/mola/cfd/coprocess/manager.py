@@ -74,7 +74,7 @@ class CoprocessManager():
             self.mola_logger.error(err_msg, rank=0)
             raise MolaUserError(err_msg)
 
-        self._status = 'BEFORE_FIRST_ITERATION'
+        self.status = 'BEFORE_FIRST_ITERATION'
 
         # NOTE It is important to have a copy of Extractions
         # because several keys will be added for each extraction: 
@@ -153,7 +153,12 @@ class CoprocessManager():
                         if zone.name() != extraction["Name"]:
                             zone.dettach()
 
-            extraction['Data'] = previous_tree
+            if previous_tree.numberOfBases() > 0:
+                extraction['Data'] = previous_tree
+            else:
+                # None because the previous file was empty
+                # It is important that the stored value is None for tests during coprocess
+                extraction['Data'] = None
 
     def end_simulation(self):
         if self.status == 'TO_STOP':
@@ -226,7 +231,6 @@ class CoprocessManager():
         if 'TimeStep' in self.workflow.Numerics:
             self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
 
-        # self.workflow.set_workflow_parameters_in_tree()  # this line is not compatible with SoNICS workflow for now
         # Update only Numerics node in tree
         WorkflowParameters = self.workflow.tree.get(Name=self.workflow._workflow_parameters_container_, Depth=1)
         WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)

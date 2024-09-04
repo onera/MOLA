@@ -103,7 +103,7 @@ class Workflow(object):
         self.set_workflow_parameters_in_tree()
 
     def read_meshes(self):
-        io.read(self)
+        io.apply(self)
 
     def split_and_distribute(self):
         split.apply(self)

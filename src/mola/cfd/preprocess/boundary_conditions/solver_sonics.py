@@ -63,9 +63,11 @@ for fun_name in BoundaryConditionsNamesInSONICS:
     locals()[fun_name] = function_generator(fun_name)
 
 def translate_motion(kwargs):
+    from mola.cfd.preprocess.motion.motion import update_motion_with_defaults
     if 'Motion' in kwargs:
         # put elements of dict Motion directly in kwargs (remove the "level" Motion)
         motion = kwargs.pop('Motion')
+        update_motion_with_defaults(motion)
         motion = translate_motion_to_sonics(motion)
         kwargs['motion'] = motion
     return kwargs

@@ -20,6 +20,10 @@ from . import default, autogrid, utils, reader, writer, unstructured
 
 from treelab import cgns
 
+def apply(workflow):
+    read(workflow)
+    unstructured.apply(workflow)
+
 def read(workflow):
     meshes = []
     for component in workflow.RawMeshComponents:
@@ -41,5 +45,3 @@ def read(workflow):
     if len(dimOfBases) != 1:
         raise MolaUserError('All bases must have the same physical dimension')
     workflow.ProblemDimension = int(list(dimOfBases)[0])
-
-    unstructured.apply(workflow)

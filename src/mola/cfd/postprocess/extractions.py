@@ -36,6 +36,7 @@ def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, 
         from .extractions_with_maia import iso_surface
         extraction = iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm=MPI.COMM_WORLD)
         extraction = cgns.castNode(extraction)
+        extraction.bases()[0].setName(Name)
 
     else:
         raise MolaException(f'iso_surface is available only with cassiopee (now tool={tool})')
@@ -53,6 +54,16 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
         zones = extract_bc(t, Family=Family, Name=None, Type=None)
         extraction = get_renamed_tree(zones, BaseName, CellDimension=CellDimension)
         extraction = cgns.castNode(extraction)
+        restore_families(extraction, t)
+    
+    elif tool == 'maia_zsr':
+        from .extractions_with_maia import extract_bc_from_zsr
+        zones = extract_bc_from_zsr(t, Family=Family, comm=MPI.COMM_WORLD)
+        extraction = get_renamed_tree(zones, BaseName, CellDimension=CellDimension)
+        extraction = cgns.castNode(extraction)
+        for zsr in extraction.group(Type='ZoneSubRegion'):
+            zsr.setType('FlowSolution')
+            zsr.findAndRemoveNode(Name='PointList')
         restore_families(extraction, t)
 
     else:
@@ -131,4 +142,17 @@ def restore_families(surfaces, skeleton):
         for family in family_nodes:
             if family.name() in families_in_base:
                 base.addChild(family)
-    
+
+def merge_bases_and_rename_unique_base(t, basename):
+    base0 =  t.bases()[0]
+    base0.setName(basename)
+    i = 0
+    for zone in base0.zones():
+        zone.setName(f"{basename}_R{rank}N{i}")
+        i += 1
+    for base in t.bases()[1:]:
+        for zone in base.zones():
+            zone.setName(f"{basename}_R{rank}N{i}")
+            i += 1
+            zone.moveTo(base0)
+        base.remove()

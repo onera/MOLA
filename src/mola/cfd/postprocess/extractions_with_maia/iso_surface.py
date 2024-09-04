@@ -20,11 +20,25 @@ import maia
 def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm):
 
     containers_name = [fs.name() for fs in tree.group(Type='FlowSolution')]
-    surface = maia.algo.part.iso_surface(
-                        tree, 
-                        f"{IsoSurfaceContainer}/{IsoSurfaceField}",
-                        iso_val=IsoSurfaceValue,
-                        containers_name=containers_name, 
-                        comm=comm,
-                        )
+
+    if IsoSurfaceContainer == 'GridCoordinates':
+        # maia cannot do an iso_surface on GridCoordinates
+        index_of_coord = dict(CoordinateX=0, CoordinateY=1, CoordinateZ=2)
+        assert IsoSurfaceField in list(index_of_coord)
+        plane_eq = [0, 0, 0, IsoSurfaceValue]  # caution, plane equation for maia is: ax+by+cz-d=0
+        plane_eq[index_of_coord[IsoSurfaceField]] = 1
+        surface = maia.algo.part.plane_slice(
+                            tree, 
+                            plane_eq, 
+                            containers_name=containers_name, 
+                            comm=comm,
+                            )
+    else:
+        surface = maia.algo.part.iso_surface(
+                            tree, 
+                            f"{IsoSurfaceContainer}/{IsoSurfaceField}",
+                            iso_val=IsoSurfaceValue,
+                            containers_name=containers_name, 
+                            comm=comm,
+                            )
     return surface

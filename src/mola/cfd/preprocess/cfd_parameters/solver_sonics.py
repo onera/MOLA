@@ -59,9 +59,6 @@ def apply_to_solver(workflow):
 
     import miles
 
-    # TurbulenceSetup = TURBULENCE_SONICS_KEYS[workflow.Turbulence['Model']]
-    # TurbulenceSetup['cutvars'] = get_turbulence_cutoff_setup(workflow.Turbulence)
-
     # TODO take into account a dict for the CFL
     # For now, it must be a float
     if not isinstance(workflow.Numerics['CFL'], float):
@@ -76,12 +73,12 @@ def apply_to_solver(workflow):
         *get_time_marching_template(workflow.Numerics)[0],
     )
     my_config.set(
-        # TurbulenceModel = TurbulenceSetup,
         CFL = workflow.Numerics['CFL'],
         pctrad = 0.01,
         cutvars = get_turbulence_cutoff_setup(workflow.Turbulence),
+        # residual_convergence = 1e-12,
     )
-    
+
     update_fluid_model(my_config, workflow.Fluid)
 
     configuration = my_config.apply()
@@ -98,7 +95,7 @@ def apply_to_solver(workflow):
             # niter_period = 1,
             # extracts = {'*': ['conservatives', 'LaminarViscosity', 'TurbulentViscosity','TurbulentViscosity', 'TurbulentDistance', 'Mach', 'primitives']},
             # code_generation = "none",
-            CFL = workflow.Numerics['CFL'],
+            # CFL = workflow.Numerics['CFL'],
             # fcfl = lambda iteration: workflow.Numerics['CFL'],
         )
     )
@@ -139,7 +136,7 @@ def get_spatial_fluxes_template(Numerics):
 def get_time_marching_template(Numerics):
     features = [
         "time_algo/steady",
-        "ode/explicit",
+        "ode/implicit",
         "time_step/spectral",
     ]
 

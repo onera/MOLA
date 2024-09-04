@@ -15,5 +15,5 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .extract_bc import extract_bc
+from .extract_bc import extract_bc, extract_bc_from_zsr
 from .iso_surface import iso_surface

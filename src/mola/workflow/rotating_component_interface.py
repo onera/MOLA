@@ -29,6 +29,7 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
                             np.ndarray] = [1,0,0],
             ShaftRotationSpeedUnit : str = 'rad/s', 
             HubRotationSpeed : list = None,
+            Surface : float = None,
             NormalizationCoefficient : dict = None,
             *,
             ShaftRotationSpeed : float = None,

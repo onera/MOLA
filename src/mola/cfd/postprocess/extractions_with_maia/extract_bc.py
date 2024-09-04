@@ -15,8 +15,30 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from treelab import cgns
 import maia
 
 def extract_bc(tree, Family, comm):
     surface = maia.algo.part.extract_part_from_family(tree, Family, comm, containers_name=['BCDataSet'])
     return surface
+
+def extract_bc_from_zsr(tree, Family, comm):
+    zsr_names = []
+    for zone in tree.zones():
+        for zsr in zone.group(Type='ZoneSubRegion'):
+            # a ZSR range is specified by one of PointRange, PointList, BCRegionName or GridConnectivityRegionName
+            # see http://cgns.github.io/CGNS_docs_current/sids/gridflow.html#ZoneSubRegion
+            BCRegionName = zsr.get(Name='BCRegionName')
+            if BCRegionName:
+                bc = zone.get(Type='BC', Name=BCRegionName.value())
+                FamilyName_nodes = bc.group(Type='FamilyName') + bc.group(Type='AdditionalFamilyName')
+                if any([node.value() == Family for node in FamilyName_nodes]):
+                    zsr_names.append(zsr.name())
+
+    zones = []
+    for zsr_name in zsr_names:
+        extracted_tree = maia.algo.part.extract_part_from_zsr(tree, zsr_name, comm, containers_name=[]) 
+        extracted_tree = cgns.castNode(extracted_tree)
+        zones.extend(extracted_tree.zones())
+
+    return zones

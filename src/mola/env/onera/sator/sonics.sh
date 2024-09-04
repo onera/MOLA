@@ -18,6 +18,12 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+export SONICSVERSION='0.5.7'
+
+unset I_MPI_PMI_LIBRARY
+unset I_MPI_TCP_NETMASK 
+unset I_MPI_FABRICS_LIST
+
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
@@ -32,7 +38,7 @@ export CASSIOPEE=/stck/cassiope/git/Cassiopee/
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 source /tmp_user/sator/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh 
-export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
+# export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
 
 # # external python packages
 # export MOLAext=/tmp_user/sator/mola/future_v2/ext

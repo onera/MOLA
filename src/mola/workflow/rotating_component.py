@@ -83,7 +83,12 @@ class WorkflowRotatingComponent(Workflow):
                 rowParams['NumberOfBladesInInitialMesh'] = 1
                 mola_logger.info(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
 
-            rowParams.setdefault('NumberOfBladesInInitialMesh', self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades']))     
+            try: 
+                n = self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades'])
+            except:
+                mola_logger.warning(f'Cannot compute NumberOfBladesInInitialMesh automatically. It is set to 1 by default.')
+                n = 1
+            rowParams.setdefault('NumberOfBladesInInitialMesh', n)     
 
     def set_motion(self):
         for row, rowParams in self.ApplicationContext['Rows'].items():
