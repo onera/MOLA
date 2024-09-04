@@ -15,8 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mola.logging import MolaException
+from mola.logging import MolaUserError
 
 def apply_to_solver(workflow):
     if not workflow.tree.isStructured():
-        raise MolaException('The mesh should be structured to be used with the solver Fast.')
+        raise MolaUserError('The mesh should be structured to be used with the solver Fast.')

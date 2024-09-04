@@ -829,7 +829,7 @@ def test_workflow_sphere_unstruct_local(tmp_path):
     try:
         w.prepare()
     except MolaUserError as e:
-        if "mesh must be structured" in str(e): return
+        if "The mesh should be structured to be used with the solver Fast." in str(e): return
         raise MolaUserError(e)
     w.RunManagement['Scheduler'] = 'local'
 
