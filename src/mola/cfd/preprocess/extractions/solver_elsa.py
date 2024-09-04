@@ -171,27 +171,31 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
 
         solver_output_name = '.Solver#Output#'+Extraction['Name'] # note that we may have several outputs (e.g. different requested frames)
 
-        raise_error_if_solver_output_already_defined(solver_output_name, FamilyNode)
-
         output_keys = get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list)
 
-        # import pprint
-        # print(f"including SolverOutput for {Extraction['Name']} using:\n {pprint.pformat(output_keys)}")
-
-        FamilyNode.setParameters(solver_output_name, **output_keys)
+        SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
+        if not SolverOutput_node:
+            FamilyNode.setParameters(solver_output_name, **output_keys)
+        else:
+            update_existing_solver_output(SolverOutput_node, output_keys)
         
     else:
         mola_logger.warning(f'Caution: the list of fields to extract on family {FamilyNode.name()} is empty')
 
-
-def raise_error_if_solver_output_already_defined(solver_output_name, FamilyNode):
-    
-    solver_output_already_defined = bool(FamilyNode.get(Name=solver_output_name, Depth=1))
-
-    if solver_output_already_defined:
-        raise MolaException(f'{solver_output_name} already defined in {FamilyNode.path()}')
-
-
+def update_existing_solver_output(SolverOutput_node, output_keys):
+    for key, value in output_keys.items():
+        if key != 'var':
+            # update node value, or add new node if it was not already in the tree
+            cgns.Node(Parent=SolverOutput_node, Name=key, Value=value, Type='DataArray')
+        else:
+            var_node = SolverOutput_node.get(Name='var')
+            var_value = var_node.value()
+            if isinstance(var_value, str):
+                var_value = [var_value]
+            if isinstance(value, str):
+                value = [value]
+            var_value += value
+            var_node.setValue(var_value)
 
 def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) -> dict:
 

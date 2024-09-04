@@ -388,7 +388,57 @@ def test_add_2d_extractions_in_SolverOutput_wall():
 
     assert solver_output == solver_output_ref
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_add_multiple_2d_extractions_in_SolverOutput_wall():
 
+    workflow = get_workflow_1()
+
+    FamilyNode = cgns.Node(Name='FamilyA', Type='Family')
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCWall', Parent=FamilyNode)
+
+    # First request of extraction
+    Extraction = dict(Type="BC",
+                      Fields=['Pressure'],
+                      Source="FamilyA",
+                      Name="SameName",
+                      ExtractionPeriod=1,
+                      GridLocation="CellCenter",
+                      Frame="absolute")
+    solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow)
+
+    # Second request of extraction with the same name
+    Extraction2 = dict(Type="BC",
+                      Fields=['BoundaryLayer'],
+                      Source="FamilyA",
+                      Name="SameName",
+                      ExtractionPeriod=1,
+                      GridLocation="CellCenter",
+                      Frame="absolute")
+    solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction2, workflow)
+
+    solver_output = FamilyNode.getParameters('.Solver#Output#'+Extraction["Name"],transform_numpy_scalars=True)
+    solver_output_ref = dict(
+        period=Extraction["ExtractionPeriod"],
+        writingmode=2,
+        loc = "interface",
+        fluxcoeff = 1.0,
+        writingframe=Extraction["Frame"], 
+        pinf=workflow.Flow['Pressure'],
+        torquecoeff=1.0,
+        xtorque=0.0,
+        ytorque=0.0,
+        ztorque=0.0,
+        delta_compute=workflow.SolverParameters['model']['delta_compute'],
+        vortratiolim=workflow.SolverParameters['model']['vortratiolim'],
+        shearratiolim=workflow.SolverParameters['model']['shearratiolim'],
+        pressratiolim=workflow.SolverParameters['model']['pressratiolim'],
+        geomdepdom=2,
+        delta_cell_max=300,
+        var=['psta', 'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+    )
+
+    assert solver_output == solver_output_ref
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

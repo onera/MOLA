@@ -233,7 +233,8 @@ class CoprocessManager():
 
         # Update only Numerics node in tree
         WorkflowParameters = self.workflow.tree.get(Name=self.workflow._workflow_parameters_container_, Depth=1)
-        WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
+        if WorkflowParameters:
+            WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
 
     def make_directories_and_log(self):
 
