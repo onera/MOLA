@@ -15,7 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-# ----------------------- IMPORT SYSTEM MODULES ----------------------- #
+import numpy as np
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
@@ -24,6 +24,7 @@ NumberOfProcessors = comm.Get_size()
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.cfd.compute.read_cfd_files import read_cfd_files
+from mola.cfd.preprocess.extractions.solver_sonics import add_fields_and_bc_extractions, add_integral_extractions
 
 def apply_to_solver(workflow):
 
@@ -62,31 +63,34 @@ def get_iterators(workflow, configuration):
     from pathlib import Path
     import sonics.toolkit.triggers as triggers
     from sonics.toolkit.iterators import SteadyIterators
-    from mola.cfd.preprocess.extractions.solver_sonics import add_extractions_for_families
 
     transform_miles_config_in_sonics_config(configuration)
 
     pytriggers = []
     pytriggers.append(triggers.ExecutionTrigger(configuration["conf"], workflow.Numerics['NumberOfIterations']))
     pytriggers.append(triggers.CflTrigger(configuration["conf"], lambda iteration: workflow.Numerics['CFL']))
-    pytriggers.append(triggers.ComputeAndExtractDataInGraphTrigger(configuration["conf"],
-        add_extractions_for_families(workflow),
-        configuration["hpc_conf"]["hardware_target"]))
-    
-    if any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
-        # pass  # FIXME for now, there is a bug in ResidualTrigger: 
-        #       # KeyError: 'ERROR: cannot access element "IncrementMeanFlow" from namespace "sonics_1807767472669665571_-5341672739926498039"'
 
+    if any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
         pytriggers.append(triggers.ResidualTrigger(configuration["conf"], workflow.Numerics['NumberOfIterations'],
                                             output_folder=Path(names.DIRECTORY_LOG)))
 
-    # pytriggers.append(triggers.MonitoringIntegralData(  # BUG in SoNICS
-    #     configuration['conf'], 
-    #     compute_integral_data_on_families(['INFLOW', 'OUTFLOW']), #compute_extracts_from_terms_monitor, 
-    #     configuration['niter'], 
-    #     configuration['hpc_conf']['hardware_target'], 
-    #     period=1)
-    # )
+    if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
+        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] in ['3D', 'BC']]
+        pytriggers.append(triggers.ComputeAndExtractDataInGraphTrigger(configuration["conf"],
+            add_fields_and_bc_extractions(workflow),
+            configuration["hpc_conf"]["hardware_target"], 
+            period=np.gcd.reduce(periods)), 
+            )
+
+    if any([ext['Type'] == 'Integral' for ext in workflow.Extractions]):
+        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']
+        pytriggers.append(triggers.MonitoringIntegralData( 
+            configuration['conf'], 
+            add_integral_extractions(workflow), 
+            configuration['niter'], 
+            configuration['hpc_conf']['hardware_target'], 
+            period=np.gcd.reduce(periods)) 
+        )
 
     # This Trigger write time at the end of run:
     #    + end computation[<iterations>]: time : (<execution_time>, <execution_time_for_all_ranks>, <time/cell/iteration>)

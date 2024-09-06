@@ -31,7 +31,8 @@ import mola.cfd.postprocess as POST
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction
+from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_sonics_CGNS_field_names_to_MOLA
 
 
 def perform_extractions(workflow, coprocess_manager):
@@ -57,6 +58,9 @@ def perform_extractions(workflow, coprocess_manager):
         
         elif extraction['Type'] == 'IsoSurface':
             extraction['Data'] = extract_isosurface(output_tree, extraction)
+        
+        elif extraction['Type'] == 'Integral':
+            extract_integral(output_tree, extraction, families_to_bctype)  
 
         elif extraction['Type'] == 'Residuals':
             extract_residuals(extraction, 
@@ -128,19 +132,9 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
 
     SurfacesTree = cgns.Tree()
 
-    for BCFamilyName in DictBCNames2Type:
-        BCType = DictBCNames2Type[BCFamilyName]
-        if fnmatch(BCType, extraction['Source']):
-            # Case of source matching one or several names of BC: 'BCWall', 'BCInflow*', '*', etc.
-            source = BCType
-            family = BCFamilyName
-        elif fnmatch(BCFamilyName, extraction['Source']):
-            # Case of source matching a family name
-            source = BCFamilyName
-            family = BCFamilyName
-        else:
-            continue
-    
+    families_to_extract = get_bc_families_in_extraction(extraction, DictBCNames2Type)
+
+    for family in families_to_extract:
         data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family, tool='maia_zsr')       
         data_tree = cgns.castNode(data_tree)
         SurfacesTree.merge(data_tree)
@@ -164,6 +158,35 @@ def extract_isosurface(output_tree, extraction):
         )
     
     return isosurface
+
+def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
+
+    families_to_extract = get_bc_families_in_extraction(extraction, DictBCNames2Type)
+    
+    t = cgns.Tree()
+    base = cgns.Base(Name='Integral', Parent=t)
+    for IntegralDataNode in output_tree.group(Name='*:GCH', Type='ConvergenceHistory', Depth=2):
+        family = IntegralDataNode.name().split(':')[0]
+
+        if family not in families_to_extract: 
+            continue
+
+        IntegralDataNode.dettach()
+        IntegralDataNode.setName('FlowSolution')
+        IntegralDataNode.setType('FlowSolution_t')
+        for n in IntegralDataNode.children(): n.setType('DataArray_t')
+        translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
+        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+        zone.setParameters('MOLA:Extraction-Log',**extraction)
+        break
+
+    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+
+    if 'Data' in extraction and extraction['Data'] is not None:
+        and_previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+    else: 
+        extraction['Data'] = current_iteration_signals
 
 def extract_residuals(extraction, Conservatives, TurbConservatives):
 

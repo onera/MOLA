@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from fnmatch import fnmatch
 from mola.cfd import apply_to_solver
 
 def apply(workflow):
@@ -36,9 +37,9 @@ def process_extractions_2d(workflow):
                 # when workflow.cgns is read directly, in the context of WorkflowManager
                 Extraction['Fields'] = [Extraction['Fields']]
 
-def get_familiesBC_nodes(workflow):
+def get_familiesBC_nodes(tree):
 
-    families = workflow.tree.group(Type='Family', Depth=2)
+    families = tree.group(Type='Family', Depth=2)
     familiesBC = []
     for family in families:
         familyBC = family.get(Type='FamilyBC', Depth=1)
@@ -46,3 +47,27 @@ def get_familiesBC_nodes(workflow):
             familiesBC += [ familyBC ]
 
     return familiesBC
+
+def get_bc_families_to_extract(tree, Extraction, familiesBC=None):
+    bc_families_to_extract = []
+    if familiesBC is None:
+        familiesBC = get_familiesBC_nodes(tree)
+    requested_source = Extraction['Source']
+
+    for familyBC in familiesBC:
+
+        family = familyBC.parent()
+        family_name = family.name()
+        bc_type = familyBC.value() 
+        
+        family_match_requirement = fnmatch(family_name, requested_source) or fnmatch(bc_type, requested_source) 
+        if family_match_requirement and 'Fields' in Extraction and len(Extraction['Fields']) > 0:
+            if family not in bc_families_to_extract:
+                bc_families_to_extract.append(family) 
+    
+    return bc_families_to_extract
+
+def get_bc_families_names_to_extract(tree, Extraction, familiesBC=None):
+    bc_families_to_extract = get_bc_families_to_extract(tree, Extraction, familiesBC=familiesBC)
+    fam_names = [fam.name() for fam in bc_families_to_extract]
+    return fam_names

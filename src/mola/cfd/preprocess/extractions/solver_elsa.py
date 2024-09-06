@@ -16,12 +16,11 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
-from fnmatch import fnmatch
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_to_elsa
-from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes
+from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_to_extract
 
 # FIXME Check the writingframe, following what has been done in mola v1
 
@@ -140,23 +139,14 @@ def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocat
 
 def process_extractions_of_type_bc_and_integral(workflow):
 
-    familiesBC = get_familiesBC_nodes(workflow)
+    familiesBC = get_familiesBC_nodes(workflow.tree)
 
     for Extraction in workflow.Extractions:
         if Extraction['Type'] not in ['Integral', 'BC']: continue 
 
-        requested_source = Extraction['Source']
+        families_to_extract = get_bc_families_to_extract(workflow.tree, Extraction, familiesBC)
 
-        for familyBC in familiesBC:
-
-            family = familyBC.parent()
-            family_name = family.name()
-            bc_type = familyBC.value() 
-
-            family_match_requirement = fnmatch(family_name, requested_source) or fnmatch(bc_type, requested_source) 
-            if not(family_match_requirement and 'Fields' in Extraction):
-                continue 
-            
+        for family in families_to_extract:
             add_2d_extractions_in_SolverOutput(family, Extraction, workflow)
 
 def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):

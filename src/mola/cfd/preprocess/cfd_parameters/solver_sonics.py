@@ -68,6 +68,7 @@ def apply_to_solver(workflow):
     # print(my_config.get_feature_diagram())
     my_config.update(
         "motion/mobile",
+        "viscosity",
         *get_turbulence_template(workflow.Turbulence)[0],
         *get_spatial_fluxes_template(workflow.Numerics)[0],
         *get_time_marching_template(workflow.Numerics)[0],
@@ -128,8 +129,8 @@ def get_spatial_fluxes_template(Numerics):
     else:
         raise MolaException(f"Scheme={Numerics['Scheme']} is not available for solver sonics")
 
-    features.append("viscous_flux/vf5p_cor") # shouldn't it be optional ???
-    # features.append("grad_scheme/green_gauss") # shouldn't it be optional ???
+    features.append("viscous_flux/vf5p_cor") 
+    features.append("grad_scheme/green_gauss") 
     
     return features, parameters
 
