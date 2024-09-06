@@ -32,6 +32,7 @@ def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, com
                             plane_eq, 
                             containers_name=containers_name, 
                             comm=comm,
+                            # elt_type='NGON_n',
                             )
     else:
         surface = maia.algo.part.iso_surface(
@@ -40,5 +41,6 @@ def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, com
                             iso_val=IsoSurfaceValue,
                             containers_name=containers_name, 
                             comm=comm,
+                            # elt_type='NGON_n',
                             )
     return surface
