@@ -17,18 +17,29 @@
 
 from fnmatch import fnmatch
 from treelab import cgns
-from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes
+from mola.logging import mola_logger, MolaException, MolaUserError
+from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract
+from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics
 
 def apply_to_solver(workflow):
 
     add_extractions_for_restart(workflow)
     add_AllZones_family(workflow.tree)
     # process_extractions(workflow)
-    adapt_extractions(workflow)
+    adapt_extractions(workflow.Extractions)
 
-def adapt_extractions(workflow):
-    for ext in workflow.Extractions:
+    # TODO To remove once Integral extractions are available
+    remove_integral_extractions(workflow)
+
+def remove_integral_extractions(workflow):
+    remaining_extractions = []
+    for ext in workflow.Extractions: 
+        if ext['Type'] != 'Integral':
+            remaining_extractions.append(ext)
+    workflow.Extractions = remaining_extractions
+
+def adapt_extractions(Extractions):
+    for ext in Extractions:
         if ext['Type'] in  ['BC', 'Residuals']:
             ext['ExtractionPeriod'] = 1000000000 # Only done at the end of the simulation
             ext['SavePeriod'] = 1000000000 # Only done at the end of the simulation
@@ -75,33 +86,11 @@ def add_extractions_for_restart(workflow):
     
 #     workflow._pytriggers += trigger
 
-def add_extractions_for_families(workflow):
+def add_fields_and_bc_extractions(workflow):
     import sonics
     from sonics.toolkit.graph_utils import DataFactory
 
-    # bc_families_to_extract = []
-    # bc_families = get_bc_families(workflow)
-    # for extraction in workflow.Extractions:
-    #     if extraction['Type'] == 'BC' and extraction['Source'] in bc_families:
-    #         bc_families_to_extract.append(extraction['Source'])
-
-    bc_families_to_extract = []
-    familiesBC = get_familiesBC_nodes(workflow)
-    for Extraction in workflow.Extractions:
-        if Extraction['Type'] != 'BC': 
-            continue 
-        requested_source = Extraction['Source']
-
-        for familyBC in familiesBC:
-
-            family = familyBC.parent()
-            family_name = family.name()
-            bc_type = familyBC.value() 
-            
-            family_match_requirement = fnmatch(family_name, requested_source) or fnmatch(bc_type, requested_source) 
-            if family_match_requirement and 'Fields' in Extraction:
-                if family_name not in bc_families_to_extract:
-                    bc_families_to_extract.append(family_name) 
+    familiesBC = get_familiesBC_nodes(workflow.tree)
 
     def compute_extracts_from_terms(conf, solver, topology):
 
@@ -109,20 +98,13 @@ def add_extractions_for_families(workflow):
         df = DataFactory(solver, topology)
         elt_location = treg.cell if sonics.spl.guards.cell_center in conf else treg.vertex
         # dual_location = treg.face if sonics.spl.guards.cell_center in conf else treg.edge
-        bc_location = treg.face if sonics.spl.guards.cell_center in conf else treg.dual_facet
 
         extracts = []
         extracts += df.create_zones(treg.conservatives(treg.full), elt_location)
         # extracts += df.create_zones(treg.SurfaceNormal, treg.face)
         # extracts += df.create_zones(treg.primitives(treg.full), elt_location)
         # extracts += df.create_zones(treg.Mach, elt_location)
-        # extracts += df.create_zones(treg.grad(treg.primitives(treg.full)), elt_location)
         # extracts += df.create_zones(treg.grad(treg.Velocity), elt_location)
-        # extracts += df.create_zones(treg.grad(treg.Temperature), elt_location)
-
-        # extracts += df.create_zones(treg.conservatives(treg.full), treg.vertex)
-        # extracts += df.create_zones(treg.primitives(treg.full), treg.vertex)
-        # extracts += df.create_zones(treg.Mach, treg.vertex)
 
         if (sonics.spl.guards.nslam in conf) or (sonics.spl.guards.nstur in conf):
             extracts += df.create_zones(treg.LaminarViscosity, elt_location)
@@ -131,28 +113,63 @@ def add_extractions_for_families(workflow):
             extracts += df.create_zones(treg.TurbulentViscosity, elt_location)
             extracts += df.create_zones(treg.TurbulentDistance,  elt_location)
 
-        for family in bc_families_to_extract:
-            extracts += df.create_bcs_from_family_name(treg.conservatives(treg.full), bc_location, family)
-            extracts += df.create_bcs_from_family_name(treg.primitives(treg.full), bc_location, family)
+        for extraction in workflow.Extractions:
+            if extraction['Type'] != 'BC' or len(extraction['Fields'])==0:
+                continue
 
-        # if (sonics.spl.guards.nslam in conf) or (sonics.spl.guards.nstur in conf):
-        #     for family in ['HUB', 'SHROUD']:
-        #         extracts += df.create_bcs_from_family_name(treg.SkinFriction,     treg.face,   family)
-        #         extracts += df.create_bcs_from_family_name(treg.XYZPlusMeshSize,  bc_location, family)
-        #         extracts += df.create_bcs_from_family_name(treg.NormalHeatFlux,   treg.face,   family)
-        #         extracts += df.create_bcs_from_family_name(treg.LaminarViscosity, bc_location, family)
+            if extraction['GridLocation'] == 'CellCenter':
+                if not sonics.spl.guards.cell_center:
+                    raise MolaUserError('Cannot extract a BC at "Vertex" because SoNICS will run at CellCenter')
+                bc_location = treg.face 
+            else:
+                if sonics.spl.guards.cell_center:
+                    raise MolaUserError('Cannot extract a BC at "CellCenter" because SoNICS will run at Vertex')
+                bc_location = treg.dual_facet
+
+            families = get_bc_families_names_to_extract(workflow.tree, extraction, familiesBC)
+            fields = translate_extraction_variables_to_sonics(extraction['Fields'], solver)
+            for family in families:                
+                for field in fields:
+                    extracts += df.create_bcs_from_family_name(field, bc_location, family)
 
         return extracts
     
     return compute_extracts_from_terms
 
-def get_bc_families(workflow):
+def add_integral_extractions(workflow):
+    from sonics.toolkit.graph_utils import DataFactory
 
-    families = workflow.tree.group(Type='Family', Depth=2)
-    familiesBC = []
-    for family in families:
-        familyBC = family.get(Type='FamilyBC', Depth=1)
-        if familyBC:
-            familiesBC.append(family.name())
+    familiesBC = get_familiesBC_nodes(workflow.tree)
 
-    return familiesBC
+    def compute_extracts_from_terms_monitor(conf, solver, topology):
+        treg = solver.terms
+        df = DataFactory(solver, topology)
+
+        extracts = []
+        for extraction in workflow.Extractions:
+            if extraction['Type'] != 'Integral' or len(extraction['Fields'])==0:
+                continue
+
+            families = get_bc_families_names_to_extract(workflow.tree, extraction, familiesBC)
+            fields = translate_extraction_variables_to_sonics(extraction['Fields'], solver)
+            for family in families:
+                for field in fields:
+                    extracts += df.create_families(field, 
+                                                treg.face, 
+                                                family_type=treg.family_value, 
+                                                predicate=lambda n,v : v['name'] == family)
+                # if 'MassFlow' in extraction['Fields']:
+                #     extracts += df.create_families(treg.conv_flux(treg.Density), 
+                #                                 treg.face, 
+                #                                 family_type=treg.family_value, 
+                #                                 predicate=lambda n,v : v['name'] == family)
+                    
+                # if 'Force' in extraction['Fields']:
+                #     extracts += df.create_families(treg.conv_flux(treg.Momentum), 
+                #                                 treg.face, 
+                #                                 family_type=treg.family_value, 
+                #                                 predicate=lambda n,v : v['name'] == family)
+
+        return extracts
+    
+    return compute_extracts_from_terms_monitor

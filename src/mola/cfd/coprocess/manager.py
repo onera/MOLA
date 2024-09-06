@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+from fnmatch import fnmatch
 import glob
 import shutil
 import timeit
@@ -433,3 +434,22 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
                                    current_value))
 
         previous_data.setValue(updated_value)
+
+def get_bc_families_in_extraction(extraction, DictBCNames2Type):
+    families = []
+    for BCFamilyName in DictBCNames2Type:
+        BCType = DictBCNames2Type[BCFamilyName]
+        if fnmatch(BCType, extraction['Source']):
+            # Case of source matching one or several names of BC: 'BCWall', 'BCInflow*', '*', etc.
+            source = BCType
+            family = BCFamilyName
+        elif fnmatch(BCFamilyName, extraction['Source']):
+            # Case of source matching a family name
+            source = BCFamilyName
+            family = BCFamilyName
+        else:
+            continue
+        families.append(family)
+
+    return families
+    

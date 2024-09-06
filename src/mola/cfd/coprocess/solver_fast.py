@@ -29,7 +29,7 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
@@ -126,24 +126,13 @@ def extract_fields(output_tree, extraction) -> cgns.Tree:
 
 def extract_bc(output_tree, extraction, families_to_bctype, metrics):
 
-    # TODO factorize elsa <-> fast
-
     import FastS.PyTree as FastS
 
     SurfacesTree = cgns.Tree()
 
-    for BCFamilyName in families_to_bctype:
-        BCType = families_to_bctype[BCFamilyName]
-        if fnmatch(BCType, extraction['Source']):
-            # Case of source matching one or several names of BC: 'BCWall', 'BCInflow*', '*', etc.
-            source = BCType
-            family = BCFamilyName
-        elif fnmatch(BCFamilyName, extraction['Source']):
-            # Case of source matching a family name
-            source = BCFamilyName
-            family = BCFamilyName
-        else:
-            continue
+    families_to_extract = get_bc_families_in_extraction(extraction, families_to_bctype)
+
+    for family in families_to_extract:
 
         data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
         data_tree = cgns.castNode(data_tree)
