@@ -103,6 +103,7 @@ def apply_to_solver(workflow):
 
     # convert to dict to be able to write in cgns tree with treelab
     # configuration['conf']  = configuration['conf'].to_dict(configuration['conf'])
+    del configuration['configuration']
     del configuration['hpc_conf'] 
 
     workflow.SolverParameters['configuration'] = nested_dict_from_keys(configuration)

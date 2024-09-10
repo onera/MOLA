@@ -259,7 +259,32 @@ def recompute_turbulence_variables(workflow, **kwargs):
     
     return Turbulence
 
-def get_turbulent_primitives(Turbulence, Density, **kwargs):
+def get_turbulent_primitives(workflow, **kwargs):
+    '''
+    Get the primitive (without the Density factor) turbulent variables (names and values) 
+    to inject in an inflow boundary condition.
+
+    For RSM models, see issue https://elsa.onera.fr/issues/5136 for the naming convention.
+
+    Parameters
+    ----------
+    workflow, bc
+
+    Returns
+    -------
+    dict
+        Imposed turbulent variables
+    '''
+    if 'TurbulenceLevel' in kwargs or 'Viscosity_EddyMolecularRatio' in kwargs:   
+        recompute_turbulence_variables(workflow, **kwargs)
+    else:
+        Turbulence = workflow.Turbulence
+        
+    turbDict = get_turbulent_primitives_from_conservatives(Turbulence, workflow.Flow['Density'], **kwargs)
+        
+    return turbDict
+
+def get_turbulent_primitives_from_conservatives(Turbulence, Density, **kwargs):
     turbDict = dict()
     for name, value in Turbulence['Conservatives'].items():
         # If the 'conservative' value is given in kwargs
@@ -279,4 +304,3 @@ def get_turbulent_primitives(Turbulence, Density, **kwargs):
         # If the 'primitive' value is given in kwargs
         turbDict[name] = kwargs.get(name, value)
     return turbDict
-
