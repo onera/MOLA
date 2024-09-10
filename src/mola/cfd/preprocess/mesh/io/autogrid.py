@@ -83,7 +83,7 @@ def reader(w, component):
     #################################################################################
     
     mesh = read(w, component['Source'])
-    update_Connection_from_mesh(mesh, component, w.ApplicationContext['ShaftAxis'])
+    update_Connection_from_mesh(mesh, w.Solver, component, w.ApplicationContext['ShaftAxis'])
 
     if component['CleaningMacro'] == 'Autogrid':
         apply_cleaning_macro_autogrid(mesh, w.Solver, JoinHubAndShroudFamilies)
@@ -100,21 +100,33 @@ def reader(w, component):
 
     return base
 
-def update_Connection_from_mesh(mesh, component, axis):
+def update_Connection_from_mesh(mesh, solver, component, axis):
     # Only if grid connectivities are not already in the mesh
     # TODO: Test on the presence of GC
     # component['Connection'].append(dict(Type='Match', Tolerance=component['DefaultToleranceForConnection']))
-
-    periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], axis)
-    component['Connection'] += periodic_connections
+    if solver != 'sonics':
+        periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], axis)
+        component['Connection'] += periodic_connections
+    else:
+        # keep GC but remove BC and family
+        # Should work for elsA too TODO
+        for BC in mesh.group(Type='BC'):
+            try:
+                fam = BC.get(Type='FamilyName').value()
+            except: 
+                continue
+            if "_PER" in fam:
+                BC.remove()    
+                mesh.findAndRemoveNode(Type='Family', Name=fam, Depth=2)
+            
 
 def apply_cleaning_macro_autogrid(mesh, solver, JoinHubAndShroudFamilies=True):
     clean_autogrid_log_bases(mesh)
     shorten_zones_names(mesh)
     clean_family_properties(mesh)
-    mesh.findAndRemoveNodes(Type='ZoneGridConnectivity_t') # TODO: The objective should be to keep GC if there are already in the tree
     # remove_gc_abutting(mesh)
     if solver != 'sonics':
+        mesh.findAndRemoveNodes(Type='ZoneGridConnectivity_t') # TODO: The objective should be to keep GC if there are already in the tree
         remove_periodic_bc_and_families(mesh)
 
     if JoinHubAndShroudFamilies:
@@ -146,13 +158,14 @@ def shorten_zones_names(t):
     # Delete some usual patterns in AG5
     patterns = ['_flux_1', '_flux_2', '_flux_3', '_Main_Blade']
     for zone in t.zones():
-        name = zone.name()
         for pattern in patterns:
+            name = zone.name()
             if pattern in name:
                 new_name = name.replace(pattern, '')
                 zone.setName(new_name)
                 for node in t.group(Value=name):
                     node.setValue(new_name)
+    t.setUniqueZoneNames()
 
 def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance, axis=np.array([1,0,0])):
     base = mesh.bases()[0]

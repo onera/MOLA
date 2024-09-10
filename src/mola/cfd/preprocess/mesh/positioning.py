@@ -49,8 +49,6 @@ def apply(workflow):
                 pt0 = np.array(operation['InitialFrame']['Point'])
                 translation = pt1 - pt0
                 try:
-                    translate_and_rotate_with_cassiopee(base, translation, pt1, operation['InitialFrame'], operation['RequestedFrame'])
-                except (ImportError, AttributeError):
                     if operation['InitialFrame'] == operation['RequestedFrame']:
                         translate_and_rotate_with_maia(base, translation)
 
@@ -62,7 +60,10 @@ def apply(workflow):
 
                     else:
                         raise MolaException('Positioning not implemented without Cassiopee, except for rotations from Autogrid')
-            
+
+                except (ImportError, AttributeError, MolaException):
+                    translate_and_rotate_with_cassiopee(base, translation, pt1, operation['InitialFrame'], operation['RequestedFrame'])
+                    
             elif operation['Type'] == 'DuplicateByRotation':
                 ...
                 # TODO BEWARE!! duplicate Component, and handle it properly! 

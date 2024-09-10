@@ -29,6 +29,8 @@ def write(w, tree, dst, io_tool=None):
         io_tool = get_io_tool(w, dst)
 
     if io_tool == 'treelab':
+        tree.findAndRemoveNodes(Name=':CGNS#Distribution')
+        tree.findAndRemoveNodes(Name=':CGNS#GlobalNumbering')
         cgns.save(tree, dst)
 
     elif io_tool == 'cassiopee':
