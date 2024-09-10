@@ -22,16 +22,14 @@ args = parser.parse_args()
 signals = cgns.load(args.file)
 
 def plot_residuals(signals, figname='residuals.png'):
-    ConvergenceHistory = signals.get(Name='GlobalConvergenceHistory')
-    if not ConvergenceHistory:
-        mola_logger.warning('No residuals found (node GlobalConvergenceHistory is missing)')
+    residuals_zone = signals.get(Name='Residuals', Type='Zone')
+    if not residuals_zone:
+        mola_logger.warning('No residuals found')
     else:
-        parent = ConvergenceHistory.getParent()
-        residuals = parent.getParameters('GlobalConvergenceHistory')
+        residuals = residuals_zone.allFields(include_coordinates=False)
 
         varList = list(residuals)
         varList.remove('IterationNumber')
-        varList.remove('NormDefinitions')
         plt.figure()
         for varname in varList:
             plt.plot(residuals['IterationNumber'], residuals[varname], label=varname)
@@ -45,9 +43,9 @@ def plot_residuals(signals, figname='residuals.png'):
 def plot_massflow(signals, figname='massflow.png'):
     massflows = dict()
 
-    for node in signals.group(Type='IntegralData'):
+    for node in signals.group(Type='FlowSolution'):
         try:
-            massflows[node.name()] = dict(
+            massflows[node.Parent.name()] = dict(
                 IterationNumber = node.get(Name='IterationNumber').value(),
                 MassFlow = np.absolute(node.get(Name='MassFlow').value()), 
                 )
