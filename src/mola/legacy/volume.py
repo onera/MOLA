@@ -19,10 +19,13 @@
 Creation by recycling GenerativeVolumeDesign.py of v1.18.1
 '''
 
+from mola.logging import mola_logger
+
 from . import InternalShortcuts as J
 from . import curve as W
 from . import surface as GSD
 from . import ExtractSurfacesProcessor as ESP
+
 
 # System modules
 import sys
@@ -39,7 +42,10 @@ import Post.PyTree as P
 import Generator.PyTree as G
 import Transform.PyTree as T
 import Intersector.PyTree as XOR
-import Apps.Mesh.Cart as CART
+try:
+    import Apps.Mesh.Cart as CART
+except ModuleNotFoundError as e:
+    mola_logger.warning('cannot import Apps.Mesh.Cart : '+str(e))
 try: import CPlot.PyTree as CPlot
 except: CPlot = None
 

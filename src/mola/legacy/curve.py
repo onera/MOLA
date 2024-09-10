@@ -142,7 +142,7 @@ def distanceOfPointToLine(Point, LineVector, LinePassingPoint):
 
 
 def angle2D(P1,P2):
-    '''
+    r'''
     Compute planar angle between the :math:`x`-axis and the direction
     given by vector :math:`\overrightarrow{P_1 P_2}` (vector defined
     ``P1->P2``).
@@ -200,7 +200,7 @@ def isPyTreePoint(P):
 
 
 def gets(curve):
-    '''
+    r'''
     Get the numpy array of a 1D structured curve corresponding
     to its curvilinear abscissa.
 
@@ -225,7 +225,7 @@ def gets(curve):
 
 
 def getTanhDistTwo__(Nx, CellStart, CellEnd):
-    '''
+    r'''
     .. note:: Private-level function, called by user-level
         :py:func:`linelaw`. Not intended to be called directly by the user.
 
@@ -277,7 +277,7 @@ def getTanhDistTwo__(Nx, CellStart, CellEnd):
 
 
 def getTanhDist__(Nx, CellStart,isCellEnd=False):
-    '''
+    r'''
     .. note:: Private-level function, called by user-level
         :py:func:`linelaw`. Not intended to be called directly by the user.
 
@@ -328,7 +328,7 @@ def getTanhDist__(Nx, CellStart,isCellEnd=False):
 
 
 def getTrigoLinDistribution__(Nx, p):
-    '''
+    r'''
     .. note:: Private-level function, called by user-level
         :py:func:`linelaw`. Not intended to be called directly by the user.
 
@@ -403,7 +403,7 @@ def getTrigoLinDistribution__(Nx, p):
 
 
 def linelaw(P1=(0,0,0), P2=(1,0,0), N=100, Distribution = None, verbose=linelawVerbose):
-    '''
+    r'''
     Create a line of **N** points between **P1** and **P2** points, following
     a distribution constructed by the instructions contained
     in the dictionary **Distribution**.
@@ -612,7 +612,7 @@ Try different discretization parameters for better result.
 def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
         TopDistribution=None, BottomDistribution=None,
         ClosedTolerance=True,LeadingEdgePos=None):
-    """
+    r"""
 
     .. warning:: this function must be updated
 
@@ -1042,7 +1042,7 @@ def discretizeAirfoil(airfoil, Ntop, Nbot=None, CellSizeAtLE=None, CellSizeAtTE=
     return new_airfoil
 
 def copyDistribution(curve):
-    '''
+    r'''
     Copy the distribution of a curve.
 
     .. note:: this is a dimensional version of :py:func:`Geom.PyTree.getDistribution`
@@ -1140,7 +1140,7 @@ def concatenate(curves):
 
 
 def polyDiscretize(curve, Distributions, MappingLaw='Generator.map'):
-    '''
+    r'''
     *(Re)*-discretize a *(ideally dense)* structured curve using the
     instructions provided by the :py:class:`list` of **Distributions**, whose
     items are dictionaries used to discretize a portion of the curve,
@@ -1309,7 +1309,7 @@ def getAbscissaFromCoordinate(curve, station, coordinate='x'):
     return Sol
 
 def getAbscissaAtStation(curve, station, coordinate='x'):
-    '''
+    r'''
     From a provided **curve**, compute the *(possibly multiple)* abscissa
     points where the curve intersects the plane of constant coordinate
     :math:`(x, y, z)` at provided **station** value.
@@ -3139,7 +3139,7 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.95,
         MergePointsTolerance = 1e-10,  DistanceCriterionTolerance = 1e-5,
         FieldCriterion='CoordinateY',
         SideChoiceCriteriaPriorities=['field','distance']):
-    '''
+    r'''
     Split an airfoil shape into *top* (suction) and *bottom* (pressure) sides.
 
     Parameters
@@ -3884,7 +3884,7 @@ def modifyAirfoil(AirfoilInput, Chord=None,
                   buildCamberOptions={},
                   splitAirfoilOptions={},
                   InterpolationLaw='interp1d_cubic'):
-    '''
+    r'''
     Create new airfoil by modifying geometrical properties of a provided
     airfoil curve.
 
@@ -4250,7 +4250,7 @@ def modifyCamberOfCamberLine(CamberCurve, NormalDirection,
         MaxCamber=None, MaxRelativeCamber=None, MaxCamberRelativeLocation=None,
         MinCamber=None, MinRelativeCamber=None, MinCamberRelativeLocation=None,
         InterpolationLaw='interp1d_cubic'):
-    '''
+    r'''
     Modify the camber geometry of a user-provided camber line.
 
     Parameters
