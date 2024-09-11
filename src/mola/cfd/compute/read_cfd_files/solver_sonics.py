@@ -39,6 +39,7 @@ def apply_to_solver(workflow):
 def get_configuration_from_tree(workflow):
     import miles
     import copy
+    from mola.cfd.preprocess.cfd_parameters.solver_sonics import set_tuning_parameters
 
     configuration = copy.copy(workflow.SolverParameters['configuration'])
     configuration['conf'] = flatten_dict(configuration['conf'])
@@ -51,9 +52,7 @@ def get_configuration_from_tree(workflow):
 
     my_config = miles.solver.config.Configuration(workflow.tree)
     my_config.update(*param_list)
-    # FIXME "tuning" parameters other that CFL are not set here !!
-    my_config.set(CFL=workflow.Numerics['CFL'])
-    
+    set_tuning_parameters(workflow, my_config)
     conf = my_config.apply()
     configuration.update(conf)
     if rank==0:

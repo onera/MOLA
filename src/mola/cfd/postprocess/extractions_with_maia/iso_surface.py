@@ -32,6 +32,9 @@ def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, com
                             plane_eq, 
                             containers_name=containers_name, 
                             comm=comm,
+                            # Using elt_type='NGON_n' requires less storage, but it can raise the following error:
+                            # /tmp_user/juno/sonics/tmp/sonics/15998/external/paradigm/extensions/paradigma/src/mesh/pdm_iso_surface.c:3380: Fatal error.
+                            # Incorrect relative signs
                             # elt_type='NGON_n',
                             )
     else:

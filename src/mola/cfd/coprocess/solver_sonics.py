@@ -60,7 +60,7 @@ def perform_extractions(workflow, coprocess_manager):
             extraction['Data'] = extract_isosurface(output_tree, extraction)
         
         elif extraction['Type'] == 'Integral':
-            extract_integral(output_tree, extraction, families_to_bctype)  
+            extract_integral(output_tree, extraction, families_to_bctype, last_iteration=coprocess_manager.iteration)  
 
         elif extraction['Type'] == 'Residuals':
             extract_residuals(extraction, 
@@ -159,7 +159,7 @@ def extract_isosurface(output_tree, extraction):
     
     return isosurface
 
-def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
+def extract_integral(output_tree, extraction, DictBCNames2Type, last_iteration) -> None:
 
     families_to_extract = get_bc_families_in_extraction(extraction, DictBCNames2Type)
     
@@ -174,9 +174,11 @@ def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
         IntegralDataNode.dettach()
         IntegralDataNode.setName('FlowSolution')
         IntegralDataNode.setType('FlowSolution_t')
-        for n in IntegralDataNode.children(): n.setType('DataArray_t')
+        for n in IntegralDataNode.children(): 
+            n.setType('DataArray_t')
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
-        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+        cgns.Node(Name='IterationNumber', Type='DataArray', Value=np.arange(last_iteration), Parent=IntegralDataNode)
+        zone = cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
         zone.setParameters('MOLA:Extraction-Log',**extraction)
         break
 
@@ -250,7 +252,7 @@ def move_log_files(w):
     comm.barrier()
 
 def get_iteration(workflow):
-    return workflow.Numerics['NumberOfIterations']  # TODO
+    return workflow.Numerics['NumberOfIterations']-1 # TODO
 
 def get_status(workflow):
     return 'RUNNING_BEFORE_ITERATION' # TODO: implement this (using elsaXdt?)
