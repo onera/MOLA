@@ -124,7 +124,7 @@ def apply_cleaning_macro_autogrid(mesh, solver, JoinHubAndShroudFamilies=True):
     clean_autogrid_log_bases(mesh)
     shorten_zones_names(mesh)
     clean_family_properties(mesh)
-    # remove_gc_abutting(mesh)
+    remove_gc_abutting(mesh)
     if solver != 'sonics':
         mesh.findAndRemoveNodes(Type='ZoneGridConnectivity_t') # TODO: The objective should be to keep GC if there are already in the tree
         remove_periodic_bc_and_families(mesh)
