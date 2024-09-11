@@ -29,9 +29,10 @@ def write(w, tree, dst, io_tool=None):
         io_tool = get_io_tool(w, dst)
 
     if io_tool == 'treelab':
-        tree.findAndRemoveNodes(Name=':CGNS#Distribution')
-        tree.findAndRemoveNodes(Name=':CGNS#GlobalNumbering')
-        cgns.save(tree, dst)
+        t = tree.copy()
+        t.findAndRemoveNodes(Name=':CGNS#Distribution')
+        t.findAndRemoveNodes(Name=':CGNS#GlobalNumbering')
+        cgns.save(t, dst)
 
     elif io_tool == 'cassiopee':
         import Converter.PyTree as C
