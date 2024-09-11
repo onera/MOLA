@@ -24,6 +24,9 @@ from .tools import (to_partitioned_if_distributed,
 def apply(workflow):
     if not all([('Positioning' in component) for component in workflow.RawMeshComponents]):
         return
+    
+    tree_was_distributed = bool(workflow.tree.get(':CGNS#Distribution'))
+    workflow.tree = to_partitioned_if_distributed(workflow.tree)
 
     warning_flag_import_Transform = False
 
@@ -73,6 +76,8 @@ def apply(workflow):
                 if not warning_flag_import_Transform:
                     mola_logger.warning('Cannot check that the mesh is direct after Positioning operations')
                     warning_flag_import_Transform = True # To display this warning only once
+
+    if tree_was_distributed: workflow.tree = to_distributed(workflow.tree)
 
 def rescale_with_cassiopee(t, scale):
     import Transform.PyTree as T
