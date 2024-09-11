@@ -210,10 +210,6 @@ def extract_residuals(output_tree, extraction):
 
 def extract_integral(output_tree, extraction, workflow) -> None:
     
-    if 'Fields' not in extraction or not extraction['Fields']:
-        extraction['Data'] = None
-        return
-
     stress, state = get_stress_and_state(output_tree, extraction['Source'],
                                          workflow._fast_metrics)
     dimensionalize_torque(stress, state)    

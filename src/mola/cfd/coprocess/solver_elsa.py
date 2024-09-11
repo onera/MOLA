@@ -207,7 +207,6 @@ def extract_residuals(output_tree, extraction):
 
 def extract_integral(output_tree, extraction) -> None:
     
-    # output_tree.save('debug.cgns');exit()
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
     for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):

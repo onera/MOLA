@@ -408,7 +408,6 @@ class WorkflowInterface(object):
             WorkflowInterface.add_to_Extractions_Residuals, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_Integral(self,
-            Fields : list = None, # accepts prefix avg- or std- Accept MOLA keywords "Force" and "Torque"
             File : str = names.FILE_OUTPUT_1D,
             Name : str = None, # if None, will be based on Source
             ExtractionPeriod : int = 1,
@@ -423,11 +422,13 @@ class WorkflowInterface(object):
             *,
             Type : str = 'Integral',
             Source : str = 'BCWall', # "BCWall", "MyFamilyBC"... TODO accept regex &| ?
+            Fields : list, # accepts prefix avg- or std- Accept MOLA keywords "Force" and "Torque"
             ):
         '''
         Summation over a given source of the mesh, providing a scalar integral value
         '''
         if not Name: Name = Source
+        if len(Fields) == 0: return
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_Integral, self.get_default_values_from_local_signature()))
 

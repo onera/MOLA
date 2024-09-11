@@ -137,7 +137,7 @@ def add_integral_extractions(workflow):
 
         extracts = []
         for extraction in workflow.Extractions:
-            if extraction['Type'] != 'Integral' or not 'Fields' in extraction or len(extraction['Fields'])==0:
+            if extraction['Type'] != 'Integral':
                 continue
 
             families = get_bc_families_names_to_extract(workflow.tree, extraction, familiesBC)

@@ -264,7 +264,6 @@ def get_workflow_sphere_struct(RunDirectory):
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ',
                  IsoSurfaceValue=1.e-6),
-            dict(Type='Integral', Source='Wall'),
             dict(Type='3D', Fields=['Density','MomentumX','MomentumY','MomentumZ'],
                  GridLocation='Vertex', GhostCells = False),
             ],
@@ -326,7 +325,6 @@ def get_workflow_sphere_struct_cassiopee_mpi_to_connect(RunDirectory):
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ',
                  IsoSurfaceValue=1.e-6),
-            dict(Type='Integral', Source='Wall'),
             dict(Type='3D', Fields=['Density','MomentumX','MomentumY','MomentumZ'],
                  GridLocation='Vertex', GhostCells = False),
             ],
@@ -620,8 +618,6 @@ def get_workflow_cart_monoproc(RunDirectory):
             dict(Family='Inlet',    Type='Farfield'),
             dict(Family='Farfield', Type='Farfield'),
         ],
-
-        Extractions=[dict(Type='Integral', Source='Ground')],
 
         RunManagement=dict(
             NumberOfProcessors=1,
