@@ -179,8 +179,7 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
             n.setType('DataArray_t')
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
         cgns.Node(Name='IterationNumber', Type='DataArray', Value=np.arange(NumberOfIterations, dtype=float), Parent=IntegralDataNode)
-        size = NumberOfIterations
-        zone = cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode], Value=np.array([[size, size-1, 0]]))
+        zone = cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
         zone.setParameters('MOLA:Extraction-Log',**extraction)
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
@@ -216,11 +215,10 @@ def extract_residuals(extraction, Conservatives, TurbConservatives):
                     residuals[name] = np.array([d[i] for d in data])
 
         if residuals: 
-            size = residuals['IterationNumber'].size
             # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
             base = cgns.Base(Name='Residuals', Parent=t)
-            zone = cgns.Zone(Name=base.name(), Parent=base, Value=np.array([[size, size-1, 0]])) 
-            zone.newFields(residuals)
+            zone = cgns.utils.newZoneFromDict(base.name(), residuals)
+            zone.attachTo(base)
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 

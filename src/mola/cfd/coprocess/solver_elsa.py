@@ -226,8 +226,7 @@ def extract_integral(output_tree, extraction) -> None:
         for n in IntegralDataNode.children(): 
             n.setType('DataArray_t')
         translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
-        size = n.value().size
-        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode], Value=np.array([[size, size-1, 0]]))
+        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
         zone.setParameters('MOLA:Extraction-Log',**extraction)
         break
 
