@@ -24,7 +24,7 @@ source $SCRIPT_DIR/../network.sh
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
-export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
+export PYTHONPATH=/tmp_user/juno/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 export MACHINE=juno
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
