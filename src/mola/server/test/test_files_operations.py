@@ -20,7 +20,7 @@ import os
 import shutil
 from mola.server import files_operations as FOP
 from mola.logging import check_error_message
-
+import mola.naming_conventions as names
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -171,7 +171,36 @@ def test_read_text_file_from_errors_sator():
     FOP.remove_path(directory+filename,'sator',file_only=True)
     assert 'SCANNED_ERRORS\n'+expected_err_msg+'\n' == err_msg
 
+
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_read_last_run_error_file_in_log_directory_local(tmp_path):
+
+    log_path = os.path.join(tmp_path,names.DIRECTORY_LOG)
+    os.makedirs(log_path)
+    nfiles = 5
+    expected_msg = 'SCANNED_ERRORS\n'
+    for i in range(1,nfiles):
+        filename = names.FILE_STDERR.replace('.log','-%d.log'%i)
+        source = tmp_path / os.path.join(log_path,filename)
+
+        with open(source, 'w') as f:
+            if i == nfiles-1:
+                expected_msg += '%d this was an error\nwill show this'%i
+                f.write('%d this was an error\nwill show this'%i)
+            else:
+                f.write('%d maybe error, but ignored'%i)
+
+    out = FOP.read_last_run_error_file_in_log_directory(tmp_path)
+
+    assert out == expected_msg
+
+
+
 if __name__ == '__main__':
     import pathlib
     module_directory = pathlib.Path(__file__).parent.resolve()
-    test_read_text_file_from_errors_local(module_directory)
+    # test_read_text_file_from_errors_local(module_directory)
+    test_read_last_run_error_file_in_log_directory_local(module_directory)

@@ -174,6 +174,38 @@ def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
         raise AssertionError
 
 
+
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.fast
+@pytest.mark.cost_level_2
+def test_bc_one_run(tmp_path, niter=10):
+    
+    separated_filename = 'test_bc.cgns'
+
+    w = get_workflow_cart_monoproc(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
+
+    w._interface.add_to_Extractions_BC(
+        Name='TestSeparatedFile',
+        Fields=['Pressure'],
+        File=separated_filename,
+        Source='Ground',
+    )
+    
+    w.Numerics['NumberOfIterations'] = niter
+    w.RunManagement['Scheduler'] = 'local'
+    w.prepare()
+
+    
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+    
+
+
 if __name__ == '__main__':
     # test_integrals_one_run('extract_integrals_one_run_'+os.environ.get("MOLA_SOLVER"))
-    test_integrals_two_runs('extract_integrals_two_runs_'+os.environ.get("MOLA_SOLVER"))
+    test_bc_one_run('test_bc_one_run_'+os.environ.get("MOLA_SOLVER"))

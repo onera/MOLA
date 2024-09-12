@@ -359,16 +359,16 @@ def reshapeFieldsForStructuredGrid(t):
                 if len(n[1].shape) != dim:
                     if dim == 2:
                         if loc == 'Vertex':
-                            n[1] = n[1].reshape((Ni,Nj))
+                            n[1] = n[1].reshape((Ni,Nj), order='F')
                         elif loc == 'CellCenter':
-                            n[1] = n[1].reshape((Ni-1,Nj-1))
+                            n[1] = n[1].reshape((Ni-1,Nj-1), order='F')
                         else:
                             raise NotImplementedError(f'loc must be "Vertex" or "CellCenter", but got: {loc}')
                     elif dim == 3:
                         if loc == 'Vertex':
-                            n[1] = n[1].reshape((Ni,Nj,Nk))
+                            n[1] = n[1].reshape((Ni,Nj,Nk), order='F')
                         elif loc == 'CellCenter':
-                            n[1] = n[1].reshape((Ni-1,Nj-1,Nk-1))
+                            n[1] = n[1].reshape((Ni-1,Nj-1,Nk-1), order='F')
                         else:
                             raise NotImplementedError(f'loc must be "Vertex" or "CellCenter", but got: {loc}')
 

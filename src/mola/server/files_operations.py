@@ -18,12 +18,13 @@
 import sys
 import os
 import subprocess
+import mola.naming_conventions as names
 
 from mola.logging import mola_logger, MolaException
 from . import remote
 
 def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000,
-        start_keywords=['error','traceback','abort'],
+        start_keywords=['error','traceback','abort','signal: segmentation fault'],
         skip_keywords=['userwarning','warnings.warn']):
 
     separator_line = 'SCANNED_ERRORS\n'
@@ -52,6 +53,34 @@ def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000
         if separator_line in out: return separator_line+out.split(separator_line)[-1]
         return ''
     
+    
+def read_last_run_error_file_in_log_directory(run_directory, 
+                                          **read_text_file_from_errors_params):
+
+    def get_stderr_filename(i):
+        fname = names.FILE_STDERR.replace('.log','-%d.log'%i)
+        return os.path.join(run_directory, names.DIRECTORY_LOG, fname)
+
+    i=1
+    any_file = False
+    filepath = get_stderr_filename(i)
+    while True:
+        if is_file( filepath ):
+            any_file = True
+        i += 1
+        next_filepath = get_stderr_filename(i)
+        if is_file( next_filepath ):            
+            filepath = next_filepath
+        else:
+            break
+
+    if any_file: 
+        return read_text_file_from_errors(filepath, **read_text_file_from_errors_params)
+
+    else:
+        return ''
+
+
 def save_file(filename, text, directory='.'):
     os.makedirs(directory, exist_ok=True)
     filename = os.path.join(directory, filename)
