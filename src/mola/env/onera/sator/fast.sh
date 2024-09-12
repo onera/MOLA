@@ -31,12 +31,13 @@ unset I_MPI_FABRICS_LIST
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
 # Treelab
-# NOTE installation hint:
-# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
+#     NOTE installation hint:
+#     python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/treelab/lib # because required libxcb-cursor is missing in sator https://bugreports.qt.io/browse/PYSIDE-2306
+# export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
+export TREELABPATH=/tmp_user/sator/lbernard/treelab/dev/sator_elsA # ONLY DURING DEV (replaces stable version)
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
-export PYTHONPATH=/tmp_user/sator/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # maia
 module use --append /tmp_user/sator/sonics/usr/modules/

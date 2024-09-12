@@ -43,15 +43,10 @@ export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
+# export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
+export TREELABPATH=/tmp_user/juno/lbernard/treelab/dev/juno_elsA # ONLY DURING DEV (replaces stable version)
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
-export PYTHONPATH=/tmp_user/juno/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
-
-# external python packages
-export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH
-export PATH=$MOLAext/spiro_el8/bin:$PATH
-export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH
