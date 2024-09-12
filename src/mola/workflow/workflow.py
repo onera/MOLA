@@ -50,13 +50,8 @@ from .workflow_interface import WorkflowInterface
 
 class Workflow(object):
 
-    def __init__(self, tree=None, **kwargs):
-
-        self._workflow_parameters_container_ = names.CONTAINER_WORKLFOW_PARAMETERS
-        self.Name = self.__class__.__name__
-        self.tree = tree
+    def __init__(self, **kwargs):
         self._interface = WorkflowInterface(self, **kwargs)
-        if tree is not None: self.get_workflow_parameters_from_tree()
         
     def prepare(self):
         self.prepare_job()
@@ -74,7 +69,6 @@ class Workflow(object):
         self.set_extractions()
         self.check_preprocess() # empty BCs... maybe solver-specific
         self.finalize_preprocess() # solver-specific
-        # self.set_workflow_parameters_in_file()
 
     def check_consistency_between_solver_and_environment(self):
         requested_solver = self.Solver
@@ -313,27 +307,6 @@ class Workflow(object):
                 if not callable(att):
                     params[a] = att
         return params
-
-    def get_workflow_parameters_from_tree(self, skip_attributes=['self','tree','workflow']):
-        
-        if isinstance(self.tree, str):
-            workflow_parameters = cgns.load_workflow_parameters(self.tree)
-        elif isinstance(self.tree, cgns.Tree):
-            workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_, transform_numpy_scalars=True)
-        else:
-            raise MolaUserError(f'The given tree must be either a filename or a Tree read by treelab.')
-        
-        for parameter in workflow_parameters:
-            setattr(self, parameter, workflow_parameters[parameter])
-
-        # for attributes appearing in constructor signature
-        expected_types = self._interface.get_argument_types(WorkflowInterface.__init__)
-        for attribute_name, expected_type in expected_types.items():
-            if attribute_name in skip_attributes: continue
-            if getattr(self, attribute_name) is None:
-                setattr(self, attribute_name, expected_type())
-
-        if self.SolverParameters is None: self.SolverParameters = dict()
     
     def read_tree(self, io_tool=None):
         if not hasattr(self, 'tree'):

@@ -697,8 +697,7 @@ def test_get_workflow_parameters_from_tree(filename=''):
     w = Workflow()
     w.set_workflow_parameters_in_tree()
     w.write_tree('test.cgns')
-    w.tree = 'test.cgns'
-    w.get_workflow_parameters_from_tree()
+    w = Workflow(tree='test.cgns')
     try: os.unlink('test.cgns')
     except: pass
     if filename: w.write_tree(filename)    

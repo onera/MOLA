@@ -24,17 +24,8 @@ from mola.cfd.preprocess.mesh import tools as mesh_tools
 
 class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
-    def __init__(self, tree=None, **kwargs):
-        
-        self.Name = self.__class__.__name__
-        self.tree = tree
-        self._interface = WorkflowTurbomachineryInterface(workflow=self, **kwargs)
-        if tree is not None:
-            self.get_workflow_parameters_from_tree()
-        else:
-            self._interface.add_to_Extractions_BC(Source='BCWallViscous', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
-            self._interface.add_to_Extractions_Integral(Source='BCInflow*', Fields=['MassFlow'])
-            self._interface.add_to_Extractions_Integral(Source='BCOutflow*', Fields=['MassFlow'])
+    def __init__(self, **kwargs):
+        self._interface = WorkflowTurbomachineryInterface(self, **kwargs)
 
     def submit_iso_speed_line(self, ThrottleValues, ParallelMode=False, initialize_from_previous=True):
 
