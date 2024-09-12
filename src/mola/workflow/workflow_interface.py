@@ -623,6 +623,7 @@ class WorkflowInterface(object):
         NumberOfThreads : int = None,
         Machine : str = None,
         User : str = None,
+        TimeLimit : Union[str, float] = None,
         TimeOutInSeconds : float = None,
         SecondsMarginForQuitBeforeTimeOut : float = None,
         LauncherCommand : str = 'auto',
