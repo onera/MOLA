@@ -46,7 +46,7 @@ export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
 export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
-export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
+export PYTHONPATH=/tmp_user/juno/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # external python packages
 export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH

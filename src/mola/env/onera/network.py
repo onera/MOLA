@@ -14,7 +14,7 @@ PatternsToEnvironments = {
     'sator*' : 'sator',
     'n03[3-9]' : 'sator',
     'n0[4-9][0-9]' : 'sator',
-    'n1??' : 'sator',
+    'n[1-9]??' : 'sator',
     'n????' : 'sator',
     'f0[1-4]' : 'juno',
     'v00[1-6]' : 'juno',  

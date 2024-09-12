@@ -314,7 +314,6 @@ class WorkflowSequentialScheduler():
         scheduler_options = run_manager.set_default(RunManagement)
         self.machine = RunManagement['Machine']
         self.scheduler = RunManagement['Scheduler']
-        self.run_on_localhost = SV.run_on_localhost(self.machine, RunManagement['RunDirectory'])
         self.job_text = write_cfd_files.get_job_text(first_workflow.Solver, RunManagement, scheduler_options)
 
     def prepare(self):

@@ -362,6 +362,8 @@ def _update_signals_zones(current_zone : cgns.Zone, previous_zone : cgns.Zone) -
     
     else:
         raise MolaException(f"unexpected case override_all={override_all} stack_all={stack_all}")
+    
+    current_zone.updateShape()
 
 
 def _update_signals_container_overriding_all(previous_flow_sol, current_flow_sol):
