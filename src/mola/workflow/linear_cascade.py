@@ -26,16 +26,7 @@ from .linear_cascade_interface import WorkflowLinearCascadeInterface
 class WorkflowLinearCascade(Workflow):
 
     def __init__(self, tree=None, **kwargs):
-        
-        self.Name = self.__class__.__name__
-        self.tree = tree
-        self._interface = WorkflowLinearCascadeInterface(workflow=self, **kwargs)
-        if tree is not None:
-            self.get_workflow_parameters_from_tree()
-        else:
-            self._interface.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
-            self._interface.add_to_Extractions_BC(Source='BCInflow*', Fields=['MassFlow'])
-            self._interface.add_to_Extractions_BC(Source='BCOutflow*', Fields=['MassFlow'])
+        self._interface = WorkflowLinearCascadeInterface(self, tree, **kwargs)
 
     def get_periodic_direction(self):
         # Get periodic match connections

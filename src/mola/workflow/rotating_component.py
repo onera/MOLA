@@ -54,13 +54,8 @@ class WorkflowRotatingComponent(Workflow):
 
     '''
 
-    def __init__(self, tree=None, **kwargs):
-
-        self.Name = self.__class__.__name__
-        self.tree = tree
+    def __init__(self, **kwargs):
         self._interface = WorkflowRotatingComponentInterface(self, **kwargs)
-        if tree is not None:
-            self.get_workflow_parameters_from_tree()
 
     def define_families(self):
         super().define_families()

@@ -142,6 +142,7 @@ def get_workflow_rotor37(RunDirectory):
 def test_init(tmp_path):
     w = get_compressor_example(tmp_path)
     w.print_interface()
+    assert w.Name == 'WorkflowTurbomachinery'
 
 @pytest.mark.unit
 @pytest.mark.elsa

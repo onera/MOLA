@@ -22,6 +22,7 @@ import numpy as np
 import copy
 
 from mpi4py import MPI
+from treelab import cgns
 from treelab.cgns.tree import Tree
 from treelab.cgns.base import Base
 from treelab.cgns.zone import Zone
@@ -38,7 +39,7 @@ import mola.naming_conventions as names
 
 class WorkflowInterface(object):
 
-    def __init__(self, workflow=None,
+    def __init__(self, workflow,
             tree=None,
             Solver : str = os.environ.get('MOLA_SOLVER'),
             RawMeshComponents : list = None,
@@ -60,15 +61,57 @@ class WorkflowInterface(object):
             ):
             
         attributes = self.get_default_values_from_local_signature()
+        self.workflow = workflow
+    
+        # Link attributes of WorkflowInterface to them of Workflow.
+        # Hence, a modification of the attribute in WorkflowInterface
+        # modifies the attribute of Workflow with the same name.
+        attr_names = list(attributes) + ['_workflow_parameters_container_', 'Name', 'tree']
+        for attr_name in attr_names:
+            if attr_name in ['self', 'workflow']:
+                continue
+            self._create_property(attr_name)
 
         self._workflow_parameters_container_ = names.CONTAINER_WORKLFOW_PARAMETERS
+        self.Name = self.workflow.__class__.__name__
+        self.tree = tree
 
-        self.Name = workflow.Name if workflow else self.__class__.__name__
-        self.set_attributes(attributes)
-        self.transfer_attributes_to_workflow(workflow)
+        if self.tree is None: 
+            self.set_attributes(attributes)
+        else:
+            self.get_workflow_parameters_from_tree()
+        
+    def _create_property(self, attr_name):
+        def getter(self):
+            return getattr(self.workflow, attr_name)
 
+        def setter(self, value):
+            setattr(self.workflow, attr_name, value)
 
+        setattr(WorkflowInterface, attr_name, property(getter, setter))
 
+    
+    def get_workflow_parameters_from_tree(self, skip_attributes=['self','tree','workflow']):
+        
+        if isinstance(self.tree, str):
+            workflow_parameters = cgns.load_workflow_parameters(self.tree)
+        elif isinstance(self.tree, cgns.Tree):
+            workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_, transform_numpy_scalars=True)
+        else:
+            raise MolaUserError(f'The given tree must be either a filename or a Tree read by treelab.')
+        
+        for parameter in workflow_parameters:
+            setattr(self, parameter, workflow_parameters[parameter])
+
+        # for attributes appearing in constructor signature
+        expected_types = self.get_argument_types(WorkflowInterface.__init__)
+        for attribute_name, expected_type in expected_types.items():
+            if attribute_name in skip_attributes: continue
+            if getattr(self, attribute_name) is None:
+                setattr(self, attribute_name, expected_type())
+
+        if self.SolverParameters is None: self.SolverParameters = dict()
+    
     def set_attributes(self, attributes, skip_attributes=['self','tree','workflow']):
 
         expected_attribute_types = self.get_argument_types(WorkflowInterface.__init__)
