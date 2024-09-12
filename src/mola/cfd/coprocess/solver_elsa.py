@@ -159,6 +159,7 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
     
         data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
         data_tree = cgns.castNode(data_tree)
+
         SurfacesTree.merge(data_tree)
     
     if extraction['Name'] != 'ByFamily':

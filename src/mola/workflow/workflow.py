@@ -376,32 +376,36 @@ class Workflow(object):
         import pprint
         return pprint.pformat(params)
 
-    def simulation_status(self, raise_error_if_not_completed=True,
-            max_lines_of_catched_error=1000):
+    def simulation_status(self, max_lines_of_catched_error=1000):
         run_dir = self.RunManagement['RunDirectory']
         machine = self.RunManagement['Machine']
         user = self.RunManagement.get('User')
 
+
         if SV.is_existing_path(os.path.join(run_dir, names.FILE_JOB_COMPLETED),
                 machine=machine, user=user, file_only=True):
-            return names.FILE_JOB_COMPLETED
+            
+            errmsg = SV.read_last_run_error_file_in_log_directory(run_dir)
+            if errmsg:
+                raise MolaException(errmsg)
+
+            status = names.FILE_JOB_COMPLETED
         
         elif SV.is_existing_path(os.path.join(run_dir, names.FILE_JOB_FAILED),
                 machine=machine, user=user, file_only=True):
             status = names.FILE_JOB_FAILED
+
         else:
             status = 'RUNNING, NOT STARTED OR CRASHED'
 
-        errmsg = SV.read_text_file_from_errors(os.path.join(run_dir, names.FILE_STDERR),
-            machine=machine, user=user, max_lines=max_lines_of_catched_error)
-        if raise_error_if_not_completed:
-            if errmsg:
-                raise MolaException(errmsg)
-            else:
-                raise MolaException(f'missing COMPLETED, but did not find any error. Check your computation at {self.RunManagement["RunDirectory"]}')
-        else:
-            mola_logger.warning(errmsg)
-            status += '\n'+errmsg
+        try:
+            crashmsg = SV.read_text_file_from_errors(os.path.join(run_dir, names.FILE_STDERR),
+                machine=machine, user=user, max_lines=max_lines_of_catched_error)
+            
+            if crashmsg:
+                raise MolaException(crashmsg)
+        except FileNotFoundError:
+            pass
 
         return status
 

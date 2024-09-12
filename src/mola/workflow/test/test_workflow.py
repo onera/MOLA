@@ -260,7 +260,7 @@ def get_workflow_sphere_struct(RunDirectory):
         ],
 
         Extractions=[
-            dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
+            # dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ',
                  IsoSurfaceValue=1.e-6),
@@ -321,7 +321,7 @@ def get_workflow_sphere_struct_cassiopee_mpi_to_connect(RunDirectory):
         ],
 
         Extractions=[
-            dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
+            # dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ',
                  IsoSurfaceValue=1.e-6),
