@@ -18,7 +18,7 @@
 from treelab import cgns
 
 from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames, get_turbulent_primitives
 from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
 
 BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
@@ -82,10 +82,6 @@ def BCInflowSubsonicPressure_interface(workflow, **kwargs):
     VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', workflow.Flow['Direction'][0])
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', workflow.Flow['Direction'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', workflow.Flow['Direction'][2])
-    turb_values = workflow.Turbulence['Conservatives']
-    for key in turb_values.keys():
-        if key in kwargs:
-            turb_values[key] = kwargs[key]
 
     ImposedVariables = dict(
         PressureStagnation  = PressureStagnation,
@@ -93,7 +89,7 @@ def BCInflowSubsonicPressure_interface(workflow, **kwargs):
         VelocityUnitVectorX = VelocityUnitVectorX,
         VelocityUnitVectorY = VelocityUnitVectorY,
         VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **turb_values
+        **get_turbulent_primitives(workflow, **kwargs)
         )
     return ImposedVariables
 

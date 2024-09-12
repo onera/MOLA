@@ -25,6 +25,7 @@ from treelab import cgns
 import mola.naming_conventions as names
 from mola.cfd.compute.read_cfd_files import read_cfd_files
 from mola.cfd.preprocess.extractions.solver_sonics import add_fields_and_bc_extractions, add_integral_extractions
+from mola.cfd.preprocess.cfd_parameters.solver_sonics import get_cfl_function
 
 def apply_to_solver(workflow):
 
@@ -68,7 +69,7 @@ def get_iterators(workflow, configuration):
 
     pytriggers = []
     pytriggers.append(triggers.ExecutionTrigger(configuration["conf"], workflow.Numerics['NumberOfIterations']))
-    pytriggers.append(triggers.CflTrigger(configuration["conf"], lambda iteration: workflow.Numerics['CFL']))
+    pytriggers.append(triggers.CflTrigger(configuration["conf"], get_cfl_function(workflow.Numerics['CFL'])))
 
     if any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
         pytriggers.append(triggers.ResidualTrigger(configuration["conf"], workflow.Numerics['NumberOfIterations'],

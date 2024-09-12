@@ -20,6 +20,7 @@ import glob
 import shutil
 from fnmatch import fnmatch
 import warnings
+import numpy as np
 
 import elsAxdt
 
@@ -206,7 +207,6 @@ def extract_residuals(output_tree, extraction):
 
 def extract_integral(output_tree, extraction) -> None:
     
-    # output_tree.save('debug.cgns');exit()
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
     for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):
@@ -223,9 +223,11 @@ def extract_integral(output_tree, extraction) -> None:
         IntegralDataNode.dettach()
         IntegralDataNode.setName('FlowSolution')
         IntegralDataNode.setType('FlowSolution_t')
-        for n in IntegralDataNode.children(): n.setType('DataArray_t')
+        for n in IntegralDataNode.children(): 
+            n.setType('DataArray_t')
         translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
-        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+        size = n.value().size
+        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode], Value=np.array([[size, size-1, 0]]))
         zone.setParameters('MOLA:Extraction-Log',**extraction)
         break
 

@@ -28,19 +28,9 @@ def apply_to_solver(workflow):
     # process_extractions(workflow)
     adapt_extractions(workflow.Extractions)
 
-    # TODO To remove once Integral extractions are available
-    remove_integral_extractions(workflow)
-
-def remove_integral_extractions(workflow):
-    remaining_extractions = []
-    for ext in workflow.Extractions: 
-        if ext['Type'] != 'Integral':
-            remaining_extractions.append(ext)
-    workflow.Extractions = remaining_extractions
-
 def adapt_extractions(Extractions):
     for ext in Extractions:
-        if ext['Type'] in  ['BC', 'Residuals']:
+        if ext['Type'] in  ['BC', 'Residuals', 'Integral']:
             ext['ExtractionPeriod'] = 1000000000 # Only done at the end of the simulation
             ext['SavePeriod'] = 1000000000 # Only done at the end of the simulation
             ext['ExtractAtEndOfRun'] = True
@@ -147,7 +137,7 @@ def add_integral_extractions(workflow):
 
         extracts = []
         for extraction in workflow.Extractions:
-            if extraction['Type'] != 'Integral' or len(extraction['Fields'])==0:
+            if extraction['Type'] != 'Integral':
                 continue
 
             families = get_bc_families_names_to_extract(workflow.tree, extraction, familiesBC)

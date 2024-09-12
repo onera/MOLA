@@ -45,3 +45,12 @@ def read(workflow):
     if len(dimOfBases) != 1:
         raise MolaUserError('All bases must have the same physical dimension')
     workflow.ProblemDimension = int(list(dimOfBases)[0])
+
+    enforce_name_of_FamilyBC(workflow.tree)
+
+def enforce_name_of_FamilyBC(tree: cgns.Tree):
+    # Mainly for PointWise, that use the name 'FamBC' for 'FamilyBC_t' nodes, 
+    # whereas the CGNS norm is using the name 'FamilyBC'
+    # See http://cgns.github.io/CGNS_docs_current/sids/misc.html#Family (point #2 in Notes) 
+    for node in tree.group(Type='FamilyBC'):
+        node.setName('FamilyBC')

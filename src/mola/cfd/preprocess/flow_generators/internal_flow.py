@@ -33,8 +33,12 @@ class InternalFlowGenerator(ExternalFlowGenerator):
         try:
             self.Surface = workflow.ApplicationContext['Surface']
         except KeyError:
-            self.Surface = self.get_surface_of_inflow(workflow)
-    
+            try:
+                self.Surface = self.get_surface_of_inflow(workflow)
+            except:
+                raise MolaException('Cannot compute the inflow Surface automatically. '
+                                     'Please provide the parameter "Surface" in workflow.ApplicationContext.')
+
     def set_Flow_defaults(self,
             MassFlow               : float = None,
             Mach                   : float = None,

@@ -35,8 +35,12 @@ def extract_bc_from_zsr(tree, Family, comm):
                 if any([node.value() == Family for node in FamilyName_nodes]):
                     zsr_names.append(zsr.name())
 
+    # Gather zsr_names on all ranks and make a list with unique names
+    all_zsr_names = comm.allgather(zsr_names)
+    shared_zsr_names = list(set([item for sublist in all_zsr_names for item in sublist]))
+
     zones = []
-    for zsr_name in zsr_names:
+    for zsr_name in shared_zsr_names:
         extracted_tree = maia.algo.part.extract_part_from_zsr(tree, zsr_name, comm, containers_name=[]) 
         extracted_tree = cgns.castNode(extracted_tree)
         zones.extend(extracted_tree.zones())

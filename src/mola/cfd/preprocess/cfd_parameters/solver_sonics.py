@@ -59,13 +59,7 @@ def apply_to_solver(workflow):
 
     import miles
 
-    # TODO take into account a dict for the CFL
-    # For now, it must be a float
-    if not isinstance(workflow.Numerics['CFL'], float):
-        raise MolaException(f"CFL must be a float (now it is a {type(workflow.Numerics['CFL'])})")
-    
     my_config = miles.solver.config.Configuration(workflow.tree)
-    # print(my_config.get_feature_diagram())
     my_config.update(
         "motion/mobile",
         "viscosity",
@@ -73,22 +67,11 @@ def apply_to_solver(workflow):
         *get_spatial_fluxes_template(workflow.Numerics)[0],
         *get_time_marching_template(workflow.Numerics)[0],
     )
-    my_config.set(
-        CFL = workflow.Numerics['CFL'],
-        pctrad = 0.01,
-        cutvars = get_turbulence_cutoff_setup(workflow.Turbulence),
-        # residual_convergence = 1e-12,
-    )
 
     update_fluid_model(my_config, workflow.Fluid)
 
+    set_tuning_parameters(workflow, my_config)
     configuration = my_config.apply()
-
-    # pprint( my_config.get_active_features())
-    # pprint(my_config.parameters)
-    # pprint(my_config.default_parameters)
-    # pprint(configuration)
-
     configuration.update(
         dict(
             output_folder = names.DIRECTORY_LOG,
@@ -103,11 +86,10 @@ def apply_to_solver(workflow):
 
     # convert to dict to be able to write in cgns tree with treelab
     # configuration['conf']  = configuration['conf'].to_dict(configuration['conf'])
+    del configuration['configuration']
     del configuration['hpc_conf'] 
 
     workflow.SolverParameters['configuration'] = nested_dict_from_keys(configuration)
-    # pprint(workflow.SolverParameters['configuration'])
-
     workflow.tree = cgns.castNode(workflow.tree)
 
 def get_spatial_fluxes_template(Numerics):
@@ -186,6 +168,17 @@ def update_fluid_model(config, Fluid):
             key = translate_to_miles[key]
         config.set(**{key: value})
         
+def get_cfl_function(cfl):
+    if isinstance(cfl, dict):
+        if cfl['EndIteration'] <= cfl['StartIteration'] \
+            or cfl['EndValue'] <= cfl['StartValue']:
+            CFLfunction = lambda iteration: cfl
+        else:
+            a = (cfl['EndValue']-cfl['StartValue']) / (cfl['EndIteration']-cfl['StartIteration'])
+            CFLfunction = lambda iteration: cfl['StartValue'] + a * (iteration - cfl['StartIteration'])
+    else:
+        CFLfunction = lambda iteration: cfl
+    return CFLfunction
 
 def nested_dict_from_keys(d):
     result = {}
@@ -204,3 +197,14 @@ def nested_dict_from_keys(d):
             # Otherwise, keep the key-value pair as is
             result[key] = value
     return result
+
+def set_tuning_parameters(workflow, config):
+    if isinstance(workflow.Numerics['CFL'], float):
+        config.set(CFL = workflow.Numerics['CFL'])
+    else:
+        config.set(CFL = workflow.Numerics['CFL']['EndValue'])
+    config.set(
+        pctrad = 0.01,
+        cutvars = get_turbulence_cutoff_setup(workflow.Turbulence),
+        # residual_convergence = 1e-12,
+    )

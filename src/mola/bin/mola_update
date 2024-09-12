@@ -19,11 +19,8 @@ except:
     from mola.logging import MolaException
     raise MolaException(f'Unable to read {args.filename}')
 
-for name in ['NumberOfIterations']:
-    node = WorkflowParameters.get(Name=name)
+if isinstance(args.NumberOfIterations, int):
+    node = WorkflowParameters.get(Name='NumberOfIterations')
     node.setValue(args.NumberOfIterations)
-
-# FIXME works only with backend='cassiopee'. See https://github.com/Luispain/treelab/issues/8
-WorkflowParameters.saveThisNodeOnly(args.filename, backend='cassiopee')  
-
-print(f'NumberOfIterations has been updated to {args.NumberOfIterations}')
+    node.saveThisNodeOnly(args.filename)  
+    print(f'NumberOfIterations has been updated to {args.NumberOfIterations}')

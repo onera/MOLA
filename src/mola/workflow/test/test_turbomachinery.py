@@ -93,6 +93,7 @@ def get_workflow_rotor37(RunDirectory):
 
         ApplicationContext = dict(
             ShaftRotationSpeed = -1800., 
+            # Surface = 0.11062898087649121,
             Rows = dict(
                 R37 = dict(
                     IsRotating = True,
