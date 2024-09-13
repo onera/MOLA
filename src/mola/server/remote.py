@@ -29,7 +29,7 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
         remote_solver=os.environ.get('MOLA_SOLVER'),
 
         # due to abusive redirection to stderr of slurm commands:
-        false_errors_contain=['warning',],
+        false_errors_contain=['warning', 'machar = _get_machar(dtype)'],  # machar: warning of compatibility between numpy and socle
         false_errors_start_with='sbatch:',
         true_errors_start_with='sbatch: error:'):
 
