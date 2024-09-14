@@ -18,9 +18,11 @@
 import copy
 import numpy as np
 
+from treelab import cgns
+
 from . import Workflow
 from .rotating_component_interface import WorkflowRotatingComponentInterface
-from mola.logging import mola_logger, MolaException, MolaAssertionError
+from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, redirect_streams_to_logger
 from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
 from  mola.cfd.preprocess.mesh import duplicate
 
@@ -319,4 +321,72 @@ class WorkflowRotatingComponent(Workflow):
                 
                 mola_logger.debug(f'fluxcoeff on Family {Family} is {fluxcoeff}')
                 self.ApplicationContext['NormalizationCoefficient'][Family] = dict(FluxCoef=fluxcoeff)
-            
+
+    def parametrize_with_height(self, method=2):
+        '''
+        Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
+        relies on the turbo module.
+
+        .. important::
+
+            Dependency to *turbo* module. See file:///stck/jmarty/TOOLS/turbo/doc/html/index.html
+
+        Parameters
+        ----------
+
+            method : int
+                Method used for ``turbo.height.generateHLinesAxial()``. Default value is 2.
+        '''
+        import os
+        import Converter.Internal as I
+        import turbo.height as TH
+
+        def plot_hub_and_shroud_lines(t):
+            # Get geometry
+            hub     = I.getNodeFromName(t, 'Hub')
+            xHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateX'))
+            yHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateY'))
+            shroud  = I.getNodeFromName(t, 'Shroud')
+            xShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateX'))
+            yShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateY'))
+            # Import matplotlib
+            import matplotlib.pyplot as plt
+            # Plot
+            plt.figure()
+            plt.plot(xHub, yHub, '-', label='Hub')
+            plt.plot(xShroud, yShroud, '-', label='Shroud')
+            plt.axis('equal')
+            plt.grid()
+            plt.xlabel('x (m)')
+            plt.ylabel('y (m)')
+            # Save
+            plt.savefig('shroud_hub_lines.png', dpi=150, bbox_inches='tight')
+            return 0
+
+        mola_logger.info('Add ChannelHeight in the mesh...')
+        OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
+        I.__FlowSolutionNodes__ = 'FlowSolution#Height'
+
+        # HACK ETC needs that IndexRange_t nodes have a value of type int32, and not int64
+        for node in self.tree.group(Type='IndexRange'):
+            node.setValue(np.asarray(node.value(), dtype=np.int32))
+
+        with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG', stderr_level='ERROR'):
+
+            endlinesTree = TH.generateHLinesAxial(self.tree, filename='shroud_hub_lines.plt', method=method)
+            try: 
+                plot_hub_and_shroud_lines(endlinesTree)
+            except: 
+                pass
+
+            # - Generation of the mask file
+            m = TH.generateMaskWithChannelHeight(self.tree, 'shroud_hub_lines.plt')
+            # os.remove('shroud_hub_lines.plt')
+
+            # - Generation of the ChannelHeight field
+            TH._computeHeightFromMask(self.tree, m, writeMask='mask.cgns')
+        
+        I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
+        
+        self.tree = cgns.castNode(self.tree)
+

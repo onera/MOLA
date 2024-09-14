@@ -47,8 +47,8 @@ module load maia/$MAIAVERSION-dsi-cfd6
 # export PYTHONPATH=$VPMPATH:$PYTHONPATH
 # export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
-# # turbo
-# export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+# turbo
+export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/sator_new22/lib/python3.8/site-packages/:$PYTHONPATH
 
 # # ErstaZ
 # export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator

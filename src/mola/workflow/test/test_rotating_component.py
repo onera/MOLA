@@ -26,6 +26,59 @@ from mola.logging import mola_logger, MolaAssertionError
 
 import maia.pytree as PT
 
+def get_workflow_annular_sector_parameters(RunDirectory):
+
+    params = dict( 
+        RawMeshComponents=[
+        dict(
+            Name='annularSector',
+            Source='/stck/mola/data/mesh/annular_sector_45deg/annular_sector_45deg.cgns',
+            Connection = [
+                    dict(Type='PeriodicMatch', 
+                         RotationAngle=np.array([45., 0., 0.]), 
+                         Families=('PER1', 'PER2'),
+                         Tolerance=1e-8
+                         ),
+                ],
+            )
+    ],
+
+    ApplicationContext = dict(
+        ShaftRotationSpeed = 0., 
+        Rows = dict(
+            Fluid = dict(NumberOfBlades=8), 
+        )
+    ),
+
+    Flow = dict(
+        Velocity = 10.,      
+    ),
+
+    # Turbulence = dict(
+    #     Model='SA',
+    # ),
+
+    Numerics = dict(
+        NumberOfIterations = 5,
+        # CFL = dict(EndIteration=300, StartValue=1., EndValue=30.),
+    ),
+
+    BoundaryConditions = [
+        dict(Family='Inflow', Type='InflowStagnation'),
+        dict(Family='Outflow', Type='OutflowPressure'), 
+    ],
+
+    RunManagement=dict(
+        JobName='annular_sector',
+        NumberOfProcessors=4,
+        RunDirectory=RunDirectory,
+        ),
+    )
+    return params
+
+def get_workflow_annular_sector(RunDirectory):
+    return WorkflowRotatingComponent(**get_workflow_annular_sector_parameters(RunDirectory))
+
 class FakeWorkflow(WorkflowRotatingComponent):
 
     def __init__(self):
@@ -69,6 +122,12 @@ Base CGNSBase_t:
         )
 
         
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_init(tmp_path):
+    w = get_workflow_annular_sector(tmp_path)
+    w.print_interface()
+    assert w.Name == 'WorkflowRotatingComponent'
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -144,4 +203,42 @@ def test_compute_fluxcoef_by_row():
     assert w.ApplicationContext['NormalizationCoefficient'] == dict(
         fake_shroud = dict(FluxCoef=16.0)
         )
+
+@pytest.mark.unit
+@pytest.mark.cost_level_3
+def test_parametrize_with_height(tmp_path):
+    w = get_workflow_annular_sector(tmp_path)
+    w.assemble()
+    try:
+        w.parametrize_with_height()
+        assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
+    except ImportError:
+        mola_logger.warning('turbo module cannot be found!')
+        pass
+
+@pytest.mark.unit
+@pytest.mark.cost_level_2
+def test_duplicate(tmp_path):
+    params = get_workflow_annular_sector_parameters(tmp_path)
+    params['ApplicationContext']['Rows']['Fluid']['NumberOfBladesSimulated'] = 2
+    w = WorkflowRotatingComponent(**params)
+    w.assemble()
+    if w.tree.isStructured():
+        for bc in w.tree.group(Type='BC'):
+            if bc.get(Type='FamilyName').value().startswith('PER'):
+                bc.remove()
+    w.positioning()
+    w.connect()
+    rotor_zone_names = ['blk-1']
+    w.define_families()
+    if w.tree.isStructured():
+        for name in rotor_zone_names:
+            assert w.tree.get(Type='Zone', Name=f'{name}.D0') is not None
+            assert w.tree.get(Type='Zone', Name=f'{name}.D1') is not None
+    else:
+        import maia
+        from mpi4py import MPI
+        if not w.tree.get(Name='NFaceElements'):
+            maia.algo.pe_to_nface(w.tree, MPI.COMM_WORLD)  # because for now, compute_azimuthal_extension_from_family use cassiopee and need NFaceElements
+        assert np.isclose(w.compute_azimuthal_extension_from_family(w.tree, 'Fluid', [1,0,0]), np.radians(90), rtol=1e-2)
 

@@ -144,37 +144,6 @@ def test_init(tmp_path):
     w.print_interface()
     assert w.Name == 'WorkflowTurbomachinery'
 
-@pytest.mark.unit
-@pytest.mark.elsa
-@pytest.mark.sonics
-@pytest.mark.cost_level_2
-def test_duplicate(tmp_path):
-    params = get_compressor_example_parameters(tmp_path)
-    params['ApplicationContext'] = dict(
-        ShaftRotationSpeed = 6000 * np.pi / 30., 
-        Rows = dict(
-            Rotor = dict(IsRotating=True, NumberOfBlades=30, NumberOfBladesSimulated=2), 
-            Stator = dict(NumberOfBlades=40),
-        )
-    )
-    w = WorkflowTurbomachinery(**params)
-    w.assemble()
-    w.positioning()
-    w.connect()
-    rotor_zone_names = [zone.name() for zone in w.tree.zones() if zone.get(Type='FamilyName', Depth=1).value() == 'Rotor']
-    w.define_families()
-    if w.tree.isStructured():
-        for name in rotor_zone_names:
-            assert w.tree.get(Type='Zone', Name=f'{name}.D0') is not None
-            assert w.tree.get(Type='Zone', Name=f'{name}.D1') is not None
-    else:
-        import maia
-        from mpi4py import MPI
-        if not w.tree.get(Name='NFaceElements'):
-            maia.algo.pe_to_nface(w.tree, MPI.COMM_WORLD) # because for now, compute_azimuthal_extension_from_family use cassiopee and need NFaceElements
-        assert np.isclose(w.compute_azimuthal_extension_from_family(w.tree, 'Rotor', [1,0,0]), np.radians(24), rtol=1e-3)
-
-
 @pytest.mark.user_case
 @pytest.mark.elsa # since not still functional using Fast
 @pytest.mark.cost_level_4
