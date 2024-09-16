@@ -21,6 +21,7 @@ from treelab import cgns
 from mola import misc
 from mola.logging import mola_logger, MolaException, MolaUserError
 
+# TODO for elsa, add injrot, wallisoth and Giles conditions
 BoundaryConditionsNames = dict(
     Farfield                     = dict(elsa='nref',
                                         sonics='BCFarfield',
@@ -29,19 +30,22 @@ BoundaryConditionsNames = dict(
     InflowMassFlow               = dict(elsa='injmfr1', sonics='BCInflowSubsonicMassFlow'),
     OutflowPressure              = dict(elsa='outpres', sonics='BCOutflowSubsonic'),
     OutflowMassFlow              = dict(elsa='outmfr2'),
-    OutflowRadialEquilibrium     = dict(elsa='outradeq'),
-    MixingPlane                  = dict(elsa='stage_mxpl'),
-    # UnsteadyRotorStatorInterface = dict(elsa='stage_red'),
+    OutflowRadialEquilibrium     = dict(elsa='outradeq', sonics='BCOutflowRadialEquilibrium'),
+    
     WallViscous                  = dict(elsa='walladia',
                                         sonics='BCWallViscous',
                                         fast='BCWall'),
-    # WallViscousIsothermal        = dict(elsa='wallisoth', sonics='BCWallViscousIsothermal'),
+    WallViscousIsothermal        = dict(sonics='BCWallViscousIsothermal'),
     WallInviscid                 = dict(elsa='wallslip',
                                         sonics='BCWallInviscid',
                                         fast='BCWall'),
     SymmetryPlane                = dict(elsa='sym',
                                         sonics='BCSymmetryPlane',
                                         fast='BCSymmetryPlane'),
+
+    MixingPlane                  = dict(elsa='stage_mxpl'),  # use hybrid version by default ? 
+    UnsteadyRotorStatorInterface = dict(elsa='stage_red'),  # use hybrid version by default ? 
+    ChorochronicInterface        = dict(elsa='chorochronic'),
 )
 
 # Shortcuts for already defined boundary conditions
@@ -52,7 +56,7 @@ BoundaryConditionsNames.update(
 )
 
 permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'OutflowPressure', 'OutflowMassFlow', 'OutflowRadialEquilibrium']
-turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface']
+turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface']
 
 # def check_name_is_one_of_authorized_names(name, authorized_names):
 #     import difflib

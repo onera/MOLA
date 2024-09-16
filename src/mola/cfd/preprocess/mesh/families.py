@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import treelab.cgns as cgns
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, MolaUserError
 # from mola.cfd.preprocess.boundary_conditions import BoundaryConditionsNames
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
@@ -242,3 +242,13 @@ def get_family_to_BCType( t : cgns.Tree ) -> dict:
         if bctype is not None:
             families_to_bctype[famnode.name()] = bctype.value()
     return families_to_bctype
+
+def get_zone_family_from_bc_or_gc_family(tree: cgns.Tree, bc_family: str) -> str:
+    for zone in tree.zones():
+        for bc in zone.group(Type='BC') + zone.group(Type='GridConnectivity*'):
+            if bc.get(Type='*FamilyName', Value=bc_family):
+                FamilyName = zone.get(Type='FamilyName', Depth=1)
+                if FamilyName:
+                    return FamilyName.value()
+    
+    raise MolaUserError(f'Cannot find a zone Family from the BC or GC Family {bc_family}. Check the input tree and family names.')

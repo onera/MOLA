@@ -23,6 +23,55 @@ from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
 
 BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
 
+
+import maia.pytree as PT
+
+class BCOutflowRadialEquilibrium_adhoc():
+
+    # HACK Before a solution is implemented in Miles and SoNICS
+
+    def __init__(self, tree, family_list, Pressure=None, PivotPercenthH=0.):
+        # Input parameters, shared between all BCs
+        self.tree = tree
+        self.family_list = [family_list] if isinstance(family_list, str) else family_list
+        # Private attributes
+        self.related_bcs = None
+        self.turbulent_variable_names = None
+        self._find_family_nodes()
+
+        self.Pressure = Pressure
+        self.PivotPercenthH = PivotPercenthH
+
+    def _find_family_nodes(self):
+        not_matched = []
+        self.family_nodes = []
+        for fam_pattern in self.family_list:
+            nodes = PT.get_nodes_from_name_and_label(self.tree,fam_pattern,"Family_t")
+            self.family_nodes.extend(nodes)
+            if not len(nodes): not_matched.append(fam_pattern)
+        self.family_names = list(map(PT.get_name,self.family_nodes))
+        if len(not_matched):
+            all_fam = set(map(PT.get_name,PT.get_nodes_from_label(self.tree,"Family_t")))
+            not_matched = [f"'{pat}'" for pat in not_matched]
+            raise KeyError((f"Family name(s) {', '.join(not_matched)} not "
+                "found or matched in provided tree. Available families in the "
+                f"tree: {', '.join(all_fam)}"))
+
+    def apply(self):
+        for family in self.family_nodes:
+            PT.update_child(family, 'FamilyBC', 'FamilyBC_t',value="BCOutflowSubsonic")
+            solver_bc = PT.update_child(family, '.Solver#BC', 'UserDefinedData_t')
+            PT.update_child(solver_bc, 'type', 'DataArray_t', value="outradeq")
+            bcds = PT.update_child(family, 'BCDataSet', 'FamilyBCDataSet_t')
+            bcdata = PT.update_child(bcds, 'NeumannData', 'BCData_t')
+            PT.new_DataArray('PressureStagnation', [self.Pressure], dtype='R8', parent=bcdata)
+            PT.new_DataArray('PivotPercenthH', [self.PivotPercenthH], dtype='R8', parent=bcdata)
+
+def outradeq(tree, family_list, Pressure, PivotPercenthH):
+    bc = BCOutflowRadialEquilibrium_adhoc(tree, family_list, Pressure=Pressure, PivotPercenthH=PivotPercenthH)
+    bc.apply()
+
+
 # For each boundary condition, this generic function does the job
 def function_generator(name):
     def set_bc(workflow, **kwargs):
@@ -43,20 +92,13 @@ def function_generator(name):
         if interface is not None:
             kwargs = interface(workflow, Family=Family, **kwargs)
 
-        # TODO These two lines should be put in miles
-        family_node = workflow.tree.get(Name=Family, Type='Family', Depth=2)
-        family_node.findAndRemoveNode(Type='FamilyBC')
-
-        miles.bcfactory(workflow.tree, name, Family, **kwargs)
+        if name == 'BCOutflowRadialEquilibrium':
+            # TODO This function is TEMPORARY, it will be put in Miles
+            outradeq(workflow.tree, Family, **kwargs)
+        else:
+            miles.bcfactory(workflow.tree, name, Family, **kwargs)
         workflow.tree = cgns.castNode(workflow.tree)
     return set_bc
-
-# def outradeq():
-#     data_outflow = dict(PressureStagnation=ps,
-#                       PivotPercenthH=0.0001,
-#                      )
-#     type='outradeq'
-
 
 # Define functions with the write name to be called from .boundary_conditions
 for fun_name in BoundaryConditionsNamesInSONICS:
@@ -137,5 +179,12 @@ def BCInflowSubsonicMassFlow_interface(workflow, **kwargs):
 def BCOutflowSubsonic_interface(workflow, **kwargs):
     ImposedVariables = dict(
         Pressure = kwargs.get('Pressure', workflow.Flow['Pressure'])
+        )
+    return ImposedVariables
+
+def BCOutflowRadialEquilibrium_interface(workflow, **kwargs):
+    ImposedVariables = dict(
+        Pressure = kwargs.get('Pressure', workflow.Flow['Pressure']),
+        PivotPercenthH = kwargs.get('PivotPercenthH', 0.),
         )
     return ImposedVariables
