@@ -31,7 +31,7 @@ import mola.cfd.postprocess as POST
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction, write_extraction_log
 from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_sonics_CGNS_field_names_to_MOLA
 
 
@@ -71,6 +71,8 @@ def perform_extractions(workflow, coprocess_manager):
         else:
             coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for SoNICS", rank=0)
             extraction['Data'] = cgns.Tree()
+
+        write_extraction_log(extraction)
 
 def get_output_tree(coprocess_manager):
     # output_tree is set in compute/solver_sonics.py
@@ -180,7 +182,6 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
         cgns.Node(Name='IterationNumber', Type='DataArray', Value=np.arange(NumberOfIterations, dtype=float), Parent=IntegralDataNode)
         zone = cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
-        zone.setParameters('MOLA:Extraction-Log',**extraction)
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
