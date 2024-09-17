@@ -50,7 +50,7 @@ export PYTHONPATH=$VPMPATH:$PYTHONPATH
 export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
 
 # turbo
-export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/spiro3_mpi/lib/python3.8/site-packages/:$PYTHONPATH
+export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/spiro-el8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
 
 # ErstaZ
 export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
