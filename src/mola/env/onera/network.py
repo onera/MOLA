@@ -22,9 +22,9 @@ PatternsToEnvironments = {
     'n01[0-9]' : 'juno',  
     'n02[0-9]' : 'juno',  
     'n03[0-2]' : 'juno',  
-    'b00[1-2]$' : 'juno',  
-    'a00[1-4]$' : 'juno',  
-    'g00[1-2]$' : 'juno',  
+    'b00[1-2]' : 'juno',  
+    'a00[1-4]' : 'juno',  
+    'g00[1-2]' : 'juno',  
 }
 
 
