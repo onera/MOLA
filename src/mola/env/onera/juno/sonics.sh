@@ -31,7 +31,7 @@ export MACHINE=juno
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
-source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh
+source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
 
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
