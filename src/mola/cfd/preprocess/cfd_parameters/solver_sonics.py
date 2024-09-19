@@ -175,7 +175,8 @@ def get_cfl_function(cfl):
             CFLfunction = lambda iteration: cfl
         else:
             a = (cfl['EndValue']-cfl['StartValue']) / (cfl['EndIteration']-cfl['StartIteration'])
-            CFLfunction = lambda iteration: cfl['StartValue'] + a * (iteration - cfl['StartIteration'])
+            linear_ramp = lambda iteration: cfl['StartValue'] + a * (iteration - cfl['StartIteration'])
+            CFLfunction = lambda iteration: min(linear_ramp(iteration), cfl['EndValue'])
     else:
         CFLfunction = lambda iteration: cfl
     return CFLfunction
