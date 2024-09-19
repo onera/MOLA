@@ -77,12 +77,17 @@ def perform_extractions(workflow, coprocess_manager):
 def get_output_tree(coprocess_manager):
     # output_tree is set in compute/solver_sonics.py
     output_tree = coprocess_manager.output_tree
+    for zc in output_tree.group(Type='ZoneGridConnectivity', Depth=3):
+        zc.findAndRemoveNodes(Name='*#Vtx')  # otherwise, error in the function centers_to_nodes below
     # partionning
     part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD)
     maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
+    maia.algo.part.centers_to_nodes(part_tree, comm, ['FSolution#CellCenter#EndOfRun'])
     part_tree = cgns.castNode(part_tree)
     for zsr in part_tree.group(Type='ZoneSubRegion'):
         cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=zsr)
+    for fs in part_tree.group(Name='FSolution#CellCenter#EndOfRun#Vtx'):
+        fs.setName('FlowSolution#EndOfRunV')
     
     return part_tree
 
@@ -240,7 +245,7 @@ def deduce_container_for_slicing(IsoSurfaceField):
         return 'FlowSolution#Height'
     
     else:
-        return 'FSolution#CellCenter#Init'
+        return 'FSolution#CellCenter#EndOfRun'
     
 def move_log_files(w):
     if rank == 0:

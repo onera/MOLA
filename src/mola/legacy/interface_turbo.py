@@ -15,6 +15,10 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+'''
+Creation by recycling PostprocessTurbo.py of v1.18.1
+'''
+
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import mola_logger, redirect_streams_to_logger
@@ -137,100 +141,101 @@ def postprocess_turbomachinery(w, surfaces, stages=[],
         
     '''
 
-    with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG', stderr_level='ERROR'):
-        # prepare auxiliary surfaces tree, with flattened FlowSolution container
-        # located at Vertex including ChannelHeight
-        previous_vertex_container = I.__FlowSolutionNodes__
-        turbo_required_vertex_container = 'FlowSolution'
-        turbo_new_centers_container = 'FlowSolution#Centers'
+    # with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG', stderr_level='ERROR'):
+    # prepare auxiliary surfaces tree, with flattened FlowSolution container
+    # located at Vertex including ChannelHeight
+    previous_vertex_container = I.__FlowSolutionNodes__
+    turbo_required_vertex_container = 'FlowSolution'
+    turbo_new_centers_container = 'FlowSolution#Centers'
 
-        if isinstance(container_at_vertex, str):
-            containers_at_vertex = [container_at_vertex]
-        elif not isinstance(container_at_vertex, list):
-            raise TypeError('container_at_vertex must be str or list of str')
-        else:
-            containers_at_vertex = container_at_vertex
+    if isinstance(container_at_vertex, str):
+        containers_at_vertex = [container_at_vertex]
+    elif not isinstance(container_at_vertex, list):
+        raise TypeError('container_at_vertex must be str or list of str')
+    else:
+        containers_at_vertex = container_at_vertex
 
-        suffixes = [c.replace('FlowSolution','') for c in containers_at_vertex]
+    suffixes = [c.replace('FlowSolution','') for c in containers_at_vertex]
 
-        for container_at_vertex in containers_at_vertex:
-            I.__FlowSolutionNodes__ = container_at_vertex
-            for zone in I.getZones(surfaces):
-                fs_container = I.getNodeFromName1(zone, container_at_vertex)
-                if not fs_container: continue
-                # channel_height = I.getNodeFromName2(zone, 'ChannelHeight')
-                # if not channel_height: continue
-                # fs_container[2] += [ channel_height ]
-                fs_container[0] = turbo_required_vertex_container
+    for container_at_vertex in containers_at_vertex:
+        I.__FlowSolutionNodes__ = container_at_vertex
+        for zone in I.getZones(surfaces):
+            fs_container = I.getNodeFromName1(zone, container_at_vertex)
+            if not fs_container: continue
+            # channel_height = I.getNodeFromName2(zone, 'ChannelHeight')
+            # if not channel_height: continue
+            # fs_container[2] += [ channel_height ]
+            fs_container[0] = turbo_required_vertex_container
 
-            #______________________________________________________________________________
-            # Variables
-            #______________________________________________________________________________
-            allVariables = TUS.getFields(config=config)
-            if not var4comp_repart:
-                var4comp_repart = ['StagnationEnthalpyDelta',
-                                'StagnationPressureRatio', 'StagnationTemperatureRatio',
-                                'StaticPressureRatio', 'Static2StagnationPressureRatio',
-                                'IsentropicEfficiency', 'PolytropicEfficiency',
-                                'StaticPressureCoefficient', 'StagnationPressureCoefficient',
-                                'StagnationPressureLoss1', 'StagnationPressureLoss2',
-                                ]
-            if not var4comp_perf:
-                var4comp_perf = var4comp_repart + ['Power']
-            if not var2keep:
-                var2keep = [
-                    'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
-                    'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
-                    'Entropy',
-                    'Viscosity_EddyMolecularRatio',
-                    'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
-                    'MachNumberAbs', 'MachNumberRel',
-                    'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
-                    'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
-                    'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
-                ]
+        #______________________________________________________________________________
+        # Variables
+        #______________________________________________________________________________
+        allVariables = TUS.getFields(config=config)
+        if not var4comp_repart:
+            var4comp_repart = ['StagnationEnthalpyDelta',
+                            'StagnationPressureRatio', 'StagnationTemperatureRatio',
+                            'StaticPressureRatio', 'Static2StagnationPressureRatio',
+                            'IsentropicEfficiency', 'PolytropicEfficiency',
+                            'StaticPressureCoefficient', 'StagnationPressureCoefficient',
+                            'StagnationPressureLoss1', 'StagnationPressureLoss2',
+                            ]
+        if not var4comp_perf:
+            var4comp_perf = var4comp_repart + ['Power']
+        if not var2keep:
+            var2keep = [
+                'Pressure', 'Temperature', 'PressureStagnation', 'TemperatureStagnation',
+                'StagnationPressureRelDim', 'StagnationTemperatureRelDim',
+                'Entropy',
+                'Viscosity_EddyMolecularRatio',
+                'VelocitySoundDim', 'StagnationEnthalpyAbsDim',
+                'MachNumberAbs', 'MachNumberRel',
+                'AlphaAngleDegree',  'BetaAngleDegree', 'PhiAngleDegree',
+                'VelocityXAbsDim', 'VelocityRadiusAbsDim', 'VelocityThetaAbsDim',
+                'VelocityMeridianDim', 'VelocityRadiusRelDim', 'VelocityThetaRelDim',
+            ]
 
-            variablesByAverage = sortVariablesByAverage(allVariables)
+        variablesByAverage = sortVariablesByAverage(allVariables)
 
-            #______________________________________________________________________________#
-            computeVariablesOnIsosurface(w, surfaces, allVariables, config=config, lin_axis=lin_axis)
-            compute0DPerformances(w, surfaces, variablesByAverage)
+        #______________________________________________________________________________#
+        computeVariablesOnIsosurface(w, surfaces, allVariables, config=config, lin_axis=lin_axis)
+        compute0DPerformances(w, surfaces, variablesByAverage)
+        if computeRadialProfiles: 
+            compute1DRadialProfiles(
+                surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
+        # if config == 'annular' and heightListForIsentropicMach:
+        #     # TODO compute Machis also for linear cascade. Is this available in turbo ? 
+        #     computeVariablesOnBladeProfiles(w, surfaces, height_list=heightListForIsentropicMach)
+        #______________________________________________________________________________#
+
+        if Cmpi.rank == 0:
+            comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages)
             if computeRadialProfiles: 
-                compute1DRadialProfiles(
-                    surfaces, variablesByAverage, config=config, lin_axis=lin_axis)
-            if config == 'annular' and heightListForIsentropicMach:
-                # TODO compute Machis also for linear cascade. Is this available in turbo ? 
-                computeVariablesOnBladeProfiles(w, surfaces, height_list=heightListForIsentropicMach)
-            #______________________________________________________________________________#
-
-            if Cmpi.rank == 0:
-                comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages)
-                if computeRadialProfiles: 
+                if I.getNodeFromName(surfaces, 'ChannelHeight'):
                     compareRadialProfilesPlane2Plane(
                         w, surfaces, var4comp_repart, stages, config=RowType)
 
-            cleanSurfaces(w, surfaces, var2keep=var2keep)
+        cleanSurfaces(w, surfaces, var2keep=var2keep)
 
-            suffix = container_at_vertex.replace('FlowSolution','')
-            for zone in I.getZones(surfaces):
-                for fs_container in I.getNodesFromType1(zone, 'FlowSolution_t'):
-                    fs_name = fs_container[0]
-                    is_turbo_container = fs_name in [turbo_required_vertex_container,
-                                                    turbo_new_centers_container]
-                    is_new_comparison = fs_name.startswith('Comparison') and not \
-                                        fs_name.endswith(suffix)
+        suffix = container_at_vertex.replace('FlowSolution','')
+        for zone in I.getZones(surfaces):
+            for fs_container in I.getNodesFromType1(zone, 'FlowSolution_t'):
+                fs_name = fs_container[0]
+                is_turbo_container = fs_name in [turbo_required_vertex_container,
+                                                turbo_new_centers_container]
+                is_new_comparison = fs_name.startswith('Comparison') and not \
+                                    fs_name.endswith(suffix)
 
-                    if is_turbo_container or is_new_comparison: 
-                        if not any([fs_container[0].endswith(s) for s in suffixes]):
-                            fs_container[0] += suffix
-                            if fs_container[0].startswith(turbo_new_centers_container):
-                                fs_container[0]=fs_container[0].replace(turbo_new_centers_container,
-                                                                        'FlowSolution')
+                if is_turbo_container or is_new_comparison: 
+                    if not any([fs_container[0].endswith(s) for s in suffixes]):
+                        fs_container[0] += suffix
+                        if fs_container[0].startswith(turbo_new_centers_container):
+                            fs_container[0]=fs_container[0].replace(turbo_new_centers_container,
+                                                                    'FlowSolution')
 
-            I.__FlowSolutionNodes__ = previous_vertex_container
+        I.__FlowSolutionNodes__ = previous_vertex_container
 
-        surfaces = cgns.castNode(surfaces)
-        return surfaces
+    surfaces = cgns.castNode(surfaces)
+    return surfaces
 
 def getExtractionInfo(surface):
     '''
