@@ -15,11 +15,14 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 from pprint import pprint
-import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException
 
 from treelab import cgns
+import mola.naming_conventions as names
+from mola.logging import mola_logger, MolaException
+from mola.cfd.preprocess.cfd_parameters.cfd_parameters import deep_update
+
 
 # TODO Check the correspondance of models in SoNICS
 TURBULENCE_SONICS_KEYS = {
@@ -67,30 +70,40 @@ def apply_to_solver(workflow):
         *get_spatial_fluxes_template(workflow.Numerics)[0],
         *get_time_marching_template(workflow.Numerics)[0],
     )
-
     update_fluid_model(my_config, workflow.Fluid)
-
     set_tuning_parameters(workflow, my_config)
+    user_given_parameters = update_config_with_user_parameters(my_config, workflow)
+
     configuration = my_config.apply()
     configuration.update(
         dict(
             output_folder = names.DIRECTORY_LOG,
             niter = workflow.Numerics['NumberOfIterations'],
-            # niter_period = 1,
-            # extracts = {'*': ['conservatives', 'LaminarViscosity', 'TurbulentViscosity','TurbulentViscosity', 'TurbulentDistance', 'Mach', 'primitives']},
-            # code_generation = "none",
-            # CFL = workflow.Numerics['CFL'],
-            # fcfl = lambda iteration: workflow.Numerics['CFL'],
         )
     )
 
-    # convert to dict to be able to write in cgns tree with treelab
-    # configuration['conf']  = configuration['conf'].to_dict(configuration['conf'])
     del configuration['configuration']
     del configuration['hpc_conf'] 
 
     workflow.SolverParameters['configuration'] = nested_dict_from_keys(configuration)
     workflow.tree = cgns.castNode(workflow.tree)
+    deep_update(workflow.SolverParameters, user_given_parameters) 
+
+def update_config_with_user_parameters(my_config, workflow):
+    if 'features' in workflow.SolverParameters:
+        features = workflow.SolverParameters.pop('features')
+        workflow.tree.getAtPath(
+            Path=f'CGNSTree/{workflow._workflow_parameters_container_}/SolverParameters/features'
+            ).remove()
+        my_config.update(*features)
+    if 'parameters' in workflow.SolverParameters:
+        parameters = workflow.SolverParameters.pop('parameters')
+        workflow.tree.getAtPath(
+            Path=f'CGNSTree/{workflow._workflow_parameters_container_}/SolverParameters/parameters'
+            ).remove()
+        my_config.set(**parameters)
+    user_given_parameters = copy.copy(workflow.SolverParameters) 
+    return user_given_parameters
 
 def get_spatial_fluxes_template(Numerics):
     scheme = Numerics['Scheme']

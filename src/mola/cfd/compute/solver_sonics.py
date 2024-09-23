@@ -84,13 +84,13 @@ def get_iterators(workflow, configuration):
             )
 
     if any([ext['Type'] == 'Integral' for ext in workflow.Extractions]):
-        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']
+        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']  # FIXME
         pytriggers.append(triggers.MonitoringIntegralData( 
             configuration['conf'], 
             add_integral_extractions(workflow), 
             configuration['niter'], 
             configuration['hpc_conf']['hardware_target'], 
-            period=np.gcd.reduce(periods)) 
+            period=10) #np.gcd.reduce(periods)) 
         )
 
     # This Trigger write time at the end of run:

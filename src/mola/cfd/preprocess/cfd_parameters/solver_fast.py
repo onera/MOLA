@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy 
 from mola.logging import mola_logger, MolaUserError
 
 from mola.cfd.preprocess.cfd_parameters.cfd_parameters import deep_update
@@ -59,8 +60,10 @@ def apply_to_solver(workflow):
     # https://fast.onera.fr/Fast.html#Fast.PyTree.setNum2Base
     # https://fast.onera.fr/Fast.html#Fast.PyTree.setNum2Zones
 
+    user_given_parameters = copy.copy(workflow.SolverParameters) 
     set_model(workflow) 
     set_numerics(workflow)
+    deep_update(workflow.SolverParameters, user_given_parameters) 
     
 
 def set_model(workflow):

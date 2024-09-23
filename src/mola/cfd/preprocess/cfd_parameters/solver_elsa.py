@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 from mola.logging import mola_logger, MolaException
 
 from treelab import cgns
@@ -197,9 +198,11 @@ TURBULENCE_ELSA_KEYS = {
 
 def apply_to_solver(workflow):
 
+    user_given_parameters = copy.copy(workflow.SolverParameters) 
     set_cfdpb(workflow)
     set_model(workflow)
     set_numerics(workflow)
+    cfd_parameters.deep_update(workflow.SolverParameters, user_given_parameters) 
 
 def set_cfdpb(workflow):
     workflow.SolverParameters['cfdpb'] = dict(
