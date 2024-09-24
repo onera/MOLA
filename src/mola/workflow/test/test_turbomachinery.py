@@ -144,8 +144,8 @@ def test_init(tmp_path):
     w.print_interface()
     assert w.Name == 'WorkflowTurbomachinery'
 
-@pytest.mark.user_case
-@pytest.mark.elsa # since not still functional using Fast
+@pytest.mark.integration
+@pytest.mark.elsa # since not still functional using Fast nor Sonics
 @pytest.mark.cost_level_4
 def test_compressor_example_local(tmp_path):
     w = get_compressor_example(tmp_path)

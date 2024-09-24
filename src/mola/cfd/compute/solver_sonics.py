@@ -75,8 +75,11 @@ def get_iterators(workflow, configuration):
         pytriggers.append(triggers.ResidualTrigger(configuration["conf"], workflow.Numerics['NumberOfIterations'],
                                             output_folder=Path(names.DIRECTORY_LOG)))
 
-    if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
-        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] in ['3D', 'BC']]
+    if any([ext['Type'] in ['Restart', '3D', 'BC'] for ext in workflow.Extractions]):
+        if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
+            periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] in ['3D', 'BC']]
+        else:
+            periods = [workflow.Numerics['NumberOfIterations']]
         pytriggers.append(triggers.ComputeAndExtractDataInGraphTrigger(configuration["conf"],
             add_fields_and_bc_extractions(workflow),
             configuration["hpc_conf"]["hardware_target"], 

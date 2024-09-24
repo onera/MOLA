@@ -39,7 +39,7 @@ def apply_to_solver(workflow):
 def get_configuration_from_tree(workflow):
     import miles
     import copy
-    from mola.cfd.preprocess.cfd_parameters.solver_sonics import set_tuning_parameters
+    import mola.cfd.preprocess.cfd_parameters.solver_sonics as cfd_parameters
 
     configuration = copy.copy(workflow.SolverParameters['configuration'])
     configuration['conf'] = flatten_dict(configuration['conf'])
@@ -52,7 +52,18 @@ def get_configuration_from_tree(workflow):
 
     my_config = miles.solver.config.Configuration(workflow.tree)
     my_config.update(*param_list)
-    set_tuning_parameters(workflow, my_config)
+
+    _, fluid_parameters = cfd_parameters.get_fluid_template(workflow.Fluid)
+    _, turb_parameters = cfd_parameters.get_turbulence_template(workflow.Turbulence)
+    _, flux_parameters = cfd_parameters.get_spatial_fluxes_template(workflow.Numerics)
+    _, time_parameters = cfd_parameters.get_time_marching_template(workflow.Numerics)
+    my_config.set(
+        **fluid_parameters,
+        **turb_parameters, 
+        **flux_parameters, 
+        **time_parameters,
+    )
+
     conf = my_config.apply()
     configuration.update(conf)
     if rank==0:
