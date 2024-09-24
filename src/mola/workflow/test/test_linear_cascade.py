@@ -20,10 +20,11 @@ import os
 import numpy as np
 
 from treelab import cgns
-from mola.workflow import WorkflowLinearCascade
 from mola.logging import mola_logger, MolaAssertionError
+from mola.workflow import WorkflowLinearCascade
+from mola.workflow.test.test_workflow import adapt_workflow_for_sonics
 
-def get_workflow():
+def get_workflow_cube():
 
     x, y, z = np.meshgrid( np.linspace(0,1,21),
                            np.linspace(0,1,21),
@@ -44,17 +45,74 @@ def get_workflow():
         )
     return w
 
+def get_workflow_spleen(tmp_path):
+
+    AngleOfAttackDeg = -37.3 + 0.61
+
+    w = WorkflowLinearCascade(
+
+        RawMeshComponents=[
+            dict(
+                Name='SPLEEN',
+                Source='/stck/mola/data/mesh/spleen/SPLEEN.cgns',
+                Mesher='autogrid',
+                )
+        ],
+
+        Solver=os.environ.get('MOLA_SOLVER'),
+
+        Flow = dict(
+            Mach = 0.45,
+            TemperatureStagnation = 285.,
+            PressureStagnation = 8883.,
+            Direction = [np.cos(np.radians(AngleOfAttackDeg)), 0., -np.sin(np.radians(AngleOfAttackDeg))],
+        ),
+
+        Turbulence = dict(
+            Level = 0.025,
+            Viscosity_EddyMolecularRatio = 0.1,
+            Model = 'SA',
+        ),
+
+        Numerics = dict(
+            NumberOfIterations=2,
+            CFL=1.,
+        ),
+
+        BoundaryConditions = [
+            dict(Family='SPLEEN_INFLOW', Type='InflowStagnation'),
+            dict(Family='SPLEEN_OUTFLOW', Type='OutflowPressure', Pressure=8883./1.6913),
+            dict(Family='SPLEEN_BLADE', Type='WallViscous'),
+            dict(Family='HUB', Type='WallInviscid'),
+            dict(Family='SHROUD', Type='WallInviscid'),
+        ],
+
+        Extractions = [
+            dict(Type='BC', Source='SPLEEN_Blade', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
+            dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=0.001, ExtractAtEndOfRun=True), # midspan
+            # dict(type='IsoSurface', field='CoordinateX', value=-0.05328, tag='Plan01'),
+            # dict(type='IsoSurface', field='CoordinateX', value=0.071421, tag='Plan06')
+        ],
+
+        RunManagement = dict(
+            NumberOfProcessors = 4,
+            RunDirectory = tmp_path,
+            ),
+
+    )
+    return w
+
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_init():
-    w = get_workflow()
+    w = get_workflow_cube()
     w.print_interface()
     assert w.Name == 'WorkflowLinearCascade'
 
 @pytest.mark.unit
 @pytest.mark.cost_level_3
 def test_parametrize_with_height():
-    w = get_workflow()
+    w = get_workflow_cube()
     w.assemble()
     try:
         w.parametrize_with_height('XY')
@@ -63,3 +121,17 @@ def test_parametrize_with_height():
         mola_logger.warning('turbo module cannot be found!')
         pass
 
+@pytest.mark.integration
+@pytest.mark.elsa
+# @pytest.mark.sonics  #FIXME
+@pytest.mark.cost_level_3
+def test_spleen_cascade(tmp_path):
+    w = get_workflow_spleen(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
+    w.prepare()
+    w.RunManagement['Scheduler'] = 'local'
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+    w.remove_cfd_files()
