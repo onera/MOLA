@@ -114,8 +114,10 @@ TURBULENCE_SONICS_KEYS = {
 }
 
 for model in ['SST-2003', 'SST-V2003']:
-    TURBULENCE_SONICS_KEYS[f'{model}-LM2009'] = TURBULENCE_SONICS_KEYS[model]
-    TURBULENCE_SONICS_KEYS[f'{model}-LM2009']['features'].append('transition_menter')
+    TURBULENCE_SONICS_KEYS[f'{model}-LM2009'] = dict(
+        features = TURBULENCE_SONICS_KEYS[model]['features'] + ['transition_menter'],
+        parameters = TURBULENCE_SONICS_KEYS[model]['parameters'],
+    )
 
 
 def apply_to_solver(workflow):
