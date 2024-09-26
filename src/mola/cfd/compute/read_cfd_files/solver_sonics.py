@@ -29,7 +29,8 @@ def apply_to_solver(workflow):
 
     workflow.tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
 
-    # NOTE Finally, sonics.solver.run will take only dist_tree (the configuration will be read inside the tree)
+    # HACK Finally, sonics.solver.run will take only dist_tree (the configuration will be read inside the tree)
+    # see https://gitlab.onera.net/numerics/solver/sonics/-/issues/102
     workflow.SolverParameters['configuration'] = get_configuration_from_tree(workflow)
 
     workflow.tree = cgns.castNode(workflow.tree)
