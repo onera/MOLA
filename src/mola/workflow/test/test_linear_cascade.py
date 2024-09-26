@@ -38,6 +38,7 @@ def get_workflow_cube():
                 Name='cartesian',
                 Source=mesh,
                 Mesher='default',
+                Connection = [dict(Type='PeriodicMatch', Translation=[0,1,0], Tolerance=1e-8),]
                 )
         ],
 
@@ -53,7 +54,7 @@ def get_workflow_spleen(tmp_path):
 
         RawMeshComponents=[
             dict(
-                Name='SPLEEN',
+                Name='SPLEEN_Base',
                 Source='/stck/mola/data/mesh/spleen/SPLEEN.cgns',
                 Mesher='autogrid',
                 )
@@ -88,7 +89,7 @@ def get_workflow_spleen(tmp_path):
         ],
 
         Extractions = [
-            dict(Type='BC', Source='SPLEEN_Blade', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
+            dict(Type='BC', Source='SPLEEN_BLADE', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
             dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=0.001, ExtractAtEndOfRun=True), # midspan
             # dict(type='IsoSurface', field='CoordinateX', value=-0.05328, tag='Plan01'),
             # dict(type='IsoSurface', field='CoordinateX', value=0.071421, tag='Plan06')
@@ -110,6 +111,17 @@ def test_init():
     assert w.Name == 'WorkflowLinearCascade'
 
 @pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_get_periodic_direction():
+    w = get_workflow_cube()
+    w.assemble()
+    w.positioning()
+    w.connect()
+    periodic_direction = w.get_periodic_direction()
+    translation = np.array(w.RawMeshComponents[0]['Connection'][0]['Translation'])
+    assert np.allclose(np.absolute(periodic_direction), np.absolute(translation))
+
+@pytest.mark.unit
 @pytest.mark.cost_level_3
 def test_parametrize_with_height():
     w = get_workflow_cube()
@@ -123,7 +135,7 @@ def test_parametrize_with_height():
 
 @pytest.mark.integration
 @pytest.mark.elsa
-# @pytest.mark.sonics  #FIXME
+@pytest.mark.sonics
 @pytest.mark.cost_level_3
 def test_spleen_cascade(tmp_path):
     w = get_workflow_spleen(tmp_path)
