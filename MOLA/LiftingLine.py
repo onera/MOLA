@@ -3162,7 +3162,7 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
 
 
 def setRPM(LiftingLines, newRPM):
-    for LiftingLine in I.getZones(LiftingLines):
+    for LiftingLine in getLiftingLines(LiftingLines):
         if not checkComponentKind(LiftingLine,'LiftingLine'): continue
         Kin_n = I.getNodeFromName1(LiftingLine,'.Kinematics')
         if Kin_n:
@@ -4045,11 +4045,11 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         sinAoA = np.sin(np.deg2rad(v['AoA']))
         cosAoA = np.cos(np.deg2rad(v['AoA']))
 
-        v['LiftChordwise'][:] = -Lift*sinAoA
+        v['LiftChordwise'][:] = -Lift*sinAoA         #sinAoA inverted because the chordwise direction goes from the TE to the LE
         v['LiftThickwise'][:] =  Lift*cosAoA
 
         v['DragChordwise'][:] = Drag*cosAoA
-        v['DragThickwise'][:] = Drag*sinAoA
+        v['DragThickwise'][:] = Drag*sinAoA          #same
 
         v['LiftX'][:] = v['LiftChordwise']*v['ChordwiseX'] + v['LiftThickwise']*v['ThickwiseX']
         v['LiftY'][:] = v['LiftChordwise']*v['ChordwiseY'] + v['LiftThickwise']*v['ThickwiseY']

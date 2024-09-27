@@ -482,7 +482,8 @@ def updateLiftingLinesParameters(tLL = [], Parameters = {}):
         LL.setConditions(LiftingLine, VelocityFreestream = U0,
                                       Density = rho,
                                       Temperature = T0)
-    if LiftingLineParameters['RPM']: LL.setRPM(Zones, LiftingLineParameters['RPM'])
+    if LiftingLineParameters['RPM']: LL.setRPM(Zones, LiftingLineParameters['RPM'][0])
+    if LiftingLineParameters['Pitch']: LL.addPitch(Zones, LiftingLineParameters['Pitch'][0])
 
     if LiftingLineParameters['VelocityTranslation']:
         for LiftingLine in Zones:
@@ -841,7 +842,7 @@ def initialiseShedParticles(tL = [], tLL = [], Sources = [], Ramp = 1.,
         dy = 0
         for i in range(1, len(sx) - 1):
             dy += np.linalg.norm(np.array([sx[i]  , sy[i]  , sz[i]]) - 
-                                               np.array([px[pos], py[pos],  pz[pos]]), axis = 0)
+                                 np.array([px[pos], py[pos], pz[pos]]), axis = 0)
             pos += 1
 
         if dy/(len(sx) - 2) < h*0.85: frozenLiftingLines += [index]#on average there is not enough space to shed particles
