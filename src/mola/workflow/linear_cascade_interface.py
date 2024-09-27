@@ -28,7 +28,7 @@ class WorkflowLinearCascadeInterface(WorkflowInterface):
             self.add_to_Extractions_Integral(Source='BCOutflow*', Fields=['MassFlow'])
 
     def set_ApplicationContext(self, 
-            AngleOfAttackDeg : float = 0.,
+            AngleOfAttackDeg : float = None,
         ):
         self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.get_default_values_from_local_signature())
 

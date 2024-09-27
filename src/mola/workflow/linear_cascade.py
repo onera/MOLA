@@ -19,29 +19,72 @@ import numpy as np
 
 from treelab import cgns
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
-
+from mola.math_tools import rotate_3d_vector_from_axis_and_angle_in_degrees
+import mola.cfd.postprocess as POST
 from . import Workflow
 from .linear_cascade_interface import WorkflowLinearCascadeInterface
-
 
 class WorkflowLinearCascade(Workflow):
 
     def __init__(self, **kwargs):
         self._interface = WorkflowLinearCascadeInterface(self, **kwargs)
 
+    def compute_flow_and_turbulence(self):
+        alpha = self.ApplicationContext.get('AngleOfAttackDeg')
+        if alpha is not None:
+            # Otherwise, Flow['Direction'] will be kept as given by user or default
+            flow_direction = self.Flow['Direction'] # assume main axis is X
+            periodic_direction = self.get_periodic_direction()
+            if np.isclose(abs(np.dot(periodic_direction, np.array([0,1,0]))), 1):
+                periodic_direction = np.array([0,1,0])
+                self.lin_axis = 'XY'
+            if np.isclose(abs(np.dot(periodic_direction, np.array([0,0,1]))), 1):
+                periodic_direction = np.array([0,0,-1])
+                self.lin_axis = 'XZ'
+            else:
+                self.lin_axis = None
+
+            self.Flow['Direction'] = rotate_3d_vector_from_axis_and_angle_in_degrees(
+                flow_direction, 
+                np.cross(flow_direction, periodic_direction),
+                self.ApplicationContext['AngleOfAttackDeg'], 
+                )
+
+        super().compute_flow_and_turbulence()
+
     def get_periodic_direction(self):
-        # Get periodic match connections
-        perio_connections = [connec for connec in self.RawMeshComponents['Connection'] if connec['Type'] == 'PeriodicMatch']
-        if len(perio_connections) == 1:
-            periodic_direction = np.array(perio_connections[0]['Translation'])
-            periodic_direction /= np.sqrt(np.sum(periodic_direction**2))
-        elif len(perio_connections) == 0:
-            # Check that Periodicity already given in the mesh and adapt it if necessary
-            # For now raise an exception
-            raise MolaException('Not yet implemented')
-        else:
-            raise MolaException('More than one PeriodicMatch')
-        
+        periodic_node = self.tree.get(Type='Periodic')  # Periodic node in a GridConnectivity
+        translation = periodic_node.get(Name='Translation').value()
+        periodic_direction = translation / np.sqrt(np.sum(translation**2))
+
+        # blade_family_node = self.tree.get(Type='Family', Name='*BLADE*')
+        # if blade_family_node:
+        #     blade_family = blade_family_node.name()
+        #     try: 
+        #         blade = POST.extract_bc(self.tree, Family=blade_family, tool='maia')
+        #     except:
+        #         blade = POST.extract_bc(self.tree, Family=blade_family, tool='cassiopee')
+
+        #     x, y, z = np.array([]), np.array([]), np.array([])
+        #     for zone in blade.zones():
+        #         xi, yi, zi = zone.xyz(ravel=True)
+        #         x = np.concatenate((x, xi))
+        #         y = np.concatenate((y, yi))
+        #         z = np.concatenate((z, zi))
+        #     imin = np.argmin(x)
+        #     imax = np.argmax(x)
+        #     point_on_LE = np.array([x[imin], y[imin], z[imin]])
+        #     point_on_TE = np.array([x[imax], y[imax], z[imax]])
+        #     chord_vector = point_on_TE - point_on_LE
+
+        #     # periodic_direction must points in the opposite direction the chord_vector, 
+        #     # to be oriented from pressure side to suction side
+        #     if np.dot(chord_vector, periodic_direction) > 0:
+        #         periodic_direction *= -1
+            
+        # else:
+        #     mola_logger.warning(f'Cannot extract blade family')
+            
         return periodic_direction
     
     def parametrize_with_height(self, lin_axis, method=2):

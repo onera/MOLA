@@ -48,8 +48,6 @@ def get_workflow_cube():
 
 def get_workflow_spleen(tmp_path):
 
-    AngleOfAttackDeg = -37.3 + 0.61
-
     w = WorkflowLinearCascade(
 
         RawMeshComponents=[
@@ -66,7 +64,10 @@ def get_workflow_spleen(tmp_path):
             Mach = 0.45,
             TemperatureStagnation = 285.,
             PressureStagnation = 8883.,
-            Direction = [np.cos(np.radians(AngleOfAttackDeg)), 0., -np.sin(np.radians(AngleOfAttackDeg))],
+        ),
+
+        ApplicationContext = dict(
+            AngleOfAttackDeg = -37.3,
         ),
 
         Turbulence = dict(
@@ -141,8 +142,8 @@ def test_spleen_cascade(tmp_path):
     w = get_workflow_spleen(tmp_path)
     if w.Solver == 'sonics':
         adapt_workflow_for_sonics(w)
-    w.prepare()
     w.RunManagement['Scheduler'] = 'local'
+    w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()

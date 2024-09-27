@@ -56,6 +56,13 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
         extraction = cgns.castNode(extraction)
         restore_families(extraction, t)
     
+    elif tool == 'maia':
+        from .extractions_with_maia import extract_bc_from_family
+        zones = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
+        extraction = get_renamed_tree(zones, BaseName, CellDimension=CellDimension)
+        extraction = cgns.castNode(extraction)
+        restore_families(extraction, t)
+    
     elif tool == 'maia_zsr':
         from .extractions_with_maia import extract_bc_from_zsr
         zones = extract_bc_from_zsr(t, Family=Family, comm=MPI.COMM_WORLD)
