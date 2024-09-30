@@ -112,6 +112,8 @@ def test_init():
     assert w.Name == 'WorkflowLinearCascade'
 
 @pytest.mark.unit
+@pytest.mark.elsa
+@pytest.mark.fast  # no sonics because error to create the PeriodicMatch with Maia without families
 @pytest.mark.cost_level_1
 def test_get_periodic_direction():
     w = get_workflow_cube()
