@@ -42,7 +42,7 @@ from . import Main as V
 ############################################## Solver ##############################################
 ####################################################################################################
 ####################################################################################################
-def runVPM(t = [], **kwargs):
+def runOneIteration(t = [], **coProcessOptions):
     '''
     Runs one VULCAINS iteration.
 
@@ -52,8 +52,9 @@ def runVPM(t = [], **kwargs):
             Contains the Lagrangian field, Lifting Lines, Eulerian field, Hybrid Domain and
             Perturbation field.
 
-        kwargs : :py:class:`dict`
-            May contain additionnal user-defined parameters to be used during computation.
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be used during computation for
+            coprocess.
     Returns
     -------
         IterationInfo : :py:class:`dict`
@@ -74,7 +75,7 @@ def compute(Parameters = {}, Polars = [], EulerianMesh = None, PerturbationField
     SaveFields = ['all'], StdDeviationSample = 50, SaveVPMPeriod = 100, Verbose = True,
     VisualisationOptions = {'addLiftingLineSurfaces':True}, SaveImageOptions = {}, Surface = 0.,
     FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf, SaveImagePeriod = np.inf,
-    NoRedistributionZones = [], mainFunction = runVPM, **kwargs):
+                 NoRedistributionZones = [], mainFunction = runOneIteration, coProcessOptions = {}):
     '''
     Launches the VPM solver.
 
@@ -368,8 +369,9 @@ def compute(Parameters = {}, Polars = [], EulerianMesh = None, PerturbationField
         mainFunction : :py:func:
             Function over which VULCAINS loops.
 
-        kwargs : :py:class:`dict`
-            May contain additionnal user-defined parameters to be put within the **mainFunction**.
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be put used within the
+            **mainFunction** during computation for coprocess.
     '''
     if Verbose: V.enablePrint()
     else: V.blockPrint()
@@ -401,8 +403,8 @@ def compute(Parameters = {}, Polars = [], EulerianMesh = None, PerturbationField
     for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
     
     iterateVPM(t, SaveFields, NumberOfIterations, DIRECTORY_OUTPUT,
-        VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
-                          StdDeviationSample, FieldsExtractionGrid, Surface, mainFunction, **kwargs)
+           VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
+                  StdDeviationSample, FieldsExtractionGrid, Surface, mainFunction, coProcessOptions)
     if FieldsExtractionGrid:
         extractFields(Targets = FieldsExtractionGrid, t = t)
         filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
@@ -418,7 +420,7 @@ def compute(Parameters = {}, Polars = [], EulerianMesh = None, PerturbationField
 
     return t
 
-def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = [], **kwargs):
+def runOneIterationOnSeparateTrees(tL = [], tLL = [], tE = [], tH = [], tP = [],**coProcessOptions):
     '''
     Runs one VULCAINS iteration.
 
@@ -439,8 +441,9 @@ def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = [], **kwargs):
         tP : Tree
             Perturbation field
 
-        kwargs : :py:class:`dict`
-            May contain additionnal user-defined parameters to be used during computation.
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be used during computation for
+            coprocess.
     Returns
     -------
         IterationInfo : :py:class:`dict`
@@ -459,7 +462,7 @@ def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = [], **kwargs):
 def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT = '',
     VisualisationOptions = {}, SaveImageOptions = {}, SaveFieldsPeriod = 0, SaveImagePeriod = 0,
     SaveVPMPeriod = 0, StdDeviationSample = 100, FieldsExtractionGrid = [], Surface = 0.,
-                                                                   mainFunction = runVPM, **kwargs):
+                                             mainFunction = runOneIteration, coProcessOptions = {}):
     '''
     Loops over the VULCAINS iterations.
 
@@ -505,8 +508,9 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
         mainFunction : :py:func:
             Function over which VULCAINS loops.
 
-        kwargs : :py:class:`dict`
-            May contain additionnal user-defined parameters to be put within the **mainFunction**.
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be put used within the
+            **mainFunction** during computation for coprocess.
     Returns
     -------
         t : Tree
@@ -541,8 +545,8 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
         
         IterationTime = J.tic()
         
-        # newInfo = mainFunction(tL, tLL, tE, tH, tP, **kwargs)
-        newInfo = mainFunction(t, **kwargs)
+        # newInfo = mainFunction(tL, tLL, tE, tH, tP, **coProcessOptions)
+        newInfo = mainFunction(t, **coProcessOptions)
 
         if newInfo: IterationInfo.update(newInfo)
         IterationInfo['Iteration'] = it[0]
@@ -730,7 +734,7 @@ def computePolar(Parameters = {}, PolarParameters = {}, LiftingLinesPolars = [],
         V.checkParameters(Parameters)
         Parameters['NumericalParameters']['NumberOfThreads'] = OMP_NUM_THREADS
         for key in PolarParameters['Variables']:
-            V.getParameterFromDic0(Parameters, key)[:] = PolarParameters['Variables'][key][0]
+            V.getParameterFromDico(Parameters, key)[:] = PolarParameters['Variables'][key][0]
         
         NbPolar = len(PolarParameters['Variables'][key])
         PolarParameters['CurrentPolar'] = 0
@@ -781,7 +785,7 @@ def computePolar(Parameters = {}, PolarParameters = {}, LiftingLinesPolars = [],
         stdPower = MaxStdPower + 1
 
         while (it[0]-it0 < MaxItePerPolar and (MaxStdThrust < stdThrust or MaxStdPower < stdPower)):
-            runVPM(t)
+            runOneIteration(t)
             IterationInfo = V.getAerodynamicCoefficientsOnLiftingLine(t, Wings = Wing,
                StdDeviationSample = NbSampleStdDev, Freestream = Freestream, Surface = Surface)
             IterationInfo['Iteration'] = it[0] - it0
@@ -856,7 +860,8 @@ def computePolar(Parameters = {}, PolarParameters = {}, LiftingLinesPolars = [],
     for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
 
 def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations = 10000,
-    SaveVPMPeriod = 10, DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all']):
+    SaveVPMPeriod = 10, DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'],
+                                             mainFunction = runOneIteration, coProcessOptions = {}):
     '''
     Initialises all the trees used for the VULCAINS simulation of unbounded vortex rings.
 
@@ -902,6 +907,13 @@ def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations
         SaveFields : :py:class:`list` or numpy.ndarray of :py:class:`str`
             same as in :py:func:`compute`
 
+        mainFunction : :py:func:
+            Function over which VULCAINS loops.
+
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be put used within the
+            **mainFunction** during computation for coprocess.
+
     Returns
     -------
         t : Tree
@@ -943,7 +955,8 @@ def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations
                            *Parameters['NumericalParameters']['FMMParameters']['IterationTuningFMM']
     V.compute(RestartPath = t, NumberOfIterations = NumberOfIterations,
         DIRECTORY_OUTPUT = DIRECTORY_OUTPUT, SaveFields = SaveFields,
-        VisualisationOptions = {'addLiftingLineSurfaces':False}, SaveVPMPeriod = SaveVPMPeriod)
+        VisualisationOptions = {'addLiftingLineSurfaces':False}, SaveVPMPeriod = SaveVPMPeriod,
+                                   mainFunction = mainFunction, coProcessOptions = coProcessOptions)
 
 def extractFields(Targets = [], t = [], FarFieldPolynomialOrder = 12,
     NearFieldOverlapingFactor = 4, NbOfParticlesForPrecisionEvaluation = 1000):

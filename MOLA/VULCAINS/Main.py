@@ -1828,7 +1828,7 @@ def getParameter(t = [], Name = '', Field = ['Numerical', 'Private', 'Modeling',
         else: return getParameter(t, Name, Field[1:])
     return None
 
-def getParameterFromDic0(Dico = {}, Name = '', Field = ['Numerical', 'Modeling', 'Hybrid', 'Fluid',
+def getParameterFromDico(Dico = {}, Name = '', Field = ['Numerical', 'Modeling', 'Hybrid', 'Fluid',
                                                                          'LiftingLine', 'Private']):
     '''
     Recursively searches for a parameter.
@@ -1864,8 +1864,8 @@ def getParameterFromDic0(Dico = {}, Name = '', Field = ['Numerical', 'Modeling',
                 return Parameters['ParticleControlParameters'][Name]
             elif 'FMMParameters' in Parameters and Name in Parameters['FMMParameters']:
                 return Parameters['FMMParameters'][Name]
-            else: return getParameterFromDic0(Dico, Name, Field[1:])
-        else: return getParameterFromDic0(Dico, Name, Field[1:])
+            else: return getParameterFromDico(Dico, Name, Field[1:])
+        else: return getParameterFromDico(Dico, Name, Field[1:])
     return None
 
 def getParameters(t = [], Names = []):

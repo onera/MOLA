@@ -4045,11 +4045,11 @@ def computeGeneralLoadsOfLiftingLine(t, NBlades=1.0, UnsteadyData={},
         sinAoA = np.sin(np.deg2rad(v['AoA']))
         cosAoA = np.cos(np.deg2rad(v['AoA']))
 
-        v['LiftChordwise'][:] = -Lift*sinAoA         #sinAoA inverted because the chordwise direction goes from the TE to the LE
+        v['LiftChordwise'][:] = -Lift*sinAoA
         v['LiftThickwise'][:] =  Lift*cosAoA
 
         v['DragChordwise'][:] = Drag*cosAoA
-        v['DragThickwise'][:] = Drag*sinAoA          #same
+        v['DragThickwise'][:] = Drag*sinAoA
 
         v['LiftX'][:] = v['LiftChordwise']*v['ChordwiseX'] + v['LiftThickwise']*v['ThickwiseX']
         v['LiftY'][:] = v['LiftChordwise']*v['ChordwiseY'] + v['LiftThickwise']*v['ThickwiseY']
