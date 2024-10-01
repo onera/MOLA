@@ -189,18 +189,17 @@ def test_dispatcher_directories():
 
 @pytest.mark.integration
 @pytest.mark.cost_level_1
-def test_WorkflowParallelScheduler_prepare(tmp_path):
-
-    w = get_fake_workflow()
-    dispatcher = WM.WorkflowDispatcher(w)
-
-    for model in ['model1', 'model2']:
-        dispatcher.new_job(model)
-        for pressure in [10, 20, 30]:
-            dispatcher.add_variations([('RunManagement|RunDirectory', f'test_{pressure}')])
+def test_WorkflowManager_prepare(tmp_path):
 
     test_dir = str(tmp_path)
-    scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
+    w = get_fake_workflow()
+    scheduler = WM.WorkflowManager(w, root_directory=test_dir)
+
+    for model in ['model1', 'model2']:
+        scheduler.new_job(model)
+        for pressure in [10, 20, 30]:
+            scheduler.add_variations([('RunManagement|RunDirectory', f'test_{pressure}')])
+
     scheduler.prepare()
 
     root_dirs = []
@@ -216,7 +215,7 @@ def test_WorkflowParallelScheduler_prepare(tmp_path):
 @pytest.mark.fast
 @pytest.mark.integration
 @pytest.mark.cost_level_4
-def test_WorkflowParallelScheduler_cart_local(tmp_path):
+def test_WorkflowManager_cart_local(tmp_path):
 
     if isinstance(tmp_path,str): os.makedirs(tmp_path,exist_ok=True)
 
@@ -229,11 +228,12 @@ def test_WorkflowParallelScheduler_cart_local(tmp_path):
     w.RawMeshComponents[0]['Source'].save(mesh_path)
     w.RawMeshComponents[0]['Source'] = os.path.join('..','..','mesh.cgns') # CAUTION: path is relative to launch case
 
-    dispatcher = WM.WorkflowDispatcher(w)
+    test_dir = str(tmp_path)
+    scheduler = WM.WorkflowManager(w, test_dir)
     for BCWall in ['WallViscous',]:
-        dispatcher.new_job(BCWall)
+        scheduler.new_job(BCWall)
         for velocity in [50., 20.]:
-            dispatcher.add_variations(
+            scheduler.add_variations(
                 [
                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
                     ('Flow|Velocity', velocity),
@@ -242,8 +242,6 @@ def test_WorkflowParallelScheduler_cart_local(tmp_path):
                 initialize_from_previous=False
                 )
     
-    test_dir = str(tmp_path)
-    scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
     scheduler.prepare()
     scheduler.submit()
 
@@ -262,7 +260,7 @@ def test_WorkflowParallelScheduler_cart_local(tmp_path):
 @pytest.mark.network_onera
 @pytest.mark.integration
 @pytest.mark.cost_level_4
-def test_WorkflowParallelScheduler_sphere_remote_sator():
+def test_WorkflowManager_sphere_remote_sator():
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
     w = get_workflow_sphere_struct('.')
@@ -270,11 +268,18 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
     w.RunManagement['TimeLimit'] = '00:30:00'
 
-    dispatcher = WM.WorkflowDispatcher(w)
+    test_dir = f'/tmp_user/sator/{os.getenv("USER")}/.test_WorkflowManager_sphere_remote_sator_{os.getenv("MOLA_SOLVER")}/tmp_MOLA_test/'
+    try:
+        # remove this directory in case it exists already (e.g. because of a previous error)
+        SV.remove_path(test_dir, machine='sator', file_only=False)
+    except FileNotFoundError:
+        pass
+
+    scheduler = WM.WorkflowManager(w, test_dir)
     for BCWall in ['WallViscous', 'WallInviscid']:
-        dispatcher.new_job(BCWall)
+        scheduler.new_job(BCWall)
         for velocity in [50., 20., 80.]:
-            dispatcher.add_variations(
+            scheduler.add_variations(
                 [
                     ('RunManagement|JobName', f'test_{BCWall}'),
                     ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
@@ -283,15 +288,7 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
                 ], 
                 initialize_from_previous=False
                 )
-    
-    test_dir = f'/tmp_user/sator/{os.getenv("USER")}/.test_WorkflowParallelScheduler_sphere_remote_sator_{os.getenv("MOLA_SOLVER")}/tmp_MOLA_test/'
-    try:
-        # remove this directory in case it exists already (e.g. because of a previous error)
-        SV.remove_path(test_dir, machine='sator', file_only=False)
-    except FileNotFoundError:
-        pass
-        
-    scheduler = WM.WorkflowParallelScheduler(dispatcher, test_dir)
+            
     scheduler.prepare()
     scheduler.submit()
 
@@ -309,5 +306,5 @@ def test_WorkflowParallelScheduler_sphere_remote_sator():
 if __name__ == '__main__':
     # test_show_interface_1()
     # test_prepare_workflow1()
-    test_WorkflowParallelScheduler_cart_local('cart_scheduler_'+os.environ.get("MOLA_SOLVER"))
+    test_WorkflowManager_cart_local('cart_scheduler_'+os.environ.get("MOLA_SOLVER"))
     # test_wip()
