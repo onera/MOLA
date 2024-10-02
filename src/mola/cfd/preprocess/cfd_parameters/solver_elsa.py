@@ -384,6 +384,9 @@ def get_spatial_fluxes(Numerics, tree, Flow):
     SchemeSetup['viscous_fluxes']  = '5p_cor2' # adapted to unstructured mesh
     SchemeSetup['implconvectname'] = 'vleer' # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
 
+    SchemeSetup['extrap_grad_mean'] = 1
+    SchemeSetup['extrap_grad_tur'] = 1
+
     # TODO Put in CHANGELOG: same filtering parameters for all schemes
     FilteringSetup = dict(
         filter             = 'incr_new+prolong',
