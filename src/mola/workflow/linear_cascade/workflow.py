@@ -21,8 +21,8 @@ from treelab import cgns
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola.math_tools import rotate_3d_vector_from_axis_and_angle_in_degrees
 import mola.cfd.postprocess as POST
-from . import Workflow
-from .linear_cascade_interface import WorkflowLinearCascadeInterface
+from .. import Workflow
+from .interface import WorkflowLinearCascadeInterface
 
 class WorkflowLinearCascade(Workflow):
 
@@ -131,7 +131,8 @@ class WorkflowLinearCascade(Workflow):
             plt.xlabel('x (m)')
             plt.ylabel('y (m)')
             # Save
-            plt.savefig('shroud_hub_lines.png', dpi=150, bbox_inches='tight')
+            merid_lines_image_filename = os.path.join(self.RunManagement['RunDirectory'], 'shroud_hub_lines.png')
+            plt.savefig(merid_lines_image_filename, dpi=150, bbox_inches='tight')
             return 0
 
         mola_logger.info('Add ChannelHeight in the mesh...')
@@ -141,7 +142,9 @@ class WorkflowLinearCascade(Workflow):
         with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG', stderr_level='ERROR'):
 
             m = TH.generateMaskWithChannelHeightLinear(self.tree, lin_axis=lin_axis)
-            TH._computeHeightFromMask(self.tree, m, writeMask='mask.cgns', lin_axis=lin_axis)
+            mask_filename = os.path.join(self.RunManagement['RunDirectory'], 'mask.cgns')
+            TH._computeHeightFromMask(self.tree, m, writeMask=mask_filename, lin_axis=lin_axis)
+            os.remove(mask_filename) # remove this file for now, but it will be maybe necessary for other operations later
         
         I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
 

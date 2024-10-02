@@ -18,7 +18,7 @@
 import numpy as np
 
 from treelab import cgns
-from . import Workflow
+from .. import Workflow
 
 
 class WorkflowAirfoil(Workflow):

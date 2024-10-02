@@ -18,7 +18,12 @@
 import pytest
 import numpy as np
 
-from mola.workflow import WorkflowAirfoil
+from mola.workflow.airfoil.workflow import WorkflowAirfoil
+
+# @pytest.mark.unit
+# @pytest.mark.cost_level_0
+# def test_init():
+#     w = WorkflowAirfoil()
 
 @pytest.mark.unit
 @pytest.mark.elsa # because workflow airfoil not compatible with sonics yet (not working without cassiopee)

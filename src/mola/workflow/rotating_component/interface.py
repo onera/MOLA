@@ -19,7 +19,7 @@ import numpy as np
 from typing import Union
 
 from mola.logging import mola_logger, MolaException, MolaUserError
-from . import WorkflowInterface
+from .. import WorkflowInterface
 
 class WorkflowRotatingComponentInterface(WorkflowInterface):
 

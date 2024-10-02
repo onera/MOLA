@@ -110,7 +110,7 @@ def get_scheduler_and_options(RunManagement):
 
     # possibly want to run locally (e.g. within same slurm node) without
     # submitting new sbatch jobs (and having to wait for them), which is
-    # required by test_WorkflowParallelScheduler_sphere_local when running
+    # required by test_WorkflowManager_sphere_local when running
     # in juno. Otherwise, jobs would be launched, test will continue and raise
     # and exception because the tests cannot be completed
     RunManagement['Scheduler'] = RunManagement.get('Scheduler',scheduler)
