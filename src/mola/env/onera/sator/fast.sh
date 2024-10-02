@@ -21,7 +21,7 @@ source $SCRIPT_DIR/../network.sh
 export MAIAVERSION=1.4
 
 export MACHINE=sator_sph
-export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
+export CASSIOPEE=/tmp_user/sator/cassiope/git/Cassiopee/ 
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 unset I_MPI_PMI_LIBRARY

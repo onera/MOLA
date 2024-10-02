@@ -1060,7 +1060,7 @@ def getDistributionFromHeterogeneousInput__(InputDistrib):
         return buildResultFromNode__(zone)
 
     elif isinstance(InputDistrib,dict):
-        from . import Wireframe as W
+        from . import curve as W
         try: P1 = InputDistrib['P1']
         except KeyError: P1 = (0,0,0)
         try: P2 = InputDistrib['P2']
@@ -1195,7 +1195,7 @@ def sampleIn2DQhull__(x,y,QhullNPts=20,QhullScale=1.2, grading=0.1, rescale=True
     '''
     import Generator.PyTree as G
     import Transform.PyTree as T
-    from . import Wireframe as W
+    from . import curve as W
 
     QhullZone, xScale, yScale = get2DQhullZone__(x,y,rescale)
     xq, yq = getxy(QhullZone)

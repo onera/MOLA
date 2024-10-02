@@ -30,6 +30,7 @@ def test_set_default():
         Machine = 'auto',
         RunDirectory = '.',
         NumberOfProcessors = 3,
+        QuitMarginBeforeTimeOutInSeconds = 300,
         )
 
     run_manager.set_default(RunManagement)
@@ -56,7 +57,7 @@ def test_convert_to_seconds_ss_int(in_out):
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_time_margin():
-    RunManagement = dict(SecondsMarginForQuitBeforeTimeOut=600)
+    RunManagement = dict(QuitMarginBeforeTimeOutInSeconds=600)
     scheduler_options = dict(time='00:30:00')
     run_manager.set_time_margin(RunManagement, scheduler_options)
     assert RunManagement['TimeOutInSeconds'] == 1200.

@@ -22,7 +22,9 @@ import os
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.cost_level_3
-def test_propeller_light(tmp_path):
+def test_oras_mesher(tmp_path):
+    return True
+    import numpy as np
     import Converter.PyTree as C
     import Converter.Internal as I
 
@@ -32,12 +34,11 @@ def test_propeller_light(tmp_path):
     import mola.legacy.volume as GVD
     import mola.legacy.propeller_mesher as RW
 
-    return True
 
-    spinner_rear_topology = 'arc' # 'line' or 'arc'
+    spinner_rear_topology = 'line' # 'line' or 'arc'
 
     blade_number = 5
-    delta_pitch_angle = +20. # deg
+    delta_pitch_angle = +55.0 # deg
     wall_cell_height = 10e-6
     blade_radial_NPts = 40
     airfoil_NPts_top = airfoil_NPts_bottom = 67 #171 # must be ODD
@@ -84,9 +85,10 @@ def test_propeller_light(tmp_path):
     final_tangential_direction = ( 0, 0, 1)
 
 
-    DIRECTORY_CHECKME = 'CHECK_ME'
-    try: os.makedirs(os.path.join(tmp_path,DIRECTORY_CHECKME))
+    DIRECTORY_CHECKME = os.path.join(tmp_path,'CHECK_ME')
+    try: os.makedirs(DIRECTORY_CHECKME)
     except: pass
+    RW.DIRECTORY_CHECKME = DIRECTORY_CHECKME
 
 
     # ----------------------- SPINNER AND BLADE SURFACES ----------------------- #
@@ -158,7 +160,7 @@ def test_propeller_light(tmp_path):
         GVD.T._reorder(blade,(-1,2,3))
 
 
-    J.save(blade,os.path.join(tmp_path,DIRECTORY_CHECKME,'0_blade_geometry.cgns'))
+    J.save(blade,os.path.join(DIRECTORY_CHECKME,'0_blade_geometry.cgns'))
 
     RW.addPitchAndAdjustPositionOfBladeSurface(blade, root_window='jmin',
         delta_pitch_angle= delta_pitch_angle if RightHandRuleRotation else -delta_pitch_angle,
@@ -169,7 +171,86 @@ def test_propeller_light(tmp_path):
     blade = GSD.closeWingTipAndRoot(blade, tip_window='jmax', close_root=False,
                                 airfoil_top2bottom_NPts=blade_tip_NPts_top2Bottom)
 
-    J.save(blade,os.path.join(tmp_path,DIRECTORY_CHECKME,'1_blade_surface.cgns'))
+    J.save(blade,os.path.join(DIRECTORY_CHECKME,'1_blade_surface.cgns'))
+
+    # stator 
+    BladeDiscretization = dict(P1=(r,0,0),P2=(0.85*R,0,0),
+                            N=int(blade_radial_NPts*0.6),
+                            kind='tanhTwoSides',
+                            FirstCellHeight=blade_root_cellwidth,
+                            LastCellHeight=blade_tip_cellwidth)
+
+    ChordDict = dict(RelativeSpan = [r/R,   0.45,  0.6,  1.0],
+                    Chord        = 0.7*np.array([0.07,  0.10, 0.10, 0.03]),
+                    InterpolationLaw = 'akima',)
+
+    TwistDict = dict(RelativeSpan = [r/R,  0.6,  1.0],
+                    Twist        = [30.,  6.0, -1.0],
+                    InterpolationLaw = 'akima',)
+
+    DihedralDict = dict(RelativeSpan = [r/R,    1.0],
+                    Dihedral        = [0., 0.],
+                    InterpolationLaw = 'interp1d_linear',)
+
+    SweepDict = dict(RelativeSpan = [r/R,    1.0],
+                    Sweep        = [0., 0.],
+                    InterpolationLaw = 'interp1d_linear',)
+
+    # front root to tip
+    Airfoils = [W.airfoil('NACA4416'),
+                W.airfoil('NACA4416')]
+    # Airfoils = [J.load('/stck/lbernard/AIRFOIL_DATABASE/OA/OA309.cgns'),
+    #             J.load('/stck/lbernard/AIRFOIL_DATABASE/OA/OA309.cgns')]
+
+    AirfoilDistribution=[dict(N=airfoil_NPts_bottom,
+                        BreakPoint=airfoil_LeadingEdge_abscissa,
+                        kind='tanhTwoSides',
+                        FirstCellHeight=airfoil_TrailingEdge_width_relative2chord,
+                        LastCellHeight=airfoil_LeadingEdge_width_relative2chord),
+                        dict(N=airfoil_NPts_top,
+                            BreakPoint=1.0,
+                            kind='tanhTwoSides',
+                            FirstCellHeight=airfoil_LeadingEdge_width_relative2chord,
+                            LastCellHeight=airfoil_TrailingEdge_width_relative2chord),]
+
+    Airfoils = [W.polyDiscretize(I.getZones(a)[0], AirfoilDistribution) for a in Airfoils]
+
+    AirfoilsDict = dict(RelativeSpan     = [r/R,  1.000],
+                        Airfoil = [Airfoils[0], Airfoils[1]],
+                        InterpolationLaw = 'interp1d_linear',)
+
+
+    stator = GSD.wing(BladeDiscretization,
+                    ChordRelRef = airfoil_stacking_point_relative2chord,
+                    NPtsTrailingEdge = blade_tip_NPts_top2Bottom,
+                    AvoidAirfoilModification = True,
+                    Chord = ChordDict,
+                    Dihedral =  DihedralDict,
+                    Sweep =  SweepDict,
+                    Twist =  TwistDict,
+                    Airfoil =  AirfoilsDict,)[1]
+    stator[0] = 'stator'
+    if RightHandRuleRotation:
+        x = J.getx(stator)
+        x *= -1
+        GVD.T._reorder(stator,(-1,2,3))
+
+
+
+    J.save(stator,os.path.join(DIRECTORY_CHECKME,'0_stator_geometry.cgns'))
+
+    RW.addPitchAndAdjustPositionOfBladeSurface(stator, root_window='jmin',
+        delta_pitch_angle= delta_pitch_angle if not RightHandRuleRotation else -delta_pitch_angle,
+        pitch_center_adjust_relative2chord=0.50,
+        pitch_axis=blade_input_spanwise_direction,
+        pitch_center=blade_input_pitch_center)
+    
+    GVD.T._translate(stator,(0,-0.15,0))
+
+    stator = GSD.closeWingTipAndRoot(stator, tip_window='jmax', close_root=False,
+                                airfoil_top2bottom_NPts=blade_tip_NPts_top2Bottom)
+
+    J.save(stator,os.path.join(DIRECTORY_CHECKME,'1_stator_surface.cgns'))
 
     curves  = RW.makeSpinnerCurves(LengthFront=0.2, LengthRear=spinner_LengthRear,
                         Width=0.15,
@@ -182,31 +263,8 @@ def test_propeller_light(tmp_path):
     profile = curves[0]
     for c in curves[1:]: profile = RW.T.join(profile, c)
 
-    J.save(profile,os.path.join(tmp_path,DIRECTORY_CHECKME,'2_spinner_profile_geometry.cgns'))
-
-    Nb_segments_airfoil = airfoil_NPts_top + airfoil_NPts_bottom - 1
-    Hgrid_NPts = int(Nb_segments_airfoil/2 - (spinner_azimut_NPts-1))
-    if Hgrid_NPts < 9:
-        raise ValueError('insuficient number of airfoil segments compared to azimut points')
-    Hgrid_cell = 3e-3
-    law = 'tanhTwoSides'
-
-    profile_discretization = [
-    # reference spinner leading edge arc discretization:
-    {'N':32, 'BreakPoint(y)':0.1919, 'kind':law,'FirstCellHeight':1e-4,'LastCellHeight':1.8e-3},
-
-    # from spinner leading edge to blade root H-grid region:
-    {'N':40, 'BreakPoint(y)':0.06, 'kind':law,'FirstCellHeight':1.8e-3,'LastCellHeight':Hgrid_cell},
-
-    # blade root H-grid region:
-    {'N':Hgrid_NPts, 'BreakPoint(y)':-0.08, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':Hgrid_cell},
-
-    # rear
-    {'N':200, 'BreakPoint':  1.0, 'kind':law,
-    'FirstCellHeight':Hgrid_cell, 'LastCellHeight':spinner_TrailingEdgeCellLength},
-    ]
-
-    profile = W.polyDiscretize( profile, profile_discretization )
+    RW.T._rotate(profile,(0,0,0),(0,0,1),90)
+    J.save(profile,os.path.join(DIRECTORY_CHECKME,'2_profile_geometry.cgns'))
 
     profile_input_frenet = (spinner_profile_input_spanwise_direction,
                             spinner_profile_input_axial_direction,
@@ -221,63 +279,133 @@ def test_propeller_light(tmp_path):
                     final_tangential_direction)
 
 
-    RW.T._rotate(profile, blade_input_pitch_center, profile_input_frenet, blade_input_frenet)
+    RW.T._rotate(blade, rotation_center, blade_input_frenet, final_frenet)
+    RW.T._rotate(stator, rotation_center, blade_input_frenet, final_frenet)
 
-    J.save(profile, os.path.join(tmp_path,DIRECTORY_CHECKME,'3_spinner_profile_grid.cgns'))
+    ###########################################################################
+    #                     REQUIRED DATA STARTS FROM HERE                      #
+    ###########################################################################
+    # (see buildOpenRotorAndStatorMesh for details)
+    # profile: entire hub profile, densely discretized, passing through blades, on OXY plane
+    # blade: blade intersecting profile, closed at tip and at TE, with root at jmin, imin starts at bottom at real position (except pitch)
+    # stator: same as blade, but concerning the stator
 
-    print('making spinner surface...')
-    hub = RW.makeHub(profile, blade_number, rotation_axis=spinner_profile_input_axial_direction,
-                        number_of_cells_azimuth=spinner_azimut_NPts-1)
-    print('making spinner surface... %sok%s'%(J.GREEN,J.ENDC))
+    RotorNumberOfBlades = 9
+    RotorAzimutalCellAngle = 1.0 # deg
+    ncell_azimut_rotor = int((360/RotorNumberOfBlades)/RotorAzimutalCellAngle)
 
-    if spinner_azimut_adjust == 'auto':
-        RW.adjustSpinnerAzimutRelativeToBlade(hub, blade)
-    else:
-        RW.T._rotate(hub,(0,0,0),blade_input_axial_direction,spinner_azimut_adjust)
+    blade_main_surface = J.selectZoneWithHighestNumberOfPoints( blade )
+    _,Ni,_,_,_=I.getZoneDim(blade_main_surface)
+    Nb_segments_airfoil = Ni - 1
+    Hgrid_NPts = Nb_segments_airfoil//2 - ncell_azimut_rotor
 
-    t = C.newPyTree(['Spinner',I.getZones(hub),
-                    'Blade',I.getZones(blade)])
+    if Hgrid_NPts < 9:
+        raise ValueError('insuficient number of airfoil segments compared to azimut points')
+    Hgrid_cell = 3e-3
+    law = 'tanhTwoSides'
 
-    RW.T._rotate(t, rotation_center, blade_input_frenet, final_frenet)
+    interface_cell_length_axially = 0.002
 
-    J.save(t, os.path.join(tmp_path,DIRECTORY_CHECKME,'4_blade_and_spinner_intersecting.cgns'))
+    RotorHubProfileReDiscretization = [
+    # reference spinner leading edge arc discretization:
+    {'N':32, 'BreakPoint(x)':-0.1919, 'kind':law,'FirstCellHeight':1e-4,'LastCellHeight':1.8e-3},
 
-    Spinner = I.getNodeFromName2(t,'Spinner')
-    Blade = I.getNodeFromName2(t,'Blade')
+    # from spinner leading edge to blade root H-grid region:
+    {'N':40, 'BreakPoint(x)':-0.063, 'kind':law,'FirstCellHeight':1.8e-3,'LastCellHeight':Hgrid_cell},
 
-    blade_extruded = RW.extrudeBladeSupportedOnSpinner(Blade, Spinner, rotation_center,
-                        final_axial_direction, wall_cell_height,
-                        spinner_wall_cell_height=0.005,
-                        root_to_transition_distance=0.1,
-                        root_to_transition_number_of_points=11,
-                        maximum_number_of_points_in_normal_direction=500,
-                        distribution_law='ratio', distribution_growth_rate=1.15,
-                        last_extrusion_cell_height=1e-3,
-                        maximum_extrusion_distance_at_spinner=5e-3,
-                        smoothing_start_at_layer=10,
-                        smoothing_normals_iterations=3,
-                        smoothing_normals_subiterations=[2,30,'distance'],
-                        smoothing_growth_iterations=2,
-                        smoothing_growth_subiterations=50,
-                        smoothing_growth_coefficient=[0.1,0.5,'index'],
-                        smoothing_expansion_factor=[0.05,0.2,'index'],
-                        intersection_method='conformize',
-                        )
+    # blade root H-grid region:
+    {'N':Hgrid_NPts, 'BreakPoint(x)':+0.06, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':Hgrid_cell},
 
-    J.save(blade_extruded, os.path.join(tmp_path,DIRECTORY_CHECKME,'5_blade_extruded.cgns'))
+    # rear
+    {'N':10, 'BreakPoint':  1.0, 'kind':law,
+    'FirstCellHeight':Hgrid_cell, 'LastCellHeight':interface_cell_length_axially},
+    ]
 
-    t = RW.buildMatchMesh(Spinner, blade_extruded, blade_number,
-                    rotation_axis=final_axial_direction,
-                    rotation_center=rotation_center, H_grid_interior_points=21,#61,
-                    relax_relative_length=0.5, distance=1., number_of_points=20,
-                    farfield_cell_height=0.25, tip_axial_scaling_at_farfield=0.25,
-                    normal_tension=0.02)
+
+    RotorBladeExtrusionParams = dict(
+        root_to_transition_distance=0.1,
+        root_to_transition_number_of_points=11,
+        
+        maximum_extrusion_distance_at_spinner=5e-3,
+        maximum_number_of_points_in_normal_direction=500,
+        distribution_law='ratio',
+        distribution_growth_rate=1.15,
+        last_extrusion_cell_height=1e-3,
+        
+        smoothing_start_at_layer=10,
+        smoothing_normals_iterations=3,
+        smoothing_normals_subiterations=[2,30,'distance'],
+        smoothing_growth_iterations=2,
+        smoothing_growth_subiterations=50,
+        smoothing_growth_coefficient=[0.1,0.5,'index'],
+        smoothing_expansion_factor=[0.05,0.2,'index'],
+        intersection_method='conformize')
+
+
+
+    ############################## Stator Params ##############################
+    StatorNumberOfBlades = 9
+    StatorAzimutalCellAngle = 1.0 # deg
+    ncell_azimut_Stator = int((360/StatorNumberOfBlades)/StatorAzimutalCellAngle)
+
+    stator_main_surface = J.selectZoneWithHighestNumberOfPoints( stator )
+    _,Ni,_,_,_=I.getZoneDim(stator_main_surface)
+    Nb_segments_airfoil = Ni - 1
+    Hgrid_NPts = Nb_segments_airfoil//2 - ncell_azimut_Stator
+
+    if Hgrid_NPts < 9:
+        raise ValueError('insuficient number of airfoil segments compared to azimut points')
+    Hgrid_cell = 0.002
+    law = 'tanhTwoSides'
+
+    StatorHubProfileReDiscretization = [
+    {'N':10, 'BreakPoint(x)':0.1, 'kind':law,'FirstCellHeight':interface_cell_length_axially,'LastCellHeight':Hgrid_cell},
+    {'N':Hgrid_NPts, 'BreakPoint(x)':0.2, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':Hgrid_cell},
+    {'N':100, 'BreakPoint':1, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':spinner_TrailingEdgeCellLength},
+      ]
+
+
+    StatorBladeExtrusionParams = dict(
+        root_to_transition_distance=0.1,
+        root_to_transition_number_of_points=11,
+        
+        maximum_extrusion_distance_at_spinner=5e-3,
+        maximum_number_of_points_in_normal_direction=500,
+        distribution_law='ratio',
+        distribution_growth_rate=1.15,
+        last_extrusion_cell_height=1e-3,
+        
+        smoothing_start_at_layer=10,
+        smoothing_normals_iterations=3,
+        smoothing_normals_subiterations=[2,30,'distance'],
+        smoothing_growth_iterations=2,
+        smoothing_growth_subiterations=50,
+        smoothing_growth_coefficient=[0.1,0.5,'index'],
+        smoothing_expansion_factor=[0.05,0.2,'index'],
+        intersection_method='conformize')
+
+
+    t = RW.buildOpenRotorAndStatorMesh(blade,stator,profile,
+            CoordinateOfRotorStatorInterfaceAtHub=0.082,
+            RotorHubProfileReDiscretization = RotorHubProfileReDiscretization,
+            RotorAzimutalCellAngle = RotorAzimutalCellAngle,
+            RotorNumberOfBlades=RotorNumberOfBlades,
+            RotorBladeWallCellHeight=1e-5,
+            RotorHubWallCellHeight=0.005,
+            RotorBladeExtrusionParams = RotorBladeExtrusionParams,
+
+            StatorHubProfileReDiscretization = StatorHubProfileReDiscretization,
+            StatorAzimutalCellAngle = StatorAzimutalCellAngle,
+            StatorNumberOfBlades=StatorNumberOfBlades,
+            StatorBladeWallCellHeight=1e-5,
+            StatorHubWallCellHeight=0.005,
+            StatorBladeExtrusionParams = StatorBladeExtrusionParams,
+            )
 
     J.save(t,os.path.join(tmp_path,'mesh.cgns'))
     J.printElapsedTime('total meshing time was:', previous_timer=toc)
 
 
-
-
 if __name__ == '__main__':
-    test_propeller_light('test_propeller_light')
+    # test_propeller_mesher_light('test_propeller_mesher_light')
+    test_oras_mesher('test_oras_mesher')

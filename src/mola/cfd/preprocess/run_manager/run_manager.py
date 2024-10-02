@@ -120,11 +120,8 @@ def get_scheduler_and_options(RunManagement):
 
 
 def set_time_margin(RunManagement, scheduler_options):
-    time_limit = scheduler_options.get('time', '24:00:00') 
-    try: 
-        margin = RunManagement.pop('SecondsMarginForQuitBeforeTimeOut')
-    except KeyError:
-        margin = 600
+    time_limit = scheduler_options.get('time', '24:00:00')
+    margin = RunManagement['QuitMarginBeforeTimeOutInSeconds']
     RunManagement['TimeOutInSeconds'] = convert_to_seconds(time_limit) - convert_to_seconds(margin)
 
 def set_launcher_command(RunManagement):

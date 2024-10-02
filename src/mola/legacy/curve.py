@@ -1194,6 +1194,7 @@ def polyDiscretize(curve, Distributions, MappingLaw='Generator.map'):
 
     '''
 
+    if not Distributions: return I.copyTree(curve)
 
     L = D.getLength(curve)
     s = gets(curve)

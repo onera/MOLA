@@ -1967,7 +1967,6 @@ def surfacesIntersection(surface1, surface2):
         theIntersection : zone
             unstructured curve BAR of the intersection
     '''
-
     t = C.newPyTree(['Base',[surface1, surface2]])
 
     I._rmNodesByType(t,'FlowSolution_t')
