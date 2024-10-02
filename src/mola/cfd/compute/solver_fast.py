@@ -54,6 +54,8 @@ def apply_to_solver(workflow):
         # if workflow.SolverParameters['Num2Base']['modulo_verif']%0:
         #     FastS.display_temporal_criteria(t, metrics, it, format='store')
 
+
+
         # TODO : split run_iteration in two ?
         # workflow._iteration = it
         # workflow._status = 'RUNNING_AFTER_ITERATION'
@@ -70,3 +72,5 @@ def get_range_of_iterations(workflow):
     niter = workflow.Numerics['NumberOfIterations']
 
     return inititer, niter
+
+

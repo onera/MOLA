@@ -34,6 +34,37 @@ def add_convergence_history(worfklow, ExtactionPeriod=1):
 
     import FastS.PyTree as FastS
 
+    # FIXME https://github.com/onera/Fast/issues/13 
     FastS.createConvergenceHistory(worfklow.tree, ExtactionPeriod)
     cgns.castNode(worfklow.tree)
 
+
+def _createConvergenceHistory(t, nrec):
+    """Create a node in tree to store convergence history."""
+    import numpy
+    import Converter.Internal as I
+    varsR   = ['RSD_L2','RSD_oo','RSD_L2_diff','RSD_oo_diff']
+    bases   = I.getNodesFromType1(t, 'CGNSBase_t')
+    curIt   = 0
+    for b in bases:
+       I.createUniqueChild(b, 'GlobalConvergenceHistory',
+                              'ConvergenceHistory_t', value=curIt)
+
+       model='Nada'
+       a = I.getNodeFromName2(t, 'GoverningEquations')
+       if a is not None: model = I.getValue(a)
+
+       for z in I.getZones(b):
+
+          a = I.getNodeFromName2(z, 'GoverningEquations')
+          if a is not None: model = I.getValue(a)
+          neq = 5
+          if model == 'nsspalart' or model =='NSTurbulent': neq = 6
+         
+          c = I.createUniqueChild(z, 'ZoneConvergenceHistory',
+                                     'ConvergenceHistory_t', value=curIt)
+          tmp = numpy.zeros((nrec), numpy.int32)
+          I.createChild(c, 'IterationNumber', 'DataArray_t', tmp)
+          for var in varsR:
+            tmp = numpy.zeros((nrec*neq), numpy.float64)
+            I.createChild(c, var ,'DataArray_t', tmp)

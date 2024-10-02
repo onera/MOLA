@@ -37,6 +37,7 @@ def get_rans_tree():
     C._addBC2Zone(z, 'WALL', 'FamilySpecified:WALL', 'imin')
     C._fillEmptyBCWith(z, 'FARFIELD', 'FamilySpecified:FARFIELD', dim=3)
     C._addState(z, 'GoverningEquations', 'NSTurbulent')
+
     Init._initConst(z, MInf=0.4, loc='centers')
     C._addState(z, MInf=0.4)
     t = C.newPyTree(['Base', z])
@@ -131,6 +132,10 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
     class FakeWorkflow():
         def __init__(self):
             self.tree = cgns.castNode(t)
+            for FlowEq in self.tree.group(Type='FlowEquationSet_t'):
+                cgns.Node(Name='EquationDimension',
+                          Type='EquationDimension_t',
+                          Value=3, Parent=FlowEq)
             self._fast_metrics = metrics
             self._status = 'BEFORE_FIRST_ITERATION'
             self.Numerics = dict(IterationAtInitialState=1,
@@ -340,10 +345,12 @@ def test_extract_bc(tmp_path):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_extract_residuals(tmp_path):
+@pytest.mark.parametrize("modeling", ['euler',
+    # 'rans', # FIXME https://github.com/onera/Fast/issues/13 
+    ])
+def test_extract_residuals(tmp_path,modeling):
 
-    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'euler')
-    
+    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, modeling)
     workflow._coprocess_manager.Extractions = [dict(Type='Residuals')]
     workflow.Extractions = workflow._coprocess_manager.Extractions
 
@@ -359,11 +366,16 @@ def test_extract_residuals(tmp_path):
     I._rmNodesByName(t, "GlobalConvergenceHistory")
 
     niter = 10
+
     FastS.createConvergenceHistory(t, niter)
+    # WIP HACK Fast#13
+    # from mola.cfd.preprocess.extractions.solver_fast import _createConvergenceHistory
+    # _createConvergenceHistory(t,niter)
 
 
     for it in range( niter ):
         FastS._compute(t, metrics, it, tc, graph)
+
 
         # FIXME not available in RANS https://github.com/onera/Fast/issues/13 
         FastS.display_temporal_criteria(t, metrics, it, format='store')
