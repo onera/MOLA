@@ -361,7 +361,8 @@ class WorkflowRotatingComponent(Workflow):
             plt.xlabel('x (m)')
             plt.ylabel('y (m)')
             # Save
-            plt.savefig('shroud_hub_lines.png', dpi=150, bbox_inches='tight')
+            merid_lines_image_filename = os.path.join(self.RunManagement['RunDirectory'], 'shroud_hub_lines.png')
+            plt.savefig(merid_lines_image_filename, dpi=150, bbox_inches='tight')
             return 0
 
         mola_logger.info('Add ChannelHeight in the mesh...')
@@ -373,19 +374,22 @@ class WorkflowRotatingComponent(Workflow):
             node.setValue(np.asarray(node.value(), dtype=np.int32))
 
         with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG', stderr_level='ERROR'):
-
-            endlinesTree = TH.generateHLinesAxial(self.tree, filename='shroud_hub_lines.plt', method=method)
+            
+            merid_lines_filename = os.path.join(self.RunManagement['RunDirectory'], 'shroud_hub_lines.plt')
+            endlinesTree = TH.generateHLinesAxial(self.tree, filename=merid_lines_filename, method=method)
             try: 
                 plot_hub_and_shroud_lines(endlinesTree)
             except: 
                 pass
 
             # - Generation of the mask file
-            m = TH.generateMaskWithChannelHeight(self.tree, 'shroud_hub_lines.plt')
-            # os.remove('shroud_hub_lines.plt')
+            m = TH.generateMaskWithChannelHeight(self.tree, merid_lines_filename)
+            os.remove(merid_lines_filename)
 
             # - Generation of the ChannelHeight field
-            TH._computeHeightFromMask(self.tree, m, writeMask='mask.cgns')
+            mask_filename = os.path.join(self.RunManagement['RunDirectory'], 'mask.cgns')
+            TH._computeHeightFromMask(self.tree, m, writeMask=mask_filename)
+            os.remove(mask_filename) # remove this file for now, but it will be maybe necessary for other operations later
         
         I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
         
