@@ -35,7 +35,7 @@ export MACHINE=sator_sph
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
-source /tmp_user/sator/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh 
+source /tmp_user/sator/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
 # export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
 
 # # external python packages

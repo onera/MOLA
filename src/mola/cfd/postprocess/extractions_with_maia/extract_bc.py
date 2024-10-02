@@ -18,7 +18,7 @@
 from treelab import cgns
 import maia
 
-def extract_bc(tree, Family, comm):
+def extract_bc_from_family(tree, Family, comm):
     surface = maia.algo.part.extract_part_from_family(tree, Family, comm, containers_name=['BCDataSet'])
     return surface
 

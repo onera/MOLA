@@ -15,82 +15,166 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 from pprint import pprint
-import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException
 
 from treelab import cgns
+import mola.naming_conventions as names
+from mola.logging import mola_logger, MolaException
+from mola.cfd.preprocess.cfd_parameters.cfd_parameters import deep_update
 
-# TODO Check the correspondance of models in SoNICS
 TURBULENCE_SONICS_KEYS = {
 
     'SA': dict(
-        name = 'SpalartStandard',
+        features = ['spalart_standard'],
+        parameters = dict(),
     ),
 
-    'SA-QCR2000': dict(
-        name = 'SpalartQCR2020', 
+    # 'Wilcox2006-klim': dict(
+    #     turbmod        = 'komega_kok',
+    #     kok_diff_cor   = 'wilcox2006',
+    #     sst_cor        = 'active',
+    #     sst_version    = 'wilcox2006',
+    #     k_prod_limiter = 20.,
+    #     k_prod_compute = 'from_sij',
+    #     zhenglim       = 'inactive',
+    #     omega_prolong  = 'linear_extrap',
+    # ),
+    
+    # 'Wilcox2006-klim-V': dict(
+    #     turbmod        = 'komega_kok',
+    #     kok_diff_cor   = 'wilcox2006',
+    #     sst_cor        = 'active',
+    #     sst_version    = 'wilcox2006',
+    #     k_prod_limiter = 20.,
+    #     k_prod_compute = 'from_vorticity',
+    #     zhenglim       = 'inactive',
+    #     omega_prolong  = 'linear_extrap',
+    # ),
+
+    # 'Wilcox2006': dict(
+    #     turbmod        = 'komega_kok',
+    #     kok_diff_cor   = 'wilcox2006',
+    #     sst_cor        = 'active',
+    #     sst_version    = 'wilcox2006',
+    #     k_prod_compute = 'from_sij',
+    #     zhenglim       = 'inactive',
+    #     omega_prolong  = 'linear_extrap',
+    # ),
+    
+    # 'Wilcox2006-V': dict(
+    #     turbmod        = 'komega_kok',
+    #     kok_diff_cor   = 'wilcox2006',
+    #     sst_cor        = 'active',
+    #     sst_version    = 'wilcox2006',
+    #     k_prod_compute = 'from_vorticity',
+    #     zhenglim       = 'inactive',
+    #     omega_prolong  = 'linear_extrap',
+    # ),
+
+    'SST-2003': dict(
+        features = ['sst/std_sij', 'k_prod/from_sij'],
+        parameters = dict(k_prod_limiter=10.),
+    ),
+
+    'SST-V2003': dict(
+        features = ['sst/std_sij', 'k_prod/from_vorticity'],
+        parameters = dict(k_prod_limiter=10.),   
     ),
 
     'SST': dict(
-        name        = 'KOmegaMenterSST',
-        prodK_type = 'from_S', 
+        features = ['sst/std_vort', 'k_prod/from_sij'],
+        parameters = dict(k_prod_limiter=20.),
     ),
 
     'SST-V': dict(
-        name        = 'KOmegaMenterSST',
-        prodK_type = 'from_W', 
+        features = ['sst/std_vort', 'k_prod/from_vorticity'],
+        parameters = dict(k_prod_limiter=20.),
     ),
 
     'BSL': dict(
-        name = 'KOmegaMenterBSL',
-        prodK_type = 'from_S',      
-        # kprod_limiter = 20.,
+        features = ['bsl', 'k_prod/from_sij'],
+        parameters = dict(k_prod_limiter=20.),     
     ),
 
     'BSL-V': dict(
-        name = 'KOmegaMenterBSL',
-        prodK_type = 'from_W',   
+        features = ['bsl', 'k_prod/from_vorticity'],
+        parameters = dict(k_prod_limiter=20.),     
     ),
 
+    'smith': dict(
+        turbmod        = 'kl_smith',
+        k_prod_compute = 'from_sij',
+    ),
+
+    'smith-V': dict(
+        turbmod        = 'kl_smith',
+        k_prod_compute = 'from_vorticity',
+    ),
 }
+
+for model in ['SST-2003', 'SST-V2003']:
+    TURBULENCE_SONICS_KEYS[f'{model}-LM2009'] = dict(
+        features = TURBULENCE_SONICS_KEYS[model]['features'] + ['transition_menter'],
+        parameters = TURBULENCE_SONICS_KEYS[model]['parameters'],
+    )
+
 
 def apply_to_solver(workflow):
 
     import miles
 
+    fluid_features, fluid_parameters = get_fluid_template(workflow.Fluid)
+    turb_features, turb_parameters = get_turbulence_template(workflow.Turbulence)
+    flux_features, flux_parameters = get_spatial_fluxes_template(workflow.Numerics)
+    time_features, time_parameters = get_time_marching_template(workflow.Numerics)
+
     my_config = miles.solver.config.Configuration(workflow.tree)
     my_config.update(
         "motion/mobile",
-        "viscosity",
-        *get_turbulence_template(workflow.Turbulence)[0],
-        *get_spatial_fluxes_template(workflow.Numerics)[0],
-        *get_time_marching_template(workflow.Numerics)[0],
+        *fluid_features,
+        *turb_features,
+        *flux_features,
+        *time_features,
     )
+    my_config.set(
+        **fluid_parameters,
+        **turb_parameters, 
+        **flux_parameters, 
+        **time_parameters,
+    )
+    user_given_parameters = update_config_with_user_parameters(my_config, workflow)
 
-    update_fluid_model(my_config, workflow.Fluid)
-
-    set_tuning_parameters(workflow, my_config)
     configuration = my_config.apply()
     configuration.update(
         dict(
             output_folder = names.DIRECTORY_LOG,
             niter = workflow.Numerics['NumberOfIterations'],
-            # niter_period = 1,
-            # extracts = {'*': ['conservatives', 'LaminarViscosity', 'TurbulentViscosity','TurbulentViscosity', 'TurbulentDistance', 'Mach', 'primitives']},
-            # code_generation = "none",
-            # CFL = workflow.Numerics['CFL'],
-            # fcfl = lambda iteration: workflow.Numerics['CFL'],
         )
     )
 
-    # convert to dict to be able to write in cgns tree with treelab
-    # configuration['conf']  = configuration['conf'].to_dict(configuration['conf'])
     del configuration['configuration']
     del configuration['hpc_conf'] 
 
     workflow.SolverParameters['configuration'] = nested_dict_from_keys(configuration)
     workflow.tree = cgns.castNode(workflow.tree)
+    deep_update(workflow.SolverParameters, user_given_parameters) 
+
+def update_config_with_user_parameters(my_config, workflow):
+    if 'features' in workflow.SolverParameters:
+        features = workflow.SolverParameters.pop('features')
+        workflow.tree.getAtPath(
+            Path=f'CGNSTree/{workflow._workflow_parameters_container_}/SolverParameters/features'
+            ).remove()
+        my_config.update(*features)
+    if 'parameters' in workflow.SolverParameters:
+        parameters = workflow.SolverParameters.pop('parameters')
+        workflow.tree.getAtPath(
+            Path=f'CGNSTree/{workflow._workflow_parameters_container_}/SolverParameters/parameters'
+            ).remove()
+        my_config.set(**parameters)
+    user_given_parameters = copy.copy(workflow.SolverParameters) 
+    return user_given_parameters
 
 def get_spatial_fluxes_template(Numerics):
     scheme = Numerics['Scheme']
@@ -113,6 +197,8 @@ def get_spatial_fluxes_template(Numerics):
 
     features.append("viscous_flux/vf5p_cor") 
     features.append("grad_scheme/green_gauss") 
+
+    parameters['pctrad'] = 0.01
     
     return features, parameters
 
@@ -127,18 +213,25 @@ def get_time_marching_template(Numerics):
 
     if Numerics['TimeMarching'] != 'Steady':
         raise MolaException(f"Only Steady simulations are implemented yet for soNICS with MOLA")
+    
+    # CFL setting
+    if isinstance(Numerics['CFL'], float):
+        parameters['CFL'] = Numerics['CFL']
+    else:
+        parameters['CFL'] = Numerics['CFL']['EndValue']
 
     return features, parameters
 
 def get_turbulence_template(Turbulence):
 
-    features = []
-    parameters = dict()
-
-    if Turbulence['Model'] == 'SA':
-        features = ['spalart_standard']
-    else:
+    try:
+        turb_dict = TURBULENCE_SONICS_KEYS[Turbulence['Model']]
+        features = turb_dict['features']
+        parameters = turb_dict.get('parameters', dict())
+    except:
         raise MolaException(f"Scheme={Turbulence['Model']} is not available for solver sonics")
+    
+    parameters['cutvars'] = get_turbulence_cutoff_setup(Turbulence)
 
     return features, parameters
 
@@ -154,7 +247,10 @@ def get_turbulence_cutoff_setup(Turbulence):
 
     return cutoffs
 
-def update_fluid_model(config, Fluid):
+def get_fluid_template(Fluid):
+    features = ['viscosity']
+    parameters = dict()
+
     translate_to_miles = dict(
         Gamma = 'SpecificHeatRatio',
         cv = 'SpecificHeatVolume',
@@ -166,7 +262,8 @@ def update_fluid_model(config, Fluid):
     for key, value in Fluid.items():
         if key in translate_to_miles:
             key = translate_to_miles[key]
-        config.set(**{key: value})
+        parameters[key] = value
+    return features, parameters
         
 def get_cfl_function(cfl):
     if isinstance(cfl, dict):
@@ -175,7 +272,8 @@ def get_cfl_function(cfl):
             CFLfunction = lambda iteration: cfl
         else:
             a = (cfl['EndValue']-cfl['StartValue']) / (cfl['EndIteration']-cfl['StartIteration'])
-            CFLfunction = lambda iteration: cfl['StartValue'] + a * (iteration - cfl['StartIteration'])
+            linear_ramp = lambda iteration: cfl['StartValue'] + a * (iteration - cfl['StartIteration'])
+            CFLfunction = lambda iteration: min(linear_ramp(iteration), cfl['EndValue'])
     else:
         CFLfunction = lambda iteration: cfl
     return CFLfunction
@@ -198,13 +296,3 @@ def nested_dict_from_keys(d):
             result[key] = value
     return result
 
-def set_tuning_parameters(workflow, config):
-    if isinstance(workflow.Numerics['CFL'], float):
-        config.set(CFL = workflow.Numerics['CFL'])
-    else:
-        config.set(CFL = workflow.Numerics['CFL']['EndValue'])
-    config.set(
-        pctrad = 0.01,
-        cutvars = get_turbulence_cutoff_setup(workflow.Turbulence),
-        # residual_convergence = 1e-12,
-    )

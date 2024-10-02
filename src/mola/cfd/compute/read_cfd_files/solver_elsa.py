@@ -187,6 +187,7 @@ def add_coordinates_in_skeleton(Skeleton, PartTree):
     #                    'FlowSolution#Average']
 
     containers2read = [':CGNS#Ppart', ':CGNS#Distribution', ':CGNS#GlobalNumbering']
+    containers2read += ['FlowSolution#Height']
     if not I.getNodeFromName1(PartTree, 'FlowSolution#EndOfRun#Coords'):
         containers2read.append('GridCoordinates')
     

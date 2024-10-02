@@ -126,6 +126,15 @@ class MaiaParallel():
     
     def wrapper_part_tree(self, part_tree, *args, **kwargs):
         raise MolaException('Not implemented for part_tree')
+        ## still not functional
+        # for gc in part_tree.group(Type='GridConnectivity*'):
+        #     if len(gc.name().split('.')) < 2:
+        #         # not compliant with maia
+        #         gc.setName(f'{gc.name()}.0')
+        # dist_tree = self.maia.factory.recover_dist_tree(part_tree, self.comm, data_transfer='ALL')
+        # self._func(dist_tree, *args, **kwargs)
+        # self.maia.transfer.dist_tree_to_part_tree_all(dist_tree, part_tree, self.comm)
+        # return part_tree
     
     def wrapper_full_tree(self, full_tree, *args, **kwargs):
         dist_tree = self.maia.factory.full_to_dist_tree(full_tree, self.comm)

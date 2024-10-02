@@ -48,6 +48,9 @@ export TREELABPATH=/tmp_user/juno/lbernard/treelab/dev/juno_elsA # ONLY DURING D
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
+# turbo 
+export PYTHONPATH=/tmp_user/juno/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/juno_mpi/lib/python3.8/site-packages/:$PYTHONPATH
+
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH
 

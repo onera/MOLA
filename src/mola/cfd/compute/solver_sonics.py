@@ -75,8 +75,11 @@ def get_iterators(workflow, configuration):
         pytriggers.append(triggers.ResidualTrigger(configuration["conf"], workflow.Numerics['NumberOfIterations'],
                                             output_folder=Path(names.DIRECTORY_LOG)))
 
-    if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
-        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] in ['3D', 'BC']]
+    if any([ext['Type'] in ['Restart', '3D', 'BC'] for ext in workflow.Extractions]):
+        if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
+            periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] in ['3D', 'BC']]
+        else:
+            periods = [workflow.Numerics['NumberOfIterations']]
         pytriggers.append(triggers.ComputeAndExtractDataInGraphTrigger(configuration["conf"],
             add_fields_and_bc_extractions(workflow),
             configuration["hpc_conf"]["hardware_target"], 
@@ -84,13 +87,13 @@ def get_iterators(workflow, configuration):
             )
 
     if any([ext['Type'] == 'Integral' for ext in workflow.Extractions]):
-        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']
+        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']  # FIXME
         pytriggers.append(triggers.MonitoringIntegralData( 
             configuration['conf'], 
             add_integral_extractions(workflow), 
             configuration['niter'], 
             configuration['hpc_conf']['hardware_target'], 
-            period=np.gcd.reduce(periods)) 
+            period=10) #np.gcd.reduce(periods)) 
         )
 
     # This Trigger write time at the end of run:

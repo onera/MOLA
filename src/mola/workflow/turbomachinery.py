@@ -64,7 +64,7 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
         dispatcher = WM.WorkflowDispatcher(self)
         if not ParallelMode:
-                dispatcher.new_job(f'isospeed_{RPM:.0f}rpm')
+            dispatcher.new_job(f'isospeed_{RPM:.0f}rpm')
         for throttle in ThrottleValues:
             if ParallelMode:
                 dispatcher.new_job(f'{throttle_key}_{throttle:.2f}')

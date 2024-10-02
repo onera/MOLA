@@ -31,7 +31,7 @@ import mola.cfd.postprocess as POST
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction
+from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction, write_extraction_log
 from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_sonics_CGNS_field_names_to_MOLA
 
 
@@ -72,15 +72,22 @@ def perform_extractions(workflow, coprocess_manager):
             coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for SoNICS", rank=0)
             extraction['Data'] = cgns.Tree()
 
+        write_extraction_log(extraction)
+
 def get_output_tree(coprocess_manager):
     # output_tree is set in compute/solver_sonics.py
     output_tree = coprocess_manager.output_tree
+    for zc in output_tree.group(Type='ZoneGridConnectivity', Depth=3):
+        zc.findAndRemoveNodes(Name='*#Vtx')  # otherwise, error in the function centers_to_nodes below
     # partionning
     part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD)
     maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
+    maia.algo.part.centers_to_nodes(part_tree, comm, ['FSolution#CellCenter#EndOfRun'])
     part_tree = cgns.castNode(part_tree)
     for zsr in part_tree.group(Type='ZoneSubRegion'):
         cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=zsr)
+    for fs in part_tree.group(Name='FSolution#CellCenter#EndOfRun#Vtx'):
+        fs.setName('FlowSolution#EndOfRunV')
     
     return part_tree
 
@@ -180,7 +187,6 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
         cgns.Node(Name='IterationNumber', Type='DataArray', Value=np.arange(NumberOfIterations, dtype=float), Parent=IntegralDataNode)
         zone = cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
-        zone.setParameters('MOLA:Extraction-Log',**extraction)
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
@@ -239,7 +245,7 @@ def deduce_container_for_slicing(IsoSurfaceField):
         return 'FlowSolution#Height'
     
     else:
-        return 'FSolution#CellCenter#Init'
+        return 'FSolution#CellCenter#EndOfRun'
     
 def move_log_files(w):
     if rank == 0:

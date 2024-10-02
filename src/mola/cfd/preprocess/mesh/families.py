@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import treelab.cgns as cgns
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, MolaUserError
 # from mola.cfd.preprocess.boundary_conditions import BoundaryConditionsNames
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
@@ -54,11 +54,21 @@ def apply(workflow):
             appendFamiliesToBase(base)
             append_default_family_to_zones(base)
 
+    check_base_name_for_sonics(workflow)
+
     if mpi_size > 1:
         MPI.COMM_WORLD.barrier()
         workflow.tree = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=0)
         workflow.tree = cgns.castNode(workflow.tree)
         MPI.COMM_WORLD.barrier()
+
+def check_base_name_for_sonics(workflow):
+    # HACK bug in sonics https://gitlab.onera.net/numerics/solver/sonics/-/issues/101
+    if workflow.Solver == 'sonics':
+        family_names = [node.name() for node in workflow.tree.group(Type='Family')]
+        base_name = workflow.tree.bases()[0].name() 
+        if base_name in family_names:
+            raise MolaUserError(f'Base name ({base_name}) cannot the same as one of Family names. Please change the Name of Component.')
     
 def set_family_from_location(base, FamilyName, location):
     import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
@@ -157,15 +167,18 @@ def appendFamiliesToBase(base):
         cgns.Node(Name=FamilyName, Type='Family', Parent=base)
 
 def append_default_family_to_zones(base, default_family_name='DefaultFamily'):
-    must_add_family_in_base = False
+    families_to_add = []
     for zone in base.zones():
         FamilyName = zone.get(Type='FamilyName', Depth=1)
         if not FamilyName:
             cgns.Node(Name='FamilyName', Type='FamilyName', Value=default_family_name, Parent=zone)
-            must_add_family_in_base = True
+            if not default_family_name in families_to_add:
+                families_to_add.append(default_family_name)
+        elif not base.get(Type='Family', Name=FamilyName.value(), Depth=1):
+            families_to_add.append(FamilyName.value())
 
-    if must_add_family_in_base:
-        cgns.Node(Name=default_family_name, Type='Family', Parent=base)
+    for family in families_to_add:
+        cgns.Node(Name=family, Type='Family', Parent=base)
 
 def join_families(t, pattern, mode=2):
     '''
@@ -242,3 +255,13 @@ def get_family_to_BCType( t : cgns.Tree ) -> dict:
         if bctype is not None:
             families_to_bctype[famnode.name()] = bctype.value()
     return families_to_bctype
+
+def get_zone_family_from_bc_or_gc_family(tree: cgns.Tree, bc_family: str) -> str:
+    for zone in tree.zones():
+        for bc in zone.group(Type='BC') + zone.group(Type='GridConnectivity*'):
+            if bc.get(Type='*FamilyName', Value=bc_family):
+                FamilyName = zone.get(Type='FamilyName', Depth=1)
+                if FamilyName:
+                    return FamilyName.value()
+    
+    raise MolaUserError(f'Cannot find a zone Family from the BC or GC Family {bc_family}. Check the input tree and family names.')

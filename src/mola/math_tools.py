@@ -376,3 +376,43 @@ def findRootWithScipy(fun, **kwargs):
     from scipy.optimize import root_scalar
     sol = root_scalar(fun, **kwargs)
     return sol.root
+
+def rotate_3d_vector_from_axis_and_angle_in_degrees(v, axis, angle):
+    '''
+    Apply the rotation in 3D space of a vector from the axis and the angle of rotation. 
+    See https://en.wikipedia.org/wiki/Rotation_matrix, section "Rotation matrix from axis and angle".
+
+    Parameters
+    ----------
+    v : np.array
+        input vector
+    axis : np.array
+        axis of the rotation in degrees 
+    angle : float
+        angle of the rotation around its axis, in radians.
+
+    Returns
+    -------
+    np.array
+        result of the rotation of the input vector
+    '''
+    from scipy.spatial.transform import Rotation
+
+    axis = axis / np.sqrt(np.sum(axis**2))
+    rot = Rotation.from_rotvec(np.radians(angle) * axis)
+    v_rot = rot.apply(v)  
+    return v_rot
+
+import pytest
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_rotate_3d_vector_from_axis_and_angle_in_degrees():
+    i = np.array([1,0,0])
+    j = np.array([0,1,0])
+    k = np.array([0,0,1])
+    quarter = 90
+    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(2*i, i, quarter), 2*i)  
+    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(3*i, k, quarter), 3*j)  
+    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(j, -k, quarter), i)  
+    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(j, i, quarter), k) 
+    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(2*i, j, 2*quarter), -2*i)

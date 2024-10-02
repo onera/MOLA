@@ -455,3 +455,23 @@ def get_bc_families_in_extraction(extraction, DictBCNames2Type):
 
     return families
     
+def write_extraction_log(extraction):
+    def _check_data(extraction):
+        try: 
+            assert isinstance(extraction['Data'], cgns.Tree)
+        except KeyError:
+            raise MolaException(f"No 'Data' in extraction {extraction}")
+        except AssertionError:
+            raise MolaException(f"extraction['Data'] must be a cgns.Tree (now its type is {type(extraction['Data'])})")
+
+    _check_data(extraction)
+    extraction_log = dict((k,v) for k,v in extraction.items() if k not in ['Data', 'IsToExtract', 'IsToSave'])
+
+    if extraction['Type'] in ['BC', 'IsoSurface']:
+        for base in extraction['Data'].bases():
+            base.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **extraction_log)
+
+    elif extraction['Type'] in ['Residuals', 'Integral', 'Probe']:
+        for zone in extraction['Data'].zones():
+            zone.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **extraction_log)
+    

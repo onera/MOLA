@@ -53,7 +53,7 @@ git add <files>
 git commit -m "this is a commit message"
 ```
 
-Before commit, you could run pytest to check that nothing is broken:
+Before commit, you could run pytest to check that nothing is broken (see section [Tests](#tests) for more details):
 ```bash
 pytest $MOLA
 ```
@@ -111,7 +111,7 @@ Syntax
 
 * **Classes** names follow **camel-case** :camel: convention, like 'WorkflowPropeller()'.
 
-* For **variables** names, there is no global recommandation. However, for physical quantities, follow the [CGNS standard](http://cgns.github.io/CGNS_docs_current/sids/dataname.html) if possible.
+* For **variables** names, there is no global recommandation for style. However, for physical quantities, follow the [CGNS standard](http://cgns.github.io/CGNS_docs_current/sids/dataname.html) if possible. In all cases, use [meaningful names](https://ashishmd.medium.com/summary-of-clean-code-by-robert-c-martin-part-2-meaningful-names-5b5baaa5b3c6).
 
 
 Architecture
@@ -122,11 +122,36 @@ Architecture
 Development
 -----------
 
-* In parallel of the development, unit tests must be written in a `test` repository in the current module to be tested. To test functions in the file `file_with_bugs.py`, the test file must be called `test_file_with_bugs.py`. For instance, to test the functions or methods in ``mola/workflow/workflow.py``, the test file should be ``mola/workflow/test/test_workflow.py``.
-  Tests must be written to work with [pytest](https://docs.pytest.org/en/8.0.x/).
-
 * Documentation and information files (``README.md``, ``CONTRIBUTING.md``, ...), are written in [Markdown](https://www.markdownguide.org/cheat-sheet/).
 
 * The "HACK" tag in source code indicates lines that make a workaround for an issue that rather should be handled by 
   another software. Normally, the issue should be reported to the support team of this software, and the lines marked
   with the "HACK" tag in MOLA should be removed once the issue is solved.
+
+Tests
+-----
+
+* Tests are done using [pytest](https://docs.pytest.org/en/8.0.x/).
+
+* There must be written in parallel of the development, in a `test` repository in the current module to be tested. To test functions in the file `file_with_bugs.py`, the test file must be called `test_file_with_bugs.py`. For instance, to test the functions or methods in ``mola/workflow/workflow.py``, the test file should be ``mola/workflow/test/test_workflow.py``.
+
+* Tests are categorized usings markers to easily run some tests specifically (short tests, tests available for one solver only, etc.). To tag a test with a marker, be sure that `pytest` module is imported in the header of the file and add one or several markers as decorators of the test function :
+```python
+import pytest
+
+@pytest.mark.unit
+@pytest.mark.elsa
+@pytest.mark.cost_level_1
+def test_some_elsa_feature():
+    pass
+```
+Main categories of tests are the following: 
+* one of `unit`, `integration` or `user_case`
+* optionally, one or several among solvers (in lower case). If there is none of them, the test will be run in every environment. If there is one or several markers for solvers, the test will be run only in these solver environments. 
+* optionally, `cost_level_<N>`, with N in {0,1,2,3,4}. It defines a range of duration of the test (see these ranges in conftest.py). The aim of these markers is to easily raise a change in the duration of the test (if for some reason it is longer to run after some development).
+
+To run tests choosing only some markers, use the option `-m` of pytest, like:
+```
+pytest $MOLA -m unit
+```
+Notice that the marker of the solver corresponding to the sourced environment is applied automatically.

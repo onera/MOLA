@@ -31,7 +31,12 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction
+from mola.cfd.coprocess.manager import (
+    mpi_allgather_and_merge_trees, 
+    update_signals_using, 
+    get_bc_families_in_extraction, 
+    write_extraction_log
+)
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
@@ -76,6 +81,8 @@ def perform_extractions(workflow, coprocess_manager):
         # Remove PyPart nodes for data that are not 3D (important to save them without PyPart)
         if extraction['Type'] not in ['Restart', '3D']:
             extraction['Data'].findAndRemoveNodes(Name=':CGNS#Ppart', Depth=3)
+
+        write_extraction_log(extraction)
 
         comm.barrier()
 
@@ -228,7 +235,6 @@ def extract_integral(output_tree, extraction) -> None:
             n.setType('DataArray_t')
         translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
         zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
-        zone.setParameters('MOLA:Extraction-Log',**extraction)
         break
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)

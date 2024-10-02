@@ -26,6 +26,7 @@ from mola.cfd.preprocess.solver_specific_tools import solver_elsa
 from mola.cfd.preprocess.motion import motion
 from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa
 from mola.cfd.preprocess.boundary_conditions import boundary_conditions
+from mola.cfd.preprocess.mesh.families import get_zone_family_from_bc_or_gc_family
 
 def get_bcs(t, Family):
     bcs = []
@@ -702,21 +703,10 @@ def outradeq(workflow, Family, **kwargs):
 @mute_stdout
 def stage_mxpl(workflow, Family, LinkedFamily):
     '''
-    Set a mixing plane condition between families **left** and **right**.
+    Set a mixing plane condition between families **Family** and **LinkedFamily**.
 
     .. important : This function has a dependency to the ETC module.
 
-    Parameters
-    ----------
-
-        t : PyTree
-            Tree to modify
-
-        Family : str
-            Name of the family on the left side.
-
-        LinkedFamily : str
-            Name of the family on the right side.
     '''
     import etc.transform as trf
 
@@ -737,6 +727,301 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
     I._correctPyTree(workflow.tree, level=4)
 
+@mute_stdout
+def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
+    '''
+    Set a RNA condition between families **Family** and **LinkedFamily**.
+
+    .. important : This function has a dependency to the ETC module.
+
+    '''
+    import etc.transform as trf
+
+    SectorPassagePeriod = stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod)
+
+    # HACK: must change the type of all FamilyName to array
+    # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
+    # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
+    for FamilyName in workflow.tree.group(Type='FamilyName'):
+        FamilyName.setValue(FamilyName.value())
+
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
+    workflow.tree, stage = trf.newStageRedFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
+
+    stage.create()
+
+    workflow.tree = cgns.castNode(workflow.tree)
+    set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
+    # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
+    I._correctPyTree(workflow.tree, level=4)
+
+@mute_stdout
+def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3):
+    '''
+    Set a hybrid mixing plane condition between families **Family** and **LinkedFamily**.
+
+    .. important : This function has a dependency to the ETC module.
+
+    '''
+    import etc.transform as trf
+
+    # HACK: must change the type of all FamilyName to array
+    # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
+    # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
+    for FamilyName in workflow.tree.group(Type='FamilyName'):
+        FamilyName.setValue(FamilyName.value())
+
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
+    workflow.tree, stage = trf.newStageMxPlHybFromFamily(workflow.tree, Family, LinkedFamily)
+
+    stage.jtype = 'nomatch_rad_line'
+    stage.hray_tolerance = 1e-16
+    for stg in stage.down:
+        filename = "state_radius_{}_{}.plt".format(LinkedFamily, nbband)
+        radius = stg.repartition(mxpl_dirtype='axial',
+                                 filename=filename, fileformat="bin_tp")
+        radius.compute(workflow.tree, nbband=nbband, c=c)
+        radius.write()
+    for stg in stage.up:
+        filename = "state_radius_{}_{}.plt".format(FamilyName, nbband)
+        radius = stg.repartition(mxpl_dirtype='axial',
+                                 filename=filename, fileformat="bin_tp")
+        radius.compute(workflow.tree, nbband=nbband, c=c)
+        radius.write()
+    stage.create()
+
+    workflow.tree = cgns.castNode(workflow.tree)
+    set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
+    # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
+    I._correctPyTree(workflow.tree, level=4)
+
+@mute_stdout
+def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
+    '''
+    Set a hybrid RNA condition between families **Family** and **LinkedFamily**.
+
+    .. important : This function has a dependency to the ETC module.
+
+    '''
+    import etc.transform as trf
+
+    SectorPassagePeriod = stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod)
+
+    # HACK: must change the type of all FamilyName to array
+    # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
+    # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
+    for FamilyName in workflow.tree.group(Type='FamilyName'):
+        FamilyName.setValue(FamilyName.value())
+
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
+    workflow.tree, stage = trf.newStageRedHybFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
+
+    stage.create()
+
+    for gc in I.getNodesFromType(workflow.tree, 'GridConnectivity_t'):
+        I._rmNodesByType(gc, 'FamilyBC_t')
+
+    workflow.tree = cgns.castNode(workflow.tree)
+
+def stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod):
+    '''
+    see https://elsa-doc.onera.fr/restricted/MU_MT_tuto/latest/Tutos/Speciality/StageRed.html#numerical-parameters
+    '''    
+    if not SectorPassagePeriod:
+
+        row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
+        row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
+
+        LapPeriod = 2*np.pi / abs(workflow.ApplicationContext['ShaftRotationSpeed'])
+
+        N1 = workflow.ApplicationContext['Rows'][row1]['NumberOfBlades']
+        N2 = workflow.ApplicationContext['Rows'][row2]['NumberOfBlades']
+        K1 = workflow.ApplicationContext['Rows'][row1]['NumberOfBladesSimulated']
+        K2 = workflow.ApplicationContext['Rows'][row2]['NumberOfBladesSimulated']
+
+        Dm = 2 / (K1/N1 + K2/N2)
+        SectorPassagePeriod = LapPeriod / Dm
+
+        msg = f'The reference time period for RNA interface is equal to {Dm}EO.'
+        if np.isclose(Dm, 1) or np.isclose(Dm, K1/N1):
+            mola_logger.info(msg)
+        else:
+            mola_logger.warning(msg)
+
+    return SectorPassagePeriod
+
+def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20., NumberOfHarmonicsForLinkedFamily=20.):
+    '''
+    Compute the parameters to run a chorochronic computation.
+    
+    Parameters
+    ----------
+
+        workflow : Workflow
+            Workflow instance
+
+        Family : str
+            Name of the family on the first side of the chorochronic interface.
+
+        LinkedFamily : str
+            Name of the family on the second side of the chorochronic interface.
+
+        NumberOfHarmonicsForFamily : float
+            Number of harmonics of the first row.
+
+        NumberOfHarmonicsForLinkedFamily : float
+            Number of harmonics of the second row.
+    '''   
+
+    stage_choro(workflow, Family, LinkedFamily)
+    convert_periodic_to_chorochrono(workflow.tree)
+    row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
+    row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
+    choroParamsRow1, choroParamsRow2 = compute_choro_parameters(workflow.ApplicationContext, row1, row2, Nharm_Row1=NumberOfHarmonicsForFamily, Nharm_Row2=NumberOfHarmonicsForLinkedFamily)
+    add_choro_data(workflow.tree, Family, **choroParamsRow1) 
+    add_choro_data(workflow.tree, LinkedFamily, **choroParamsRow2) 
+
+@mute_stdout
+def stage_choro(workflow, Family, LinkedFamily):
+    '''
+    Set a chorochronic interface condition between families **Family** and **LinkedFamily**.
+
+    .. important : This function has a dependency to the ETC module.
+    '''
+    import etc.transform as trf
+
+    # HACK: must change the type of all FamilyName to array
+    # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
+    # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
+    for FamilyName in workflow.tree.group(Type='FamilyName'):
+        FamilyName.setValue(FamilyName.value())
+
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
+    workflow.tree, stage = trf.newStageChoroFromFamily(workflow.tree, Family, LinkedFamily)
+
+    stage.jtype = 'nomatch_rad_line'
+    stage.stage_choro_type = 'characteristic'
+    stage.harm_freq_comp = 1
+    stage.choro_file_up = 'None'
+    stage.file_up = None
+    stage.choro_file_down = 'None'
+    stage.file_down = None
+    stage.nomatch_special = 'None'
+    stage.format = 'CGNS'
+
+    stage.create()
+
+    workflow.tree = cgns.castNode(workflow.tree)
+    set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
+    # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
+    I._correctPyTree(workflow.tree, level=4)
+
+def convert_periodic_to_chorochrono(t):
+    '''
+    Convert the periodic boundary condition from a PyTree t to a chorochrono boundary condition.
+    '''
+    import etc.transform as trf
+    gcnodes = []
+    for gc_node in t.group(Type='GridConnectivity*'):
+        if gc_node.get(Type='Perdiodic'):
+            gcnodes.append(gc_node)
+
+    for gcnode in gcnodes:
+        gc = trf.BCChoroChrono(t, gcnode, choro_file = 'None')
+        gc.choro_file   = 'None'
+        gc.file   = None
+        gc.format = 'CGNS'
+        gc.create()
+
+def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_Row2, relax=1.0):
+    '''
+    Compute the parameters to run a chorochronic computation.
+    '''       
+    Nblade_Row1 = ApplicationContext['Rows'][row1]['NumberOfBlades']
+    Nblade_Row2 = ApplicationContext['Rows'][row2]['NumberOfBlades']
+    omega_Row1 = ApplicationContext['ShaftRotationSpeed'] if ApplicationContext['Rows'][row1]['IsRotating'] else 0.
+    omega_Row2 = ApplicationContext['ShaftRotationSpeed'] if ApplicationContext['Rows'][row2]['IsRotating'] else 0.
+
+    gcd = np.gcd(Nblade_Row1,Nblade_Row2)
+    if Nharm_Row1 < Nblade_Row1/gcd:
+        mola_logger.warning(f'The number of chorochronic harmonics for the first row is too low ({Nharm_Row1}). Recomputing...\n ')
+        Nharm_Row1 = float(Nblade_Row2)
+
+    if Nharm_Row2 < Nblade_Row2/gcd:
+        mola_logger.warning(f'The number of chorochronic harmonics for the first row is too low ({Nharm_Row2}). Recomputing...\n ')
+        Nharm_Row2 = float(Nblade_Row1)
+        mola_logger.warning(f'New number of harmonics for row 2 : {Nharm_Row2}')
+
+    mola_logger.info(f'Number of harmonics for {row1} : {Nharm_Row1}')
+    mola_logger.info(f'Number of harmonics for {row2} : {Nharm_Row2}')
+
+    choroParamsRow1 = dict(
+        f_freq = Nblade_Row2*np.abs(omega_Row1-omega_Row2)/(2*np.pi), 
+        f_omega = float(omega_Row1 - omega_Row2), 
+        f_harm = float(Nharm_Row1), 
+        f_relax = float(relax), 
+        axis_ang_1 = Nblade_Row1, 
+        axis_ang_2 = 1
+        )
+    choroParamsRow2 = dict(
+        f_freq = Nblade_Row1*np.abs(omega_Row1-omega_Row2)/(2*np.pi), 
+        f_omega = float(omega_Row1 - omega_Row2), 
+        f_harm = float(Nharm_Row2), 
+        f_relax = float(relax), 
+        axis_ang_1 = Nblade_Row2, 
+        axis_ang_2 = 1
+        )
+    
+    return choroParamsRow1, choroParamsRow2
+
+def add_choro_data(t, rowName, f_freq, f_omega, f_harm, f_relax, axis_ang_1, axis_ang_2):
+    '''
+    Add the chorochronic parameters computed using compute_choro_parameters() to the PyTree t.
+    
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        rowName : str
+            Name of the considered row (must be the name of a Family_t node). 
+
+        freq : float
+            Frequency of blade passage to next wheel, as provided by compute_choro_parameters().
+
+        Nharm : float
+            Number of harmonics of the considered row, as provided by compute_choro_parameters().
+
+        omega : float
+            rotation speed in rad/s relative to the other row, as provided by compute_choro_parameters().
+
+        relax : float
+            Relaxation coefficient for multichoro condition, as provided by compute_choro_parameters(). Equals 1.0 for a single stage rotor/stator stage.
+
+        axis_ang_1 : float
+           Number of blades in the considered row, as provided by compute_choro_parameters().
+
+        axis_ang_2 : float
+            Number of simulated passages for the considered row, as provided by compute_choro_parameters().
+
+    ''' 
+    fam_node = t.get(Name=rowName, Type='Family', Depth=2)
+    motion_node = fam_node.setParameters('.Solver#Motion', axis_ang_1=axis_ang_1, axis_ang_2=axis_ang_2)
+
+    for zone in t.zones():
+        if not zone.get(Type='*FamilyName', Value=rowName):
+            # Not in the right family
+            continue
+        solver_param = zone.setParameters('.Solver#Param', 
+                        f_freq=f_freq,
+                        f_omega=f_omega, 
+                        f_harm=f_harm,
+                        f_relax=f_relax,
+                        )
+        for node in motion_node.group(Name='axis_*'):
+            solver_param.addChild(node)
+    
 
 def set_turbomachinery_interface_FamilyBC(t, left, right):
     for gc in t.group(Type='GridConnectivity'):

@@ -51,7 +51,7 @@ export PYTHONUNBUFFERED=true # cf ticket 9685, but simulation is slower cf ticke
 export TREELABVERSION=v0.2.0
 export MAIAVERSION=dev #1.4
 export VPMVERSION=Dev
-export TURBOVERSION=v1.3
+export TURBOVERSION=v1.3.1
 export ERSTAZVERSION=v1.6.3
 
 export ELSAVERSION=v5.3.01

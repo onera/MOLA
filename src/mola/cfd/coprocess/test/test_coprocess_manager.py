@@ -24,7 +24,7 @@ import numpy as np
 from treelab import cgns
 from mola.cfd.coprocess import comm, rank, NumberOfProcessors
 from mola.cfd.compute import apply as compute_apply
-from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names, update_signals_using
+from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names, update_signals_using, write_extraction_log
 
 
 class FakeWorkflow():
@@ -185,6 +185,35 @@ def test_update_signals(arrays):
     assert np.allclose(arrays['expected_it'], updated_it )
     assert np.allclose(arrays['expected_field'], updated_field )
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_write_extraction_log():
+    extraction = dict(
+        Type = 'Integral',
+        Source = 'BCWall*',
+        toto = 1,
+        nested = dict(test=3),
+    )
+    with pytest.raises(MolaException):
+        write_extraction_log(extraction)
+
+    extraction['Data'] = cgns.Tree()
+    base = cgns.Base(Name='Base', Parent=extraction['Data'])
+    cgns.Zone(Name='Zone', Parent=base)
+    write_extraction_log(extraction)
+    log = extraction['Data'].get(Type='Zone').getParameters(names.CGNS_NODE_EXTRACTION_LOG)
+    for key, value in extraction.items():
+        if key == 'Data': continue 
+        assert log[key] == value
+
+    extraction['Type'] = 'BC'
+    extraction['Data'] = cgns.Tree()
+    base = cgns.Base(Name='Base', Parent=extraction['Data'])
+    write_extraction_log(extraction)
+    log = extraction['Data'].get(Type='CGNSBase').getParameters(names.CGNS_NODE_EXTRACTION_LOG)
+    for key, value in extraction.items():
+        if key == 'Data': continue 
+        assert log[key] == value
 
 
 

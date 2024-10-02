@@ -71,6 +71,9 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
     return t
 
 def copyRelevantUserDefinedDataNodes(dist_tree, part_tree, comm):
+    # TODO should be deprecated, it is possible to do instead : 
+    #     maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+    # on the last version of Maia. To test and check availability with all env 
     
     from packaging.version import Version
     import maia

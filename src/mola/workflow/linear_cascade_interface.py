@@ -23,12 +23,12 @@ class WorkflowLinearCascadeInterface(WorkflowInterface):
     def __init__(self, workflow, tree=None, **kwargs):
         super().__init__(workflow, tree, **kwargs)
         if tree is None:
-            self._interface.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
-            self._interface.add_to_Extractions_BC(Source='BCInflow*', Fields=['MassFlow'])
-            self._interface.add_to_Extractions_BC(Source='BCOutflow*', Fields=['MassFlow'])
+            self.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
+            self.add_to_Extractions_Integral(Source='BCInflow*', Fields=['MassFlow'])
+            self.add_to_Extractions_Integral(Source='BCOutflow*', Fields=['MassFlow'])
 
     def set_ApplicationContext(self, 
-            AngleOfAttackDeg : float = 0.,
+            AngleOfAttackDeg : float = None,
         ):
         self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.get_default_values_from_local_signature())
 

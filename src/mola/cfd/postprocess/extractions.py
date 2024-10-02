@@ -56,6 +56,13 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
         extraction = cgns.castNode(extraction)
         restore_families(extraction, t)
     
+    elif tool == 'maia':
+        from .extractions_with_maia import extract_bc_from_family
+        zones = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
+        extraction = get_renamed_tree(zones, BaseName, CellDimension=CellDimension)
+        extraction = cgns.castNode(extraction)
+        restore_families(extraction, t)
+    
     elif tool == 'maia_zsr':
         from .extractions_with_maia import extract_bc_from_zsr
         zones = extract_bc_from_zsr(t, Family=Family, comm=MPI.COMM_WORLD)
@@ -144,15 +151,18 @@ def restore_families(surfaces, skeleton):
                 base.addChild(family)
 
 def merge_bases_and_rename_unique_base(t, basename):
+    # Add suffix .P<rank>.N<index> to mimic a maia part_tree
+    # (previously, suffix was _R<rank>N<index> like a cassiopee part_tree)
+
     base0 =  t.bases()[0]
     base0.setName(basename)
     i = 0
     for zone in base0.zones():
-        zone.setName(f"{basename}_R{rank}N{i}")
+        zone.setName(f"{basename}.P{rank}.N{i}")
         i += 1
     for base in t.bases()[1:]:
         for zone in base.zones():
-            zone.setName(f"{basename}_R{rank}N{i}")
+            zone.setName(f"{basename}.P{rank}.N{i}")
             i += 1
             zone.moveTo(base0)
         base.remove()
