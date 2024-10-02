@@ -15,19 +15,27 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from treelab import cgns
 from mola.logging import MolaAssertionError
 
-from .workflow_interface import WorkflowInterface
 from .workflow import Workflow 
-from .linear_cascade import WorkflowLinearCascade
-from .rotating_component import WorkflowRotatingComponent
-from .turbomachinery import WorkflowTurbomachinery
-from .propeller import WorkflowPropeller 
-from .airfoil import WorkflowAirfoil
+from .interface import WorkflowInterface
+from .manager import WorkflowManager
 
-AVAILABLE_WORKFLOWS = locals()
+from . import airfoil
+from . import linear_cascade
+from . import rotating_component
 
-from treelab import cgns
+# This list must be updated when a new workflow is added to mola
+AVAILABLE_WORKFLOWS_CLASSES = [
+    Workflow,
+    airfoil.Workflow,
+    linear_cascade.Workflow,
+    rotating_component.Workflow,
+    rotating_component.propeller.Workflow,
+    rotating_component.turbomachinery.Workflow,
+]
+AVAILABLE_WORKFLOWS = dict((w.__name__, w) for w in AVAILABLE_WORKFLOWS_CLASSES)
 
 def read_workflow(source):
     # Get the right class of Workflow

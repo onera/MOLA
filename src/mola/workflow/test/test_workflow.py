@@ -24,10 +24,10 @@ import numpy as np
 import treelab.cgns as cgns
 
 import mola.naming_conventions as names
-from mola.workflow import Workflow
 from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola import server as SV
 from mola.cfd.preprocess.run_manager import run_manager
+from mola.workflow import Workflow
 
 
 def get_workflow_dist():

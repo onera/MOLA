@@ -19,11 +19,10 @@ import pytest
 import numpy as np
 
 from treelab import cgns
-from mola.workflow import WorkflowRotatingComponent
+
 from mola.cfd.preprocess.motion import motion
 from mola.logging import mola_logger, MolaAssertionError
-
-
+from mola.workflow.rotating_component.workflow import WorkflowRotatingComponent
 import maia.pytree as PT
 
 def get_workflow_annular_sector_parameters(RunDirectory):
