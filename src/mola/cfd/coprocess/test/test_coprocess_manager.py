@@ -48,7 +48,7 @@ class FakeWorkflow():
         ]
         
         self.RunManagement = dict(RunDirectory=RunDirectory,
-                                  TimeOutInSeconds=120)
+                                  TimeLimit="0:2:00")
         
         self.ConvergenceCriteria = []
 

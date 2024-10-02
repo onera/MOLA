@@ -58,7 +58,9 @@ def apply_to_solver(workflow):
         # workflow._iteration = it
         # workflow._status = 'RUNNING_AFTER_ITERATION'
         # workflow._coprocess_manager.run_iteration()
-                
+
+        if workflow._coprocess_manager.status == 'TO_FINALIZE': break
+
     workflow._coprocess_manager.finalize()
     del workflow._coprocess_manager
     

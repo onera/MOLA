@@ -70,8 +70,8 @@ def write_compute(RunManagement):
     SV.save_file_maybe_remote(names.FILE_COMPUTE, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 def write_job_launcher(RunManagement, scheduler_options):
-    if 'threads-per-core' not in scheduler_options:
-        scheduler_options['threads-per-core'] = 1
+    if 'cpus-per-task' not in scheduler_options:
+        scheduler_options['cpus-per-task'] = 1
 
     nranks = RunManagement["NumberOfProcessors"]
 

@@ -471,3 +471,6 @@ def get_iteration(workflow):
 
 def get_status(workflow):
     return workflow._status
+
+def end_simulation(workflow):
+    return True

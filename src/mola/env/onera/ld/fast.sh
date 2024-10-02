@@ -46,14 +46,14 @@ export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 module use --append /home/sonics/LD8/modules/
 module load maia/$MAIAVERSION-dsi-ompi405 &> /dev/null
 
-# trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
-pdf()
-{
-    export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
-    okular "$1" &
-    export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
-}
+# # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
+# pdf()
+# {
+#     export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+#     export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
+#     okular "$1" &
+#     export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
+# }
 
 
 export PYTHONPATH=$MOLA:$PYTHONPATH

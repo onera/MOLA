@@ -31,7 +31,8 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
         # due to abusive redirection to stderr of slurm commands:
         false_errors_contain=['warning', 'machar = _get_machar(dtype)'],  # machar: warning of compatibility between numpy and socle
         false_errors_start_with='sbatch:',
-        true_errors_start_with='sbatch: error:'):
+        true_errors_start_with='sbatch: error:',
+        true_errors_contain=['error']):
 
     ssh_host = get_ssh_host_command(machine=machine, user=user)
     env = os.environ.copy()
@@ -53,15 +54,15 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
     errlines = [] 
     for line in output.stderr.split('\n')[:-1]:
 
-        if line.startswith(true_errors_start_with):
-            errlines += [line]
+        if line.startswith(true_errors_start_with) or \
+                any([true_error in line.lower() for true_error in true_errors_contain]):
         
-        elif line.startswith(false_errors_start_with) or \
-                any([false_error in line.lower() for false_error in false_errors_contain]):
-            continue
-
-        else:
+            if line.startswith(false_errors_start_with) or \
+                    any([false_error in line.lower() for false_error in false_errors_contain]):
+                continue
+        
             errlines += [line]
+
 
     if errlines:
         msg = f'got error using command: {command} with input:\n{input}, error is:\n'
