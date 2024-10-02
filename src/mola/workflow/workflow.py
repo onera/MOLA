@@ -45,7 +45,7 @@ from  mola.cfd.preprocess import (flow_generators,
 from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
 
-from .workflow_interface import WorkflowInterface
+from mola.workflow.interface import WorkflowInterface
 
 
 class Workflow(object):
@@ -225,7 +225,7 @@ class Workflow(object):
         return job_nb
 
     def write_tree_remote(self, data_directory=None):
-        from . import workflow_manager as WM
+        from . import manager as WM
         sender = WM.WorkflowSender(self, data_directory=data_directory)
         sender.apply()
 

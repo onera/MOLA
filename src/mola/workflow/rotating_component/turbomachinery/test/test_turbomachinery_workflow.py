@@ -16,13 +16,10 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
-import os
 import numpy as np
 
-import mola.naming_conventions as names
-from mola.workflow import WorkflowTurbomachinery
 from mola.logging import mola_logger, MolaException, MolaAssertionError
-from mola import server as SV
+from mola.workflow.rotating_component.turbomachinery.workflow import WorkflowTurbomachinery
 
 def get_compressor_example_parameters(RunDirectory):
     params = dict( 

@@ -16,7 +16,6 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
-import os
 from mola.workflow import WorkflowInterface
 
 class Fake():

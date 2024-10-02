@@ -21,7 +21,7 @@ import numpy as np
 
 from treelab import cgns
 from mola.logging import mola_logger, MolaAssertionError
-from mola.workflow import WorkflowLinearCascade
+from mola.workflow.linear_cascade.workflow import WorkflowLinearCascade
 from mola.workflow.test.test_workflow import adapt_workflow_for_sonics
 
 def get_workflow_cube():

@@ -20,11 +20,12 @@ import numpy as np
 
 from treelab import cgns
 
-from . import Workflow
-from .rotating_component_interface import WorkflowRotatingComponentInterface
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, redirect_streams_to_logger
 from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
 from  mola.cfd.preprocess.mesh import duplicate
+
+from .. import Workflow
+from .interface import WorkflowRotatingComponentInterface
 
 
 class WorkflowRotatingComponent(Workflow):

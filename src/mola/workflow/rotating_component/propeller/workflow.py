@@ -17,8 +17,8 @@
 
 import numpy as np
 
-from mola.workflow import WorkflowRotatingComponent
 import mola.cfd.preprocess as PRE
+from ..workflow import WorkflowRotatingComponent
 
 
 class WorkflowPropeller(WorkflowRotatingComponent):

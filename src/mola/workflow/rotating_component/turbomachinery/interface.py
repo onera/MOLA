@@ -15,41 +15,55 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from . import WorkflowInterface
+from ..interface import WorkflowRotatingComponentInterface
 
 
-class WorkflowLinearCascadeInterface(WorkflowInterface):
+class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
 
     def __init__(self, workflow, tree=None, **kwargs):
         super().__init__(workflow, tree, **kwargs)
         if tree is None:
-            self.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
+            self.add_to_Extractions_BC(Source='BCWallViscous', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
             self.add_to_Extractions_Integral(Source='BCInflow*', Fields=['MassFlow'])
             self.add_to_Extractions_Integral(Source='BCOutflow*', Fields=['MassFlow'])
-
-    def set_ApplicationContext(self, 
-            AngleOfAttackDeg : float = None,
-        ):
-        self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.get_default_values_from_local_signature())
 
     def add_to_RawMeshComponents(self,
         Mesher        : str  = 'Autogrid',
         **kwargs):
         local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
-        return super().add_to_RawMeshComponents(**local_kwargs)
+        super().add_to_RawMeshComponents(**local_kwargs)
 
     def set_Flow(self,
                 Generator : str = 'Internal',
                 **kwargs):
         local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
-        return super().set_Flow(**local_kwargs)
+        super().set_Flow(**local_kwargs)
 
     def set_SplittingAndDistribution(self, 
             Strategy                         : str = 'AtComputation',
             Splitter                         : str = 'PyPart',
             Distributor                      : str = 'PyPart',
             **kwargs):
-        return super().set_SplittingAndDistribution(**self.get_default_values_from_local_signature())
-        
+        local_kwargs = self.get_default_values_from_local_signature()
+        local_kwargs.update(kwargs)
+        super().set_SplittingAndDistribution(**local_kwargs)
+
+    def set_Numerics(self,
+            Scheme : str   = 'Roe',
+            **kwargs):
+        local_kwargs = self.get_default_values_from_local_signature()
+        local_kwargs.update(kwargs)
+        super().set_Numerics(**local_kwargs)
+
+    def add_to_Extractions_Integral(self,
+            File : str = 'signals.cgns',
+            Frame : str = 'relative',
+            **kwargs):
+        '''
+        Summation over a given source of the mesh, providing a scalar integral value
+        '''
+        local_kwargs = self.get_default_values_from_local_signature()
+        local_kwargs.update(kwargs)
+        super().add_to_Extractions_Integral(**local_kwargs)
