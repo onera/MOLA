@@ -16,6 +16,13 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from mola.cfd import apply_to_solver
+from mola.cfd.coprocess.user_interface import write_tagfile
+import mola.naming_conventions as names
 
 def apply(workflow):
-    apply_to_solver(workflow)
+    try:
+        apply_to_solver(workflow)
+    except BaseException as e:
+        write_tagfile(names.FILE_JOB_FAILED, workflow._coprocess_manager)
+        raise BaseException(e)
+

@@ -18,7 +18,7 @@
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import MolaAssertionError
-
+from mola.cfd.preprocess.extractions.solver_fast import add_convergence_history
 
 def apply_to_solver(workflow):
 
@@ -34,9 +34,7 @@ def apply_to_solver(workflow):
     set_numerics(workflow, t)
 
     t, tc, metrics = FastS.warmup(t, tc, graph)
-    
-    add_convergence_history(t, niter)
-    
+        
     t = cgns.castNode(t)
     tc = cgns.castNode(tc)
     
@@ -52,14 +50,3 @@ def set_numerics(workflow, t):
 
     Fast._setNum2Base( t, workflow.SolverParameters['Num2Base'])
     Fast._setNum2Zones(t, workflow.SolverParameters['Num2Zones'])
-
-
-def add_convergence_history(t, niter):
-
-    import Converter.Internal as I
-    import FastS.PyTree as FastS
-
-    I._rmNodesByName(t, "ZoneConvergenceHistory")
-    I._rmNodesByName(t, "GlobalConvergenceHistory")
-    FastS.createConvergenceHistory(t, niter)
-

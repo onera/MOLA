@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
+
 from treelab import cgns
 
 def apply_to_solver(workflow):
@@ -25,24 +27,67 @@ def apply_to_solver(workflow):
 
     for Extraction in workflow.Extractions: 
         if Extraction['Type'] == 'Residuals':
-            add_convergence_history(workflow, Extraction['ExtractionPeriod'])
+            add_convergence_history(workflow)
             Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
 
 
 
-def add_convergence_history(worfklow, ExtactionPeriod=1):
+def add_convergence_history(workflow):
 
-    import FastS.PyTree as FastS
+    # # FIXME https://github.com/onera/Fast/issues/13 
+    # import FastS.PyTree as FastS
+    # FastS.createConvergenceHistory(workflow.tree, ExtactionPeriod)
 
-    # FIXME https://github.com/onera/Fast/issues/13 
-    FastS.createConvergenceHistory(worfklow.tree, ExtactionPeriod)
-    cgns.castNode(worfklow.tree)
+    # HACK
+    _createConvergenceHistory(workflow.tree,
+        workflow.Numerics['IterationAtInitialState'],
+        workflow.Numerics['NumberOfIterations']+1)
+    
+    # # WIP
+    # _createConvergenceHistoryCass(workflow.tree, workflow.Numerics['NumberOfIterations'])
+
+    cgns.castNode(workflow.tree)
 
 
-def _createConvergenceHistory(t, nrec):
-    """Create a node in tree to store convergence history."""
-    import numpy
+def _createConvergenceHistory(t, inititer, niter,
+            residuals_names = ['RSD_L2','RSD_oo','RSD_L2_diff','RSD_oo_diff']):
+    """HACK create a node in tree to store convergence history."""
+    for base in t.bases():
+        cgns.Node(Name='GlobalConvergenceHistory',
+                  Type='ConvergenceHistory_t',
+                  Value=inititer, Parent=base)
+
+        model='unknown'
+        governing_eqns = t.get('GoverningEquations')
+        if governing_eqns: model = governing_eqns.value()
+
+        for zone in base.zones():
+            different_governing_eqns = zone.get('GoverningEquations')
+            if different_governing_eqns: model = different_governing_eqns.value()
+
+            nb_of_equations = 6 if model in ('nsspalart','NSTurbulent') else 5
+
+            conv_hist = cgns.Node(Name='ZoneConvergenceHistory',
+                                  Type='ConvergenceHistory_t',
+                                  Value=inititer-1, # FIXME this may produce segfault
+                                  Parent=zone)
+
+            cgns.Node(Name='IterationNumber',
+                      Type='DataArray_t',
+                      Value=np.zeros((niter),dtype=np.int32, order='F'),
+                      Parent=conv_hist)
+            
+            for residual_name in residuals_names:
+                cgns.Node(Name=residual_name,
+                          Type='DataArray_t',
+                          Value=np.zeros((niter*nb_of_equations),
+                                          dtype=np.float64, order='F'),
+                          Parent=conv_hist)
+
+
+def _createConvergenceHistoryCass(t, nrec):
     import Converter.Internal as I
+    import numpy
     varsR   = ['RSD_L2','RSD_oo','RSD_L2_diff','RSD_oo_diff']
     bases   = I.getNodesFromType1(t, 'CGNSBase_t')
     curIt   = 0
