@@ -184,7 +184,10 @@ def outpres(workflow, Family, **kwargs):
                           FamilyBC='BCOutflowSubsonic', BCType='outpres', interface_function=outpres_interface,
                           **kwargs
                           )
-        
+
+def outsup(workflow, Family):
+    define_bc_family(workflow, Family, 'BCOutflowSupersonic')
+
 def outmfr2(workflow, Family, **kwargs):
     set_physical_boundary(workflow, Family, 
                           FamilyBC='BCOutflowSubsonic', BCType='outmfr2', interface_function=outmfr2_interface,

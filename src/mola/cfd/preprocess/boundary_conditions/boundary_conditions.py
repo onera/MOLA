@@ -29,6 +29,7 @@ BoundaryConditionsNames = dict(
     InflowStagnation             = dict(elsa='inj1', sonics='BCInflowSubsonicPressure'),
     InflowMassFlow               = dict(elsa='injmfr1', sonics='BCInflowSubsonicMassFlow'),
     OutflowPressure              = dict(elsa='outpres', sonics='BCOutflowSubsonic'),
+    OutflowSupersonic            = dict(elsa='outsup'),
     OutflowMassFlow              = dict(elsa='outmfr2'),
     OutflowRadialEquilibrium     = dict(elsa='outradeq', sonics='BCOutflowRadialEquilibrium'),
     
