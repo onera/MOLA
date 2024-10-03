@@ -21,7 +21,7 @@ import Converter.PyTree as C
 import Converter.Internal as I
 
 from treelab import cgns
-from mola.logging import mola_logger, MolaException, mute_stdout
+from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola.cfd.preprocess.solver_specific_tools import solver_elsa
 from mola.cfd.preprocess.motion import motion
 from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa
@@ -658,6 +658,8 @@ def outradeq(workflow, Family, **kwargs):
             sourced).
 
     '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "outradeq" on Family {Family} is available only for structured mesh.')
 
     import etc.transform as trf
     t = workflow.tree
@@ -711,6 +713,9 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     .. important : This function has a dependency to the ETC module.
 
     '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "stage_mxpl" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+
     import etc.transform as trf
 
     # HACK: must change the type of all FamilyName to array
@@ -738,6 +743,9 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     .. important : This function has a dependency to the ETC module.
 
     '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "stage_red" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+
     import etc.transform as trf
 
     SectorPassagePeriod = stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod)
@@ -891,6 +899,9 @@ def stage_choro(workflow, Family, LinkedFamily):
 
     .. important : This function has a dependency to the ETC module.
     '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "stage_choro" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+
     import etc.transform as trf
 
     # HACK: must change the type of all FamilyName to array
