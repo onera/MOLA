@@ -60,4 +60,4 @@ export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export ELSA_NOLOG=ON
 
-export SONICSVERSION='0.5.9'
+export SONICSVERSION='0.5.11'
