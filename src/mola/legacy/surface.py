@@ -3946,3 +3946,96 @@ def buildMeshAroundAirfoil(FILE_GEOMETRY,
     if save_mesh: C.convertPyTree2File(t, 'mesh.cgns')
 
     return t, meshParamsUpdated
+
+def plane_using_two_planar_vectors(point, vector1, vector2, length=1e3):
+
+    if W.vectors_are_collinear(vector1, vector2):
+        raise AttributeError(f'vector1 {vector1} and vector2 {vector2} must not be collinear')
+
+    v1 = np.array(vector1)
+    v1 /= np.linalg.norm(v1)
+    v2 = np.array(vector2)
+    v2 /= np.linalg.norm(v2)
+    normal = np.cross(v1,v2)
+    normal /= np.linalg.norm(normal)
+    tangential = v1
+    binormal = np.cross(tangential, normal)
+    binormal /= np.linalg.norm(binormal)
+
+    return _plane_using_frame(point, tangential, binormal, normal, length=length)
+
+
+def plane_using_normal(point, normal_vector, length=1e3, perturbation_vector=[1,2,3]):
+
+    if W.vectors_are_collinear(normal_vector, perturbation_vector):
+        raise AttributeError('normal_vector and perturbated_normal must not be collinear')
+
+    normal = np.array(normal_vector)
+    normal /= np.linalg.norm(normal)
+        
+    perturbated_normal = normal + np.array(perturbation_vector)
+    perturbated_normal /= np.linalg.norm(perturbated_normal)
+
+    binormal = np.cross(normal, perturbated_normal)
+    binormal /= np.linalg.norm(binormal)
+
+    tangential = np.cross(binormal, normal)
+
+    return _plane_using_frame(point, tangential, binormal, normal, length=length)
+
+def _plane_using_frame(point, tangential, binormal, normal, length=1e3):
+    zone = G.cart((-length*0.5,-length*0.5,0),(length, length, 1), (2,2,1))
+    zone[0] = 'plane'
+
+    T._rotate(zone, (0,0,0), ((1,0,0),(0,1,0),(0,0,1)),
+                           (tuple(tangential),tuple(binormal),tuple(normal)))
+    T._translate(zone, point)
+
+    return zone
+
+
+def get_equation_coefficients_of_plane(plane):
+    Pt = G.barycenter(plane)
+    x,y,z = J.getxyz(plane)
+    u = np.array([x[1,0]-x[0,0],
+                  y[1,0]-y[0,0],
+                  z[1,0]-z[0,0]])
+    u /= np.linalg.norm(u)
+
+    v = np.array([x[0,1]-x[0,0],
+                  y[0,1]-y[0,0],
+                  z[0,1]-z[0,0]])
+    v /= np.linalg.norm(v)
+
+    n = np.cross(u,v)
+
+    return n[0],n[1],n[2],-n.dot(Pt) # A*x + B*y + C*z + D
+
+    
+
+
+def intersection_between_curve_and_plane(curve, plane):
+    curve = I.copyRef(curve)
+
+    plane_coefs = get_equation_coefficients_of_plane(plane)
+
+    C._initVars(curve,'Slice=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%plane_coefs)
+    intersections_zones = P.isoSurfMC(curve, 'Slice', 0.0)
+    intersections_points = [ W.point(zone) for zone in intersections_zones ]
+
+    if len(intersections_points) == 1:
+        return intersections_points[0]
+    return intersections_points
+    
+
+
+def intersection_point_between_curve_and_rotating_plane(curve,
+        plane_rotation_center, plane_rotation_axis,
+        plane_tangential_vector, plane_angle_of_rotation):
+
+    plane = plane_using_two_planar_vectors(plane_rotation_center,
+                plane_rotation_axis, plane_tangential_vector, length=4)
+
+    T._rotate(plane, plane_rotation_center, plane_rotation_axis, plane_angle_of_rotation)
+
+    return intersection_between_curve_and_plane(curve, plane)

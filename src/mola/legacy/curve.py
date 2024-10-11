@@ -3864,8 +3864,7 @@ def addDistanceRespectToLine(t, LinePassingPoint, LineDirection,
         Distance2Line, = J.invokeFields(zone, [FieldNameToAdd])
         Distance2Line = Distance2Line.ravel(order='K')
         for i in range(len(x)):
-            p = MeshPoint = np.array([x[i], y[i], z[i]])
-            PassingPoint2MeshPoint = a - MeshPoint
+            p = np.array([x[i], y[i], z[i]])
             v = (a-p)- ((a-p).dot(n))*n
             Distance2Line[i] = np.sqrt(v.dot(v))
 
@@ -5889,5 +5888,57 @@ def removeMultiplePoints(curve, reltol=1e-5):
     curve[1][0][1] = newNCell
 
 
-        
+def uniformize(curve): return discretize(curve, N=C.getNPts(curve))
 
+
+def reDiscretizeCurvesWithSmoothTransitions(curves):
+    '''
+    Given a set of sequentially ordered curves, rediscretize them such that the 
+    resulting curves yield the same number of points, and they have smooth 
+    transitions (based on uniform segment length).
+    '''
+
+    def rediscretize(curve, first_segment, last_segment):
+        return discretize(curve, N=C.getNPts(curve),
+                           Distribution=dict(kind='tanhTwoSides',
+                                             FirstCellHeight=first_segment,
+                                             LastCellHeight=last_segment))
+
+    nb_of_curves = len(curves)
+    segments = np.array([segment(uniformize(c)) for c in curves])
+    transitions = np.minimum(segments[:-1], segments[1:])
+
+    smoothly_discretized_curves = []
+    for i in range(nb_of_curves):
+        curve = curves[i]
+        
+        if i==0:
+            smoothly_discretized_curves += [
+                rediscretize(curve,  segments[0], transitions[i])]
+        
+        elif i==nb_of_curves-1:
+            smoothly_discretized_curves += [
+                rediscretize(curve,  transitions[i-1], segments[i])]
+        
+        else:
+            smoothly_discretized_curves += [
+                rediscretize(curve,  transitions[i-1], transitions[i])]
+            
+    return smoothly_discretized_curves
+
+def vectors_are_collinear(vector1, vector2, tolerance_in_degree=0.5):
+    return np.abs(angle_between_vectors(vector1, vector2, in_degree=True)) < tolerance_in_degree
+
+def angle_between_vectors(vector1, vector2, in_degree=True):
+    u = np.array(vector1)
+    u /= np.linalg.norm(u)
+    v = np.array(vector2)
+    v /= np.linalg.norm(v)
+
+    angle_in_radians = np.arccos(u.dot(v))
+    
+    if in_degree:
+        angle_in_degree = np.rad2deg(angle_in_radians)
+        return angle_in_degree
+    
+    return angle_in_radians
