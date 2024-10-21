@@ -981,6 +981,12 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
 
         return curveMap
 
+
+def discretizeInPlace(curve, **kwargs):
+    rediscretized = discretize(curve, **kwargs)
+    curve[1] = rediscretized[1]
+    curve[2] = rediscretized[2] 
+
 def discretizeAirfoil(airfoil, Ntop, Nbot=None, CellSizeAtLE=None, CellSizeAtTE=None, relativeToChord=False):
     '''
     *(Re)*-discretize the curve defining the given **airfoil**. The leading is automatically detected, and
@@ -1846,6 +1852,9 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
         if fields_names: J.invokeFields(Appendix, fields_names)
         
         ExtrapolatedCurve = T.join(curve, Appendix)
+
+    else:
+        raise AttributeError(f'mode {mode} not implemented')
 
 
     if opposedExtremum: T._reorder(ExtrapolatedCurve,(-1,2,3))
@@ -5929,10 +5938,12 @@ def reDiscretizeCurvesWithSmoothTransitions(curves):
 def vectors_are_collinear(vector1, vector2, tolerance_in_degree=0.5):
     return np.abs(angle_between_vectors(vector1, vector2, in_degree=True)) < tolerance_in_degree
 
+vectors_are_aligned = vectors_are_collinear
+
 def angle_between_vectors(vector1, vector2, in_degree=True):
-    u = np.array(vector1)
+    u = np.array(vector1, dtype=float)
     u /= np.linalg.norm(u)
-    v = np.array(vector2)
+    v = np.array(vector2, dtype=float)
     v /= np.linalg.norm(v)
 
     angle_in_radians = np.arccos(u.dot(v))
@@ -5942,3 +5953,436 @@ def angle_between_vectors(vector1, vector2, in_degree=True):
         return angle_in_degree
     
     return angle_in_radians
+
+def extrapolateCurvesUpToSameRadius(curve1, curve2, rotation_center, rotation_axis):
+
+    def must_reverse_curve(curve):
+        r = J.getVars(curve, ['Radius'])[0]
+        npts = len(r)
+        argmin = np.argmin(r)
+        argmax = np.argmax(r)
+        
+        if argmin == 0 and argmax == (npts-1):
+            return False
+        elif argmin == (npts-1) and argmax == 0:
+            return True
+        else:
+            raise ValueError('curve is not monotonic on radial direction')
+        
+    addDistanceRespectToLine([curve1,curve2], rotation_center, rotation_axis,
+                                FieldNameToAdd='Radius')
+    
+    for curve in [curve1, curve2]:
+        if must_reverse_curve(curve):
+            reverse(curve, in_place=True)
+
+    max_radius_curve1 = C.getMaxValue(curve1,'Radius')
+    min_radius_curve1 = C.getMinValue(curve1,'Radius')
+    max_radius_curve2 = C.getMaxValue(curve2,'Radius')
+    min_radius_curve2 = C.getMinValue(curve2,'Radius')
+
+    min_radius = np.minimum(min_radius_curve1, min_radius_curve2)
+    max_radius = np.maximum(max_radius_curve1, max_radius_curve2)
+
+    from .surface import cylinder
+    cylinder_params = dict(center=rotation_center,
+                           height=5*(getLength(curve1)+getLength(curve2)),
+                           axis=rotation_axis,
+                           delta_theta_in_degrees=1.0)
+
+    if min_radius_curve1 < min_radius_curve2:
+        cylinder_rmin = cylinder(radius=min_radius_curve1, **cylinder_params)
+        extrapolateUpToGeometry(curve2, cylinder_rmin)
+    
+    elif min_radius_curve1 > min_radius_curve2:
+        cylinder_rmin = cylinder(radius=min_radius_curve2, **cylinder_params)
+        extrapolateUpToGeometry(curve1, cylinder_rmin)
+
+    if max_radius_curve1 < max_radius_curve2:
+        cylinder_rmax = cylinder(radius=max_radius_curve2, **cylinder_params)
+        extrapolateUpToGeometry(curve1, cylinder_rmax, opposed_extremum=True)
+    
+    elif max_radius_curve1 > max_radius_curve2:
+        cylinder_rmax = cylinder(radius=max_radius_curve1, **cylinder_params)
+        extrapolateUpToGeometry(curve2, cylinder_rmax, opposed_extremum=True)
+
+    for curve in [curve1, curve2]: removeMultiplePoints(curve)
+
+    return min_radius, max_radius
+
+
+def extrapolateUpToRadius(curve, radius, center=[0,0,0], axis=[1,0,0]):
+
+    addDistanceRespectToLine(curve,center,axis,'radius')
+    Rmax = C.getMaxValue(curve,'radius')
+    if Rmax >= radius: raise AttributeError('curve has already higher radius than requested')
+    extrapolated_curve = extrapolate(curve, 2*Rmax, opposedExtremum=False)
+    addDistanceRespectToLine(extrapolated_curve,center,axis,'radius')
+    split_parts = splitAtValue(extrapolated_curve,'radius', radius)
+    extrapolated_curve = split_parts[0]
+    curve[1] = extrapolated_curve[1]
+    curve[2] = extrapolated_curve[2]
+
+    
+
+
+def extrapolateUpToGeometry(curve, boundary, opposed_extremum=False, direction='tangent'):
+    I._rmNodesByType(curve,'FlowSolution_t')
+    extremum_coords = extremum(curve,opposed_extremum)
+    extremum_point = D.point(extremum_coords)
+    if direction == 'tangent':
+        tangent = tangentExtremum(curve, opposite_extremum=opposed_extremum)
+    else:
+        tangent = np.array(direction, dtype=float)
+        tangent /= np.linalg.norm(tangent)
+    T._projectDir( extremum_point, boundary, tangent, oriented=1)
+    concatenation = [curve,extremum_point] if opposed_extremum else [extremum_point,curve]
+    extrapolated_curve = concatenate(concatenation)
+    curve[1] = extrapolated_curve[1]
+    curve[2] = extrapolated_curve[2]
+
+def adjustUpToGeometry(curve, boundary, direction='tangent'):
+    working_curve = I.copyTree(curve)
+    split_parts = cut(working_curve, boundary)
+    nb_of_subparts_after_split = len(split_parts)
+    
+    if nb_of_subparts_after_split == 2:
+        first_subpart = discretize(split_parts[0], Distribution=curve)
+        return first_subpart
+    
+    if nb_of_subparts_after_split == 1:
+        extrapolateUpToGeometry(working_curve, boundary, direction=direction,
+                                               opposed_extremum=True)
+        return working_curve
+
+    raise ValueError(f'cannot adjust since split between curve and surface produce {nb_of_subparts_after_split} parts instead of 1 or 2')
+
+
+
+def getExtrapolationUpToGeometry(curve, boundary, direction='tangent',
+                                 relative_tension=0.5, N=None, Distribution=None):
+
+    tangent = tangentExtremum(curve)
+    if direction == 'tangent':
+        direction = tangent
+    else:
+        direction = np.array(direction, dtype=float)
+        direction /= np.linalg.norm(direction)
+
+    last_point = point(curve,-1,True)
+    last_point_projected_on_support = T.projectDir(last_point, boundary,
+                                                   direction, oriented=1)
+    rough_extrapolation_length = distance(last_point, last_point_projected_on_support)
+
+    tangent_extrapolation = extrapolate(curve, rough_extrapolation_length, opposedExtremum=True)
+    
+    tangent_extrapolation_last_point = point(tangent_extrapolation, -1, True)
+    point_on_support = T.projectDir(tangent_extrapolation_last_point, boundary,
+                                    direction, oriented=1)
+    
+    bezier_points = [tuple(point(last_point)),
+                     tuple(point(tangent_extrapolation_last_point)),
+                     tuple(point(point_on_support))]
+    bezier_ctrl_polyline = D.polyline(bezier_points)
+    bezier = D.bezier(bezier_ctrl_polyline,1000)
+    if Distribution: discretizeInPlace(bezier, N=N, Distribution=Distribution)
+
+    return bezier
+    
+
+
+    
+
+
+def bisector(curve1, curve2, weight=0.5, N=3000):
+    curve1_fine = discretize(curve1,N=N)
+    curve2_fine = discretize(curve2,N=N)
+
+    top = D.line(extremum(curve1),extremum(curve2),2)
+    bottom = D.line(extremum(curve1,True),extremum(curve2,True),2)
+
+    top = addPointToCurveAtAbscissa(top, weight) 
+    bottom = addPointToCurveAtAbscissa(bottom, weight)
+
+    wires = [curve1_fine, curve2_fine, bottom, top]
+    I._correctPyTree(wires,level=3)
+
+    surf = G.TFI([curve1_fine, curve2_fine, bottom, top])
+
+    from .surface import getBoundary
+    bisector = getBoundary(surf, 'imin', 1)
+
+    return bisector
+
+def addPointToCurveAtAbscissa(curve, abscissa):
+    if abscissa >= 1 or abscissa <= 0: raise AttributeError('abscissa must be strictly between 0 and 1')
+    s = gets(curve)
+    point = P.isoSurfMC(curve,'s',abscissa)
+    point = I.getZones(point)[0]
+    xp, yp, zp = J.getxyz(point)
+    x,y,z = J.getxyz(curve)
+    before = s < abscissa
+    after = np.logical_not(before)
+    x_new = np.hstack((x[before],xp[0],x[after]))
+    y_new = np.hstack((y[before],yp[0],y[after]))
+    z_new = np.hstack((z[before],zp[0],z[after]))
+    new_curve = J.createZone(curve[0], [x_new, y_new, z_new], ['x','y','z'])
+    return new_curve
+
+
+
+def addTangentCurveAtExtremumUpToRadius(curve, radius, center, axis, relative_tension=0.5):
+    
+    first_point = extremum(curve, opposite_extremum=True)
+    new_curve = extrapolate( curve, relative_tension * getLength(curve) )
+    addRadials( new_curve, center, axis )
+    rx, ry, rz = J.getVars(new_curve,['rx','ry','rz'])
+    radial_vector = np.array([rx[-1],ry[-1],rz[-1]])
+    bezier_point = extremum(new_curve, opposite_extremum=True)
+    bezier_radius = distanceOfPointToLine(bezier_point, axis, center)
+    last_point = bezier_point + radial_vector * (radius - bezier_radius)
+    bezier_points = [tuple(p) for p in [first_point, bezier_point, last_point] ]
+    bezier_control_polyline = D.polyline(bezier_points)
+    bezier = D.bezier(bezier_control_polyline,N=500)
+    bezier[0] ='bezier'
+
+    return bezier
+
+
+def addRadials(curves, center, axis):
+    for curve in I.getZones(curves):
+        rx, ry, rz = J.invokeFields(curve,['rx', 'ry', 'rz'])
+        x,y,z = J.getxyz(curve)
+
+        projected_curve = I.copyTree(curve)
+        projectOnAxis(projected_curve, axis, center)
+        xp,yp,zp = J.getxyz(projected_curve)
+        rx[:] = x - xp
+        ry[:] = y - yp
+        rz[:] = z - zp
+
+        C._normalize(curve,['rx','ry','rz'])
+
+
+def getPointsInContactWith(zone, possibly_touching_zones):
+    hook, _ = C.createGlobalHook(zone, function='nodes', indir=1)
+
+    points = []
+    for block in I.getZones(possibly_touching_zones):
+        nodes = np.array(C.identifyNodes(hook, block))
+        nodes = np.sort(nodes[nodes>0])
+        for node in nodes:
+            points.append(point(zone, node-1))
+    unique_points = np.unique(points, axis=0)
+    return unique_points
+
+
+def middle(curve):
+    x,y,z = J.getxyz(curve)
+    xmin = np.min(x)
+    xmax = np.max(x)
+    ymin = np.min(y)
+    ymax = np.max(y)
+    zmin = np.min(z)
+    zmax = np.max(z)
+
+    return np.array([0.5*(xmin+xmax),
+                     0.5*(ymin+ymax),
+                     0.5*(zmin+zmax)])
+
+
+def addPointToCurve(curve, point, exclude_point_if_distance_less_than=1e-8):
+
+    if len(point) == 4:
+        x,y,z=J.getxyz(point)
+        point = (x[0], y[0], z[0])
+    
+    elif isinstance(point, np.ndarray) or isinstance(point, list):
+        point = tuple(point)
+
+    if not isinstance(point, tuple) or len(point) != 3:
+        raise AttributeError('wrong point attribute')
+
+
+    segments = C.node2Center(curve)
+    nearest_cell_index = D.getNearestPointIndex(segments, [point])[0][0]
+
+
+    sqrd_dist = D.getNearestPointIndex(curve, [point])[0][1]
+    if np.sqrt(sqrd_dist) < exclude_point_if_distance_less_than: return
+
+    x_node = I.getNodeFromName2(curve, 'CoordinateX')
+    y_node = I.getNodeFromName2(curve, 'CoordinateY')
+    z_node = I.getNodeFromName2(curve, 'CoordinateZ')
+    Δx = x_node[1][nearest_cell_index+1]-x_node[1][nearest_cell_index]
+    Δy = y_node[1][nearest_cell_index+1]-y_node[1][nearest_cell_index]
+    Δz = z_node[1][nearest_cell_index+1]-z_node[1][nearest_cell_index]
+    
+    previous_point = np.array([x_node[1][nearest_cell_index],
+                               y_node[1][nearest_cell_index],
+                               z_node[1][nearest_cell_index]])
+    
+
+    length = np.sqrt(Δx*Δx+Δy*Δy+Δz*Δz)
+    point_distance = distance(point, previous_point)
+
+
+    x_node[1] = np.hstack((x_node[1][:nearest_cell_index+1],
+                           point[0],
+                           x_node[1][nearest_cell_index+1:]))
+    y_node[1] = np.hstack((y_node[1][:nearest_cell_index+1],
+                           point[1],
+                           y_node[1][nearest_cell_index+1:]))
+    z_node[1] = np.hstack((z_node[1][:nearest_cell_index+1],
+                           point[2],
+                           z_node[1][nearest_cell_index+1:]))
+
+
+    for container in I.getNodesFromType1(curve,'FlowSolution_t'):
+        for data_field in I.getNodesFromType1(container,'DataArray_t'):
+            value = data_field[1]
+            try:
+                data_field[1] = np.hstack((value[:nearest_cell_index+1],
+                                        np.interp(point_distance/length,
+                                                [0,length],
+                                                [value[nearest_cell_index+1],
+                                                value[nearest_cell_index+1+1]]),
+                                        value[nearest_cell_index+1:]))
+            except BaseException as e:
+                msg = f'FAILED for {curve[0]}/{container[0]}/{data_field[0]}\n'
+                msg+= f'with:\n'
+                msg+= f'{value=}\n'
+                msg+= f'{point_distance=}\n'
+                msg+= f'{length=}\n'
+                msg+= f'{nearest_cell_index=}\n'
+
+                raise Exception(str(e)+J.FAIL+msg+J.ENDC)
+
+    curve[1][0][:2] +=1
+
+    return nearest_cell_index+1 # useful for splitting
+                
+
+def splitAtPoint(curve, point):
+    cut_index = addPointToCurve(curve, point)
+    return splitAt(curve, cut_index)
+
+def splitAtValue(curve, fieldname, value):
+    cut_pypoints = I.getZones(P.isoSurfMC(curve,fieldname,value=value))
+    if not cut_pypoints: return [curve]
+    cut_points = [ point(p) for p in cut_pypoints]
+    cut_indices = [addPointToCurve(curve, p) for p in cut_points]
+
+    return splitAt(curve, cut_indices)
+
+def cut(curve_to_be_cut, razor_surface, delta_mirror=1e-4):
+
+    mirrors = []
+    for sign in (+1,-1):
+        mirror = I.copyTree(curve_to_be_cut)
+        addNormals(mirror)
+        x,y,z = J.getxyz(mirror) 
+        sx,sy,sz = J.getVars(mirror,['sx','sy','sz'])
+        x += sign*delta_mirror*sx
+        y += sign*delta_mirror*sy
+        z += sign*delta_mirror*sz
+        mirrors += [mirror]
+
+    bounds = [D.line(extremum(mirrors[0]),
+                     extremum(mirrors[1]),2),
+              D.line(extremum(mirrors[0], True),
+                     extremum(mirrors[1], True),2)]
+    
+    curve_as_surface = G.TFI([*mirrors, *bounds])
+    curve_as_surface = C.convertArray2Tetra(curve_as_surface)
+    tri_razor_surface = C.convertArray2Tetra(razor_surface)
+
+    conformed = XOR.conformUnstr(curve_as_surface, tri_razor_surface, left_or_right=2, itermax=1)
+    manifold = I.getZones(T.splitManifold(conformed))
+    points = getPointsInContactWith(manifold[0],manifold[1:])
+    if len(points) == 0: return [curve_to_be_cut]
+    intersection = middle(D.polyline([tuple(p) for p in points]))
+    curve_being_cut = I.copyTree(curve_to_be_cut)
+    return splitAtPoint(curve_being_cut, intersection)
+
+
+def align(curve, vector, tolerance_in_degree=0.1):
+
+    n = np.array(vector, dtype=float)
+    n /= np.linalg.norm(n)
+    v = tangentExtremum(curve)
+
+    θ = angle_between_vectors(n, v, in_degree=True)
+    if θ < tolerance_in_degree: return
+    
+    axis = np.cross(v,n)
+    center = extremum(curve)
+    T._rotate(curve, tuple(center), tuple(axis), θ)
+
+
+def putCurveBetweenTwoPoints(curve, start_point, end_point, tolerance_in_degree=1e-6):
+    x, y, z = J.getxyz(curve)
+    x[:] -= x[0]
+    y[:] -= y[0]
+    z[:] -= z[0]
+    original_length = getLength(curve)
+    Δ = end_point-start_point
+    final_length = np.linalg.norm(Δ)
+
+    scale = final_length/original_length
+    x[:] *= scale
+    y[:] *= scale
+    z[:] *= scale
+
+    x[:] += start_point[0]
+    y[:] += start_point[1]
+    z[:] += start_point[2]
+
+    u = np.array([x[-1]-x[0], y[-1]-y[0], z[-1]-z[0]],dtype=float)
+    v = np.array([end_point[0]-x[0], end_point[1]-y[0], end_point[2]-z[0]],dtype=float)
+    θ = angle_between_vectors(u, v, in_degree=True)
+    
+    if θ > tolerance_in_degree:
+        axis = np.cross(v,u)
+        T._rotate(curve, (x[0], y[0], z[0]), tuple(axis), -θ)
+    
+    x[0] = start_point[0]
+    y[0] = start_point[1]
+    z[0] = start_point[2]
+
+    x[-1] = end_point[0]
+    y[-1] = end_point[1]
+    z[-1] = end_point[2]
+
+
+def putCurveAtSurfaceFollowingVector(curve, surface, i=0, j=0, vector_name='s'):
+    x, y, z = J.getxyz(surface)
+    X = np.array([x[i,j], y[i,j], z[i,j]], dtype=float)
+    T._translate(curve,tuple(X-point(curve)))
+
+    vx, vy, vz = J.getVector(surface, vector_name)
+    v = np.array([vx[i,j], vy[i,j], vz[i,j]], dtype=float)
+    align(curve, v, 1e-4)
+
+def matchExtremaOfCurveToExtremaOfOtherCurve(curve_with_extrema_to_fix,
+                                             curve_with_reference_extrema):
+    xyz1 = J.getxyz(curve_with_extrema_to_fix)
+    xyz2 = J.getxyz(curve_with_reference_extrema)
+    for i in (0,-1):
+        for x1, x2 in zip(xyz1, xyz2):
+            x1[i] = x2[i]
+
+def forceVectorPointOutwards(curve, center=[0,0,0], vector_name='s'):
+    O = np.array(center,dtype=float)
+    x,y,z = J.getxyz(curve)
+    vx, vy, vz = J.getVector(curve,vector_name)
+
+    for i in range(len(x)):
+        X = np.array([x[i],y[i],z[i]])
+        V = np.array([vx[i],vy[i],vz[i]])
+        OX = X-O
+
+        if OX.dot(V) < 0:
+            vx[i] *= -1
+            vy[i] *= -1
+            vz[i] *= -1

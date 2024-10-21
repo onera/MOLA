@@ -511,6 +511,32 @@ def getxy(zone):
     return getx(zone), gety(zone)
 
 
+def getyz(zone):
+    '''
+    Get the pointers of the numpy array of *CoordinateY* and *CoordinateZ*.
+
+    Parameters
+    ----------
+
+        zone : zone
+            Zone PyTree node from where *CoordinateY* and *CoordinateZ* are
+            being extracted
+
+    Returns
+    -------
+
+        y : numpy.ndarray
+            the y-coordinate
+
+        z : numpy.ndarray
+            the z-coordinate
+
+    See also
+    --------
+    getx, gety, getz, getxy, getxyz
+    '''
+    return gety(zone), getz(zone)
+
 def getxyz(zone):
     '''
     Get the pointers of the numpy array of *CoordinateX*,
@@ -2924,3 +2950,39 @@ def _inferOrderFromInterpLawName(InterpolationLaw):
         raise AttributeError(f'unknown law "{InterpLaw}"')
     order = int(InterpLaw.split('_')[-1])
     return order
+
+def getFieldOrCoordinate(zone, field_or_coordinate : str):
+    foc = field_or_coordinate
+    if foc.startswith('Coordinate') or foc.lower() in 'xyz':
+        coord = foc[-1].lower()
+        
+        if coord == 'x':
+            return getx(zone)
+
+        elif coord == 'y':
+            return gety(zone)
+
+        elif coord == 'z':
+            return gety(zone)
+
+        else:
+            raise AttributeError('unsupported coordinate "%s"'%foc)
+    else:
+        return getVars(zone, [foc])[0]
+
+def save_and_raise(t, filename='debug.cgns'):
+    I._correctPyTree(t,level=3)
+    save(t, filename)
+    raise Exception(filename)
+
+def getVector(zone, vector_name='s', vector_coordinates=['x','y','z']):
+    return getVars(zone,[vector_name+c for c in vector_coordinates])
+
+def tree(**kwargs):
+    base_zones_list = []
+    for basename in kwargs:
+        base_zones_list += [basename, I.getZones(kwargs[basename])]
+    t = C.newPyTree([*base_zones_list])
+    I._correctPyTree(t,level=3)
+    return t
+    

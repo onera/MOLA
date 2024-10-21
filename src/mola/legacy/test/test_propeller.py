@@ -314,11 +314,8 @@ def test_oras_mesher(tmp_path):
     {'N':40, 'BreakPoint(x)':-0.06, 'kind':law,'FirstCellHeight':1.8e-3,'LastCellHeight':Hgrid_cell},
 
     # blade root H-grid region:
-    {'N':Hgrid_NPts, 'BreakPoint(x)':+0.068, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':0.75*Hgrid_cell},
+    {'N':Hgrid_NPts+12, 'BreakPoint':1, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':interface_cell_length_axially},
 
-    # rear
-    {'N':8, 'BreakPoint':  1.0, 'kind':law,
-    'FirstCellHeight':0.75*Hgrid_cell, 'LastCellHeight':interface_cell_length_axially},
     ]
 
 
@@ -359,8 +356,7 @@ def test_oras_mesher(tmp_path):
     law = 'tanhTwoSides'
 
     StatorHubProfileReDiscretization = [
-    {'N':10, 'BreakPoint(x)':0.1, 'kind':law,'FirstCellHeight':interface_cell_length_axially,'LastCellHeight':Hgrid_cell},
-    {'N':Hgrid_NPts, 'BreakPoint(x)':0.2, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':Hgrid_cell},
+    {'N':Hgrid_NPts+10, 'BreakPoint(x)':0.2, 'kind':law,'FirstCellHeight':interface_cell_length_axially,'LastCellHeight':Hgrid_cell},
     {'N':100, 'BreakPoint':1, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':spinner_TrailingEdgeCellLength},
       ]
 
@@ -386,7 +382,7 @@ def test_oras_mesher(tmp_path):
 
 
     t = RW.buildOpenRotorAndStatorMesh(blade,stator,profile,
-            CoordinateOfRotorStatorInterfaceAtHub=0.0804,
+            InterfaceRelativePosition = 0.5,
             FarfieldRadius = 2.0,
 
             RotorNumberOfBlades=RotorNumberOfBlades,
@@ -398,7 +394,7 @@ def test_oras_mesher(tmp_path):
             RotorBladeWallCellHeight=1e-5,
             RotorRadialTension = 0.05, # FIXME make completely normal front_near_topo
             RotorHubWallCellHeight=0.01,
-            RotorFarfieldAxialSpreadingAngles=[-15,-20,-5],
+            RotorFarfieldAxialSpreadingAngles=[-15,-20,-6],
             RotorBladeExtrusionParams = RotorBladeExtrusionParams,
 
             StatorNumberOfBlades=StatorNumberOfBlades,
@@ -410,7 +406,7 @@ def test_oras_mesher(tmp_path):
             StatorBladeWallCellHeight=1e-5,
             StatorRadialTension = 0.1, # FIXME make completely normal rear_near_topo
             StatorHubWallCellHeight=0.01,
-            StatorFarfieldAxialSpreadingAngles=[6,26],
+            StatorFarfieldAxialSpreadingAngles=[2,26],
             StatorBladeExtrusionParams = StatorBladeExtrusionParams,
             )
 
