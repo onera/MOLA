@@ -27,26 +27,19 @@ def apply_to_solver(workflow):
 
     for Extraction in workflow.Extractions: 
         if Extraction['Type'] == 'Residuals':
-            add_convergence_history(workflow)
             Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
 
 
 
-def add_convergence_history(workflow):
+def add_convergence_history(t, niter):
+    import Converter.Internal as I
 
-    # # FIXME https://github.com/onera/Fast/issues/13 
-    # import FastS.PyTree as FastS
-    # FastS.createConvergenceHistory(workflow.tree, ExtactionPeriod)
+    I._rmNodesByType(t, 'ConvergenceHistory_t')
 
-    # HACK
-    _createConvergenceHistory(workflow.tree,
-        workflow.Numerics['IterationAtInitialState'],
-        workflow.Numerics['NumberOfIterations']+1)
     
-    # # WIP
-    # _createConvergenceHistoryCass(workflow.tree, workflow.Numerics['NumberOfIterations'])
-
-    cgns.castNode(workflow.tree)
+    import FastS.PyTree as FastS
+    FastS.createConvergenceHistory(t, niter+1) # https://github.com/onera/Fast/issues/13 
+    
 
 
 def _createConvergenceHistory(t, inititer, niter,
@@ -55,7 +48,7 @@ def _createConvergenceHistory(t, inititer, niter,
     for base in t.bases():
         cgns.Node(Name='GlobalConvergenceHistory',
                   Type='ConvergenceHistory_t',
-                  Value=inititer, Parent=base)
+                  Value=0, Parent=base)
 
         model='unknown'
         governing_eqns = t.get('GoverningEquations')
@@ -69,7 +62,7 @@ def _createConvergenceHistory(t, inititer, niter,
 
             conv_hist = cgns.Node(Name='ZoneConvergenceHistory',
                                   Type='ConvergenceHistory_t',
-                                  Value=inititer-1, # FIXME this may produce segfault
+                                  Value=0, # FIXME this may produce segfault
                                   Parent=zone)
 
             cgns.Node(Name='IterationNumber',
@@ -83,33 +76,3 @@ def _createConvergenceHistory(t, inititer, niter,
                           Value=np.zeros((niter*nb_of_equations),
                                           dtype=np.float64, order='F'),
                           Parent=conv_hist)
-
-
-def _createConvergenceHistoryCass(t, nrec):
-    import Converter.Internal as I
-    import numpy
-    varsR   = ['RSD_L2','RSD_oo','RSD_L2_diff','RSD_oo_diff']
-    bases   = I.getNodesFromType1(t, 'CGNSBase_t')
-    curIt   = 0
-    for b in bases:
-       I.createUniqueChild(b, 'GlobalConvergenceHistory',
-                              'ConvergenceHistory_t', value=curIt)
-
-       model='Nada'
-       a = I.getNodeFromName2(t, 'GoverningEquations')
-       if a is not None: model = I.getValue(a)
-
-       for z in I.getZones(b):
-
-          a = I.getNodeFromName2(z, 'GoverningEquations')
-          if a is not None: model = I.getValue(a)
-          neq = 5
-          if model == 'nsspalart' or model =='NSTurbulent': neq = 6
-         
-          c = I.createUniqueChild(z, 'ZoneConvergenceHistory',
-                                     'ConvergenceHistory_t', value=curIt)
-          tmp = numpy.zeros((nrec), numpy.int32)
-          I.createChild(c, 'IterationNumber', 'DataArray_t', tmp)
-          for var in varsR:
-            tmp = numpy.zeros((nrec*neq), numpy.float64)
-            I.createChild(c, var ,'DataArray_t', tmp)

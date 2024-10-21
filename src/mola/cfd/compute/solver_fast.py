@@ -50,8 +50,8 @@ def apply_to_solver(workflow):
                        workflow._treeAtCenters,
                        workflow._fast_graph)
 
-        if it%workflow.SolverParameters['Num2Base']['modulo_verif']==0:
-            FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store')
+        FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store')
+        # workflow.tree = FastS.calc_global_convergence(workflow.tree) # FIXME https://github.com/onera/Fast/issues/14
 
         # TODO : split run_iteration in two ?
         # workflow._iteration = it
