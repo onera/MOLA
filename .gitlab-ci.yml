@@ -143,16 +143,16 @@ radon_complexity:
   before_script:
     - source $MOLA_ENV_DEFAULT
     - pip install radon
+  allow_failure: true  # if job fails (in script section), it will just raise a warning
   script:
-    - radon cc --min D src > radon_cc_complexity_report_min_D.txt  
-    - radon mi --min B src > radon_mi_complexity_report_min_B.txt
+    - radon cc --min D --ignore "legacy" src > radon_cc_complexity_report_min_D.txt  
+    - radon mi --min B --ignore "legacy" src > radon_mi_complexity_report_min_B.txt
+    - if [ -s radon_cc_complexity_report_min_D.txt ]; then false; fi
+    - if [ -s radon_mi_complexity_report_min_B.txt ]; then false; fi
   artifacts:
     paths:
       - radon_cc_complexity_report_min_D.txt
       - radon_mi_complexity_report_min_B.txt
-  # after_script:  # to stop the pipeline if code quality is too bad
-  #   - if [ -s radon_cc_complexity_report_min_D.txt ]; then false; fi
-  #   - if [ -s radon_mi_complexity_report_min_B.txt ]; then false; fi
 
 pages:    # Nom à utiliser
   stage: deploy
