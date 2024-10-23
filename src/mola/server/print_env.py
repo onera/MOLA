@@ -19,11 +19,85 @@ import sys
 import os
 import glob
 from timeit import default_timer as tic
+import importlib
+from packaging.version import Version
 
 from mola import __version__, __MOLA_PATH__
 from mola.logging import RED, GREEN, YELLOW, ENDC
 
 def print_environment():
+
+    machine = os.getenv('MAC', 'UNKNOWN')
+    archi = os.getenv('ARCH', '-')
+    mola_version = __version__
+    if Version(mola_version).is_devrelease:
+        mola_version = YELLOW + mola_version + ENDC
+    print(f"MOLA version {mola_version} at {machine} ({archi}")
+
+    vpython = sys.version_info
+    print(f' --> Python {vpython.major}.{vpython.minor}.{vpython.micro}')
+    
+    print_module_version('treelab')
+    print_module_version('KCore', 'Cassiopee')
+    print_module_version('maia')
+    print_module_version('VULCAINS')
+    print_module_version('turbo')
+    print_module_version('Ersatz')
+
+    print_solver_version()
+    print_status_on_mola_version()
+
+def print_module_version(module_name, printed_name=None):
+    toc = tic()
+    try:
+        module = importlib.import_module(module_name)
+        v = module.__version__
+    except:
+        v = RED + 'UNAVAILABLE' + ENDC 
+    if not printed_name:
+        printed_name = module_name
+    tag = f' --> {printed_name} '
+    print(tag+v.ljust(20-len(tag))+printTime(toc))
+
+def print_solver_version():
+    solver = os.getenv('MOLA_SOLVER', 'UNKNOWN')
+
+    if solver == 'elsa':
+        vELSA = os.getenv('ELSAVERSION', 'UNAVAILABLE')
+        if vELSA == 'UNAVAILABLE':
+            vELSA = RED + vELSA + ENDC
+        print(' --> elsA '+vELSA)
+
+        # elsA tools chain
+        tag = '     with ETC '
+        print(tag,end='')
+        toc = tic()
+        try:
+            import etc
+        except:
+            v = RED + 'UNAVAILABLE' + ENDC
+        else:
+            v = YELLOW + 'UNKNOWN' + ENDC
+            for vatt in ('__version__', 'version'):
+                if hasattr(etc, vatt):
+                    v = getattr(etc,vatt)
+                    break
+        print(v.ljust(20-len(tag))+printTime(toc))
+
+    elif solver == 'sonics':
+        vSONICS = os.getenv('SONICSVERSION', 'UNAVAILABLE')
+        if vSONICS == 'UNAVAILABLE': 
+            vSONICS = RED + vSONICS + ENDC
+        print(' --> SoNICS '+vSONICS)
+        print_module_version('miles')
+
+    elif solver == 'fast':
+        print_module_version('Fast')
+
+    else:
+        print(YELLOW+'WARNING: unknown solver'+ENDC)    
+
+def print_status_on_mola_version():
 
     def getMajorMinorMicro(version_string):
         version_string = version_string.replace('v','')
@@ -37,11 +111,15 @@ def print_environment():
 
     def gatherMOLAversions():
         ALL_MOLAS_DIR = os.path.sep+os.path.join(*__MOLA_PATH__.split(os.path.sep)[:-1])+os.path.sep
+        print(f'{ALL_MOLAS_DIR=}')
         ALL_MOLAS_VER = [v.replace(ALL_MOLAS_DIR,'') for v in glob.glob(os.path.join(ALL_MOLAS_DIR,'*'))]
         v = {}
         for ver in ALL_MOLAS_VER:
             if not ver.startswith('v'): continue
             M, m, n = getMajorMinorMicro(ver)
+            ver_format = Version(ver)
+            M, m, n = ver_format.major, ver_format.minor, ver_format.micro
+            ver.major, ver.minor, ver.micro
             if M not in v:
                 v.update({M:{m:[n]}})
             elif m not in v[M]:
@@ -51,179 +129,28 @@ def print_environment():
 
         return v
 
-    def mostUpToDateVersion(AllVersions):
-        Major = max(list(AllVersions))
-        Minor = max(list(AllVersions[Major]))
-        Micro = max(list(AllVersions[Major][Minor]))
-        MajorMinorMicro = [str(Major),str(Minor)]
-        if Micro > 0: MajorMinorMicro.append( str(Micro) )
-        return 'v'+'.'.join(MajorMinorMicro)
-
-    def mostUpToDateMicroVersion(AllVersions, Major, Minor):
-        return max(AllVersions[Major][Minor])
-
-    def fullStringOfMostUpToDateMicroVersion(AllVersions, Major, Minor):
-        Micro = mostUpToDateMicroVersion(AllVersions, Major, Minor)
-        fullString = 'v'+'.'.join([str(Major),str(Minor)])
-        if Micro != '0': fullString += '.'+str(Micro)
-        return fullString
-
-    def microVersionIsUpToDate(AllVersions, Major, Minor, Micro):
-        mostUpToDateMicro = mostUpToDateMicroVersion(AllVersions, Major, Minor)
-        return mostUpToDateMicro == Micro
-
-    def usingMostUpToDateVersion(AllVersions, Major, Minor, Micro):
-        latestVersion = mostUpToDateVersion(AllVersions)
-        MajorMinorMicro = [str(Major),str(Minor)]
-        if Micro > 0: MajorMinorMicro.append( str(Micro) )
-        usedVersion =  'v'+'.'.join(MajorMinorMicro)
-        return usedVersion == latestVersion
-
-    def printTime(toc):
-        ElapsedTime = tic() - toc
-        if ElapsedTime < 0.1: return ''
-        if ElapsedTime < 0.5: return ' (took %g s)'%ElapsedTime
-        if ElapsedTime < 1.0: return YELLOW+' (took %g s)'%ElapsedTime+ENDC
-        return RED+' (took %g s : too long)'%ElapsedTime+ENDC
-
-    machine = os.getenv('MAC', 'UNKNOWN')
-    solver = os.getenv('MOLA_SOLVER', 'UNKNOWN')
-    totoV = __version__
-    if totoV in ['Dev','master']:
-        vMOLA = YELLOW + totoV + ENDC
-    else:
-        vMOLA = totoV
-    print('MOLA version '+vMOLA+' at '+machine+' (%s)'%os.getenv('ARCH', '-'))
-    print(' --> Python '+sys.version.split(' ')[0])
-
-    # treelab
-    tag = ' --> treelab '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import treelab
-        v = treelab.__version__
-    except:
-        v = RED + 'UNAVAILABLE' + ENDC 
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    # Cassiopee
-    tag = ' --> Cassiopee ' + os.getenv('OWNCASSREV','') + ' '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import KCore as K
-        v = K.__version__
-    except:
-        v = RED + 'UNAVAILABLE' + ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    # maia
-    tag = ' --> maia '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import maia
-        try:
-            v = maia.__version__
-        except:
-            v = 'dev'
-    except:
-        v = RED+'UNAVAILABLE'+ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    # Vortex Particle Method
-    tag = ' --> Vulcains (VPM) '
-    print(tag,end='')
-    toc = tic()
-    try:
-        from VULCAINS.__init__ import __version__ as v
-    except:
-        v = RED + 'UNAVAILABLE' + ENDC
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    # turbo
-    tag = ' --> turbo '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import turbo
-        v = turbo.__version__
-    except:
-        v = RED + 'UNAVAILABLE' + ENDC 
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    # ErsatZ
-    tag = ' --> Ersatz '
-    print(tag,end='')
-    toc = tic()
-    try:
-        import Ersatz
-        v = Ersatz.__version__
-    except:
-        v = RED + 'UNAVAILABLE' + ENDC 
-    print(v.ljust(20-len(tag))+printTime(toc))
-
-    if solver == 'elsa':
-        # elsA
-        vELSA = os.getenv('ELSAVERSION', 'UNAVAILABLE')
-        if vELSA == 'UNAVAILABLE': vELSA = RED + vELSA + ENDC
-        print(' --> elsA '+vELSA)
-
-        # elsA tools chain
-        tag = '     with ETC '
-        print(tag,end='')
-        toc = tic()
-        try:
-            import etc
-        except:
-            v = RED + 'UNAVAILABLE' + ENDC
-        else:
-            v = YELLOW + 'UNKNOWN' + ENDC
-            for vatt in ('__version__','version'):
-                if hasattr(etc, vatt):
-                    v = getattr(etc,vatt)
-                    break
-        print(v.ljust(20-len(tag))+printTime(toc))
-    elif solver == 'sonics':
-        # sonics
-        vSONICS = os.getenv('SONICSVERSION', 'UNAVAILABLE')
-        if vSONICS == 'UNAVAILABLE': vSONICS = RED + vSONICS + ENDC
-        print(' --> SoNICS '+vSONICS)
-
-        # Miles
-        tag = '     with Miles '
-        print(tag,end='')
-        toc = tic()
-        try:
-            import miles
-        except:
-            v = RED + 'UNAVAILABLE' + ENDC
-        else:
-            try:
-                from mola.misc import load_source
-                import miles
-                path = miles.__path__[0]
-                path = os.path.sep.join(path.split(os.path.sep)[:-1])
-                setup = load_source('setup', os.path.join(path, 'configure_setup.py'))
-                v = f'{setup.VERSION_MAJOR}.{setup.VERSION_MINOR}'
-            except:
-                v = YELLOW + 'UNKNOWN' + ENDC
-        print(v.ljust(20-len(tag))+printTime(toc))
-
-    else:
-        print(YELLOW+'WARNING: unknown solver'+ENDC)
-
-
-    if totoV in ['Dev', 'master'] or 'dev' in totoV.lower():
+    mola_version = Version(__version__)
+    if mola_version.is_devrelease:
         print(YELLOW+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
     else:
-        Major, Minor, Micro = getMajorMinorMicro(totoV)
         AllVersions = gatherMOLAversions()
-        if not microVersionIsUpToDate(AllVersions, Major, Minor, Micro):
-            print(YELLOW+'WARNING: a most updated micro version exist: '+fullStringOfMostUpToDateMicroVersion(AllVersions, Major, Minor)+ENDC)
-        if not usingMostUpToDateVersion(AllVersions,Major, Minor, Micro):
-            print('INFO: a most updated version exist: '+mostUpToDateVersion(AllVersions)+ENDC)
+        most_updated_version = Version('0.0.0')
+        for v in AllVersions:
+            v = Version(v)
+            if mola_version.major != v.major:
+                continue
+            if mola_version < v:
+                if most_updated_version < v:
+                    most_updated_version = v
+
+        if most_updated_version > Version('0.0.0'):
+            print(YELLOW+f'WARNING: a most updated version exist: {most_updated_version}'+ENDC)
         else:
             print(GREEN+'You are using the latest version of MOLA'+ENDC)
 
+def printTime(toc):
+    ElapsedTime = tic() - toc
+    if ElapsedTime < 0.1: return ''
+    if ElapsedTime < 0.5: return ' (took %g s)'%ElapsedTime
+    if ElapsedTime < 1.0: return YELLOW+' (took %g s)'%ElapsedTime+ENDC
+    return RED+' (took %g s : too long)'%ElapsedTime+ENDC
