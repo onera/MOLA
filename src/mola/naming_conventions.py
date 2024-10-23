@@ -18,6 +18,7 @@
 # INPUTS
 FILE_INPUT_WORKLFOW = 'workflow.cgns'
 FILE_INPUT_SOLVER = 'main.cgns'
+FILE_WORKLFOW_MANAGER = 'workflow_manager.cgns'
 
 # OUTPUTS
 DIRECTORY_OUTPUT = 'OUTPUT'

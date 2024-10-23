@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import pathlib
 import copy
 import numpy as np
 
@@ -319,7 +320,7 @@ class Workflow(object):
     def set_workflow_parameters_in_tree(self):
         if not self.tree: self.tree = cgns.Tree()
 
-        params= self.convert_to_dict()
+        params = self.convert_to_dict()
         self.tree.setParameters(self._workflow_parameters_container_,**params)
     
     def set_workflow_parameters_in_file(self, filename='setup.py'):
@@ -384,3 +385,18 @@ class Workflow(object):
 
     def print_interface(self, maxlevel : int = 1000):
         print(self._interface.__str__(maxlevel=maxlevel))
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        else:
+            from mola.misc import allclose_dict
+
+            def get_filtered_parameters(w):
+                params = w.convert_to_dict()
+                for component in params['RawMeshComponents']:
+                    if not isinstance(component['Source'], (str, pathlib.PosixPath)):
+                        component.pop('Source')
+                return params
+            
+            return allclose_dict(get_filtered_parameters(self), get_filtered_parameters(other))

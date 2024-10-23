@@ -189,6 +189,28 @@ def test_dispatcher_directories():
     directories = dispatcher.get_directories()
     assert directories == ['root/test_10', 'root/test_20', 'root/test_30', 'root2/test_40', 'root2/test_50']
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_dispatcher_convert_to_dict_and_read():
+
+    w = get_fake_workflow()
+    dispatcher = WM.WorkflowDispatcher(w)
+
+    dispatcher.new_job('root')
+    for index in [10, 20, 30]:
+        dispatcher.add_variations([('RunManagement|RunDirectory', f'test_{index}')])
+
+    d = dispatcher.convert_to_dict()
+
+    tree = cgns.Tree()
+    tree.setParameters(
+        ContainerName = 'WorkflowManager',
+        WorkflowDispatcher = d,
+        )
+
+    dispatcher_read = WM.read_workflow_dispatcher_from_tree(tree.get(Name='WorkflowDispatcher', Depth=2))
+    assert dispatcher == dispatcher_read
+
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_WorkflowManager_prepare(tmp_path):
@@ -234,6 +256,7 @@ def test_WorkflowManager_prepare(tmp_path):
         [names.FILE_INPUT_WORKLFOW]
         ]
     
+# TODO adapt to run it with sonics too. For now, it won't work because the mesh is strucutred
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.integration
@@ -278,6 +301,41 @@ def test_WorkflowManager_cart_local(tmp_path):
             if not os.path.exists(COMPLETED_PATH):
                 raise MolaException(f'simulation did not end as expected: unable to find file {COMPLETED_PATH}')
 
+@pytest.mark.elsa
+@pytest.mark.fast
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_WorkflowManager_write_local(tmp_path):
+
+    if isinstance(tmp_path,str): os.makedirs(tmp_path,exist_ok=True)
+
+    from mola.workflow.test.test_workflow import get_workflow_cart_monoproc
+    w = get_workflow_cart_monoproc(tmp_path)
+    w.RunManagement["Scheduler"] = "local"
+
+    # since mesh is built in memory, manager requires to save it in a file
+    mesh_path = os.path.join(tmp_path,'mesh.cgns')
+    w.RawMeshComponents[0]['Source'].save(mesh_path)
+    w.RawMeshComponents[0]['Source'] = os.path.join('..','..','mesh.cgns') # CAUTION: path is relative to launch case
+
+    test_dir = str(tmp_path)
+    written_manager = WM.WorkflowManager(w, test_dir)
+    for BCWall in ['WallViscous',]:
+        written_manager.new_job(BCWall)
+        for velocity in [50., 20.]:
+            written_manager.add_variations(
+                [
+                    ('RunManagement|RunDirectory', f'Velocity_{velocity}'),
+                    ('Flow|Velocity', velocity),
+                    ('BoundaryConditions|Family=Ground|Type', BCWall),
+                ], 
+                initialize_from_previous=False
+                )
+    
+    written_manager.write()
+    read_manager = WM.WorkflowManager(names.FILE_WORKLFOW_MANAGER)
+    assert read_manager == written_manager
+    
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.network_onera
