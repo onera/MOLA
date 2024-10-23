@@ -57,7 +57,7 @@ test_integration_elsa:
   before_script:
     - source $MOLA_ENV_ELSA
   script:
-    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not test_WorkflowManager_sphere_ and not _remote_sator"
+    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not _remote_sator"
   artifacts:
     paths:
       - .coverage_test_integration_elsa
@@ -82,7 +82,7 @@ test_integration_fast:
   before_script:
     - source $MOLA_ENV_FAST
   script:
-    - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration -k "not test_WorkflowManager_sphere_ and not _remote_sator"
+    - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration -k "not _remote_sator"
   artifacts:
     paths:
       - .coverage_test_integration_fast
@@ -107,7 +107,7 @@ test_integration_sonics:
   before_script:
     - source $MOLA_ENV_SONICS
   script:
-    - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration -k "not test_WorkflowManager_sphere_ and not _remote_sator"
+    - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration -k "not _remote_sator"
   artifacts:
     paths:
       - .coverage_test_integration_sonics
