@@ -148,16 +148,18 @@ radon_complexity:
     - radon cc --min D --ignore "legacy" src > radon_cc_report.txt  
     - radon mi --min B --ignore "legacy" src > radon_mi_report.txt
     - export COMPLEXITY_WARNING=false
-    - if [ -s radon_cc_report.txt ]; then \
-        echo "Warning: Code cyclomatic complexity is too high. Please simplify the following functions:\n" && \
-        cat radon_cc_report.txt && \
-        export COMPLEXITY_WARNING=true; \
-      fi
-    - if [ -s radon_mi_report.txt ]; then \
-        echo "Warning: Code maintenability index is too high. Please simplify the following files:\n" && \
-        cat radon_mi_report.txt && \
-        export COMPLEXITY_WARNING=true; \
-      fi
+    - |
+        if [ -s radon_cc_report.txt ]; then 
+          echo "Warning: Code cyclomatic complexity is too high. Please simplify the following functions:\n" && \
+          cat radon_cc_report.txt && \
+          export COMPLEXITY_WARNING=true; 
+        fi
+    - |
+        if [ -s radon_mi_report.txt ]; then 
+          echo "Warning: Code maintenability index is too high. Please simplify the following files:\n" && \
+          cat radon_mi_report.txt && \
+          export COMPLEXITY_WARNING=true; 
+        fi
     - if $COMPLEXITY_WARNING; then false; fi
   artifacts:
     paths:
