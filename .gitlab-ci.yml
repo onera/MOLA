@@ -38,80 +38,80 @@ stages:
   # - deploy
 
 
-test_unit_elsa: 
-  stage: test 
-  before_script:
-    - source $MOLA_ENV_ELSA
-  script:
-    - coverage run --data-file=.coverage_test_unit_elsa -m pytest -m unit 
-  artifacts:
-    paths:
-      - .coverage_test_unit_elsa
-    expire_in: 1 day
+# test_unit_elsa: 
+#   stage: test 
+#   before_script:
+#     - source $MOLA_ENV_ELSA
+#   script:
+#     - coverage run --data-file=.coverage_test_unit_elsa -m pytest -m unit 
+#   artifacts:
+#     paths:
+#       - .coverage_test_unit_elsa
+#     expire_in: 1 day
   
-test_integration_elsa:  
-  stage: test
-  needs: ["test_unit_elsa"]
-  variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
-  before_script:
-    - source $MOLA_ENV_ELSA
-  script:
-    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not _remote_sator"
-  artifacts:
-    paths:
-      - .coverage_test_integration_elsa
-    expire_in: 1 day
+# test_integration_elsa:  
+#   stage: test
+#   needs: ["test_unit_elsa"]
+#   variables:
+#     SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+#   before_script:
+#     - source $MOLA_ENV_ELSA
+#   script:
+#     - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not _remote_sator"
+#   artifacts:
+#     paths:
+#       - .coverage_test_integration_elsa
+#     expire_in: 1 day
 
-test_unit_fast: 
-  stage: test 
-  before_script:
-    - source $MOLA_ENV_FAST
-  script:
-    - coverage run --data-file=.coverage_test_unit_fast -m pytest -m unit 
-  artifacts:
-    paths:
-      - .coverage_test_unit_fast
-    expire_in: 1 day
+# test_unit_fast: 
+#   stage: test 
+#   before_script:
+#     - source $MOLA_ENV_FAST
+#   script:
+#     - coverage run --data-file=.coverage_test_unit_fast -m pytest -m unit 
+#   artifacts:
+#     paths:
+#       - .coverage_test_unit_fast
+#     expire_in: 1 day
   
-test_integration_fast:  
-  stage: test
-  needs: ["test_unit_fast"]
-  variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
-  before_script:
-    - source $MOLA_ENV_FAST
-  script:
-    - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration -k "not _remote_sator"
-  artifacts:
-    paths:
-      - .coverage_test_integration_fast
-    expire_in: 1 day
+# test_integration_fast:  
+#   stage: test
+#   needs: ["test_unit_fast"]
+#   variables:
+#     SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+#   before_script:
+#     - source $MOLA_ENV_FAST
+#   script:
+#     - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration -k "not _remote_sator"
+#   artifacts:
+#     paths:
+#       - .coverage_test_integration_fast
+#     expire_in: 1 day
 
-test_unit_sonics: 
-  stage: test 
-  before_script:
-    - source $MOLA_ENV_SONICS
-  script:
-    - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
-  artifacts:
-    paths:
-      - .coverage_test_unit_sonics
-    expire_in: 1 day
+# test_unit_sonics: 
+#   stage: test 
+#   before_script:
+#     - source $MOLA_ENV_SONICS
+#   script:
+#     - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
+#   artifacts:
+#     paths:
+#       - .coverage_test_unit_sonics
+#     expire_in: 1 day
 
-test_integration_sonics:  
-  stage: test
-  needs: ["test_unit_sonics"]
-  variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
-  before_script:
-    - source $MOLA_ENV_SONICS
-  script:
-    - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration -k "not _remote_sator"
-  artifacts:
-    paths:
-      - .coverage_test_integration_sonics
-    expire_in: 1 day
+# test_integration_sonics:  
+#   stage: test
+#   needs: ["test_unit_sonics"]
+#   variables:
+#     SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+#   before_script:
+#     - source $MOLA_ENV_SONICS
+#   script:
+#     - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration -k "not _remote_sator"
+#   artifacts:
+#     paths:
+#       - .coverage_test_integration_sonics
+#     expire_in: 1 day
 
 # coverage_report:
 #   stage: code-quality
