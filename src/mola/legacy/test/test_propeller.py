@@ -23,7 +23,6 @@ import os
 @pytest.mark.fast
 @pytest.mark.cost_level_3
 def test_oras_mesher(tmp_path):
-    return True
     import numpy as np
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -40,7 +39,7 @@ def test_oras_mesher(tmp_path):
     blade_number = 5
     delta_pitch_angle = +55.0 # deg
     wall_cell_height = 10e-6
-    blade_radial_NPts = 40
+    blade_radial_NPts = 51
     airfoil_NPts_top = airfoil_NPts_bottom = 67 #171 # must be ODD
     spinner_azimut_NPts = 31#151
 
@@ -175,7 +174,7 @@ def test_oras_mesher(tmp_path):
 
     # stator 
     BladeDiscretization = dict(P1=(r,0,0),P2=(0.85*R,0,0),
-                            N=int(blade_radial_NPts*0.6),
+                            N=blade_radial_NPts,
                             kind='tanhTwoSides',
                             FirstCellHeight=blade_root_cellwidth,
                             LastCellHeight=blade_tip_cellwidth)
@@ -237,7 +236,6 @@ def test_oras_mesher(tmp_path):
 
 
 
-    J.save(stator,os.path.join(DIRECTORY_CHECKME,'0_stator_geometry.cgns'))
 
     RW.addPitchAndAdjustPositionOfBladeSurface(stator, root_window='jmin',
         delta_pitch_angle= delta_pitch_angle if not RightHandRuleRotation else -delta_pitch_angle,
@@ -250,7 +248,6 @@ def test_oras_mesher(tmp_path):
     stator = GSD.closeWingTipAndRoot(stator, tip_window='jmax', close_root=False,
                                 airfoil_top2bottom_NPts=blade_tip_NPts_top2Bottom)
 
-    J.save(stator,os.path.join(DIRECTORY_CHECKME,'1_stator_surface.cgns'))
 
     curves  = RW.makeSpinnerCurves(LengthFront=0.2, LengthRear=spinner_LengthRear,
                         Width=0.15,
@@ -264,7 +261,6 @@ def test_oras_mesher(tmp_path):
     for c in curves[1:]: profile = RW.T.join(profile, c)
 
     RW.T._rotate(profile,(0,0,0),(0,0,1),90)
-    J.save(profile,os.path.join(DIRECTORY_CHECKME,'2_profile_geometry.cgns'))
 
     profile_input_frenet = (spinner_profile_input_spanwise_direction,
                             spinner_profile_input_axial_direction,
@@ -281,6 +277,10 @@ def test_oras_mesher(tmp_path):
 
     RW.T._rotate(blade, rotation_center, blade_input_frenet, final_frenet)
     RW.T._rotate(stator, rotation_center, blade_input_frenet, final_frenet)
+
+    J.save(stator,os.path.join(DIRECTORY_CHECKME,'0_stator_geometry.cgns'))
+    J.save(blade,os.path.join(DIRECTORY_CHECKME,'0_rotor_geometry.cgns'))
+    J.save(profile,os.path.join(DIRECTORY_CHECKME,'0_profile_geometry.cgns'))
 
     ###########################################################################
     #                     REQUIRED DATA STARTS FROM HERE                      #
@@ -301,7 +301,7 @@ def test_oras_mesher(tmp_path):
 
     if Hgrid_NPts < 9:
         raise ValueError('insuficient number of airfoil segments compared to azimut points')
-    Hgrid_cell = 3e-3
+    Hgrid_cell = 2.5e-3
     law = 'tanhTwoSides'
 
     interface_cell_length_axially = 0.002
@@ -311,14 +311,14 @@ def test_oras_mesher(tmp_path):
     {'N':32, 'BreakPoint(x)':-0.1919, 'kind':law,'FirstCellHeight':1e-4,'LastCellHeight':1.8e-3},
 
     # from spinner leading edge to blade root H-grid region:
-    {'N':40, 'BreakPoint(x)':-0.063, 'kind':law,'FirstCellHeight':1.8e-3,'LastCellHeight':Hgrid_cell},
+    {'N':40, 'BreakPoint(x)':-0.06, 'kind':law,'FirstCellHeight':1.8e-3,'LastCellHeight':Hgrid_cell},
 
     # blade root H-grid region:
-    {'N':Hgrid_NPts, 'BreakPoint(x)':+0.06, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':Hgrid_cell},
+    {'N':Hgrid_NPts, 'BreakPoint(x)':+0.068, 'kind':law,'FirstCellHeight':Hgrid_cell,'LastCellHeight':0.75*Hgrid_cell},
 
     # rear
-    {'N':10, 'BreakPoint':  1.0, 'kind':law,
-    'FirstCellHeight':Hgrid_cell, 'LastCellHeight':interface_cell_length_axially},
+    {'N':8, 'BreakPoint':  1.0, 'kind':law,
+    'FirstCellHeight':0.75*Hgrid_cell, 'LastCellHeight':interface_cell_length_axially},
     ]
 
 
@@ -344,7 +344,7 @@ def test_oras_mesher(tmp_path):
 
 
     ############################## Stator Params ##############################
-    StatorNumberOfBlades = 9
+    StatorNumberOfBlades = 11
     StatorAzimutalCellAngle = 1.0 # deg
     ncell_azimut_Stator = int((360/StatorNumberOfBlades)/StatorAzimutalCellAngle)
 
@@ -386,19 +386,31 @@ def test_oras_mesher(tmp_path):
 
 
     t = RW.buildOpenRotorAndStatorMesh(blade,stator,profile,
-            CoordinateOfRotorStatorInterfaceAtHub=0.082,
+            CoordinateOfRotorStatorInterfaceAtHub=0.0804,
+            FarfieldRadius = 2.0,
+
+            RotorNumberOfBlades=RotorNumberOfBlades,
+            RotorDeltaPitch = 0.0,
+            RotorPitchCenter = -0.0120285,
+            RotorThetaAdjustmentInDegrees = -2.0,
             RotorHubProfileReDiscretization = RotorHubProfileReDiscretization,
             RotorAzimutalCellAngle = RotorAzimutalCellAngle,
-            RotorNumberOfBlades=RotorNumberOfBlades,
             RotorBladeWallCellHeight=1e-5,
-            RotorHubWallCellHeight=0.005,
+            RotorRadialTension = 0.05, # FIXME make completely normal front_near_topo
+            RotorHubWallCellHeight=0.01,
+            RotorFarfieldAxialSpreadingAngles=[-15,-20,-5],
             RotorBladeExtrusionParams = RotorBladeExtrusionParams,
 
+            StatorNumberOfBlades=StatorNumberOfBlades,
+            StatorDeltaPitch = 0.0,
+            StatorPitchCenter = 0.137852,
+            StatorThetaAdjustmentInDegrees = 1.0, 
             StatorHubProfileReDiscretization = StatorHubProfileReDiscretization,
             StatorAzimutalCellAngle = StatorAzimutalCellAngle,
-            StatorNumberOfBlades=StatorNumberOfBlades,
             StatorBladeWallCellHeight=1e-5,
-            StatorHubWallCellHeight=0.005,
+            StatorRadialTension = 0.1, # FIXME make completely normal rear_near_topo
+            StatorHubWallCellHeight=0.01,
+            StatorFarfieldAxialSpreadingAngles=[6,26],
             StatorBladeExtrusionParams = StatorBladeExtrusionParams,
             )
 

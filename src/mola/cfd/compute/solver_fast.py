@@ -50,9 +50,8 @@ def apply_to_solver(workflow):
                        workflow._treeAtCenters,
                        workflow._fast_graph)
 
-        # FIXME when https://github.com/onera/Fast/issues/13 solved
-        # if workflow.SolverParameters['Num2Base']['modulo_verif']%0:
-        #     FastS.display_temporal_criteria(t, metrics, it, format='store')
+        if it%workflow.SolverParameters['Num2Base']['modulo_verif']==0:
+            FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store')
 
         # TODO : split run_iteration in two ?
         # workflow._iteration = it
@@ -70,3 +69,5 @@ def get_range_of_iterations(workflow):
     niter = workflow.Numerics['NumberOfIterations']
 
     return inititer, niter
+
+

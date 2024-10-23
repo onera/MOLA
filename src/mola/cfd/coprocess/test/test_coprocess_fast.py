@@ -31,12 +31,13 @@ def get_rans_tree():
     import Fast.PyTree as Fast
     import Initiator.PyTree as Init
 
-    npts = 5
+    npts = 9
     dx = 0.5
     z = G.cart((0.0,0.0,0.0), (dx,dx,dx), (npts,npts,npts))
     C._addBC2Zone(z, 'WALL', 'FamilySpecified:WALL', 'imin')
     C._fillEmptyBCWith(z, 'FARFIELD', 'FamilySpecified:FARFIELD', dim=3)
     C._addState(z, 'GoverningEquations', 'NSTurbulent')
+
     Init._initConst(z, MInf=0.4, loc='centers')
     C._addState(z, MInf=0.4)
     t = C.newPyTree(['Base', z])
@@ -63,7 +64,7 @@ def get_euler_tree():
     import Fast.PyTree as Fast
     import Initiator.PyTree as Init
 
-    npts = 5
+    npts = 9
     dx = 0.5
     z = G.cart((0.0,0.0,0.0), (dx,dx,dx), (npts,npts,npts))
     C._fillEmptyBCWith(z, 'FARFIELD', 'FamilySpecified:FARFIELD', dim=3)
@@ -88,7 +89,7 @@ def get_laminar_tree():
     import Fast.PyTree as Fast
     import Initiator.PyTree as Init
 
-    npts = 5
+    npts = 9
     dx = 0.5
     z = G.cart((0.0,0.0,0.0), (dx,dx,dx), (npts,npts,npts))
     C._addBC2Zone(z, 'WALL', 'FamilySpecified:WALL', 'imin')
@@ -110,7 +111,8 @@ def get_laminar_tree():
     return t
 
 
-def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
+def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans',
+        create_convergence_nodes=False):
 
     if type_of_tree == 'rans':
         t = get_rans_tree()
@@ -125,16 +127,12 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
     else:
         raise ValueError(f'wrong type_of_tree={type_of_tree}')
     
-    import FastS.PyTree as FastS
-    t, tc, metrics = FastS.warmup(t, None)
 
     class FakeWorkflow():
-        def __init__(self):
-            self.tree = cgns.castNode(t)
-            self._fast_metrics = metrics
+        def __init__(self):                          
             self._status = 'BEFORE_FIRST_ITERATION'
             self.Numerics = dict(IterationAtInitialState=1,
-                                      NumberOfIterations=1,
+                                      NumberOfIterations=5,
                                       TimeAtInitialState=0.0,
                                             TimeMarching='Steady')
             self.Extractions = []
@@ -158,8 +156,31 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans'):
             from mola.cfd.coprocess.manager import CoprocessManager
             self._coprocess_manager = CoprocessManager(self)
 
+    workflow = FakeWorkflow()
+    t = cgns.castNode(t)
+    for FlowEq in t.group(Type='FlowEquationSet_t'):
+        cgns.Node(Name='EquationDimension',
+                  Type='EquationDimension_t',
+                  Value=3, Parent=FlowEq)
 
-    return FakeWorkflow()
+
+    import FastS.PyTree as FastS
+    t, tc, metrics = FastS.warmup(t, None)
+
+    workflow._fast_metrics = metrics
+    workflow.tree = cgns.castNode(t)
+    if create_convergence_nodes:
+        from mola.cfd.preprocess.extractions.solver_fast import _createConvergenceHistory
+        _createConvergenceHistory(workflow.tree, workflow.Numerics['IterationAtInitialState'],
+                                     workflow.Numerics['NumberOfIterations']+1)
+
+        # from mola.cfd.preprocess.extractions.solver_fast import _createConvergenceHistoryCass
+        # _createConvergenceHistoryCass(workflow.tree, workflow.Numerics['NumberOfIterations']+1)
+
+
+        workflow.tree = cgns.castNode(workflow.tree)
+
+    return workflow
 
 
 @pytest.mark.unit
@@ -340,14 +361,13 @@ def test_extract_bc(tmp_path):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_extract_residuals(tmp_path):
+@pytest.mark.parametrize("modeling", ['euler', 'rans'])
+def test_extract_residuals(tmp_path,modeling):
 
-    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'euler')
-    
+    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, modeling, True)
     workflow._coprocess_manager.Extractions = [dict(Type='Residuals')]
     workflow.Extractions = workflow._coprocess_manager.Extractions
 
-    import Converter.Internal as I
     import FastS.PyTree as FastS
 
     t = workflow.tree
@@ -355,17 +375,11 @@ def test_extract_residuals(tmp_path):
     metrics = workflow._fast_metrics
     graph = None
 
-    I._rmNodesByName(t, "ZoneConvergenceHistory")
-    I._rmNodesByName(t, "GlobalConvergenceHistory")
-
-    niter = 10
-    FastS.createConvergenceHistory(t, niter)
-
-
-    for it in range( niter ):
+    inititer = workflow.Numerics['IterationAtInitialState']
+    niter = workflow.Numerics['NumberOfIterations']
+    
+    for it in range( inititer-1, inititer+niter ):
         FastS._compute(t, metrics, it, tc, graph)
-
-        # FIXME not available in RANS https://github.com/onera/Fast/issues/13 
         FastS.display_temporal_criteria(t, metrics, it, format='store')
     
     workflow.tree = cgns.castNode(t)
@@ -380,7 +394,6 @@ def test_extract_residuals(tmp_path):
         raise AttributeError("residuals extraction not found")
 
     solver_fast.extract_residuals(output_tree, extraction)
-    # residuals.save(os.path.join(tmp_path,'test.cgns'))
 
     workflow._coprocess_manager._status = 'COMPLETED'
 
@@ -465,5 +478,5 @@ if __name__ == '__main__':
     # test_extract_fields('wkflw2', 'CellCenter', True)
     # test_remove_not_requested_fields()
     # test_extract_bc('bc')
-    # test_extract_residuals('residuals')
-    test_extract_integral('integral')
+    test_extract_residuals('residuals','rans')
+    # test_extract_integral('integral')

@@ -22,6 +22,7 @@ import datetime
 from mola.logging import MolaException, GREEN, ENDC
 from . import rank, comm
 from mola.cfd.coprocess.user_interface import write_tagfile
+import mola.naming_conventions as names
 
 def check_timeout(coprocess_manager):
     
@@ -32,7 +33,7 @@ def check_timeout(coprocess_manager):
     if coprocess_manager.status.startswith('RUNNING'):
             
         if has_reached_timeout( launch_time, timeout, logger):
-            write_tagfile('NEWJOB_REQUIRED', coprocess_manager)
+            write_tagfile(names.FILE_NEWJOB_REQUIRED, coprocess_manager)
             coprocess_manager.status = 'TO_STOP'
 
         comm.barrier()
@@ -47,7 +48,7 @@ def check_max_iteration(coprocess_manager):
 
         if coprocess_manager.iteration >= itinit + itmax:
             coprocess_manager.mola_logger.info(f'{GREEN}REACHED itmax{ENDC}', rank=0)
-            write_tagfile('COMPLETED', coprocess_manager)
+            write_tagfile(names.FILE_JOB_COMPLETED, coprocess_manager)
 
             coprocess_manager.status = 'TO_STOP'
 
