@@ -111,7 +111,6 @@ def print_status_on_mola_version():
 
     def gatherMOLAversions():
         ALL_MOLAS_DIR = os.path.sep+os.path.join(*__MOLA_PATH__.split(os.path.sep)[:-1])+os.path.sep
-        print(f'{ALL_MOLAS_DIR=}')
         ALL_MOLAS_VER = [v.replace(ALL_MOLAS_DIR,'') for v in glob.glob(os.path.join(ALL_MOLAS_DIR,'*'))]
         v = {}
         for ver in ALL_MOLAS_VER:
