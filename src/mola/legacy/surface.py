@@ -44,6 +44,8 @@ verbose = False
 MAX = np.maximum
 MIN = np.minimum
 
+maxRadius = W.maxRadius
+
 def sweepSections(sections=[], SpanPositions=None,
                   rotation=[0.], rotationLaw='linear',
                   NormalDirection=(1,0,0),
@@ -372,7 +374,10 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         for MustKey in ['RelativeSpan','InterpolationLaw',GeomParam]:
             if MustKey not in kwargs[GeomParam]:
                 raise AttributeError('wing(): %s dictionnary MUST contain "%s" key.'%(GeomParam,MustKey))
-        if len(kwargs[GeomParam]['RelativeSpan']) != len(kwargs[GeomParam][GeomParam]): raise AttributeError('wing(): There MUST be the SAME amount of elements in "RelativeSpan" and "%s" lists'%GeomParam)
+        NbOfItemsRelativeSpan = len(kwargs[GeomParam]['RelativeSpan'])
+        NbOfItemsGeomParam = len(kwargs[GeomParam][GeomParam])
+        if NbOfItemsRelativeSpan != NbOfItemsGeomParam:
+            raise AttributeError(f'there MUST be the SAME amount of elements in "RelativeSpan" (got {NbOfItemsRelativeSpan}) and "{GeomParam}" (got {NbOfItemsGeomParam})')
         if len(kwargs[GeomParam]['RelativeSpan'])==1:
             kwargs[GeomParam]['RelativeSpan'] = [0,kwargs[GeomParam]['RelativeSpan'][0]]
             kwargs[GeomParam][GeomParam]     += [kwargs[GeomParam][GeomParam][0]]
@@ -412,7 +417,12 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     if AirfoilDiscretization is not None:
         # Start with a re-discretization of airfoils
         for i in range(len(AirfoilList)):
-            AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization)
+            if isinstance(AirfoilDiscretization, dict):
+                AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization)
+            elif isinstance(AirfoilDiscretization, list):
+                AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization[i])
+            else:
+                raise AttributeError('type of AirfoilDiscretization must be dict or list of dict')
 
         # Verify if all airfoils have the same number of points:
         ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
@@ -4166,7 +4176,7 @@ def buildLateralFaceFromEdgesAndSupportSurface(support, first_edge, second_edge,
         raise AttributeError(f'unsupported {support_boundary}')
 
     for edge in first_edge, second_edge:
-        if extrapolating_radius:
+        if maxRadius(edge) < extrapolating_radius:
             W.extrapolateUpToRadius(edge,extrapolating_radius)
         
         if redistribution:

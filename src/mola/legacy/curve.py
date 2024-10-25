@@ -111,6 +111,35 @@ def distanceOfPointToLine(Point, LineVector, LinePassingPoint):
         distance : float
             minimum euclidean distance between the provided point and line
     '''
+    v = vectorOfLineToPoint(Point, LineVector, LinePassingPoint)
+    distance = np.linalg.norm(v)
+
+    return distance
+
+
+def vectorOfLineToPoint(Point, LineVector, LinePassingPoint):
+    '''
+    Compute the Euclidean vector between a line that passes through a point and
+    a point in space.
+
+    Parameters
+    ----------
+
+        Point : zone or :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes point coordinates.
+
+        LineVector : :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes line direction vector.
+
+        LinePassingPoint : :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes the line passing point coordinates.
+
+    Returns
+    -------
+
+        vector : 3-float np.array
+            vector of line to point
+    '''
 
     if isPyTreePoint(Point):
         x,y,z = J.getxyz(Point)
@@ -136,10 +165,8 @@ def distanceOfPointToLine(Point, LineVector, LinePassingPoint):
     cp = p - c
     q = c + l*cp.dot(l)
     qp = p - q
-    distance = np.sqrt(qp.dot(qp))
 
-    return distance
-
+    return qp
 
 def angle2D(P1,P2):
     r'''
@@ -625,7 +652,8 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
     ----------
 
         designation : str
-            NACA airfoil identifier of 4 or 5 digits
+            NACA airfoil identifier of 4 or 5 digits, or str or filename in selig, 
+            lidnicer formats, or cgns zone curve
 
         Ntop : int
             Number of points of the Top side of the airfoil.
@@ -678,8 +706,14 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
 
     NACAstringLoc = designation.find('NACA')
     # Determines the kind of airfoil to generate
-    if designation.find('.') != -1: # Then user wants to import an airfoil from file
-        Imported = np.genfromtxt(designation, dtype=np.float64, skip_header=1, usecols=(0,1))
+    has_dot = designation.find('.') != -1
+    has_linebreak = designation.find('\n')
+    if has_dot or has_linebreak: # Then user wants to import an airfoil from file
+        if has_linebreak:
+            input_to_npy = designation.split("\n")
+        else:
+            input_to_npy = designation
+        Imported = np.genfromtxt(input_to_npy, dtype=np.float64, skip_header=1, usecols=(0,1))
         # Deletes useless lines
         RowsToDelete = []
         for i in range(len(Imported[:,0])):
@@ -712,7 +746,6 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
             xU= Imported[xMin:,0]
             yU = Imported[xMin:,1]
         Airfoil = D.line((0,0,0), (1,0,0), len(xL)+len(xU)-1 )
-        Airfoil[0] = designation.split('.')[0]
         Airfoil_x = J.getx(Airfoil)
         Airfoil_y = J.gety(Airfoil)
         Airfoil_x[:] = np.hstack((xL,xU[1:]))
@@ -890,14 +923,68 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
     Top_x, Top_y = J.getxy(Top)
     Bottom_x, Bottom_y = J.getxy(Bottom)
     Airfoil = linelaw(N=len(Top_x)+len(Bottom_x)-1)
-    Airfoil[0] = designation.split('.')[0]
     Airfoil_x, Airfoil_y = J.getxy(Airfoil)
     Airfoil_x[:len(Bottom_x)] = Bottom_x
     Airfoil_x[len(Bottom_x):] = Top_x[1:]
     Airfoil_y[:len(Bottom_y)] = Bottom_y
     Airfoil_y[len(Bottom_y):] = Top_y[1:]
 
+    if has_linebreak:
+        Airfoil[0] = input_to_npy[0]
+    else:
+        Airfoil[0] = designation.split('.')[0]
+
     return Airfoil
+
+
+def loadAirfoilInSafeMode( ZoneOrNACAstringOrFilename, rear_region_portion=0.9):
+
+    if isinstance(ZoneOrNACAstringOrFilename, str):
+        name = ZoneOrNACAstringOrFilename
+        if name.endswith('.dat') or name.endswith('.txt') or \
+           (name.startswith('NACA') and '.' not in name) :
+            return airfoil(name)
+        zone = J.load(name)
+
+    elif isinstance(ZoneOrNACAstringOrFilename, list):
+        zone = I.getZones(ZoneOrNACAstringOrFilename)[0]
+
+    else:
+        raise TypeError('type of ZoneOrNACAstringOrFilename attribute not supported')
+
+    if not isStructuredCurve(zone):
+        raise AttributeError('airfoil zone must be a structured curve')
+    
+    x, y = J.getxy(zone)
+    i_xmax = np.argmax(x)
+    i_xmin = np.argmin(x)
+    chord = x[i_xmax] - x[i_xmin]
+    if chord > 1.05 or chord < 0.95:
+        raise AttributeError('airfoil zone must be of chord ~1 in X direction')
+    
+    rear_region =  rear_region_portion * x[i_xmax] + \
+                (1-rear_region_portion)* x[i_xmin]
+    if x[0] < rear_region:
+        raise AttributeError('airfoil starting point must be on trailing edge')
+
+    if x[-1] < rear_region:
+        raise AttributeError('airfoil end point must be on trailing edge')
+
+    width = y.max() - y.min()
+    if width < 1e-3:
+        raise AttributeError('airfoil zone must have non-null width and must be placed on OXY plane')
+
+    trailing_edge_gap_vector = np.array([x[-1]-x[0],y[-1]-y[0]])
+    trailing_edge_gap = np.linalg.norm(trailing_edge_gap_vector)
+    is_closed = trailing_edge_gap < 1e-8
+
+    if not is_closed:
+        if y[0] > y[-1]:
+            raise AttributeError('airfoil zone must be oriented clockwise around Y')
+
+    return zone
+
+
 
 
 
@@ -987,7 +1074,7 @@ def discretizeInPlace(curve, **kwargs):
     curve[1] = rediscretized[1]
     curve[2] = rediscretized[2] 
 
-def discretizeAirfoil(airfoil, Ntop, Nbot=None, CellSizeAtLE=None, CellSizeAtTE=None, relativeToChord=False):
+def discretizeAirfoil(airfoil, Ntop=101, Nbot=None, CellSizeAtLE=None, CellSizeAtTE=None, relativeToChord=False):
     '''
     *(Re)*-discretize the curve defining the given **airfoil**. The leading is automatically detected, and
     a 'tanhTwoSides' distribution (see doc of :py:func:`linelaw`) is used on suction side and pressure side.  
@@ -1364,7 +1451,15 @@ def getAbscissaAtStation(curve, station, coordinate='x'):
     PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
     C._initVars(curve,'SliceVar=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
 
-    Slice = P.isoSurfMC(curve,'SliceVar',value=0.0)[0]
+    try:
+        Slice = P.isoSurfMC(curve,'SliceVar',value=0.0)[0]
+    except IndexError:
+        from .surface import plane_using_normal
+        plane_db = plane_using_normal(Pt, n, length=getLength(curve))
+        J.save(J.tree(CURVE=curve, PLANE=plane_db),'debug.cgns')
+        raise ValueError(f'did not find intersection between CURVE {curve[0]} and PLANE n={n}, p={Pt}, check debug.cgns')
+
+
     s, = J.getVars(Slice,['s'])
 
     return s
@@ -5607,11 +5702,13 @@ def joinSequentially(curves, reorder=False, sort=False):
         joined_curve : zone
             structured curve (join result of **curves**)
     '''
-    if reorder: curves = reorderCurvesSequentially(curves)
-    if sort: curves = sortCurvesSequentially(curves)
 
-    joined_curve = curves[0]
-    for curve in curves[1:]:
+    copied_curves = J.getZonesByCopy(curves)
+    if reorder: copied_curves = reorderCurvesSequentially(copied_curves)
+    if sort: copied_curves = sortCurvesSequentially(copied_curves)
+
+    joined_curve = copied_curves[0]
+    for curve in copied_curves[1:]:
         x,y,z = J.getxyz(joined_curve)
         x[0] += 999
         y[0] += 999
@@ -5813,17 +5910,22 @@ def interpolateAirfoils(Airfoils, Positions, RequestedPositions, order=1):
     except:
         RequestedPositions = [RequestedPositions]
 
+    OriginalAirfoils = I.copyTree(Airfoils)
+
     Ns = len(RequestedPositions)
     NinterFoils = len(Airfoils)
     ListOfNPts = np.array([C.getNPts(a) for a in Airfoils])
     if not all(ListOfNPts[0] == ListOfNPts):
         Airfoils = useEqualNumberOfPointsOrSameDiscretization(Airfoils)
 
+    AllDistributions = [D.getDistribution(a) for a in Airfoils]
+
     RediscretizedAirfoils = [Airfoils[0]]
     foil_Distri = D.getDistribution(RediscretizedAirfoils[0])
     for foil in Airfoils[1:]: RediscretizedAirfoils += [G.map(foil, foil_Distri)]
     NPts = C.getNPts(RediscretizedAirfoils[0])
     
+    # Interpolates Coordinates in U, V space:
     InterpolatedAirfoils = [D.line((0,0,0),(1,0,0),NPts) for _ in range(Ns)]
 
     InterpXmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
@@ -5848,6 +5950,29 @@ def interpolateAirfoils(Airfoils, Positions, RequestedPositions, order=1):
             SecX,SecY = J.getxy(Section)
             SecX[:] = InterpolatedX[j,:]
             SecY[:] = InterpolatedY[j,:]
+
+    # Interpolates Distributions 
+    InterpolatedDistributions = [D.line((0,0,0),(1,0,0),NPts) for _ in range(Ns)]
+
+    InterpXmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
+    for j in range(NinterFoils):
+        InterpXmatrix[j,:] = J.getx(AllDistributions[j])
+
+        u = gets(AllDistributions[0])
+        v = Positions
+        interpX = scipy.interpolate.RectBivariateSpline(v,u,InterpXmatrix,
+                                                        kx=order, ky=order)
+        InterpolatedX = interpX(RequestedPositions, u)
+
+        for j in range(Ns):
+            Distribution = InterpolatedDistributions[j]
+            Distribution[0] = 'distribution_at_%g'%RequestedPositions[j]
+            DistX = J.getx(Distribution)
+            DistX[:] = InterpolatedX[j,:]
+
+    # applies interpolated distributions to interpolated sections
+    for a, d in zip(InterpolatedAirfoils, InterpolatedDistributions):
+        discretizeInPlace(a,Distribution=d)
 
     if len(InterpolatedAirfoils)==1:
         return InterpolatedAirfoils[0]
@@ -6015,7 +6140,7 @@ def extrapolateUpToRadius(curve, radius, center=[0,0,0], axis=[1,0,0]):
 
     addDistanceRespectToLine(curve,center,axis,'radius')
     Rmax = C.getMaxValue(curve,'radius')
-    if Rmax >= radius: raise AttributeError('curve has already higher radius than requested')
+    if Rmax >= radius: raise AttributeError(f'curve already has higher radius ({Rmax}) than requested ({radius})')
     extrapolated_curve = extrapolate(curve, 2*Rmax, opposedExtremum=False)
     addDistanceRespectToLine(extrapolated_curve,center,axis,'radius')
     split_parts = splitAtValue(extrapolated_curve,'radius', radius)
@@ -6208,8 +6333,8 @@ def addPointToCurve(curve, point, exclude_point_if_distance_less_than=1e-8):
     nearest_cell_index = D.getNearestPointIndex(segments, [point])[0][0]
 
 
-    sqrd_dist = D.getNearestPointIndex(curve, [point])[0][1]
-    if np.sqrt(sqrd_dist) < exclude_point_if_distance_less_than: return
+    ind, sqrd_dist = D.getNearestPointIndex(curve, [point])[0]
+    if np.sqrt(sqrd_dist) < exclude_point_if_distance_less_than: return ind
 
     x_node = I.getNodeFromName2(curve, 'CoordinateX')
     y_node = I.getNodeFromName2(curve, 'CoordinateY')
@@ -6242,14 +6367,12 @@ def addPointToCurve(curve, point, exclude_point_if_distance_less_than=1e-8):
         for data_field in I.getNodesFromType1(container,'DataArray_t'):
             value = data_field[1]
             try:
-                data_field[1] = np.hstack((value[:nearest_cell_index+1],
-                                        np.interp(point_distance/length,
+                interpolated_value = np.interp(point_distance/length,
                                                 [0,length],
-                                                [value[nearest_cell_index+1],
-                                                value[nearest_cell_index+1+1]]),
-                                        value[nearest_cell_index+1:]))
+                                                [value[nearest_cell_index],
+                                                value[nearest_cell_index+1]])
             except BaseException as e:
-                msg = f'FAILED for {curve[0]}/{container[0]}/{data_field[0]}\n'
+                msg = f'FAILED interpolating field {curve[0]}/{container[0]}/{data_field[0]}\n'
                 msg+= f'with:\n'
                 msg+= f'{value=}\n'
                 msg+= f'{point_distance=}\n'
@@ -6257,6 +6380,10 @@ def addPointToCurve(curve, point, exclude_point_if_distance_less_than=1e-8):
                 msg+= f'{nearest_cell_index=}\n'
 
                 raise Exception(str(e)+J.FAIL+msg+J.ENDC)
+
+            data_field[1] = np.hstack(( value[:nearest_cell_index+1],
+                                        interpolated_value,
+                                        value[nearest_cell_index+1:]))
 
     curve[1][0][:2] +=1
 
@@ -6268,11 +6395,16 @@ def splitAtPoint(curve, point):
     return splitAt(curve, cut_index)
 
 def splitAtValue(curve, fieldname, value):
-    cut_pypoints = I.getZones(P.isoSurfMC(curve,fieldname,value=value))
+
+    values = value if isinstance(value,list) else [value]
+
+    cut_pypoints = []
+    for v in values:
+        cut_pypoints += I.getZones(P.isoSurfMC(curve,fieldname,value=v))
+    
     if not cut_pypoints: return [curve]
     cut_points = [ point(p) for p in cut_pypoints]
     cut_indices = [addPointToCurve(curve, p) for p in cut_points]
-
     return splitAt(curve, cut_indices)
 
 def cut(curve_to_be_cut, razor_surface, delta_mirror=1e-4):
@@ -6386,3 +6518,1152 @@ def forceVectorPointOutwards(curve, center=[0,0,0], vector_name='s'):
             vx[i] *= -1
             vy[i] *= -1
             vz[i] *= -1
+
+
+def getAirfoil_NASA_SC_2_0412(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0412 AIRFOIL
+  1.000000  0.003300
+  0.990000  0.005300
+  0.980000  0.007200
+  0.970000  0.009000
+  0.960000  0.010800
+  0.950000  0.012500
+  0.940000  0.014200
+  0.930000  0.015800
+  0.920000  0.017400
+  0.910000  0.019000
+  0.900000  0.020500
+  0.890000  0.022000
+  0.880000  0.023500
+  0.870000  0.025000
+  0.860000  0.026400
+  0.850000  0.027800
+  0.840000  0.029200
+  0.830000  0.030600
+  0.820000  0.031900
+  0.810000  0.033200
+  0.800000  0.034500
+  0.790000  0.035800
+  0.780000  0.037000
+  0.770000  0.038200
+  0.760000  0.039400
+  0.750000  0.040600
+  0.740000  0.041700
+  0.730000  0.042800
+  0.720000  0.043900
+  0.710000  0.044900
+  0.700000  0.045900
+  0.690000  0.046900
+  0.680000  0.047900
+  0.670000  0.048800
+  0.660000  0.049700
+  0.650000  0.050600
+  0.640000  0.051400
+  0.630000  0.052200
+  0.620000  0.052900
+  0.610000  0.053600
+  0.600000  0.054300
+  0.590000  0.054900
+  0.580000  0.055500
+  0.570000  0.056000
+  0.560000  0.056500
+  0.550000  0.057000
+  0.540000  0.057400
+  0.530000  0.057800
+  0.520000  0.058200
+  0.510000  0.058500
+  0.500000  0.058800
+  0.490000  0.059100
+  0.480000  0.059300
+  0.470000  0.059500
+  0.460000  0.059700
+  0.450000  0.059800
+  0.440000  0.059900
+  0.430000  0.060000
+  0.420000  0.060100
+  0.410000  0.060100
+  0.400000  0.060100
+  0.390000  0.060100
+  0.380000  0.060100
+  0.370000  0.060000
+  0.360000  0.059900
+  0.350000  0.059800
+  0.340000  0.059700
+  0.330000  0.059500
+  0.320000  0.059300
+  0.310000  0.059100
+  0.300000  0.058900
+  0.290000  0.058600
+  0.280000  0.058300
+  0.270000  0.057900
+  0.260000  0.057500
+  0.250000  0.057100
+  0.240000  0.056700
+  0.230000  0.056200
+  0.220000  0.055600
+  0.210000  0.055000
+  0.200000  0.054400
+  0.190000  0.053700
+  0.180000  0.053000
+  0.170000  0.052200
+  0.160000  0.051300
+  0.150000  0.050400
+  0.140000  0.049400
+  0.130000  0.048400
+  0.120000  0.047300
+  0.110000  0.046100
+  0.100000  0.044800
+  0.090000  0.043400
+  0.080000  0.041800
+  0.070000  0.040000
+  0.060000  0.038000
+  0.050000  0.035700
+  0.040000  0.033000
+  0.030000  0.029700
+  0.020000  0.025300
+  0.010000  0.019000
+  0.005000  0.014100
+  0.002000  0.009200
+  0.000000  0.000000
+  0.002000 -0.009200
+  0.005000 -0.014100
+  0.010000 -0.019000
+  0.020000 -0.025300
+  0.030000 -0.029600
+  0.040000 -0.032900
+  0.050000 -0.035600
+  0.060000 -0.037900
+  0.070000 -0.040000
+  0.080000 -0.041800
+  0.090000 -0.043400
+  0.100000 -0.044900
+  0.110000 -0.046300
+  0.120000 -0.047600
+  0.130000 -0.048800
+  0.140000 -0.049900
+  0.150000 -0.050900
+  0.160000 -0.051800
+  0.170000 -0.052700
+  0.180000 -0.053500
+  0.190000 -0.054200
+  0.200000 -0.054900
+  0.210000 -0.055500
+  0.220000 -0.056100
+  0.230000 -0.056700
+  0.240000 -0.057200
+  0.250000 -0.057700
+  0.260000 -0.058100
+  0.270000 -0.058500
+  0.280000 -0.058800
+  0.290000 -0.059100
+  0.300000 -0.059300
+  0.310000 -0.059500
+  0.320000 -0.059700
+  0.330000 -0.059800
+  0.340000 -0.059900
+  0.350000 -0.060000
+  0.360000 -0.060000
+  0.370000 -0.060000
+  0.380000 -0.059900
+  0.390000 -0.059800
+  0.400000 -0.059600
+  0.410000 -0.059400
+  0.420000 -0.059200
+  0.430000 -0.058900
+  0.440000 -0.058600
+  0.450000 -0.058200
+  0.460000 -0.057800
+  0.470000 -0.057300
+  0.480000 -0.056800
+  0.490000 -0.056200
+  0.500000 -0.055500
+  0.510000 -0.054700
+  0.520000 -0.053900
+  0.530000 -0.053000
+  0.540000 -0.052000
+  0.550000 -0.050900
+  0.560000 -0.049800
+  0.570000 -0.048600
+  0.580000 -0.047300
+  0.590000 -0.045900
+  0.600000 -0.044400
+  0.610000 -0.042900
+  0.620000 -0.041300
+  0.630000 -0.039700
+  0.640000 -0.038000
+  0.650000 -0.036200
+  0.660000 -0.034400
+  0.670000 -0.032600
+  0.680000 -0.030700
+  0.690000 -0.028800
+  0.700000 -0.026900
+  0.710000 -0.025000
+  0.720000 -0.023100
+  0.730000 -0.021200
+  0.740000 -0.019300
+  0.750000 -0.017400
+  0.760000 -0.015500
+  0.770000 -0.013700
+  0.780000 -0.011900
+  0.790000 -0.010200
+  0.800000 -0.008500
+  0.810000 -0.006800
+  0.820000 -0.005200
+  0.830000 -0.003700
+  0.840000 -0.002300
+  0.850000 -0.000900
+  0.860000  0.000300
+  0.870000  0.001400
+  0.880000  0.002400
+  0.890000  0.003200
+  0.900000  0.003800
+  0.910000  0.004300
+  0.920000  0.004500
+  0.930000  0.004500
+  0.940000  0.004200
+  0.950000  0.003800
+  0.960000  0.003100
+  0.970000  0.002200
+  0.980000  0.001000
+  0.990000 -0.000500
+  1.000000 -0.002200
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+
+def getAirfoil_NASA_SC_2_0410(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0410 AIRFOIL
+  1.000000  0.003200
+  0.990000  0.005000
+  0.980000  0.006700
+  0.970000  0.008300
+  0.960000  0.009800
+  0.950000  0.011300
+  0.940000  0.012700
+  0.930000  0.014100
+  0.920000  0.015400
+  0.910000  0.016700
+  0.900000  0.018000
+  0.890000  0.019300
+  0.880000  0.020500
+  0.870000  0.021700
+  0.860000  0.022900
+  0.850000  0.024100
+  0.840000  0.025200
+  0.830000  0.026300
+  0.820000  0.027400
+  0.810000  0.028500
+  0.800000  0.029600
+  0.790000  0.030600
+  0.780000  0.031600
+  0.770000  0.032600
+  0.760000  0.033600
+  0.750000  0.034500
+  0.740000  0.035400
+  0.730000  0.036300
+  0.720000  0.037200
+  0.710000  0.038000
+  0.700000  0.038800
+  0.690000  0.039600
+  0.680000  0.040400
+  0.670000  0.041100
+  0.660000  0.041800
+  0.650000  0.042500
+  0.640000  0.043100
+  0.630000  0.043700
+  0.620000  0.044300
+  0.610000  0.044900
+  0.600000  0.045400
+  0.590000  0.045900
+  0.580000  0.046400
+  0.570000  0.046800
+  0.560000  0.047200
+  0.550000  0.047600
+  0.540000  0.047900
+  0.530000  0.048200
+  0.520000  0.048500
+  0.510000  0.048800
+  0.500000  0.049000
+  0.490000  0.049200
+  0.480000  0.049400
+  0.470000  0.049600
+  0.460000  0.049700
+  0.450000  0.049800
+  0.440000  0.049900
+  0.430000  0.050000
+  0.420000  0.050000
+  0.410000  0.050000
+  0.400000  0.050000
+  0.390000  0.050000
+  0.380000  0.050000
+  0.370000  0.049900
+  0.360000  0.049800
+  0.350000  0.049700
+  0.340000  0.049600
+  0.330000  0.049500
+  0.320000  0.049300
+  0.310000  0.049100
+  0.300000  0.048900
+  0.290000  0.048700
+  0.280000  0.048400
+  0.270000  0.048100
+  0.260000  0.047800
+  0.250000  0.047400
+  0.240000  0.047000
+  0.230000  0.046600
+  0.220000  0.046100
+  0.210000  0.045600
+  0.200000  0.045000
+  0.190000  0.044400
+  0.180000  0.043800
+  0.170000  0.043100
+  0.160000  0.042400
+  0.150000  0.041600
+  0.140000  0.040800
+  0.130000  0.039900
+  0.120000  0.038900
+  0.110000  0.037900
+  0.100000  0.036800
+  0.090000  0.035600
+  0.080000  0.034200
+  0.070000  0.032700
+  0.060000  0.031000
+  0.050000  0.029100
+  0.040000  0.026900
+  0.030000  0.024200
+  0.020000  0.020700
+  0.010000  0.015500
+  0.005000  0.011600
+  0.002000  0.007600
+  0.000000  0.000000
+  0.002000 -0.007600
+  0.005000 -0.011600
+  0.010000 -0.015500
+  0.020000 -0.020700
+  0.030000 -0.024200
+  0.040000 -0.026900
+  0.050000 -0.029100
+  0.060000 -0.031000
+  0.070000 -0.032700
+  0.080000 -0.034200
+  0.090000 -0.035600
+  0.100000 -0.036900
+  0.110000 -0.038100
+  0.120000 -0.039200
+  0.130000 -0.040200
+  0.140000 -0.041100
+  0.150000 -0.042000
+  0.160000 -0.042800
+  0.170000 -0.043500
+  0.180000 -0.044200
+  0.190000 -0.044900
+  0.200000 -0.045500
+  0.210000 -0.046000
+  0.220000 -0.046500
+  0.230000 -0.047000
+  0.240000 -0.047400
+  0.250000 -0.047800
+  0.260000 -0.048100
+  0.270000 -0.048400
+  0.280000 -0.048700
+  0.290000 -0.048900
+  0.300000 -0.049100
+  0.310000 -0.049300
+  0.320000 -0.049400
+  0.330000 -0.049500
+  0.340000 -0.049600
+  0.350000 -0.049700
+  0.360000 -0.049700
+  0.370000 -0.049700
+  0.380000 -0.049700
+  0.390000 -0.049600
+  0.400000 -0.049500
+  0.410000 -0.049400
+  0.420000 -0.049200
+  0.430000 -0.049000
+  0.440000 -0.048800
+  0.450000 -0.048500
+  0.460000 -0.048200
+  0.470000 -0.047800
+  0.480000 -0.047400
+  0.490000 -0.047000
+  0.500000 -0.046500
+  0.510000 -0.046000
+  0.520000 -0.045400
+  0.530000 -0.044700
+  0.540000 -0.044000
+  0.550000 -0.043200
+  0.560000 -0.042300
+  0.570000 -0.041300
+  0.580000 -0.040200
+  0.590000 -0.039000
+  0.600000 -0.037800
+  0.610000 -0.036500
+  0.620000 -0.035200
+  0.630000 -0.033800
+  0.640000 -0.032400
+  0.650000 -0.030900
+  0.660000 -0.029400
+  0.670000 -0.027800
+  0.680000 -0.026200
+  0.690000 -0.024600
+  0.700000 -0.023000
+  0.710000 -0.021400
+  0.720000 -0.019800
+  0.730000 -0.018200
+  0.740000 -0.016600
+  0.750000 -0.015000
+  0.760000 -0.013400
+  0.770000 -0.011800
+  0.780000 -0.010200
+  0.790000 -0.008700
+  0.800000 -0.007200
+  0.810000 -0.005800
+  0.820000 -0.004400
+  0.830000 -0.003100
+  0.840000 -0.001800
+  0.850000 -0.000600
+  0.860000  0.000500
+  0.870000  0.001500
+  0.880000  0.002400
+  0.890000  0.003100
+  0.900000  0.003700
+  0.910000  0.004100
+  0.920000  0.004300
+  0.930000  0.004300
+  0.940000  0.004100
+  0.950000  0.003700
+  0.960000  0.003100
+  0.970000  0.002300
+  0.980000  0.001200
+  0.990000 -0.000100
+  1.000000 -0.001700
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+def getAirfoil_NASA_SC_2_0406(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0406 AIRFOIL
+  1.000000 -0.001600
+  0.990000 -0.000600
+  0.980000  0.000400
+  0.970000  0.001400
+  0.960000  0.002300
+  0.950000  0.003200
+  0.940000  0.004100
+  0.930000  0.005000
+  0.920000  0.005900
+  0.910000  0.006800
+  0.900000  0.007600
+  0.890000  0.008400
+  0.880000  0.009200
+  0.870000  0.010000
+  0.860000  0.010800
+  0.850000  0.011600
+  0.840000  0.012400
+  0.830000  0.013200
+  0.820000  0.013900
+  0.810000  0.014600
+  0.800000  0.015300
+  0.790000  0.016000
+  0.780000  0.016700
+  0.770000  0.017400
+  0.760000  0.018100
+  0.750000  0.018700
+  0.740000  0.019300
+  0.730000  0.019900
+  0.720000  0.020500
+  0.710000  0.021100
+  0.700000  0.021700
+  0.690000  0.022200
+  0.680000  0.022700
+  0.670000  0.023200
+  0.660000  0.023700
+  0.650000  0.024200
+  0.640000  0.024700
+  0.630000  0.025100
+  0.620000  0.025500
+  0.610000  0.025900
+  0.600000  0.026300
+  0.590000  0.026700
+  0.580000  0.027000
+  0.570000  0.027300
+  0.560000  0.027600
+  0.550000  0.027900
+  0.540000  0.028200
+  0.530000  0.028400
+  0.520000  0.028600
+  0.510000  0.028800
+  0.500000  0.029000
+  0.490000  0.029200
+  0.480000  0.029400
+  0.470000  0.029500
+  0.460000  0.029600
+  0.450000  0.029700
+  0.440000  0.029800
+  0.430000  0.029900
+  0.420000  0.030000
+  0.410000  0.030100
+  0.400000  0.030100
+  0.390000  0.030100
+  0.380000  0.030100
+  0.370000  0.030100
+  0.360000  0.030100
+  0.350000  0.030100
+  0.340000  0.030000
+  0.330000  0.029900
+  0.320000  0.029800
+  0.310000  0.029700
+  0.300000  0.029600
+  0.290000  0.029500
+  0.280000  0.029300
+  0.270000  0.029100
+  0.260000  0.028900
+  0.250000  0.028700
+  0.240000  0.028500
+  0.230000  0.028200
+  0.220000  0.027900
+  0.210000  0.027600
+  0.200000  0.027300
+  0.190000  0.027000
+  0.180000  0.026600
+  0.170000  0.026200
+  0.160000  0.025800
+  0.150000  0.025300
+  0.140000  0.024800
+  0.130000  0.024200
+  0.120000  0.023600
+  0.110000  0.023000
+  0.100000  0.022300
+  0.090000  0.021500
+  0.080000  0.020700
+  0.070000  0.019800
+  0.060000  0.018700
+  0.050000  0.017500
+  0.040000  0.016100
+  0.030000  0.014400
+  0.020000  0.012200
+  0.010000  0.008900
+  0.005000  0.006400
+  0.002000  0.004300
+  0.000000  0.000000
+  0.002000 -0.004300
+  0.005000 -0.006400
+  0.010000 -0.008900
+  0.020000 -0.012200
+  0.030000 -0.014400
+  0.040000 -0.016100
+  0.050000 -0.017500
+  0.060000 -0.018700
+  0.070000 -0.019700
+  0.080000 -0.020600
+  0.090000 -0.021500
+  0.100000 -0.022300
+  0.110000 -0.023000
+  0.120000 -0.023700
+  0.130000 -0.024300
+  0.140000 -0.024900
+  0.150000 -0.025400
+  0.160000 -0.025900
+  0.170000 -0.026400
+  0.180000 -0.026800
+  0.190000 -0.027200
+  0.200000 -0.027600
+  0.210000 -0.027900
+  0.220000 -0.028200
+  0.230000 -0.028500
+  0.240000 -0.028800
+  0.250000 -0.029000
+  0.260000 -0.029200
+  0.270000 -0.029400
+  0.280000 -0.029600
+  0.290000 -0.029700
+  0.300000 -0.029800
+  0.310000 -0.029900
+  0.320000 -0.030000
+  0.330000 -0.030100
+  0.340000 -0.030100
+  0.350000 -0.030100
+  0.360000 -0.030100
+  0.370000 -0.030100
+  0.380000 -0.030000
+  0.390000 -0.029900
+  0.400000 -0.029800
+  0.410000 -0.029700
+  0.420000 -0.029500
+  0.430000 -0.029300
+  0.440000 -0.029100
+  0.450000 -0.028800
+  0.460000 -0.028500
+  0.470000 -0.028200
+  0.480000 -0.027900
+  0.490000 -0.027500
+  0.500000 -0.027100
+  0.510000 -0.026700
+  0.520000 -0.026300
+  0.530000 -0.025800
+  0.540000 -0.025300
+  0.550000 -0.024800
+  0.560000 -0.024300
+  0.570000 -0.023700
+  0.580000 -0.023100
+  0.590000 -0.022500
+  0.600000 -0.021900
+  0.610000 -0.021300
+  0.620000 -0.020700
+  0.630000 -0.020100
+  0.640000 -0.019500
+  0.650000 -0.018800
+  0.660000 -0.018100
+  0.670000 -0.017400
+  0.680000 -0.016700
+  0.690000 -0.016000
+  0.700000 -0.015300
+  0.710000 -0.014600
+  0.720000 -0.013900
+  0.730000 -0.013200
+  0.740000 -0.012500
+  0.750000 -0.011800
+  0.760000 -0.011100
+  0.770000 -0.010400
+  0.780000 -0.009700
+  0.790000 -0.009000
+  0.800000 -0.008400
+  0.810000 -0.007800
+  0.820000 -0.007200
+  0.830000 -0.006600
+  0.840000 -0.006000
+  0.850000 -0.005500
+  0.860000 -0.005000
+  0.870000 -0.004500
+  0.880000 -0.004100
+  0.890000 -0.003700
+  0.900000 -0.003400
+  0.910000 -0.003100
+  0.920000 -0.002900
+  0.930000 -0.002800
+  0.940000 -0.002800
+  0.950000 -0.002900
+  0.960000 -0.003100
+  0.970000 -0.003400
+  0.980000 -0.003900
+  0.990000 -0.004600
+  1.000000 -0.005500
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+def getAirfoil_NASA_SC_2_0404(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0404 AIRFOIL
+  1.000000 -0.001500
+  0.990000 -0.000500
+  0.980000  0.000450
+  0.970000  0.001350
+  0.960000  0.002250
+  0.950000  0.003100
+  0.940000  0.003950
+  0.930000  0.004750
+  0.920000  0.005500
+  0.910000  0.006250
+  0.900000  0.006950
+  0.890000  0.007650
+  0.880000  0.008300
+  0.870000  0.008950
+  0.860000  0.009550
+  0.850000  0.010150
+  0.840000  0.010700
+  0.830000  0.011250
+  0.820000  0.011750
+  0.810000  0.012250
+  0.800000  0.012700
+  0.790000  0.013150
+  0.780000  0.013550
+  0.770000  0.013950
+  0.760000  0.014350
+  0.750000  0.014700
+  0.740000  0.015050
+  0.730000  0.015400
+  0.720000  0.015700
+  0.710000  0.016000
+  0.700000  0.016300
+  0.690000  0.016550
+  0.680000  0.016800
+  0.670000  0.017050
+  0.660000  0.017300
+  0.650000  0.017500
+  0.640000  0.017700
+  0.630000  0.017900
+  0.620000  0.018100
+  0.610000  0.018300
+  0.600000  0.018450
+  0.590000  0.018600
+  0.580000  0.018750
+  0.570000  0.018900
+  0.560000  0.019050
+  0.550000  0.019200
+  0.540000  0.019300
+  0.530000  0.019400
+  0.520000  0.019500
+  0.510000  0.019600
+  0.500000  0.019700
+  0.490000  0.019800
+  0.480000  0.019850
+  0.470000  0.019900
+  0.460000  0.019950
+  0.450000  0.020000
+  0.440000  0.020050
+  0.430000  0.020100
+  0.420000  0.020100
+  0.410000  0.020100
+  0.400000  0.020100
+  0.390000  0.020100
+  0.380000  0.020100
+  0.370000  0.020100
+  0.360000  0.020050
+  0.350000  0.020000
+  0.340000  0.019950
+  0.330000  0.019900
+  0.320000  0.019850
+  0.310000  0.019750
+  0.300000  0.019650
+  0.290000  0.019550
+  0.280000  0.019450
+  0.270000  0.019300
+  0.260000  0.019150
+  0.250000  0.019000
+  0.240000  0.018850
+  0.230000  0.018650
+  0.220000  0.018450
+  0.210000  0.018250
+  0.200000  0.018050
+  0.190000  0.017800
+  0.180000  0.017550
+  0.170000  0.017300
+  0.160000  0.017000
+  0.150000  0.016700
+  0.140000  0.016350
+  0.130000  0.016000
+  0.120000  0.015600
+  0.110000  0.015200
+  0.100000  0.014750
+  0.090000  0.014250
+  0.080000  0.013650
+  0.070000  0.013050
+  0.060000  0.012350
+  0.050000  0.011550
+  0.040000  0.010600
+  0.030000  0.009500
+  0.020000  0.008000
+  0.010000  0.005900
+  0.005000  0.004300
+  0.002000  0.002800
+  0.000000  0.000000
+  0.002000 -0.002800
+  0.005000 -0.004300
+  0.010000 -0.005900
+  0.020000 -0.008000
+  0.030000 -0.009500
+  0.040000 -0.010600
+  0.050000 -0.011550
+  0.060000 -0.012350
+  0.070000 -0.013050
+  0.080000 -0.013650
+  0.090000 -0.014250
+  0.100000 -0.014750
+  0.110000 -0.015250
+  0.120000 -0.015700
+  0.130000 -0.016100
+  0.140000 -0.016500
+  0.150000 -0.016900
+  0.160000 -0.017200
+  0.170000 -0.017500
+  0.180000 -0.017800
+  0.190000 -0.018100
+  0.200000 -0.018400
+  0.210000 -0.018600
+  0.220000 -0.018800
+  0.230000 -0.019000
+  0.240000 -0.019200
+  0.250000 -0.019400
+  0.260000 -0.019500
+  0.270000 -0.019600
+  0.280000 -0.019700
+  0.290000 -0.019800
+  0.300000 -0.019900
+  0.310000 -0.020000
+  0.320000 -0.020000
+  0.330000 -0.020000
+  0.340000 -0.020000
+  0.350000 -0.020000
+  0.360000 -0.020000
+  0.370000 -0.020000
+  0.380000 -0.020000
+  0.390000 -0.019900
+  0.400000 -0.019800
+  0.410000 -0.019700
+  0.420000 -0.019600
+  0.430000 -0.019500
+  0.440000 -0.019300
+  0.450000 -0.019100
+  0.460000 -0.018900
+  0.470000 -0.018700
+  0.480000 -0.018500
+  0.490000 -0.018200
+  0.500000 -0.017900
+  0.510000 -0.017600
+  0.520000 -0.017300
+  0.530000 -0.016950
+  0.540000 -0.016550
+  0.550000 -0.016150
+  0.560000 -0.015750
+  0.570000 -0.015300
+  0.580000 -0.014850
+  0.590000 -0.014400
+  0.600000 -0.013900
+  0.610000 -0.013400
+  0.620000 -0.012900
+  0.630000 -0.012400
+  0.640000 -0.011850
+  0.650000 -0.011300
+  0.660000 -0.010750
+  0.670000 -0.010200
+  0.680000 -0.009650
+  0.690000 -0.009100
+  0.700000 -0.008550
+  0.710000 -0.008000
+  0.720000 -0.007450
+  0.730000 -0.006900
+  0.740000 -0.006350
+  0.750000 -0.005800
+  0.760000 -0.005250
+  0.770000 -0.004700
+  0.780000 -0.004200
+  0.790000 -0.003700
+  0.800000 -0.003250
+  0.810000 -0.002800
+  0.820000 -0.002400
+  0.830000 -0.002000
+  0.840000 -0.001650
+  0.850000 -0.001350
+  0.860000 -0.001100
+  0.870000 -0.000850
+  0.880000 -0.000650
+  0.890000 -0.000500
+  0.900000 -0.000400
+  0.910000 -0.000400
+  0.920000 -0.000450
+  0.930000 -0.000550
+  0.940000 -0.000750
+  0.950000 -0.001050
+  0.960000 -0.001450
+  0.970000 -0.002000
+  0.980000 -0.002650
+  0.990000 -0.003450
+  1.000000 -0.004350
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+
+def getAirfoil_NASA_SC_2_0403(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0403 AIRFOIL
+  1.000000 -0.001300
+  0.990000 -0.000300
+  0.980000  0.000600
+  0.970000  0.001500
+  0.960000  0.002300
+  0.950000  0.003100
+  0.940000  0.003800
+  0.930000  0.004500
+  0.920000  0.005100
+  0.910000  0.005700
+  0.900000  0.006200
+  0.890000  0.006700
+  0.880000  0.007100
+  0.870000  0.007500
+  0.860000  0.007900
+  0.850000  0.008300
+  0.840000  0.008600
+  0.830000  0.008900
+  0.820000  0.009200
+  0.810000  0.009500
+  0.800000  0.009750
+  0.790000  0.010000
+  0.780000  0.010250
+  0.770000  0.010500
+  0.760000  0.010750
+  0.750000  0.011000
+  0.740000  0.011200
+  0.730000  0.011400
+  0.720000  0.011600
+  0.710000  0.011800
+  0.700000  0.012000
+  0.690000  0.012200
+  0.680000  0.012400
+  0.670000  0.012600
+  0.660000  0.012750
+  0.650000  0.012900
+  0.640000  0.013050
+  0.630000  0.013200
+  0.620000  0.013350
+  0.610000  0.013500
+  0.600000  0.013650
+  0.590000  0.013800
+  0.580000  0.013900
+  0.570000  0.014000
+  0.560000  0.014100
+  0.550000  0.014200
+  0.540000  0.014300
+  0.530000  0.014400
+  0.520000  0.014500
+  0.510000  0.014600
+  0.500000  0.014650
+  0.490000  0.014700
+  0.480000  0.014750
+  0.470000  0.014800
+  0.460000  0.014850
+  0.450000  0.014900
+  0.440000  0.014950
+  0.430000  0.015000
+  0.420000  0.015000
+  0.410000  0.015000
+  0.400000  0.015000
+  0.390000  0.015000
+  0.380000  0.015000
+  0.370000  0.015000
+  0.360000  0.015000
+  0.350000  0.014950
+  0.340000  0.014900
+  0.330000  0.014850
+  0.320000  0.014800
+  0.310000  0.014750
+  0.300000  0.014700
+  0.290000  0.014600
+  0.280000  0.014500
+  0.270000  0.014400
+  0.260000  0.014300
+  0.250000  0.014200
+  0.240000  0.014100
+  0.230000  0.013950
+  0.220000  0.013800
+  0.210000  0.013650
+  0.200000  0.013500
+  0.190000  0.013300
+  0.180000  0.013100
+  0.170000  0.012900
+  0.160000  0.012700
+  0.150000  0.012500
+  0.140000  0.012200
+  0.130000  0.011900
+  0.120000  0.011600
+  0.110000  0.011300
+  0.100000  0.010900
+  0.090000  0.010500
+  0.080000  0.010100
+  0.070000  0.009600
+  0.060000  0.009100
+  0.050000  0.008500
+  0.040000  0.007800
+  0.030000  0.007000
+  0.020000  0.005900
+  0.010000  0.004400
+  0.005000  0.003200
+  0.002000  0.002100
+  0.000000  0.000000
+  0.002000 -0.002100
+  0.005000 -0.003200
+  0.010000 -0.004400
+  0.020000 -0.005900
+  0.030000 -0.007000
+  0.040000 -0.007800
+  0.050000 -0.008500
+  0.060000 -0.009100
+  0.070000 -0.009600
+  0.080000 -0.010100
+  0.090000 -0.010500
+  0.100000 -0.010900
+  0.110000 -0.011300
+  0.120000 -0.011700
+  0.130000 -0.012000
+  0.140000 -0.012300
+  0.150000 -0.012600
+  0.160000 -0.012900
+  0.170000 -0.013100
+  0.180000 -0.013300
+  0.190000 -0.013500
+  0.200000 -0.013700
+  0.210000 -0.013900
+  0.220000 -0.014100
+  0.230000 -0.014300
+  0.240000 -0.014400
+  0.250000 -0.014500
+  0.260000 -0.014600
+  0.270000 -0.014700
+  0.280000 -0.014800
+  0.290000 -0.014900
+  0.300000 -0.015000
+  0.310000 -0.015000
+  0.320000 -0.015000
+  0.330000 -0.015000
+  0.340000 -0.015000
+  0.350000 -0.015000
+  0.360000 -0.015000
+  0.370000 -0.015000
+  0.380000 -0.015000
+  0.390000 -0.014900
+  0.400000 -0.014800
+  0.410000 -0.014700
+  0.420000 -0.014600
+  0.430000 -0.014500
+  0.440000 -0.014400
+  0.450000 -0.014300
+  0.460000 -0.014100
+  0.470000 -0.013900
+  0.480000 -0.013700
+  0.490000 -0.013500
+  0.500000 -0.013300
+  0.510000 -0.013100
+  0.520000 -0.012800
+  0.530000 -0.012500
+  0.540000 -0.012200
+  0.550000 -0.011900
+  0.560000 -0.011600
+  0.570000 -0.011300
+  0.580000 -0.011000
+  0.590000 -0.010600
+  0.600000 -0.010200
+  0.610000 -0.009800
+  0.620000 -0.009400
+  0.630000 -0.009000
+  0.640000 -0.008600
+  0.650000 -0.008200
+  0.660000 -0.007800
+  0.670000 -0.007400
+  0.680000 -0.007000
+  0.690000 -0.006600
+  0.700000 -0.006200
+  0.710000 -0.005800
+  0.720000 -0.005400
+  0.730000 -0.005000
+  0.740000 -0.004600
+  0.750000 -0.004200
+  0.760000 -0.003800
+  0.770000 -0.003400
+  0.780000 -0.003000
+  0.790000 -0.002600
+  0.800000 -0.002200
+  0.810000 -0.001800
+  0.820000 -0.001500
+  0.830000 -0.001200
+  0.840000 -0.000900
+  0.850000 -0.000600
+  0.860000 -0.000400
+  0.870000 -0.000200
+  0.880000  0.000000
+  0.890000  0.000100
+  0.900000  0.000200
+  0.910000  0.000200
+  0.920000  0.000100
+  0.930000  0.000000
+  0.940000 -0.000200
+  0.950000 -0.000500
+  0.960000 -0.000900
+  0.970000 -0.001400
+  0.980000 -0.002000
+  0.990000 -0.002800
+  1.000000 -0.003700
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+
+    
+
+
+def bezier_curve_2D(points, N=1000):
+    """
+       https://stackoverflow.com/questions/12643079/b%C3%A9zier-curve-fitting-with-scipy
+
+       Given a set of control points, return the
+       bezier curve defined by the control points.
+
+       points should be a list of lists, or list of tuples
+       such as [ [1,1], 
+                 [2,3], 
+                 [4,5], ..[Xn, Yn] ]
+        N is the number of evaluation points
+
+        See http://processingjs.nihongoresources.com/bezierinfo/
+    """
+    from scipy.special import comb
+
+    def bernstein_poly(i, n, t):
+        """
+        The Bernstein polynomial of n, i as a function of t
+        """
+        return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
+
+    nPoints = len(points)
+    xPoints = np.array([p[0] for p in points])
+    yPoints = np.array([p[1] for p in points])
+
+    t = np.linspace(0.0, 1.0, N)
+
+    polynomial_array = np.array([ bernstein_poly(i, nPoints-1, t) for i in range(0, nPoints)   ])
+
+    xvals = np.dot(xPoints, polynomial_array)
+    yvals = np.dot(yPoints, polynomial_array)
+
+    return xvals, yvals
+
+
+def azimutal_angle_between_vectors(vector1, vector2, axis):
+    from .surface import frameFromObjectiveVector
+    ex, ey, e_axial = frameFromObjectiveVector(axis)
+
+    x1 = vector1.dot(ex)
+    y1 = vector1.dot(ey)
+    x2 = vector2.dot(ex)
+    y2 = vector2.dot(ey)
+
+    α1 = np.rad2deg( np.arctan2( y1, x1 ) ) 
+    α2 = np.rad2deg( np.arctan2( y2, x2 ) ) 
+
+    α = α2 - α1
+
+    return α
+
+
+def maxRadius(t,center=[0,0,0],axis=[1,0,0]):
+    addDistanceRespectToLine(t,center,axis,'radius')
+    return C.getMaxValue(t,'radius')
+
+
+def splitAndDiscretizeCurveAsProvidedReferenceCurves(curve, reference_curves : list):
+
+    nb_ref_curves = len(reference_curves)
+
+    if nb_ref_curves == 1: return discretize(curve, Distribution=reference_curves[0])
+
+    reference_lengths = [ getLength(c) for c in reference_curves ]
+    reference_total_length = np.sum( reference_lengths )
+    cutting_abscissas = list(np.cumsum(reference_lengths)/reference_total_length)
+
+    curve_to_cut = I.copyTree(curve)
+    gets(curve_to_cut)
+    curve_subparts = splitAtValue(curve_to_cut, 's', cutting_abscissas[:-1] )
+    nb_subparts = len(curve_subparts)
+    if nb_subparts != nb_ref_curves:
+        raise ValueError(J.FAIL+f'expected {nb_ref_curves} subparts after splitting curve {curve[0]} using cutting_abscissas={cutting_abscissas} but got {nb_subparts} instead'+J.ENDC)
+
+    for subpart, ref_curve in zip(curve_subparts, reference_curves):
+        discretizeInPlace(subpart, Distribution=ref_curve)
+        subpart[0] = ref_curve[0] + '.split'
+
+    return curve_subparts

@@ -2986,3 +2986,10 @@ def tree(**kwargs):
     I._correctPyTree(t,level=3)
     return t
     
+
+def getZonesByCopy( tree_base_zone_or_list ):
+    zones = I.getZones(tree_base_zone_or_list)
+    if not zones: raise AttributeError('did not find zones in provided argument')
+    t = C.newPyTree(['BASE',zones])
+    copied_zones = I.getZones(I.copyTree(t))
+    return copied_zones
