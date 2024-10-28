@@ -6301,6 +6301,44 @@ def getPointsInContactWith(zone, possibly_touching_zones):
     unique_points = np.unique(points, axis=0)
     return unique_points
 
+def getCurvesInContact(curves, possibly_touching_curves):
+    touching_curves = []
+    for curve in I.getZones(curves):
+        hook, _ = C.createGlobalHook(curve, function='nodes', indir=1)
+
+        for block in I.getZones(possibly_touching_curves):
+            nodes = np.array(C.identifyNodes(hook, block))
+            if any(nodes>0): touching_curves += [block]
+        
+    seen_first_elements = set()
+    filtered_list = []
+    for inner_list in touching_curves:
+        first_element = inner_list[0]
+        if first_element not in seen_first_elements:
+            seen_first_elements.add(first_element)
+            filtered_list.append(inner_list)
+
+    return filtered_list
+
+def transferTouchingSegmentsAndDirections(curves_receiver, curves_donor):
+    for curve in I.getZones(curves_receiver):
+        length = J.invokeFields(curve,['segment'])[0]
+        sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+        hook, _ = C.createGlobalHook(curve, function='nodes', indir=1)
+
+        for donor in I.getZones(curves_donor):
+            nodes = np.array(C.identifyNodes(hook, donor))
+            nodes = np.sort(nodes[nodes>0])
+            if len(nodes) == 0: continue
+            for node in nodes:
+                receiver_index = node - 1
+                donor_index = D.getNearestPointIndex(donor, tuple(point(curve,receiver_index)))[0]-1
+                length[receiver_index] = segment(donor,donor_index)
+                txyz = tangent(donor, donor_index)
+                sx[receiver_index] = txyz[0]
+                sy[receiver_index] = txyz[1]
+                sz[receiver_index] = txyz[2]
+
 
 def middle(curve):
     x,y,z = J.getxyz(curve)
@@ -7667,3 +7705,55 @@ def splitAndDiscretizeCurveAsProvidedReferenceCurves(curve, reference_curves : l
         subpart[0] = ref_curve[0] + '.split'
 
     return curve_subparts
+
+def tangent(curve, index=0):
+    tangent_curve = D.getTangent(curve)
+    tx, ty, tz = J.getxyz(tangent_curve)
+    return np.array([tx[index], ty[index], tz[index]])
+
+def deformWidth(curves, factor=1.5):
+    lengths, dirs = getOrientedBoundingBoxLengthsAndDirections(curves)
+
+    b = np.array(G.barycenter(curves))
+    for curve in I.getZones(curves):
+        x,y,z = J.getxyz(curve)
+        x_ = np.ravel(x,order='K')
+        y_ = np.ravel(y,order='K')
+        z_ = np.ravel(z,order='K')
+        for i in range( len(x_) ):
+            p = np.array([x_[i], y_[i], z_[i]])
+            bp = p-b
+            distance_deform_dir = bp.dot(dirs[1])
+            new_p = p + (factor-1) * distance_deform_dir*dirs[1]
+            x_[i] = new_p[0]
+            y_[i] = new_p[1]
+            z_[i] = new_p[2]
+
+
+def getOrientedBoundingBoxLengthsAndDirections(zone):
+    bar = C.convertArray2Tetra(zone)
+    bar = T.join(bar)
+    bbox = G.BB(bar,method='OBB')
+    x, y, z = J.getxyz(bbox)
+    i_vector = np.array([x[1,0,0]-x[0,0,0],
+                         y[1,0,0]-y[0,0,0],
+                         z[1,0,0]-z[0,0,0]])
+    i_length = np.linalg.norm(i_vector)
+    i_dir = i_vector / i_length if i_length > 0 else i_vector
+    
+    j_vector = np.array([x[0,1,0]-x[0,0,0],
+                         y[0,1,0]-y[0,0,0],
+                         z[0,1,0]-z[0,0,0]])
+    j_length = np.linalg.norm(j_vector)
+    j_dir = j_vector / j_length if j_length > 0 else j_vector
+
+    k_vector = np.array([x[0,0,1]-x[0,0,0],
+                         y[0,0,1]-y[0,0,0],
+                         z[0,0,1]-z[0,0,0]])
+    k_length = np.linalg.norm(k_vector)
+    k_dir = k_vector / k_length if k_length > 0 else k_vector
+
+    lengths, dirs = J.sortListsUsingSortOrderOfFirstList([i_length, j_length, k_length],
+                                                         [i_dir, j_dir, k_dir])
+    
+    return lengths, dirs

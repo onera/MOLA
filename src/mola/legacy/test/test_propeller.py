@@ -40,25 +40,19 @@ def test_oras_mesher(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
+    test_mode_else_debug = False # True:debugging False:testing
+
     RotorNumberOfBlades = 13
     StatorNumberOfBlades = 11
-    AzimutalCellAngle = 1.0 # deg
-
-    RotorHgridXlocations=(-1.50, -0.75)
-    StatorHgridXlocations=(-0.45, 0.20)
-
-    profile = RW.getHubProfileORAS_ONERA_SE()
-
-
-    DIRECTORY_CHECKME = os.path.join(tmp_path,'CHECK_ME')
-    try: os.makedirs(DIRECTORY_CHECKME)
-    except: pass
-    RW.DIRECTORY_CHECKME = DIRECTORY_CHECKME
-
+    AzimutalCellAngleInDegrees = 1.0 
 
     toc = J.tic()
 
+    profile = RW.getHubProfileORAS_ONERA_SE()
     rotor, stator = RW.getBladesORAS_ONERA_SE()
+
+    RotorHgridXlocations = RW.proposeHgridXlocations(rotor,profile) # (-1.50, -0.75)
+    StatorHgridXlocations = RW.proposeHgridXlocations(stator, profile) # (-0.45, 0.20)
 
     discretizations = RW.getSimpleORASHubProfileDiscretizations(rotor, stator,
             RotorNumberOfBlades=RotorNumberOfBlades,
@@ -66,24 +60,38 @@ def test_oras_mesher(tmp_path):
             RotorHgridXlocations=RotorHgridXlocations,
             StatorHgridXlocations=StatorHgridXlocations)
 
+
+    if test_mode_else_debug:
+        check_dir = ''
+        raise_error_if_negative_volume_cells = True
+    else:
+        check_dir = os.path.join(tmp_path,'CHECK_ME')
+        raise_error_if_negative_volume_cells = False
+
+
     t = RW.buildOpenRotorAndStatorMesh(rotor,stator,profile,
             RotorNumberOfBlades=RotorNumberOfBlades,
             RotorHubProfileReDiscretization = discretizations[0],
-            RotorAzimutalCellAngle = AzimutalCellAngle,
+            RotorAzimutalCellAngle = AzimutalCellAngleInDegrees,
             RotorHgridXlocations=RotorHgridXlocations,
 
             StatorNumberOfBlades=StatorNumberOfBlades,
             StatorHubProfileReDiscretization = discretizations[1],
-            StatorAzimutalCellAngle = AzimutalCellAngle,
+            StatorAzimutalCellAngle = AzimutalCellAngleInDegrees,
             StatorHgridXlocations=StatorHgridXlocations,
+            
+            LOCAL_DIRECTORY_CHECKME=check_dir,
+            raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
             )
 
     J.printElapsedTime('total meshing time was:', previous_timer=toc)
     
     toc = J.tic()
-    print('will save mesh')
-    J.save(t,os.path.join(tmp_path,'mesh.cgns'))
-    J.printElapsedTime('saving mesh cost:', previous_timer=toc)
+
+    if not test_mode_else_debug:
+        print('will save mesh')
+        J.save(t,os.path.join(tmp_path,'mesh.cgns'))
+        J.printElapsedTime('saving mesh took:', previous_timer=toc)
 
 
 
@@ -317,6 +325,11 @@ def test_oras_mesher_straight_blades(tmp_path):
     J.save(t,os.path.join(tmp_path,'mesh.cgns'))
     J.printElapsedTime('saving mesh cost:', previous_timer=toc)
 
+
+@pytest.mark.user_case
+@pytest.mark.elsa
+@pytest.mark.fast
+@pytest.mark.cost_level_3
 def test_getBladesORAS_ONERA_SE(tmp_path):
 
     import mola.legacy.propeller_mesher as RW
@@ -327,7 +340,6 @@ def test_getBladesORAS_ONERA_SE(tmp_path):
 
 
     rotor, stator = RW.getBladesORAS_ONERA_SE()
-
     # t = J.tree(ROTOR=rotor, STATOR=stator)
     # RW.J.save(t,os.path.join(tmp_path,'blades_onera_se.cgns'))
 
@@ -339,3 +351,14 @@ if __name__ == '__main__':
     # test_oras_mesher_straight_blades('test_oras_mesher_straight_blades')
     # test_design_blade('test_design_blade')
     # test_getBladesORAS_ONERA_SE('test_getBladesORAS_ONERA_SE')
+
+    # import Generator.PyTree as G
+    # import Transform.PyTree as T
+    # c = G.cart((0,0,0),(5,2,1),(2,2,2))
+    # T.rotate(c,(0,0,0),(0,0,1),30)
+    # T.rotate(c,(0,0,0),(0,1,0),45)
+    # bbox = G.BB(c)
+    # bbox[0] ='bbox'
+    
+    # import mola.legacy.InternalShortcuts as J
+    # J.save([c,bbox],'out.cgns')

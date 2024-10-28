@@ -63,6 +63,9 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
         smoothing_expansion_factor=[0.05,0.2,'index'],
         expand_distribution_radially=False,
         intersection_method='conformize',
+        DIRECTORY_CHECKME='CHECKME',
+        raise_error_if_negative_volume_cells=False,
+
         ):
     '''
     Produce the volume mesh of a blade supported onto the surface of a spinner
@@ -204,10 +207,12 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
 
     print('checking negative volume cells in blade... ',end='')
     negative_volume_cells = GVD.checkNegativeVolumeCells(base, volume_threshold=0)
-    if negative_volume_cells:
-        try: os.makedirs(DIRECTORY_CHECKME)
+    if negative_volume_cells and LOCAL_DIRECTORY_CHECKME:
+        try: os.makedirs(LOCAL_DIRECTORY_CHECKME)
         except: pass
-        J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells.cgns'))
+        J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells_in_blade.cgns'))
+        if raise_error_if_negative_volume_cells:
+            raise ValueError(J.FAIL+"stopped since detected negative cells in blade"+J.ENDC)
 
     else:
         print(J.GREEN+'ok'+J.ENDC)
@@ -1538,20 +1543,15 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                    front_support=None,
                    rear_support=None,
                    DIRECTORY_CHECKME=DIRECTORY_CHECKME,
-                   CHECK_MESH=True):
+                   raise_error_if_negative_volume_cells=False):
 
     
     spinner_front, spinner_middle, spinner_rear = _splitHubAtHgrid(spinner, HgridXlocations)
 
-    J.save([spinner_front, spinner_middle, spinner_rear],
-                         os.path.join(DIRECTORY_CHECKME,'4_spinner_subparts.cgns'))
+    if DIRECTORY_CHECKME:
+        t_check = J.tree(SPINNER_SUBPARTS_5=[spinner_front, spinner_middle, spinner_rear])
+        J.save(t_check, os.path.join(DIRECTORY_CHECKME,'5_spinner_subparts.cgns'))
 
-
-    # # OLD APPROACH
-    # external_surfaces, npts_azimut, \
-    # central_first_cell, central_last_cell = _buildExternalSurfacesHgrid(
-    #                     blade, spinner_middle, rotation_axis, rotation_center,
-    #                     spreading=2.0)
     
     # NEW APPROACH
     external_surfaces = buildCurvedExternalSurfacesHgrid(blade, blade_number,
@@ -1563,10 +1563,9 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
     central_last_cell, \
     tip_cell_length = _getCentralH_azimutpts_cell_sizes(external_surfaces)
 
-    t = C.newPyTree(['5_CENTRAL_H',external_surfaces])
-
-    J.save(t, os.path.join(DIRECTORY_CHECKME,'5_central_H.cgns'))
-
+    if DIRECTORY_CHECKME:
+        t_check = J.tree(CENTRAL_H_6=external_surfaces)
+        J.save(t_check, os.path.join(DIRECTORY_CHECKME,'6_central_H.cgns'))
 
     try: bulb_front, = [z for z in I.getZones(spinner) if z[0]=='hub.front']
     except: bulb_front = None
@@ -1599,9 +1598,9 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                                 front_surface, spinner_front, blade_number, rotation_center,
                                 rotation_axis, central_last_cell)
 
-
-    J.save(wires_front+ surfs_front,
-                         os.path.join(DIRECTORY_CHECKME,'6_front_near_topo.cgns'))
+    if DIRECTORY_CHECKME:
+        t_check = J.tree(WIRES_FRONT_7=wires_front, SURFS_FRONT_7=surfs_front)
+        J.save(t_check, os.path.join(DIRECTORY_CHECKME,'7_front_near_topo.cgns'))
 
     if bulb_rear:
         wires_rear, surfs_rear, grids_rear = _buildHubWallAdjacentSector(
@@ -1621,25 +1620,25 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                                     rear_surface, spinner_rear, blade_number, rotation_center,
                                     rotation_axis, central_last_cell)
             
-
-
-    t_7 = C.newPyTree(['7_WIRES',wires_rear,'7_SURFACES',surfs_rear])
-    J.save(t_7, os.path.join(DIRECTORY_CHECKME,'7_rear_near_topo.cgns'))
-
+    if DIRECTORY_CHECKME:
+        t_check = J.tree(WIRES_REAR_8=wires_rear, SURFS_REAR_8=surfs_rear)
+        J.save(t_check, os.path.join(DIRECTORY_CHECKME,'8_rear_near_topo.cgns'))
 
     Hgrids = _buildHgridAroundBlade(external_surfaces, blade, rotation_center,
                    rotation_axis, H_grid_interior_points, relax_relative_length,
                    radial_H_compromise, radial_breakpoints=radial_breakpoints)
 
+    if DIRECTORY_CHECKME:
+        t_check = J.tree(HGRID_FACES_9=P.exteriorFacesStructured(Hgrids))
+        J.save(t_check, os.path.join(DIRECTORY_CHECKME,'9_Hgrid_faces.cgns'))
+
     profile = _extractWallAdjacentSectorFullProfile(wires_front, wires_rear,
                                                         external_surfaces)
 
-    J.save(profile, os.path.join(DIRECTORY_CHECKME,'8_profile_subparts.cgns'))
+    if DIRECTORY_CHECKME:
+        t_check = J.tree(PROFILE_SUBPARTS_10=profile)
+        J.save(t_check, os.path.join(DIRECTORY_CHECKME,'10_profile_subparts.cgns'))
 
-
-
-    J.save(P.exteriorFacesStructured(Hgrids),
-                         os.path.join(DIRECTORY_CHECKME,'8_Hgrid_faces.cgns'))
 
     sector_bnds = _gatherSectorBoundaries(Hgrids, blade, surfs_rear, surfs_front)
     
@@ -1657,7 +1656,8 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                          front_support=front_support,
                          rear_support=rear_support)
 
-    J.save(farfaces, os.path.join(DIRECTORY_CHECKME,'9_farfaces.cgns'))
+    if DIRECTORY_CHECKME:
+        J.save(farfaces, os.path.join(DIRECTORY_CHECKME,'11_farfaces.cgns'))
 
     t = C.newPyTree(['Base',grids_front+Hgrids+grids_rear+fargrids+I.getZones(blade)])
     I._correctPyTree(t,level=3)
@@ -1666,18 +1666,21 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                RightHandRuleRotation=RightHandRuleRotation, 
                rotation_axis=rotation_axis, rotation_center=rotation_center)
 
-    J.save(P.exteriorFacesStructured(t),
-                     os.path.join(DIRECTORY_CHECKME,'10_final_grid_faces.cgns'))
+    if DIRECTORY_CHECKME:
+        J.save(P.exteriorFacesStructured(t),
+                     os.path.join(DIRECTORY_CHECKME,'12_final_grid_faces.cgns'))
 
     print(f'Total number of cells in mesh: {J.CYAN}{C.getNCells(t):,}{J.ENDC}')
 
-    if CHECK_MESH:
-        print('checking negative volume cells... ',end='')
-        negative_volume_cells = GVD.checkNegativeVolumeCells(t, volume_threshold=0)
-        if negative_volume_cells:
-            J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells.cgns'))
-        else:
-            print(J.GREEN+'ok'+J.ENDC)
+
+    print('checking negative volume cells... ',end='')
+    negative_volume_cells = GVD.checkNegativeVolumeCells(t, volume_threshold=0)
+    if negative_volume_cells:
+        J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells_match_mesh.cgns'))
+        if raise_error_if_negative_volume_cells:
+            raise ValueError(J.FAIL+"stopped since detected negative cells in match mesh"+J.ENDC)
+    else:
+        print(J.GREEN+'ok'+J.ENDC)
 
 
     return t
@@ -2555,6 +2558,11 @@ def _extractWallAdjacentSectorFullProfile(wires_front, wires_rear, external_surf
     profile_curves.extend([c for c in wires_rear  if c[0]=='bulb_union_0'])
     I._correctPyTree(profile_curves,level=3)
     profile_curves = W.reorderAndSortCurvesSequentially(profile_curves)
+
+    curves_touching_profile = W.getCurvesInContact(profile_curves,wires_front+wires_rear)
+    radial_curves = [c for c in curves_touching_profile if 'ext' not in c[0] and 'union' not in c[0]]
+    W.transferTouchingSegmentsAndDirections(profile_curves, radial_curves)
+
     return profile_curves
 
 def _buildFarfieldProfile(profile, blade_number, npts_azimut, distance,
@@ -3067,6 +3075,8 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     factor = tip_axial_scaling_at_farfield*central_width/charact_length
     T._homothety(tip_curves_topo, topo_center, factor)
     T._projectOrtho(tip_curves_topo, support)
+    W.deformWidth(tip_curves_topo, factor=3.0)
+    T._projectOrtho(tip_curves_topo, support)
 
     I._rmNodesByType(tip_curves_topo,'FlowSolution_t')
     [C._initVars(tip_curves_topo,'s'+i,0) for i in ('x','y','z')]
@@ -3131,6 +3141,7 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
 
     I._rmNodesByType(TFI_H_group_bnd,'FlowSolution_t')
     TFI_H_group_bnd = W.reorderAndSortCurvesSequentially(TFI_H_group_bnd)
+
     proj_dir = np.cross(pseudo_blade, a)
     proj_dir = np.cross(a, proj_dir)
 
@@ -3182,7 +3193,7 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
 
 
     print('fill farfield H with bezier... ',end='')
-    topo_cell = W.meanSegmentLength(TFI_H_group_topo)
+    topo_cell = W.meanSegmentLength(TFI_H_group_topo)  *0.50 # TODO important parametrize ?
     if HAS_FRONT_BULB:
         ref_axial_curve = profile_rev_sectors[2]
     else:
@@ -3215,38 +3226,38 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
 
 
 
-
     print('smoothing farfield H... ',end='')
     fixedZones = TFI_H_group_topo+TFI_H_group_bnd
     fixedZones.extend( [ GSD.getBoundary(z,'imin',1) for z in TFI2_bnd_blends ] )
     fixedZones.extend( [ GSD.getBoundary(z,'imin',2) for z in TFI2_bnd_blends ] )
     GSD.prepareGlue(TFI2_bnd_blends,fixedZones)
-    for i in range( 5 ):
-        T._smooth(TFI2_bnd_blends,eps=0.8,niter=50,type=2,
+    for i in range( 10 ):
+        T._smooth(TFI2_bnd_blends,eps=0.5,niter=5,type=0,
             fixedConstraints=fixedZones)
-        T._projectRay(TFI2_bnd_blends,support_central, [0,0,0])
+        T._projectRay(TFI2_bnd_blends,support_central, [G.barycenter(TFI2_bnd_blends)[0],0,0])
     GSD.applyGlue(TFI2_bnd_blends,fixedZones)
     print(J.GREEN+'ok'+J.ENDC)
 
     print('building farfield connectors... ', end='')
     profile_rev_sectors = W.reorderAndSortCurvesSequentially(profile_rev_sectors)
-    for p in profile+profile_rev_sectors:
+
+    for p in profile_rev_sectors:
         sx, sy, sz = J.invokeFields(p,['sx','sy','sz'])
         sx[:] = pseudo_blade[0]
         sy[:] = pseudo_blade[1]
         sz[:] = pseudo_blade[2]
 
-    GSD._alignNormalsWithRadialCylindricProjection(profile+profile_rev_sectors,
+    GSD._alignNormalsWithRadialCylindricProjection(profile_rev_sectors,
                                                 rotation_center, rotation_axis)
 
-    for p in [profile[0], profile_rev_sectors[0]]:
+    for p in [ profile_rev_sectors[0] ]:
         if HAS_FRONT_BULB: # if W.distanceOfPointToLine(W.point(p,0),a,c) < 1e-8:
             sx,sy,sz = J.getVars(p,['sx','sy','sz'])
             sx[0] = a[0]
             sy[0] = a[1]
             sz[0] = a[2]
 
-    for p in [profile[-1], profile_rev_sectors[-1]]:
+    for p in [ profile_rev_sectors[-1] ]:
         if HAS_REAR_BULB: # if W.distanceOfPointToLine(W.point(p,-1),a,c) < 1e-8:
             sx,sy,sz = J.getVars(p,['sx','sy','sz'])
             sx[-1] = -a[0]
@@ -3256,22 +3267,14 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
 
     join_cell_length = W.segment(profile[0],-1)
     union_curves = []
-    i = -1
     for c1, c2 in zip(profile,profile_rev_sectors):
-        i+=1
-        length1 = tip_cell_length if i in (2,3) else join_cell_length
-
-        if C.getNPts(c1) != C.getNPts(c2):
-            t = J.tree(CURVES_TO_FILL_WITH_BEZIER=[c1,c2],
-                       PROFILE=profile,
-                       PROFILE_REV_SECTORS=profile_rev_sectors)
-            J.save_and_raise(t)
-
+        length1 = J.getVars(c1,['segment'])[0][0]
 
         union_curve = W.fillWithBezier(c1,c2,number_of_points, length1=length1,
                     length2=farfield_cell_height,tension2=0.,tension1=normal_tension,
                     only_at_indices=[0])
         union_curves += [ union_curve ]
+    length1 = J.getVars(c1,['segment'])[0][-1]
     union_curve = W.fillWithBezier(c1,c2,number_of_points, length1=length1,
                 length2=farfield_cell_height, only_at_indices=[-1],tension2=0.,
                 tension1=normal_tension,)
@@ -3281,7 +3284,6 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     if front_support: T._projectDir(union_curves[0],front_support,dir=[-1,0,0])
 
     print(J.GREEN+'ok'+J.ENDC)
-
 
 
     print('creating farfield surfacic domains... ',end='')
@@ -3296,7 +3298,6 @@ def _buildFarfieldSector(blade, sector_bnds, profile, blade_number, npts_azimut,
     tfi_unions_sideB = T.rotate(tfi_unions,c,a,360./float(blade_number))
     for cr in tfi_unions_sideB:
         cr[0]+='.B'
-
 
 
     if HAS_FRONT_BULB:
@@ -4206,7 +4207,7 @@ def computeOptimumProfileHgridSegment(profile, number_of_blades, npts_azimuth,
 
 def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
         FarfieldRadius : float = 4.0,
-        InterfaceRadialTension : float = 1.0,
+        InterfaceRadialTensionRelativeToFarfieldRadius : float = 0.25,
         InterfaceRelativePosition : float = 0.5,
 
         # ------------------------ ROTOR parameters ------------------------ #
@@ -4223,17 +4224,17 @@ def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
         RotorBladeWallCellHeight : float = 1e-5,
         RotorHubWallCellHeight : float = 1e-2,
         RotorBladeWallGrowthRate : float = 1.15,
-        RotorBladeRootWallNormalDistance : float = 5e-3, 
-        RotorRootRemeshRadialDistance : float = 0.2,
+        RotorBladeRootWallNormalDistanceRelativeToRootChord : float = 0.01, 
+        RotorRootWallRemeshRadialDistanceRelativeToMaxRadius : float = 0.1,
         RotorRootRemeshRadialNbOfPoints : int = 11,
 
         RotorRadialExtrusionNbOfPoints : int = 20,
         RotorHgridXlocations=(-1.50, -0.75),
         RotorHgridNbOfPoints : int = 21,
         RotorHspreadingAngles : list = [-10, 0],
-        RotorTipScaleFactorAtRadialFarfield : float = 0.25,
+        RotorTipScaleFactorAtRadialFarfield : float = 0.5,
         RotorFarfieldRadialCellLength : float = 0.25,
-        RotorRadialTension : float = 0.05, # FIXME make completely normal front_near_topo
+        RotorRadialTensionRelativeToRadialExtrusionDistance : float = 0.10, 
         RotorRelativeLengthOfRelaxation : float = 0.5,
         RotorFarfieldAxialSpreadingAngles : list = [0,0,0],
         
@@ -4246,7 +4247,7 @@ def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
 
         StatorDeltaPitch : float = 0.0,
         StatorPitchCenter : float = 0.0,
-        StatorThetaAdjustmentInDegrees : float = 1.0,
+        StatorThetaAdjustmentInDegrees : float = 0.0,
         
         StatorHubProfileReDiscretization = [],
 
@@ -4255,8 +4256,8 @@ def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
         StatorBladeWallCellHeight : float = 1e-5,
         StatorHubWallCellHeight : float = 1e-2,
         StatorBladeWallGrowthRate : float = 1.15,
-        StatorBladeRootWallNormalDistance : float = 5e-3, 
-        StatorRootRemeshRadialDistance : float = 0.2,
+        StatorBladeRootWallNormalDistanceRelativeToRootChord : float = 0.01, 
+        StatorRootWallRemeshRadialDistanceRelativeToMaxRadius : float = 0.11,
         StatorRootRemeshRadialNbOfPoints : int = 11,
 
         StatorRadialExtrusionNbOfPoints : int = 20,
@@ -4265,13 +4266,16 @@ def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
         StatorHspreadingAngles : list = [0, 10],
         StatorTipScaleFactorAtRadialFarfield : float = 0.25,
         StatorFarfieldRadialCellLength : float = 0.25,
-        StatorRadialTension : float = 0.1, # FIXME make completely normal rear_near_topo
+        StatorRadialTensionRelativeToRadialExtrusionDistance : float = 0.1,
         StatorRelativeLengthOfRelaxation : float = 0.5,
         StatorFarfieldAxialSpreadingAngles : list = [2, 26],
         
         StatorBuildMatchMeshAdditionalParams : dict = {},
         StatorBladeExtrusionParams : dict = {},
 
+        # ------------------------------- misc ------------------------------- #
+        LOCAL_DIRECTORY_CHECKME = 'CHECK_ME',
+        raise_error_if_negative_volume_cells=False,
         ):
     '''
     Creates the open rotor and stator single channel case for use with a 
@@ -4323,18 +4327,26 @@ def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
 
     '''
 
-    t_in = J.tree(ROTOR=RotorBlade, STATOR=StatorBlade, HUB_PROFILE=HubProfile)
-    J.save(t_in, os.path.join(DIRECTORY_CHECKME,'0_input_geometry.cgns'))
+    if LOCAL_DIRECTORY_CHECKME:
+        for stage in ['ROTOR', 'STATOR']:
+            try: os.makedirs(os.path.join(LOCAL_DIRECTORY_CHECKME,stage))
+            except: pass
+
+        t_in = J.tree(ROTOR_0=RotorBlade, STATOR_0=StatorBlade, HUB_PROFILE_0=HubProfile)
+        J.save(t_in, os.path.join(LOCAL_DIRECTORY_CHECKME,'0_input_geometry.cgns'))
 
     # ------------------------ treatment of interface ------------------------ #
     interface_profile, rotor_edge, stator_edge = makeORASinterfaceProfile(
-        RotorBlade, StatorBlade, InterfaceRelativePosition, FarfieldRadius, InterfaceRadialTension)
+        RotorBlade, StatorBlade, InterfaceRelativePosition, FarfieldRadius,
+        InterfaceRadialTensionRelativeToFarfieldRadius*FarfieldRadius)
 
     interface_support = makeORASinterfaceSupport(interface_profile, RotorNumberOfBlades,
                                                  StatorNumberOfBlades)
-    t_int = J.tree(**{'1_INTERFACE_SUPPORT':interface_support,
-                      '1_ROTOR_STATOR_EDGES':[rotor_edge, stator_edge]})
-    J.save(t_int, os.path.join(DIRECTORY_CHECKME,'1_interface_support.cgns'))
+    
+    if LOCAL_DIRECTORY_CHECKME:
+        t_int = J.tree(INTERFACE_SUPPORT_1=interface_support,
+                       ROTOR_STATOR_EDGES_1=[rotor_edge, stator_edge])
+        J.save(t_int, os.path.join(LOCAL_DIRECTORY_CHECKME,'1_interface_support.cgns'))
 
     profile_rotor, profile_stator = W.cut(HubProfile, interface_support)
     profile_rotor[0] = 'profile_rotor'
@@ -4361,57 +4373,75 @@ def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
     profile_stator = splitAndDiscretizeProfileForHgridRegion(profile_stator, StatorHgridNPts, StatorHgridXlocations)
 
 
-    t_prof = J.tree(PROFILES=[profile_rotor,profile_stator],
-                    BLADE_EDGES=[rotor_edge, stator_edge])
-    J.save(t_prof, os.path.join(DIRECTORY_CHECKME,'1_profiles.cgns'))
+    if LOCAL_DIRECTORY_CHECKME:
+        t_prof = J.tree(PROFILES_2=[profile_rotor,profile_stator],
+                        BLADE_EDGES_2=[rotor_edge, stator_edge])
+        J.save(t_prof, os.path.join(LOCAL_DIRECTORY_CHECKME,'2_profiles.cgns'))
 
     # ---------------------------- rotor meshing ---------------------------- #
     ncell_azimut_rotor = int((360/RotorNumberOfBlades)/RotorAzimutalCellAngle)
     if ncell_azimut_rotor %2 != 0: ncell_azimut_rotor+=1
     print(f'Rotor number of cells in azimut direction: {ncell_azimut_rotor}')
-    
+
+    RotorRmax = getMaxRadius(RotorBlade)
+    print(f'Rotor computed maximum radius: {RotorRmax}')
+
+    RotorRootChord = getBladeApproximateChordAtRoot(RotorBlade,profile_rotor)
+    print(f'Rotor approximated chord at root: {RotorRootChord}')
+
     hub_rotor = makeHub(profile_rotor, RotorNumberOfBlades,
                     rotation_axis=(1,0,0),
                     number_of_cells_azimuth=ncell_azimut_rotor)
 
+    if LOCAL_DIRECTORY_CHECKME:
+        t_hub = J.tree(HUB_ROTOR_3=hub_rotor)
+        J.save(t_hub, os.path.join(LOCAL_DIRECTORY_CHECKME,'ROTOR','3_hub.cgns'))
+        rotor_checkme_dir = os.path.join(LOCAL_DIRECTORY_CHECKME,'ROTOR')
+    else:
+        rotor_checkme_dir = ''
+    
     rotor_extruded = extrudeBladeSupportedOnSpinner(RotorBlade, hub_rotor,
         (0,0,0), (1,0,0), RotorBladeWallCellHeight,
         spinner_wall_cell_height=RotorHubWallCellHeight,
-        root_to_transition_distance=RotorRootRemeshRadialDistance,
+        root_to_transition_distance=RotorRootWallRemeshRadialDistanceRelativeToMaxRadius*RotorRmax,
         root_to_transition_number_of_points=RotorRootRemeshRadialNbOfPoints,
         distribution_growth_rate=RotorBladeWallGrowthRate,
-        maximum_extrusion_distance_at_spinner=RotorBladeRootWallNormalDistance,
+        maximum_extrusion_distance_at_spinner=RotorBladeRootWallNormalDistanceRelativeToRootChord*RotorRootChord,
+        DIRECTORY_CHECKME=rotor_checkme_dir,
+        raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
         **RotorBladeExtrusionParams)
     
     blade_last_layer = [GSD.getBoundary(z,'kmax') for z in I.getZones(rotor_extruded) ]
-    t_check = C.newPyTree(['BLADE_LAST_LAYER',blade_last_layer])
-    J.save(t_check, os.path.join(DIRECTORY_CHECKME,'1_blade_last_layer.cgns'))
+
+    if LOCAL_DIRECTORY_CHECKME:
+        t_check = J.tree(BLADE_LAST_LAYER_4=blade_last_layer)
+        J.save(t_check, os.path.join(LOCAL_DIRECTORY_CHECKME,'ROTOR','4_blade_last_layer.cgns'))
 
     rotor_max_radius = maxRadius(rotor_extruded,(0,0,0),(-1,0,0))
     RotorRadialExtrusionDistance = FarfieldRadius - rotor_max_radius
     if RotorRadialExtrusionDistance < 0:
         raise AttributeError(f'FarfieldRadius must be greater than the Rotor max radius ({rotor_max_radius})')
 
-
     rotor_mesh = buildMatchMesh(hub_rotor, rotor_extruded, RotorNumberOfBlades,
-                    rotation_axis=(-1,0,0),
-                    rotation_center=(0,0,0),
-                    distance=RotorRadialExtrusionDistance,
-                    H_grid_interior_points=RotorHgridNbOfPoints,
-                    H_grid_interior_spreading_angles=RotorHspreadingAngles,
-                    number_of_points=RotorRadialExtrusionNbOfPoints,
-                    tip_axial_scaling_at_farfield=RotorTipScaleFactorAtRadialFarfield,
-                    relax_relative_length=RotorRelativeLengthOfRelaxation,
-                    farfield_cell_height=RotorFarfieldRadialCellLength,
-                    normal_tension=RotorRadialTension,
-                    HgridXlocations=RotorHgridXlocations,
-                    FarfieldAxialSpreadingAngles=RotorFarfieldAxialSpreadingAngles,
-                    # H_front_blade_reference=None,
-                    H_rear_blade_reference=stator_edge,
-                    # front_support=None
-                    rear_support=interface_support,
-                    DIRECTORY_CHECKME=DIRECTORY_CHECKME,
-                    **RotorBuildMatchMeshAdditionalParams)
+        rotation_axis=(-1,0,0),
+        rotation_center=(0,0,0),
+        distance=RotorRadialExtrusionDistance,
+        H_grid_interior_points=RotorHgridNbOfPoints,
+        H_grid_interior_spreading_angles=RotorHspreadingAngles,
+        number_of_points=RotorRadialExtrusionNbOfPoints,
+        tip_axial_scaling_at_farfield=RotorTipScaleFactorAtRadialFarfield,
+        relax_relative_length=RotorRelativeLengthOfRelaxation,
+        farfield_cell_height=RotorFarfieldRadialCellLength,
+        normal_tension=RotorRadialTensionRelativeToRadialExtrusionDistance*RotorRadialExtrusionDistance,
+        HgridXlocations=RotorHgridXlocations,
+        FarfieldAxialSpreadingAngles=RotorFarfieldAxialSpreadingAngles,
+        # H_front_blade_reference=None,
+        H_rear_blade_reference=stator_edge,
+        # front_support=None
+        rear_support=interface_support,
+        DIRECTORY_CHECKME=rotor_checkme_dir,
+        raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
+        **RotorBuildMatchMeshAdditionalParams)
 
 
     # ---------------------------- stator meshing ---------------------------- #
@@ -4419,23 +4449,40 @@ def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
     if ncell_azimut_stator %2 != 0: ncell_azimut_stator+=1
     print(f'Stator number of cells in azimut direction: {ncell_azimut_stator}')
 
+    StatorRmax = getMaxRadius(StatorBlade)
+    print(f'Stator computed maximum radius: {StatorRmax}')
+
+    StatorRootChord = getBladeApproximateChordAtRoot(StatorBlade, profile_stator)
+    print(f'Stator approximated chord at root: {StatorRootChord}')
+
     hub_stator = makeHub(profile_stator, StatorNumberOfBlades,
                     rotation_axis=(1,0,0),
                     number_of_cells_azimuth=ncell_azimut_stator)
+
+    if LOCAL_DIRECTORY_CHECKME:
+        t_hub = J.tree(HUB_STATOR_3=hub_stator)
+        J.save(t_hub, os.path.join(LOCAL_DIRECTORY_CHECKME,'STATOR','3_hub.cgns'))
+        stator_checkme_dir = os.path.join(LOCAL_DIRECTORY_CHECKME,'STATOR')
+    else:
+        stator_checkme_dir = ''
 
 
     stator_extruded = extrudeBladeSupportedOnSpinner(StatorBlade, hub_stator,
         (0,0,0), (1,0,0), StatorBladeWallCellHeight,
         spinner_wall_cell_height=StatorHubWallCellHeight,
-        root_to_transition_distance=StatorRootRemeshRadialDistance,
+        root_to_transition_distance=StatorRootWallRemeshRadialDistanceRelativeToMaxRadius*StatorRmax,
         root_to_transition_number_of_points=StatorRootRemeshRadialNbOfPoints,
         distribution_growth_rate=StatorBladeWallGrowthRate,
-        maximum_extrusion_distance_at_spinner=StatorBladeRootWallNormalDistance,
+        maximum_extrusion_distance_at_spinner=StatorBladeRootWallNormalDistanceRelativeToRootChord*StatorRootChord,
+        DIRECTORY_CHECKME=stator_checkme_dir,
+        raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
         **StatorBladeExtrusionParams)
 
     blade_last_layer = [GSD.getBoundary(z,'kmax') for z in I.getZones(stator_extruded) ]
-    t_check = C.newPyTree(['BLADE_LAST_LAYER',blade_last_layer])
-    J.save(t_check, os.path.join(DIRECTORY_CHECKME,'1_blade_last_layer.cgns'))
+
+    if LOCAL_DIRECTORY_CHECKME:
+        t_check = J.tree(BLADE_LAST_LAYER_4=blade_last_layer)
+        J.save(t_check, os.path.join(LOCAL_DIRECTORY_CHECKME,'STATOR','4_blade_last_layer.cgns'))
 
     stator_max_radius = maxRadius(stator_extruded,(0,0,0),(-1,0,0))
     StatorRadialExtrusionDistance = FarfieldRadius - stator_max_radius
@@ -4443,24 +4490,25 @@ def buildOpenRotorAndStatorMesh(RotorBlade, StatorBlade, HubProfile,
         raise AttributeError(f'FarfieldRadius must be greater than the Stator max radius ({stator_max_radius})')
 
     stator_mesh = buildMatchMesh(hub_stator, stator_extruded, StatorNumberOfBlades,
-                    rotation_axis=(-1,0,0),
-                    rotation_center=(0,0,0),
-                    distance=StatorRadialExtrusionDistance,
-                    H_grid_interior_points=StatorHgridNbOfPoints,
-                    H_grid_interior_spreading_angles=StatorHspreadingAngles,
-                    number_of_points=StatorRadialExtrusionNbOfPoints,
-                    tip_axial_scaling_at_farfield=StatorTipScaleFactorAtRadialFarfield,
-                    relax_relative_length=StatorRelativeLengthOfRelaxation,
-                    farfield_cell_height=StatorFarfieldRadialCellLength,
-                    normal_tension=StatorRadialTension,
-                    HgridXlocations=StatorHgridXlocations,
-                    FarfieldAxialSpreadingAngles=StatorFarfieldAxialSpreadingAngles,
-                    H_front_blade_reference=rotor_edge,
-                    # H_rear_blade_reference=None,
-                    front_support=interface_support,
-                    # rear_support=None,
-                    DIRECTORY_CHECKME=DIRECTORY_CHECKME,
-                    **StatorBuildMatchMeshAdditionalParams)
+        rotation_axis=(-1,0,0),
+        rotation_center=(0,0,0),
+        distance=StatorRadialExtrusionDistance,
+        H_grid_interior_points=StatorHgridNbOfPoints,
+        H_grid_interior_spreading_angles=StatorHspreadingAngles,
+        number_of_points=StatorRadialExtrusionNbOfPoints,
+        tip_axial_scaling_at_farfield=StatorTipScaleFactorAtRadialFarfield,
+        relax_relative_length=StatorRelativeLengthOfRelaxation,
+        farfield_cell_height=StatorFarfieldRadialCellLength,
+        normal_tension=StatorRadialTensionRelativeToRadialExtrusionDistance*StatorRadialExtrusionDistance,
+        HgridXlocations=StatorHgridXlocations,
+        FarfieldAxialSpreadingAngles=StatorFarfieldAxialSpreadingAngles,
+        H_front_blade_reference=rotor_edge,
+        # H_rear_blade_reference=None,
+        front_support=interface_support,
+        # rear_support=None,
+        DIRECTORY_CHECKME=stator_checkme_dir,
+        raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
+        **StatorBuildMatchMeshAdditionalParams)
 
     t = setFamiliesAndConnectionToORASmesher(rotor_mesh, stator_mesh,
                                      RotorNumberOfBlades, StatorNumberOfBlades)
@@ -4614,7 +4662,7 @@ def buildCurvedExternalSurfacesHgrid(blade, blade_number, spinner_middle, H_fron
                                                    'imax', 'jmax', 'jmax', True)
     rear_surf[0] = 'rear.surf'
 
-    return front_surf, rear_surf, sideA_surf, sideB_surf
+    return [front_surf, rear_surf, sideA_surf, sideB_surf]
 
 
 
@@ -4765,8 +4813,7 @@ def getMaxRadiusOfBladeWallFromExtrudedGrid(blade, center=[0,0,0], axis=[1,0,0])
 
     blade_ref = I.copyRef(blade)
     walls = [GSD.getBoundary(z,'kmin') for z in I.getZones(blade_ref)]
-    W.addDistanceRespectToLine(walls,center,axis,'radius')
-    return C.getMaxValue(walls,'radius')
+    return getMaxRadius(walls, center=center, axis=axis)
 
 def getRadiusOfBladeTipCountourAtLastLayer(blade, center=[0,0,0], axis=[1,0,0]):
     
@@ -4778,6 +4825,35 @@ def getRadiusOfBladeTipCountourAtLastLayer(blade, center=[0,0,0], axis=[1,0,0]):
     
     return radius
     
+def getMaxRadius(t, center=[0,0,0], axis=[1,0,0]):
+    t_ref = I.copyRef(t)
+    W.addDistanceRespectToLine(t_ref,center,axis,'radius')
+    return C.getMaxValue(t_ref,'radius')
+
+def getBladeApproximateChordAtRoot(blade,profile):
+    root_contour = getBladeApproximateContourAtRoot(blade, profile)
+    x,y,z = J.getxyz(root_contour)
+    npts = len(x)
+    half = npts//2
+    return np.sqrt( (x[half]-x[0])**2 + (y[half]-y[0])**2 + (z[half]-z[0])**2 )
+
+def getBladeApproximateContourAtRoot(blade, profile):
+    main_blade = J.selectZoneWithHighestNumberOfPoints(blade)
+    Ni = I.getZoneDim(main_blade)[1]
+    trailing_edge = GSD.getBoundary(main_blade,'imin')
+    xTE, yTE = J.getxy(trailing_edge)
+    leading_edge = GSD.getBoundary(main_blade,'imin',Ni//2)
+    xLE, yLE = J.getxy(leading_edge)
+    xmax_blade = xTE.max()
+    xmin_blade = xLE.min()
+    xp, yp = J.getxy(profile)
+    root_region = (xp>xmin_blade) * (xp<xmax_blade)
+    root_radius = 0.5*(yp[root_region].max()+yp[root_region].min())
+    jTE = np.argmin(np.abs(yTE-root_radius))
+    jLE = np.argmin(np.abs(yLE-root_radius))
+    j_root = int(0.5*(jTE+jLE))
+    return GSD.getBoundary(main_blade,'jmin',j_root)
+
 
 def buildRearMonoblockSector(blade_number, external_surfaces, spinner_rear, rear_support):
 
@@ -4791,6 +4867,11 @@ def buildRearMonoblockSector(blade_number, external_surfaces, spinner_rear, rear
     rear_top_curve = W.getExtrapolationUpToGeometry(central_top_curve, rear_support,
                         direction=[1,0,0], relative_tension=0.5,
                         Distribution=rear_bottom_curve)
+    W.discretizeInPlace(rear_top_curve,
+        Distribution=dict(
+            kind='tanhTwoSides',
+            FirstCellHeight=W.segment(central_top_curve,-1),
+            LastCellHeight=W.segment(rear_top_curve,-1)))
     rear_top_curve[0] = 'rear_top_curve'
     
     rear_front_curve = GSD.getBoundary(central_lateral_face,'jmax') 
@@ -4838,7 +4919,7 @@ def buildRearMonoblockSector(blade_number, external_surfaces, spinner_rear, rear
     
     rear_top_curve[0] = 'spinner_union_0' # required by _extractWallAdjacentSectorFullProfile
     top_face[0] = 'TFI2_spinner_3' # required by _gatherSectorBoundaries
-    wires = [rear_top_curve]
+    wires = [rear_front_curve, projected_rear, rear_bottom_curve, rear_top_curve]
     grids = [grid_rear]
 
     return wires, surfs, grids
@@ -4858,6 +4939,11 @@ def buildFrontMonoblockSector(blade_number, external_surfaces, spinner_front, fr
     front_top_curve = W.getExtrapolationUpToGeometry(central_top_curve, front_support,
                         direction=[-1,0,0], relative_tension=0.5,
                         Distribution=front_bottom_curve)
+    W.discretizeInPlace(front_top_curve,
+        Distribution=dict(
+            kind='tanhTwoSides',
+            LastCellHeight=W.segment(front_top_curve,0),
+            FirstCellHeight=W.segment(central_top_curve,0)))
     front_top_curve[0] = 'front_top_curve'
     W.reverse(front_top_curve, in_place=True)
     
@@ -4908,7 +4994,7 @@ def buildFrontMonoblockSector(blade_number, external_surfaces, spinner_front, fr
     
     front_top_curve[0] = 'spinner_union_0' # required by _extractWallAdjacentSectorFullProfile
     top_face[0] = 'TFI2_spinner_2' # required by _gatherSectorBoundaries
-    wires = [front_top_curve]
+    wires = front_lateral_face_wires
     grids = [grid_front]
 
     return wires, surfs, grids
@@ -5231,6 +5317,18 @@ def checkAirfoilDistributionCoherency(AirfoilDistribution):
             raise AttributeError(f'User specified {nb_of_sections} sections in RelativeSpan, so it is expected also {nb_of_sections} items for {k}, but got {len_key}')
 
 
+def proposeHgridXlocations(blade, profile, x_chord_ratio=0.25):
+    main_blade = J.selectZoneWithHighestNumberOfPoints(blade)
+    root = getBladeApproximateContourAtRoot(main_blade, profile)
+    x = J.getx(root)
+    xmin = x.min()
+    xmax = x.max()
+    xchord = xmax-xmin
+    x_loc_min = xmin - x_chord_ratio*xchord
+    x_loc_max = xmax + x_chord_ratio*xchord
+    return x_loc_min, x_loc_max
+
+
 def getHgridNPts(blade, NumberOfBlades, AzimutalCellAngle):
 
     ncell_azimut = int((360/NumberOfBlades)/AzimutalCellAngle)
@@ -5250,8 +5348,8 @@ def getSimpleORASHubProfileDiscretizations(rotor, stator,
         RotorNumberOfBlades=13, StatorNumberOfBlades=11,
 
         AzimutalCellAngle=1.0,
-        InterfaceAxialCellLength=2e-2,
-        BreakPointsAxialCellLength=2e-2,
+        InterfaceAxialCellLength=1.5e-2,
+        BreakPointsAxialCellLength=1.5e-2,
         
         # rotor hub profile discretization
         RotorHgridXlocations=(-1.50, -0.75),
