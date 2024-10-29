@@ -25,10 +25,19 @@ import os
 @pytest.mark.fast
 @pytest.mark.cost_level_1
 def test_design_blade(tmp_path):
-    import mola.legacy.InternalShortcuts as J
-    import mola.legacy.propeller_mesher as RW
 
+    import mola.legacy.propeller_mesher as RW
     blade = RW.designBlade(RightHandRuleRotation=False)
+
+
+@pytest.mark.user_case
+@pytest.mark.elsa
+@pytest.mark.fast
+@pytest.mark.cost_level_1
+def test_getBladesORAS_ONERA_SE(tmp_path):
+
+    import mola.legacy.propeller_mesher as RW
+    rotor, stator = RW.getBladesORAS_ONERA_SE()
 
 
 @pytest.mark.user_case
@@ -40,7 +49,14 @@ def test_oras_mesher(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = False # True:debugging False:testing
+    test_mode_else_debug = True # True:testing False:debugging
+
+    if test_mode_else_debug:
+        check_dir = ''
+        raise_error_if_negative_volume_cells = True
+    else:
+        check_dir = os.path.join(tmp_path,'CHECK_ME')
+        raise_error_if_negative_volume_cells = False
 
     RotorNumberOfBlades = 13
     StatorNumberOfBlades = 11
@@ -61,12 +77,6 @@ def test_oras_mesher(tmp_path):
             StatorHgridXlocations=StatorHgridXlocations)
 
 
-    if test_mode_else_debug:
-        check_dir = ''
-        raise_error_if_negative_volume_cells = True
-    else:
-        check_dir = os.path.join(tmp_path,'CHECK_ME')
-        raise_error_if_negative_volume_cells = False
 
 
     t = RW.buildOpenRotorAndStatorMesh(rotor,stator,profile,
@@ -99,32 +109,133 @@ def test_oras_mesher(tmp_path):
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.cost_level_3
-def test_oras_mesher_straight_blades(tmp_path):
+def test_oras_mesher_ultracoarse(tmp_path):
 
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
+    test_mode_else_debug = True # True:testing False:debugging
+
+    if test_mode_else_debug:
+        check_dir = ''
+        raise_error_if_negative_volume_cells = True
+    else:
+        check_dir = os.path.join(tmp_path,'CHECK_ME')
+        raise_error_if_negative_volume_cells = False
+
+    RotorNumberOfBlades = 13
+    StatorNumberOfBlades = 11
+    AzimutalCellAngleInDegrees = 3.0 
+
+    toc = J.tic()
+
+    profile = RW.getHubProfileORAS_ONERA_SE()
+    rotor, stator = RW.getBladesORAS_ONERA_SE(
+        RotorRadialNbOfPoints = 25,
+        RotorRadialCellLengthAtTip = 0.005,
+        RotorRadialCellLengthAtRoot = 0.05,
+        RotorAirfoilSideNumberOfPoints=37,
+
+        StatorRadialNbOfPoints = 27,
+        StatorRadialCellLengthAtTip = 0.005,
+        StatorRadialCellLengthAtRoot = 0.05,
+        StatorAirfoilSideNumberOfPoints=37
+    )
+
+    RotorHgridXlocations = RW.proposeHgridXlocations(rotor,profile) # (-1.50, -0.75)
+    StatorHgridXlocations = RW.proposeHgridXlocations(stator, profile) # (-0.45, 0.20)
+
+    discretizations = RW.getSimpleORASHubProfileDiscretizations(rotor, stator,
+        RotorNumberOfBlades=RotorNumberOfBlades,
+        StatorNumberOfBlades=StatorNumberOfBlades,
+        AzimutalCellAngle=1.0,
+        InterfaceAxialCellLength=1.5e-2,
+        BreakPointsAxialCellLength=1.5e-2,
+        
+        # rotor hub profile discretization
+        RotorHgridXlocations=RotorHgridXlocations,
+        RotorFrontNPts=21,
+        RotorRearNPts=9,
+        RotorFrontSegmentLength=0.1,
+        
+        # stator hub profile discretization
+        StatorHgridXlocations=StatorHgridXlocations,
+        StatorFrontNPts=9,
+        StatorRearNPts=21,
+        StatorRearSegmentLength=0.15
+            )
+
+
+    t = RW.buildOpenRotorAndStatorMesh(rotor,stator,profile,
+            FarfieldRadius = 3,
+            RotorRadialExtrusionNbOfPoints=9,
+            RotorBladeWallCellHeight = 2e-3,
+            RotorHubWallCellHeight = 3e-2,
+            RotorBladeRootWallNormalDistanceRelativeToRootChord = 0.05,
+            RotorNumberOfBlades=RotorNumberOfBlades,
+            RotorHubProfileReDiscretization = discretizations[0],
+            RotorAzimutalCellAngle = AzimutalCellAngleInDegrees,
+            RotorHgridXlocations=RotorHgridXlocations,
+            RotorHgridNbOfPoints=9,
+            RotorRootRemeshRadialNbOfPoints=9,
+            RotorRootWallRemeshRadialDistanceRelativeToMaxRadius=0.25,
+
+            StatorRadialExtrusionNbOfPoints=15,
+            StatorBladeWallCellHeight = 2e-3,
+            StatorHubWallCellHeight = 3e-2,
+            StatorBladeRootWallNormalDistanceRelativeToRootChord = 0.03,
+            StatorNumberOfBlades=StatorNumberOfBlades,
+            StatorHubProfileReDiscretization = discretizations[1],
+            StatorAzimutalCellAngle = AzimutalCellAngleInDegrees,
+            StatorHgridXlocations=StatorHgridXlocations,
+            StatorHgridNbOfPoints=9,
+            StatorRootRemeshRadialNbOfPoints=9,
+            StatorRootWallRemeshRadialDistanceRelativeToMaxRadius=0.25,
+            
+            LOCAL_DIRECTORY_CHECKME=check_dir,
+            raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
+            )
+
+    J.printElapsedTime('total meshing time was:', previous_timer=toc)
+    
+    toc = J.tic()
+
+    if not test_mode_else_debug:
+        print('will save mesh')
+        J.save(t,os.path.join(tmp_path,'mesh.cgns'))
+        J.printElapsedTime('saving mesh took:', previous_timer=toc)
+
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.fast
+@pytest.mark.cost_level_3
+def test_oras_mesher_designer_ultracoarse(tmp_path):
+
+    import mola.legacy.InternalShortcuts as J
+    import mola.legacy.propeller_mesher as RW
+
+    test_mode_else_debug = True # True:testing (no file write) False:debugging (file write)
+
+    if test_mode_else_debug:
+        check_dir = ''
+        raise_error_if_negative_volume_cells = True
+    else:
+        check_dir = os.path.join(tmp_path,'CHECK_ME')
+        raise_error_if_negative_volume_cells = False
+
     RotorNumberOfBlades = 9
     StatorNumberOfBlades = 11
-    AzimutalCellAngle = 1.0 # deg
-
-    RotorHgridXlocations=(-0.04, 0.075)
-    StatorHgridXlocations=(0.12, 0.20)
-
-    profile = RW.makeSpinnerCurves(LengthFront=0.2, LengthRear=10, Width=0.15,
-                      RelativeArcRadiusFront=0.008, ArcAngleFront=40.,
-                      RelativeTensionArcFront=0.1, RelativeTensionRootFront=0.5,
-                      NPtsArcFront=200, NPtsSpinnerFront=5000,
-                      TopologyRear='line')
-
-
-    DIRECTORY_CHECKME = os.path.join(tmp_path,'CHECK_ME')
-    try: os.makedirs(DIRECTORY_CHECKME)
-    except: pass
-    RW.DIRECTORY_CHECKME = DIRECTORY_CHECKME
+    AzimutalCellAngle = 3.5 # deg
 
 
     toc = J.tic()
+
+    profile = RW.makeSpinnerCurves(LengthFront=0.2, LengthRear=0.5, Width=0.15,
+                      RelativeArcRadiusFront=0.008, ArcAngleFront=40.0,
+                      RelativeTensionArcFront=0.1, RelativeTensionRootFront=0.5,
+                      NPtsArcFront=200, NPtsSpinnerFront=5000,
+                      TopologyRear='line')
 
     rotor = RW.designBlade(
         RadiusTip = 0.60,
@@ -139,9 +250,9 @@ def test_oras_mesher_straight_blades(tmp_path):
         ZeroPitchAngleRelativeRadius = None, # if None, uses construction reference
 
         # Radial discretization of the blade geometry:
-        RadialNbOfPoints = 51,
-        RadialCellLengthAtTip = 0.0005,
-        RadialCellLengthAtRoot = 0.01,
+        RadialNbOfPoints = 31,
+        RadialCellLengthAtTip = 0.005,
+        RadialCellLengthAtRoot = 0.03,
 
         # Geometrical Laws
         ChordDistribution = dict(
@@ -172,28 +283,28 @@ def test_oras_mesher_straight_blades(tmp_path):
             LeadingEdgeSegmentLengthRelativeToChord = [0.004, 0.004],
             LeadingEdgeAbscissa = [0.49, 0.49],
             StackingPointRelativeToChord = 0.25,
-            TopSideNumberOfPoints = 67, # must be odd
-            BottomSideNumberOfPoints = 67, # must be odd
+            TopSideNumberOfPoints = 31, # must be odd
+            BottomSideNumberOfPoints = 31, # must be odd
             TopToBottomAtTipNumberOfPoints = 9,
             InterpolationLaw = 'interp1d_linear',
             ),
     )
 
     stator = RW.designBlade(
-        RadiusTip = 0.5,
+        RadiusTip = 0.50,
         RadiusRoot = 0.05,
 
         RightHandRuleRotation = False,
 
-        BladeStackPointPositionInXaxis = 0.15,
-        BladePitchAxisPositionInXaxis = 0.15,
+        BladeStackPointPositionInXaxis = 0.20,
+        BladePitchAxisPositionInXaxis = 0.20,
         PitchAngle = 55.0,
         ZeroPitchAngleRelativeRadius = None, # if None, uses construction reference
 
         # Radial discretization of the blade geometry:
-        RadialNbOfPoints = 51,
-        RadialCellLengthAtTip = 0.0005,
-        RadialCellLengthAtRoot = 0.01,
+        RadialNbOfPoints = 31,
+        RadialCellLengthAtTip = 0.005,
+        RadialCellLengthAtRoot = 0.03,
 
         # Geometrical Laws
         ChordDistribution=dict(
@@ -224,141 +335,94 @@ def test_oras_mesher_straight_blades(tmp_path):
             LeadingEdgeSegmentLengthRelativeToChord = [0.004, 0.004],
             LeadingEdgeAbscissa = [0.49, 0.49],
             StackingPointRelativeToChord = 0.25,
-            TopSideNumberOfPoints = 67, # must be odd
-            BottomSideNumberOfPoints = 67, # must be odd
+            TopSideNumberOfPoints = 31, # must be odd
+            BottomSideNumberOfPoints = 31, # must be odd
             TopToBottomAtTipNumberOfPoints = 9,
             InterpolationLaw = 'interp1d_linear',
             ))
 
+    RotorHgridXlocations = RW.proposeHgridXlocations(rotor,profile, 0.3) # (-0.04, 0.075)
+    StatorHgridXlocations = RW.proposeHgridXlocations(stator, profile,0.3) # (0.12, 0.20)
 
     discretizations = RW.getSimpleORASHubProfileDiscretizations(rotor, stator,
         RotorNumberOfBlades=RotorNumberOfBlades,
         StatorNumberOfBlades=StatorNumberOfBlades,
 
-        AzimutalCellAngle=1.0,
-        InterfaceAxialCellLength=2e-3,
-        BreakPointsAxialCellLength=2e-3,
+        AzimutalCellAngle=AzimutalCellAngle,
+        InterfaceAxialCellLength=6e-3,
+        BreakPointsAxialCellLength=6e-3,
         
         # rotor hub profile discretization
         RotorHgridXlocations=RotorHgridXlocations,
-        RotorFrontNPts=72,
-        RotorRearNPts=12,
-        RotorFrontSegmentLength=2e-3,
+        RotorFrontNPts=27,
+        RotorRearNPts=8,
+        RotorFrontSegmentLength=5e-4,
         
         # stator hub profile discretization
         StatorHgridXlocations=StatorHgridXlocations,
         StatorFrontNPts=10,
-        StatorRearNPts=100,
-        StatorRearSegmentLength=0.15)
+        StatorRearNPts=15,
+        StatorRearSegmentLength=0.03)
 
     t = RW.buildOpenRotorAndStatorMesh(rotor,stator,profile,
-        # signature
-        FarfieldRadius= 2.0,
-        InterfaceRadialTension= 1.0,
-        InterfaceRelativePosition= 0.5,
+        FarfieldRadius= 0.9,
 
         # ------------------------ ROTOR parameters ------------------------ #
         RotorNumberOfBlades= RotorNumberOfBlades,
-
-        RotorDeltaPitch= 0.0,
-        RotorPitchCenter= 0.0,
         RotorThetaAdjustmentInDegrees= -2.0,
-        
         RotorHubProfileReDiscretization = discretizations[0],
-
         RotorAzimutalCellAngle= AzimutalCellAngle,
-
-        RotorBladeWallCellHeight= 1e-5,
+        RotorBladeWallCellHeight= 5e-4,
+        RotorBladeRootWallNormalDistanceRelativeToRootChord=0.05,
         RotorHubWallCellHeight= 1e-2,
-
-        RotorBladeRootWallNormalDistance= 5e-3, 
-        RotorRadialExtrusionNbOfPoints= 20,
+        RotorRootWallRemeshRadialDistanceRelativeToMaxRadius=0.15,
+        RotorRootRemeshRadialNbOfPoints= 9,
+        RotorRadialExtrusionNbOfPoints=9,
         RotorHgridXlocations = RotorHgridXlocations,
-        RotorHgridNbOfPoints= 21,
-        RotorHspreadingAngles= [-10, 0],
+        RotorHgridNbOfPoints = 9,
+        RotorHspreadingAngles= [-10, +3],
         RotorTipScaleFactorAtRadialFarfield= 0.25,
-        RotorFarfieldRadialCellLength= 0.25,
-        RotorRadialTension= 0.05, # FIXME make completely normal front_near_topo
-        RotorRelativeLengthOfRelaxation= 0.5,
+        RotorFarfieldRadialCellLengthRelativeToFarfieldRadius=0.1,
         RotorFarfieldAxialSpreadingAngles= [-15,-20,-6],
-        RotorBuildMatchMeshAdditionalParams= {},
-
-        RotorBladeExtrusionParams= {},
 
         # ------------------------ STATOR parameters ------------------------ #
-
         StatorNumberOfBlades=StatorNumberOfBlades,
-
-        StatorDeltaPitch= 0.0,
-        StatorPitchCenter= 0.0,
         StatorThetaAdjustmentInDegrees= 1.0,
-        
         StatorHubProfileReDiscretization = discretizations[1],
-
         StatorAzimutalCellAngle= AzimutalCellAngle,
-
-        StatorBladeWallCellHeight= 1e-5,
+        StatorBladeWallCellHeight= 5e-4,
+        StatorBladeRootWallNormalDistanceRelativeToRootChord=0.05,
         StatorHubWallCellHeight= 1e-2,
-
-        StatorBladeRootWallNormalDistance= 5e-3, 
-        StatorRadialExtrusionNbOfPoints= 20,
+        StatorRootWallRemeshRadialDistanceRelativeToMaxRadius=0.25,
+        StatorRootRemeshRadialNbOfPoints= 9,
+        StatorRadialExtrusionNbOfPoints=9,
         StatorHgridXlocations = StatorHgridXlocations,
-        StatorHgridNbOfPoints= 21,
+        StatorHgridNbOfPoints = 9,
         StatorHspreadingAngles= [0, 10],
         StatorTipScaleFactorAtRadialFarfield= 0.25,
-        StatorFarfieldRadialCellLength= 0.25,
-        StatorRadialTension= 0.1, # FIXME make completely normal rear_near_topo
-        StatorRelativeLengthOfRelaxation= 0.5,
+        StatorFarfieldRadialCellLengthRelativeToFarfieldRadius=0.1,
         StatorFarfieldAxialSpreadingAngles= [2, 26],
-        StatorBuildMatchMeshAdditionalParams= {},
 
-        StatorBladeExtrusionParams= {},
-
-
-
+        # ------------------------------- misc ------------------------------- #
+        LOCAL_DIRECTORY_CHECKME = check_dir,
+        raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
             )
 
     J.printElapsedTime('total meshing time was:', previous_timer=toc)
     
     toc = J.tic()
-    print('will save mesh')
-    J.save(t,os.path.join(tmp_path,'mesh.cgns'))
-    J.printElapsedTime('saving mesh cost:', previous_timer=toc)
 
-
-@pytest.mark.user_case
-@pytest.mark.elsa
-@pytest.mark.fast
-@pytest.mark.cost_level_3
-def test_getBladesORAS_ONERA_SE(tmp_path):
-
-    import mola.legacy.propeller_mesher as RW
-    import mola.legacy.InternalShortcuts as J
-
-    try: os.makedirs(tmp_path)
-    except: pass
-
-
-    rotor, stator = RW.getBladesORAS_ONERA_SE()
-    # t = J.tree(ROTOR=rotor, STATOR=stator)
-    # RW.J.save(t,os.path.join(tmp_path,'blades_onera_se.cgns'))
+    if not test_mode_else_debug:
+        print('will save mesh')
+        J.save(t,os.path.join(tmp_path,'mesh.cgns'))
+        J.printElapsedTime('saving mesh took:', previous_timer=toc)
 
 
 
 if __name__ == '__main__':
-    # test_propeller_mesher_light('test_propeller_mesher_light')
-    test_oras_mesher('test_oras_mesher')
-    # test_oras_mesher_straight_blades('test_oras_mesher_straight_blades')
+    # test_oras_mesher_designer_ultracoarse('test_oras_mesher_designer_ultracoarse')
+    # test_oras_mesher('test_oras_mesher')
+    test_oras_mesher_ultracoarse('test_oras_mesher_ultracoarse')
     # test_design_blade('test_design_blade')
     # test_getBladesORAS_ONERA_SE('test_getBladesORAS_ONERA_SE')
 
-    # import Generator.PyTree as G
-    # import Transform.PyTree as T
-    # c = G.cart((0,0,0),(5,2,1),(2,2,2))
-    # T.rotate(c,(0,0,0),(0,0,1),30)
-    # T.rotate(c,(0,0,0),(0,1,0),45)
-    # bbox = G.BB(c)
-    # bbox[0] ='bbox'
-    
-    # import mola.legacy.InternalShortcuts as J
-    # J.save([c,bbox],'out.cgns')

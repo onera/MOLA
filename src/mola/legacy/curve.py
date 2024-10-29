@@ -703,11 +703,10 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
         Ntop /= 2
 
 
-
     NACAstringLoc = designation.find('NACA')
     # Determines the kind of airfoil to generate
-    has_dot = designation.find('.') != -1
-    has_linebreak = designation.find('\n')
+    has_dot = '.' in designation
+    has_linebreak = '\n' in designation
     if has_dot or has_linebreak: # Then user wants to import an airfoil from file
         if has_linebreak:
             input_to_npy = designation.split("\n")
