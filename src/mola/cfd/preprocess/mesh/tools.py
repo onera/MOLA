@@ -20,6 +20,42 @@ from fnmatch import fnmatch
 from mola.logging import mola_logger, MolaException
 from treelab import cgns
 
+def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='Vertex'):
+    from mpi4py import MPI
+    import maia.pytree as PT
+    from maia.algo.part.wall_distance import compute_projection_to
+    from mola.cfd.preprocess.mesh.tools import to_partitioned_if_distributed
+
+    tree = to_partitioned_if_distributed(tree) 
+
+    hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
+    shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
+
+    if len(PT.get_nodes_from_predicate(tree, hub_bc_predicate)) == 0:
+        raise MolaException(f'Cannot find hub families in tree from names {hub_families}')
+    if len(PT.get_nodes_from_predicate(tree, shroud_bc_predicate)) == 0:
+        raise MolaException(f'Cannot find shroud families in tree from names {shroud_families}')
+    
+    # Compute distances to hub and shroud
+    compute_projection_to(tree, hub_bc_predicate, MPI.COMM_WORLD, out_fs_name='DistanceToHub', point_cloud=GridLocation)
+    compute_projection_to(tree, shroud_bc_predicate, MPI.COMM_WORLD, out_fs_name='DistanceToShroud', point_cloud=GridLocation)
+
+    # Compute ChannelHeight
+    for zone in PT.get_all_Zone_t(tree):
+        d1 = PT.get_value(PT.get_node_from_path(zone, 'DistanceToHub/Distance'))
+        d2 = PT.get_value(PT.get_node_from_path(zone, 'DistanceToShroud/Distance'))
+        PT.new_FlowSolution(
+            name='FlowSolution#Height', 
+            loc=GridLocation, 
+            fields=dict(ChannelHeight = d1 / (d1+d2) ), 
+            parent=zone
+            )
+        # remove distances to hub and shroud
+        PT.rm_node_from_path(zone, 'DistanceToHub')
+        PT.rm_node_from_path(zone, 'DistanceToShroud')
+
+    return cgns.castNode(tree)
+
 def get_bc_from_bc_type(workflow, bctypes):
     if isinstance(bctypes, str):
         bctypes = [bctypes]
@@ -51,16 +87,31 @@ def get_surface_of_family(tree, Family):
 
     return Surface
 
+def to_distributed(tree : cgns.Tree):
+    from mpi4py import MPI
+    import maia
+
+    if bool(tree.get(':CGNS#Distribution')): 
+        t = tree
+    
+    elif bool(tree.get(':CGNS#GlobalNumbering')):
+        t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
+        t = cgns.castNode(t)
+        
+    else:
+        t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+        t = cgns.castNode(t)
+     
+    return t
+
 def to_partitioned_if_distributed(tree : cgns.Tree):
     is_dist = bool(tree.get(':CGNS#Distribution'))
     if not is_dist: return tree
 
     from mpi4py import MPI
     import maia
-    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD)
-    copyRelevantUserDefinedDataNodes(tree, t, MPI.COMM_WORLD)
+    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
     t = cgns.castNode(t)
-
 
     for zone in t.zones():
         zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
@@ -69,36 +120,6 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
         
     t = cgns.castNode(t)
     return t
-
-def copyRelevantUserDefinedDataNodes(dist_tree, part_tree, comm):
-    # TODO should be deprecated, it is possible to do instead : 
-    #     maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
-    # on the last version of Maia. To test and check availability with all env 
-    
-    from packaging.version import Version
-    import maia
-
-    maia_version = maia.__version__
-    if maia_version.startswith("dev-"):
-        maia_version = maia_version.replace('dev-','')+'dev'
-    if Version( maia_version ) < Version("1.5"): return
-
-    import maia.pytree as PT
-    match_name = lambda name: name == 'WorkflowParameters' or \
-                              name.startswith('.Solver#') or \
-                              name.startswith('.MOLA')
-
-    to_copy = lambda n : PT.get_label(n) == 'UserDefinedData_t' and match_name(PT.get_name(n))
-
-    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, [to_copy], comm)
-    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, ['CGNSBase_t', to_copy], comm)
-    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, ['CGNSBase_t', 'Zone_t', to_copy], comm)
-    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, ['CGNSBase_t', 'Family_t', to_copy], comm)
-    maia.transfer.dist_tree_to_part_tree_copy(dist_tree, part_tree, ['CGNSBase_t', 'Zone_t', 'ZoneBC_t', 'BC_t', to_copy], comm)
-
-
-
-
 
 def to_full_tree_at_rank_0(tree : cgns.Tree):
     is_dist = bool(tree.get(':CGNS#Distribution'))
@@ -117,23 +138,6 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
             
         t = cgns.castNode(t)
     MPI.COMM_WORLD.barrier()
-    return t
-
-def to_distributed(tree : cgns.Tree):
-    from mpi4py import MPI
-    import maia
-
-    if bool(tree.get(':CGNS#Distribution')): 
-        t = tree
-    
-    elif bool(tree.get(':CGNS#GlobalNumbering')):
-        t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
-        t = cgns.castNode(t)
-        
-    else:
-        t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-        t = cgns.castNode(t)
-     
     return t
 
 def reshape_DataArray(zone):

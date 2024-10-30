@@ -130,13 +130,6 @@ def test_init(tmp_path):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_extendListOfFamilies():
-    families = ['hub']
-    extended_families = WorkflowRotatingComponent._extendListOfFamilies(families)
-    assert extended_families == ['hub', 'HUB', 'Hub']
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_shroud_boundary_conditions():
     w = FakeWorkflow()
     w.set_shroud_boundary_conditions()
@@ -203,17 +196,25 @@ def test_compute_fluxcoef_by_row():
         fake_shroud = dict(FluxCoef=16.0)
         )
 
+# @pytest.mark.unit
+# @pytest.mark.cost_level_3
+# def test_parametrize_with_height_with_turbo(tmp_path):
+#     w = get_workflow_annular_sector(tmp_path)
+#     w.assemble()
+#     try:
+#         w.parametrize_with_height_with_turbo()
+#         assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
+#     except ImportError:
+#         mola_logger.warning('turbo module cannot be found!')
+#         pass
+
 @pytest.mark.unit
-@pytest.mark.cost_level_3
+@pytest.mark.cost_level_0
 def test_parametrize_with_height(tmp_path):
     w = get_workflow_annular_sector(tmp_path)
     w.assemble()
-    try:
-        w.parametrize_with_height()
-        assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
-    except ImportError:
-        mola_logger.warning('turbo module cannot be found!')
-        pass
+    w.parametrize_with_height()
+    assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
 
 @pytest.mark.unit
 @pytest.mark.cost_level_2

@@ -146,14 +146,12 @@ def compute_turbulent_distance_with_maia(dist_tree):
     import maia
     import maia.pytree as PT
     from mpi4py import MPI
-    from mola.cfd.preprocess.mesh.tools import copyRelevantUserDefinedDataNodes
     comm = MPI.COMM_WORLD
 
     # TODO Add test to check that the tree was read with maia
     # This function needs to be after the definition of boundary conditions
 
-    part_tree = maia.factory.partition_dist_tree(dist_tree, comm)
-    copyRelevantUserDefinedDataNodes(dist_tree, part_tree, comm)
+    part_tree = maia.factory.partition_dist_tree(dist_tree, comm) 
     maia.algo.part.compute_wall_distance(part_tree, comm) #, out_fs_name='FlowSolution#Init')  # create a FlowSolution container named WallDistance
     maia.transfer.part_tree_to_dist_tree_all(dist_tree, part_tree, comm)
 

@@ -20,6 +20,8 @@ import numpy as np
 from treelab import cgns
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola.math_tools import rotate_3d_vector_from_axis_and_angle_in_degrees
+from mola.cfd.preprocess.mesh.tools import parametrize_with_height
+from mola.cfd.preprocess.mesh.families import get_family_names_from_patterns
 import mola.cfd.postprocess as POST
 from .. import Workflow
 from .interface import WorkflowLinearCascadeInterface
@@ -87,7 +89,16 @@ class WorkflowLinearCascade(Workflow):
             
         return periodic_direction
     
-    def parametrize_with_height(self, lin_axis):
+    def parametrize_with_height(self, hub_families=['hub', 'moyeu'], 
+                                shroud_families=['shroud', 'carter'], GridLocation='Vertex'):
+        self.tree = parametrize_with_height(
+            self.tree, 
+            hub_families=get_family_names_from_patterns(self.tree, hub_families), 
+            shroud_families=get_family_names_from_patterns(self.tree, shroud_families), 
+            GridLocation=GridLocation
+            )
+        
+    def parametrize_with_height_with_turbo(self, lin_axis):
         '''
         Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
         relies on the turbo module.

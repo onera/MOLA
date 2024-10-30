@@ -124,17 +124,27 @@ def test_get_periodic_direction():
     translation = np.array(w.RawMeshComponents[0]['Connection'][0]['Translation'])
     assert np.allclose(np.absolute(periodic_direction), np.absolute(translation))
 
+# @pytest.mark.unit
+# @pytest.mark.cost_level_3
+# def test_parametrize_with_height_with_turbo():
+#     w = get_workflow_cube()
+#     w.assemble()
+#     try:
+#         w.parametrize_with_height_with_turbo('XY')
+#         assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
+#     except ImportError:
+#         mola_logger.warning('turbo module cannot be found!')
+#         pass
+
 @pytest.mark.unit
-@pytest.mark.cost_level_3
-def test_parametrize_with_height():
-    w = get_workflow_cube()
+@pytest.mark.cost_level_1
+def test_parametrize_with_height(tmp_path):
+    w = get_workflow_spleen(tmp_path)
+    if w.Solver == 'sonics':
+        adapt_workflow_for_sonics(w)
     w.assemble()
-    try:
-        w.parametrize_with_height('XY')
-        assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
-    except ImportError:
-        mola_logger.warning('turbo module cannot be found!')
-        pass
+    w.parametrize_with_height()
+    assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
 
 @pytest.mark.integration
 @pytest.mark.elsa

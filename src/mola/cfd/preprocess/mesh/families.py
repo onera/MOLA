@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 import treelab.cgns as cgns
 from mola.logging import mola_logger, MolaException, MolaUserError
 # from mola.cfd.preprocess.boundary_conditions import BoundaryConditionsNames
@@ -265,3 +266,26 @@ def get_zone_family_from_bc_or_gc_family(tree: cgns.Tree, bc_family: str) -> str
                     return FamilyName.value()
     
     raise MolaUserError(f'Cannot find a zone Family from the BC or GC Family {bc_family}. Check the input tree and family names.')
+
+def get_family_nodes_from_patterns(tree, patterns):
+    # TODO Put this function (and others that are associated) in treelab ? 
+    nodes = []
+    for pattern in generate_case_variations(patterns):
+        nodes += tree.group(Type='Family', Name=f'*{pattern}*')
+    return nodes
+    
+def get_family_names_from_patterns(tree, patterns):
+    nodes = get_family_nodes_from_patterns(tree, patterns)
+    return [n.name() for n in nodes]
+
+def generate_case_variations(patterns):
+    '''
+    For each <NAME> in the list **patterns**, add Name, name and NAME.
+    '''
+    extended_patterns = copy.deepcopy(patterns)
+    for pattern in patterns:
+        newNames = [pattern.lower(), pattern.upper(), pattern.capitalize()]
+        for name in newNames:
+            if name not in extended_patterns:
+                extended_patterns.append(name)
+    return extended_patterns

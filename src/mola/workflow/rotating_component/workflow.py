@@ -22,7 +22,9 @@ from treelab import cgns
 
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, redirect_streams_to_logger
 from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
-from  mola.cfd.preprocess.mesh import duplicate
+from mola.cfd.preprocess.mesh import duplicate
+from mola.cfd.preprocess.mesh.families import get_family_nodes_from_patterns, get_family_names_from_patterns
+from mola.cfd.preprocess.mesh.tools import parametrize_with_height
 
 from .. import Workflow
 from .interface import WorkflowRotatingComponentInterface
@@ -111,66 +113,50 @@ class WorkflowRotatingComponent(Workflow):
         super().set_boundary_conditions()  
 
     def set_shroud_boundary_conditions(self, families=['shroud', 'carter']):
-        for shroud_family in self._extendListOfFamilies(families):
-            for famNode in self.tree.group(Type='Family', Name=f'*{shroud_family}*'):
-                FamilyBoundary = famNode.name()
-                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
-                    continue
-                
-                self.BoundaryConditions.append(
-                    dict(Family=FamilyBoundary, Type='Wall')
-                    )
+        for famNode in get_family_nodes_from_patterns(self.tree, families):
+            FamilyBoundary = famNode.name()
+            if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
+                continue
+            
+            self.BoundaryConditions.append(
+                dict(Family=FamilyBoundary, Type='Wall')
+                )
     
     def set_blade_boundary_conditions(self, families=['blade', 'aube']):
-        for blade_family in self._extendListOfFamilies(families):
-            for famNode in self.tree.group(Type='Family', Name=f'*{blade_family}*'):
-                FamilyBoundary = famNode.name()
-                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
-                    continue
-                
-                row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
+        for famNode in get_family_nodes_from_patterns(self.tree, families):
+            FamilyBoundary = famNode.name()
+            if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
+                continue
+            
+            row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
 
+            try:
+                self.BoundaryConditions.append(
+                    dict(Family=FamilyBoundary, Type='Wall', Motion=self.Motion[row_family])
+                    )
+            except KeyError:
+                self.BoundaryConditions.append(dict(Family=FamilyBoundary, Type='Wall'))
+    
+    def set_hub_boundary_conditions(self, families=['hub', 'moyeu']):
+        for famNode in get_family_nodes_from_patterns(self.tree, families):
+            FamilyBoundary = famNode.name()
+            if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
+                continue
+
+            if not 'HubRotationSpeed' in self.ApplicationContext:
+                # Assume that hub rotates at the same speed that the zone family
+                mola_logger.warning(f'Assume that motion is uniform on Family {FamilyBoundary}.')
+                row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
                 try:
                     self.BoundaryConditions.append(
                         dict(Family=FamilyBoundary, Type='Wall', Motion=self.Motion[row_family])
                         )
                 except KeyError:
                     self.BoundaryConditions.append(dict(Family=FamilyBoundary, Type='Wall'))
-    
-    def set_hub_boundary_conditions(self, families=['hub', 'moyeu']):
-        for hub_family in self._extendListOfFamilies(families):
-            for famNode in self.tree.group(Type='Family', Name=f'*{hub_family}*'):
-                FamilyBoundary = famNode.name()
-                if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
-                    continue
-
-                if not 'HubRotationSpeed' in self.ApplicationContext:
-                    # Assume that hub rotates at the same speed that the zone family
-                    mola_logger.warning(f'Assume that motion is uniform on Family {FamilyBoundary}.')
-                    row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
-                    try:
-                        self.BoundaryConditions.append(
-                            dict(Family=FamilyBoundary, Type='Wall', Motion=self.Motion[row_family])
-                            )
-                    except KeyError:
-                        self.BoundaryConditions.append(dict(Family=FamilyBoundary, Type='Wall'))
-                else:
-                    self.BoundaryConditions.append(
-                        dict(Family=FamilyBoundary, Type='Wall', Motion=dict(RotationSpeed=self._get_hub_rotation_function()))
-                        )
-
-    @staticmethod
-    def _extendListOfFamilies(FamilyNames):
-        '''
-        For each <NAME> in the list **FamilyNames**, add Name, name and NAME.
-        '''
-        ExtendedFamilyNames = copy.deepcopy(FamilyNames)
-        for fam in FamilyNames:
-            newNames = [fam.lower(), fam.upper(), fam.capitalize()]
-            for name in newNames:
-                if name not in ExtendedFamilyNames:
-                    ExtendedFamilyNames.append(name)
-        return ExtendedFamilyNames
+            else:
+                self.BoundaryConditions.append(
+                    dict(Family=FamilyBoundary, Type='Wall', Motion=dict(RotationSpeed=self._get_hub_rotation_function()))
+                    )
 
     def _is_boundary_already_defined(self, FamilyBoundary):
         for bc in self.BoundaryConditions:
@@ -323,7 +309,16 @@ class WorkflowRotatingComponent(Workflow):
                 mola_logger.debug(f'fluxcoeff on Family {Family} is {fluxcoeff}')
                 self.ApplicationContext['NormalizationCoefficient'][Family] = dict(FluxCoef=fluxcoeff)
 
-    def parametrize_with_height(self, method=2):
+    def parametrize_with_height(self, hub_families=['hub', 'moyeu'], 
+                                shroud_families=['shroud', 'carter'], GridLocation='Vertex'):
+        self.tree = parametrize_with_height(
+            self.tree, 
+            hub_families=get_family_names_from_patterns(self.tree, hub_families), 
+            shroud_families=get_family_names_from_patterns(self.tree, shroud_families), 
+            GridLocation=GridLocation
+            )
+
+    def parametrize_with_height_with_turbo(self, method=2):
         '''
         Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
         relies on the turbo module.
