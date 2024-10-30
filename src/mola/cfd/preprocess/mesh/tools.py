@@ -24,9 +24,8 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
     from mpi4py import MPI
     import maia.pytree as PT
     from maia.algo.part.wall_distance import compute_projection_to
-    from mola.cfd.preprocess.mesh.tools import to_partitioned_if_distributed
 
-    tree = to_partitioned_if_distributed(tree) 
+    tree = to_partitioned(tree) 
 
     hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
     shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
@@ -102,6 +101,30 @@ def to_distributed(tree : cgns.Tree):
         t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
         t = cgns.castNode(t)
      
+    return t
+
+def to_partitioned(tree : cgns.Tree):
+    from mpi4py import MPI
+    import maia
+    
+    is_dist = bool(tree.get(':CGNS#Distribution'))
+    is_part = bool(tree.get(':CGNS#GlobalNumbering')) \
+        or bool(tree.get(Type='Zone', Depth=2).getAtPath('.Solver#Param/proc'))
+
+    if is_part:
+        return tree
+    elif not is_dist: 
+        tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+
+    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+    t = cgns.castNode(t)
+
+    for zone in t.zones():
+        zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
+        if zone.isStructured(): 
+            reshape_DataArray(zone)
+        
+    t = cgns.castNode(t)
     return t
 
 def to_partitioned_if_distributed(tree : cgns.Tree):
