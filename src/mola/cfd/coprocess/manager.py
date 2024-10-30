@@ -84,6 +84,9 @@ class CoprocessManager():
         self.Extractions = copy.deepcopy(workflow.Extractions)
         self.initialize_extraction_data_from_last_run()
 
+    def __del__(self):
+        if self.status != 'COMPLETED':
+            self.mola_logger.warning(f'CoprocessManager is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
 
     def run_iteration(self):
         self.update_iteration()

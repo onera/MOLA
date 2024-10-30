@@ -271,7 +271,7 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
             ExtractVariablesList.remove('BoundaryLayer')
 
     if ExtractBCType == 'BCWallInviscid':
-        ViscousKeys = ['BoundaryLayer', 'yPlus', 
+        ViscousKeys = ['BoundaryLayer', 'yPlus', 'Friction',
                        'geomdepdom','delta_cell_max','delta_compute',
                        'vortratiolim','shearratiolim','pressratiolim']
         for vk in ViscousKeys:

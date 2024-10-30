@@ -90,6 +90,9 @@ def apply(workflow, selected_boundaries_conditions=None):
     available_bc_names = [name for name, solvers in BoundaryConditionsNames.items() if workflow.Solver.lower() in solvers]
     alternative_available_bc_names = [solvers[workflow.Solver.lower()] for solvers in BoundaryConditionsNames.values() if workflow.Solver.lower() in solvers]
 
+    if workflow.Turbulence['Model'] == 'Euler':
+        _adapt_bc_to_euler(workflow)
+
     for bc in selected_boundaries_conditions:
 
         _check_family_exists(workflow.tree, bc['Family'])
@@ -127,6 +130,15 @@ def apply(workflow, selected_boundaries_conditions=None):
 def _check_family_exists(tree, family_name):
     if not tree.get(Name=family_name, Type='Family', Depth=2):
         raise MolaException(f'Cannot apply a boundary condition on family {family_name}: This family does not exist in the mesh.')
+
+def _adapt_bc_to_euler(workflow):
+    for bc in workflow.BoundaryConditions:
+        if bc['Type'] in ['Wall', 'WallViscous']:
+            mola_logger.warning(
+                f"Inconsistency between BC {bc['Family']} of type {bc['Type']} and the Euler model.\n"
+                "-> Type is automatically changed into WallInviscid."
+                )
+            bc['Type'] = 'WallInviscid'
 
 def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
     '''

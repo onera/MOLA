@@ -220,11 +220,32 @@ def set_cfdpb(workflow):
     
 def set_model(workflow):
 
-    workflow.SolverParameters['model'] = dict(
-        **get_fluid_setup(workflow.Fluid),
-        **get_wall_distance_setup(workflow.tree) ,
-        **get_turbulent_setup(workflow.Turbulence),
-    )
+    workflow.SolverParameters['model'] = get_fluid_setup(workflow.Fluid)
+
+    if workflow.Turbulence['Model'] == 'Euler':
+        workflow.SolverParameters['model'].update(
+            dict(phymod = 'euler')
+        )
+    
+    else:
+        BoundaryLayerParameters = dict(
+        vortratiolim    = 1e-3,
+        shearratiolim   = 2e-2,
+        pressratiolim   = 1e-3,
+        linearratiolim  = 1e-3,
+        delta_compute   = 'first_order_bl',
+        )
+
+        workflow.SolverParameters['model'].update(
+            dict(
+                phymod = 'nstur',
+                prandtltb = workflow.Fluid['PrandtlTurbulent'],
+                **BoundaryLayerParameters,
+                **get_wall_distance_setup(workflow.tree) ,
+                **get_turbulent_setup(workflow.Turbulence),
+            )
+        )
+        
 
 def set_numerics(workflow):
 
@@ -242,22 +263,12 @@ def get_fluid_setup(Fluid):
         cv               = Fluid['cv'],
         fluid            = 'pg',
         gamma            = Fluid['Gamma'],
-        phymod           = 'nstur',
         prandtl          = Fluid['Prandtl'],
-        prandtltb        = Fluid['PrandtlTurbulent'],
         visclaw          = 'sutherland',
         suth_const       = Fluid['SutherlandConstant'],
         suth_muref       = Fluid['SutherlandViscosity'],
         suth_tref        = Fluid['SutherlandTemperature'],
-
-        # Boundary-layer computation parameters
-        vortratiolim    = 1e-3,
-        shearratiolim   = 2e-2,
-        pressratiolim   = 1e-3,
-        linearratiolim  = 1e-3,
-        delta_compute   = 'first_order_bl',
-
-    )
+    ) 
     return FluidSetup
 
 def get_wall_distance_setup(tree):
@@ -342,17 +353,17 @@ def get_spatial_fluxes(Numerics, tree, Flow):
     # Convective flux 
     if Numerics['Scheme'] == 'Jameson':
         SchemeSetup = dict(
-        flux               = 'jameson',
-        avcoef_k2          = 0.5,
-        avcoef_k4          = 0.016,
-        avcoef_sigma       = 1.0,
-        av_border          = 'current', # default elsA is 'dif0null', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
-        av_formul          = 'current', # default elsA is 'new', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
+        flux         = 'jameson',
+        avcoef_k2    = 0.5,
+        avcoef_k4    = 0.016,
+        avcoef_sigma = 1.0,
+        av_border    = 'current', # default elsA is 'dif0null', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
+        av_formul    = 'current', # default elsA is 'new', but JCB, JM, LC use 'current' see https://elsa.onera.fr/issues/10624
         )
         if tree.isStructured():
             SchemeSetup.update(dict(
-                artviscosity       = 'dismrt',
-                av_mrt             = 0.3,
+                artviscosity = 'dismrt',
+                av_mrt = 0.3,
             ))
         else:
             # Martinelli correction not available for unstructured grids
@@ -370,9 +381,9 @@ def get_spatial_fluxes(Numerics, tree, Flow):
         )
     elif Numerics['Scheme'] == 'Roe':
         SchemeSetup = dict(
-        flux               = 'roe',
-        limiter            = 'valbada',
-        psiroe             = 0.01,
+        flux    = 'roe',
+        limiter = 'valbada',
+        psiroe  = 0.01,
         )
     else:
         raise AttributeError(f'Numerical scheme {Numerics["Scheme"]} not recognized for the solver elsA')
@@ -389,10 +400,10 @@ def get_spatial_fluxes(Numerics, tree, Flow):
 
     # TODO Put in CHANGELOG: same filtering parameters for all schemes
     FilteringSetup = dict(
-        filter             = 'incr_new+prolong',
-        cutoff_dens        = 0.005,
-        cutoff_pres        = 0.005,
-        cutoff_eint        = 0.005,
+        filter = 'incr_new+prolong',
+        cutoff_dens = 0.005,
+        cutoff_pres = 0.005,
+        cutoff_eint = 0.005,
         )
     SchemeSetup.update(FilteringSetup)
 

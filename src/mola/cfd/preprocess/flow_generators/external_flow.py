@@ -127,6 +127,10 @@ class ExternalFlowGenerator(object):
 
     def set_turbulence_properties(self):
 
+        if self.Turbulence['Model'] == 'Euler':
+            self.Turbulence['Conservatives'] = dict()
+            return
+
         # -> for SA model
         def computeTurbulentSANuTilde(Nu, Nut_Nu):
             def computeEddyViscosityFromNuTilde(Nu, NuTilde):
