@@ -57,7 +57,7 @@ test_integration_elsa:
   before_script:
     - source $MOLA_ENV_ELSA
   script:
-    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not test_WorkflowManager_sphere_ and not _remote_sator"
+    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not _remote_sator"
   artifacts:
     paths:
       - .coverage_test_integration_elsa
@@ -82,7 +82,7 @@ test_integration_fast:
   before_script:
     - source $MOLA_ENV_FAST
   script:
-    - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration -k "not test_WorkflowManager_sphere_ and not _remote_sator"
+    - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration -k "not _remote_sator"
   artifacts:
     paths:
       - .coverage_test_integration_fast
@@ -107,7 +107,7 @@ test_integration_sonics:
   before_script:
     - source $MOLA_ENV_SONICS
   script:
-    - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration -k "not test_WorkflowManager_sphere_ and not _remote_sator"
+    - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration -k "not _remote_sator"
   artifacts:
     paths:
       - .coverage_test_integration_sonics
@@ -143,16 +143,24 @@ radon_complexity:
   before_script:
     - source $MOLA_ENV_DEFAULT
     - pip install radon
+  allow_failure: true  # if job fails (in script section), it will just raise a warning
   script:
-    - radon cc --min D src > radon_cc_complexity_report_min_D.txt  
-    - radon mi --min B src > radon_mi_complexity_report_min_B.txt
-  artifacts:
-    paths:
-      - radon_cc_complexity_report_min_D.txt
-      - radon_mi_complexity_report_min_B.txt
-  # after_script:  # to stop the pipeline if code quality is too bad
-  #   - if [ -s radon_cc_complexity_report_min_D.txt ]; then false; fi
-  #   - if [ -s radon_mi_complexity_report_min_B.txt ]; then false; fi
+    - radon cc --min D --ignore "legacy" src > radon_cc_report.txt  
+    - radon mi --min B --ignore "legacy" src > radon_mi_report.txt
+    - export COMPLEXITY_WARNING=false
+    - |
+        if [ -s radon_cc_report.txt ]; then 
+          echo "WARNING: Code cyclomatic complexity is too high. Please simplify the following functions:" && \
+          cat radon_cc_report.txt && \
+          export COMPLEXITY_WARNING=true; 
+        fi
+    - |
+        if [ -s radon_mi_report.txt ]; then 
+          echo "WARNING: Code maintenability index is too high. Please simplify the following files:" && \
+          cat radon_mi_report.txt && \
+          export COMPLEXITY_WARNING=true; 
+        fi
+    - if $COMPLEXITY_WARNING; then false; fi
 
 pages:    # Nom à utiliser
   stage: deploy

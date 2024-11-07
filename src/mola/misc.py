@@ -181,7 +181,7 @@ def reload_source(module):
     importlib.reload(module)
 
 
-def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6):
+def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6, empty_eq_None=True):
     '''
     taken from https://gist.github.com/durden/4236551
 
@@ -232,12 +232,19 @@ def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6):
                 return False
         # Recursive compare if there are nested dicts
         elif isinstance(v, dict):
-            if not allclose_dict(v, d2[k], tol_abs, tol_rel):
+            if not allclose_dict(v, d2[k], tol_abs, tol_rel, empty_eq_None=empty_eq_None):
                 mola_logger.debug(f'{k}: {v} != {d2[k]}')
                 return False
-        elif isinstance(v, (np.ndarray, list)):
+        elif isinstance(v, list):
+            if not allclose_lists(v, d2[k], tol_abs, tol_rel, empty_eq_None=empty_eq_None):
+                mola_logger.debug(f'{k}: {v} != {d2[k]}')
+                return False
+        elif isinstance(v, np.ndarray):
             if np.all(v != d2[k]):
                 mola_logger.debug(f'{k}: {v} != {d2[k]}')
+                return False
+        elif empty_eq_None and v is None:
+            if d2[k] not in [None, [], dict()]:
                 return False
         # Fall back to default
         elif v != d2[k]:
@@ -246,3 +253,31 @@ def allclose_dict(d1, d2, tol_abs=None, tol_rel=1e-6):
 
     return True
 
+def allclose_lists(l1, l2, tol_abs=None, tol_rel=1e-6, empty_eq_None=True):
+    from .logging import mola_logger # here in order to avoid circular import in exceptions.py
+
+    if not isinstance(l1, list):
+        raise TypeError(f'The first argument is not a list: {l1}')
+    
+    if empty_eq_None and l1 == [] and l2 is None:
+        return True
+    elif not isinstance(l2, (list, np.ndarray)):
+        return False  #raise TypeError(f'The second argument is not a list or a ndarray: {l2}')
+    
+    if len(l1) != len(l2):
+        return False
+    
+    for item1, item2 in zip(l1, l2):
+        if isinstance(item1, dict) and isinstance(item2, dict):
+            if not allclose_dict(item1, item2, tol_abs=tol_abs, tol_rel=tol_rel, empty_eq_None=empty_eq_None):
+                return False
+        elif isinstance(item1, list) and isinstance(item2, list):
+            if not allclose_lists(item1, item2, tol_abs=tol_abs, tol_rel=tol_rel, empty_eq_None=empty_eq_None):
+                return False
+        elif isinstance(item1, np.ndarray) and isinstance(item2, np.ndarray):
+            if np.all(item1 != item2):
+                mola_logger.debug(f'{item1} != {item2}')
+                return False
+        elif item1 != item2:
+            return False
+    return True

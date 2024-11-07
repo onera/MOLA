@@ -178,6 +178,16 @@ def test_InternalFlowGenerator():
     assert misc.allclose_dict(FlowGen.Flow, RefFlow)
     assert misc.allclose_dict(FlowGen.Turbulence, RefTurbulence)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_InternalFlowGenerator_with_incidence():
+    workflow = FakeWorkflow()
+    α = np.radians(30)
+    workflow.Flow['Direction'] = [np.cos(α), np.sin(α), 0]
+    FlowGen = InternalFlowGenerator(workflow)
+    FlowGen.generate()
+    np.testing.assert_allclose(FlowGen.Flow['Mach'], 0.25805710351588457/np.cos(α))    
+
 
 if __name__=='__main__':
     test_InternalFlowGenerator()

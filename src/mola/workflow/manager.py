@@ -20,13 +20,14 @@ from typing import List
 import copy
 from fnmatch import fnmatch
 
-from mola.workflow import Workflow
+from treelab import cgns
 from mola import __MOLA_PATH__
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, ENDC
 from mola.cfd.preprocess.run_manager import run_manager
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 from mola import server as SV
+from . import Workflow
 
 class WorkflowManager():
     '''
@@ -107,26 +108,38 @@ class WorkflowManager():
     '''
 
     def __init__(self, 
-                 workflow, 
+                 arg, 
                  root_directory='.', 
                  data_directory='SHARED_DATA', 
                  skip_if_exists=True,
                  ):
-
-        # table_of_workflows = [[A1, B1, ...], [A2, B2, ...], ...]
-        #   several jobs in parallel: 
-        #     sequence of [A1, B1, ...]
-        #     sequence of [A2, B2, ...]
-        #     ...
-        #
-        # Warning: if A1 == A2 (same Python object, without copy), then it will bug without raising an error
-
-        self.root_directory = root_directory
-        self.data_directory = data_directory
-        self.skip_if_exists = skip_if_exists
-        self.machine = None
-        self.base_workflow = workflow
-        self.dispatcher = WorkflowDispatcher(workflow)
+        
+        if isinstance(arg, str):
+            # init reading a file previously written by WorkflowManager.write
+            self.read()
+        else:
+            # arg is the base workflow of the manager object
+            assert isinstance(arg, Workflow)
+            self.root_directory = root_directory
+            self.data_directory = data_directory
+            self.skip_if_exists = skip_if_exists
+            self.base_workflow = arg
+            self.dispatcher = WorkflowDispatcher(self.base_workflow)
+            self.machine = None
+            self.sequential_managers = None
+    
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        else:
+            return (
+                self.root_directory == other.root_directory \
+                and self.data_directory == other.data_directory \
+                and self.skip_if_exists == other.skip_if_exists \
+                and self.machine == other.machine \
+                and self.base_workflow == other.base_workflow \
+                and self.dispatcher == other.dispatcher \
+            )
 
     def new_job(self, directory):
         self.dispatcher.new_job(directory)
@@ -135,54 +148,114 @@ class WorkflowManager():
         self.dispatcher.add_variations(variations, initialize_from_previous)
 
     def prepare(self):
-        self._init_table_of_workflows()
+        if self.sequential_managers is None:
+            self._init_sequential_managers()
         SV.makedirs_remote(self.root_directory, machine=self.machine)
-        for sequence_of_workflows in self.table_of_workflows:
+        for sequence_of_workflows in self.sequential_managers:
             sequence_of_workflows.prepare()
 
     def submit(self):
-        for sequence_of_workflows in self.table_of_workflows:
+        for sequence_of_workflows in self.sequential_managers:
             sequence_of_workflows.submit()
 
-    def _init_table_of_workflows(self):
-        self.table_of_workflows = []
+    def _init_sequential_managers(self):
+        if self.sequential_managers is not None:
+            raise MolaAssertionError('Attribute sequential_managers was already initialized !')
+        self.sequential_managers = []
         for i, sequence in enumerate(self.dispatcher.table_of_workflows):
             root_absolute_directory = os.path.join(self.root_directory, self.dispatcher.root_directories[i])
             data_absolute_directory = os.path.join(self.root_directory, self.data_directory)
 
-            sequential_scheduler = WorkflowSequentialManager(
+            sequential_manager = WorkflowSequentialManager(
                 sequence, 
                 root_directory=root_absolute_directory, 
                 data_directory=data_absolute_directory, 
                 skip_if_exists=self.skip_if_exists
                 )
-            self.table_of_workflows.append(sequential_scheduler)
+            self.sequential_managers.append(sequential_manager)
 
-        self.machine = sequential_scheduler.machine
+        self.machine = sequential_manager.machine
     
+    def get_run_directories(self):
+        return [workflow.RunManagement['RunDirectory'] 
+                for sequential_manager in self.sequential_managers 
+                for workflow in sequential_manager.workflows]
+    
+    def write(self, filename='workflow_manager.cgns'):
+        if self.sequential_managers is None:
+            self._init_sequential_managers()
+
+        tree = cgns.Tree()
+        d = self.dispatcher.convert_to_dict()
+        tree.setParameters(
+            ContainerName = 'WorkflowManager',
+            Machine = self.machine,
+            RootDirectory = self.root_directory,
+            DataDirectory = self.data_directory,
+            SkipIfExists = self.skip_if_exists, 
+            BaseWorkflow = self.base_workflow.convert_to_dict(), 
+            RunDirectories = self.get_run_directories(),
+            WorkflowDispatcher = d,
+            )
+        tree.save(filename)
+
+    def read(self, filename=names.FILE_WORKLFOW_MANAGER):
+        tree = cgns.load(filename)
+        WorkflowDispatcher = cgns.load_from_path(filename, 'WorkflowManager/WorkflowDispatcher')
+        parameters = tree.getParameters('WorkflowManager', transform_numpy_scalars=True)
+        self.root_directory = parameters['RootDirectory']
+        self.data_directory = parameters['DataDirectory']
+        self.skip_if_exists = parameters['SkipIfExists']
+        self.dispatcher = read_workflow_dispatcher_from_tree(WorkflowDispatcher)
+        self.base_workflow = self.dispatcher.base_workflow
+        self.machine = parameters['Machine']
+        self.run_directories = parameters['RunDirectories']
+
     def gather_signals(self, queries, filename=None):
         """
+        Need for an extraction method from queries (path, metadata)
         get scalars from signals.cgns and plot a curve
         plot several curves (one per case) on the same plot
         get a surface from each instant
         """
+        from . import read_workflow  # Cannot be in the header of this file, otherwise it raises a ImportError du to a circular import
+
         if not filename:
             filename = os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D)
 
-        def _extract(w, queries):
-            path = ...
-            signals = cgns.load(os.path.join(path, filename))
-            ...
-            return data
+        def _extract(signals, queries):
+            # This extraction function must be developped
+            # The query should be a path, a part of a path, or parameters to check metadata of extractions in names.CGNS_NODE_EXTRACTION_LOG
+            path = queries
+            node = signals.getAtPath(path)
+            if node:
+                return {node.name(): node.value()}
+            else:
+                return {}
+        
+        if not SV.run_on_localhost(machine=self.machine, run_directory=self.run_directories[0]):
+            raise MolaException('Not implemented for remote machines yet.')
+            # To test. The copy should be lighter (see mola_repatriate in mola v1)
+            local_run_directories = []
+            for run_directory in self.run_directories:
+                local_dir = os.path.relpath(run_directory, self.root_directory)
+                SV.copy_remote(run_directory, local_dir, source_machine=self.machine, force_copy=False)
+                local_run_directories.append(local_dir)
+        else:
+            local_run_directories = self.run_directories
 
-        all_data = []
-        for case in self.all_cases:
-            # read the workflow
-            w = read_workflow(case)
+        all_data = dict()
+        user_dir = os.getcwd()
+        for local_dir in local_run_directories:
+            os.chdir(local_dir)
+            w = read_workflow(names.FILE_INPUT_WORKLFOW)
             status = w.simulation_status()
+            mola_logger.info(f'{local_dir} -> {status}')
             if status == names.FILE_JOB_COMPLETED:
-                data = _extract(w, queries)
-                add_to_all_data(data)
+                signals = cgns.load(filename)
+                data = _extract(signals, queries)
+                all_data[local_dir] = data
+            os.chdir(user_dir)
         
         return all_data
 
@@ -218,6 +291,22 @@ class WorkflowDispatcher():
         self.table_of_workflows = []
         self.workflows_in_current_job = None
         self.root_directories = []
+    
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        else:
+            same_table_of_workflows = True
+            for workflows1, workflows2 in zip(self.table_of_workflows, other.table_of_workflows):
+                for w, w2 in zip(workflows1, workflows2):
+                    if w != w2:
+                        same_table_of_workflows = False
+                        break
+            return (
+                self.root_directories == other.root_directories \
+                and self.base_workflow == other.base_workflow
+                and same_table_of_workflows
+            )
 
     def new_job(self, directory):
         self.workflows_in_current_job = []
@@ -286,10 +375,54 @@ class WorkflowDispatcher():
             directories.extend([os.path.join(root, d) for d in job_directories])
         return directories
 
+    def convert_to_dict(self):
+        TableOfWorkflows = dict()
+        for i, workflows_in_job in enumerate(self.table_of_workflows):
+            TableOfWorkflows[f'_list_.{i}'] = [w.convert_to_dict() for w in workflows_in_job]
+
+        params = dict(
+            RootDirectories = self.root_directories,
+            BaseWorkflow = self.base_workflow.convert_to_dict(),
+            TableOfWorkflows = TableOfWorkflows,
+        )
+        return params
+    
+
+def read_workflow_dispatcher_from_tree(tree):
+    from . import AVAILABLE_WORKFLOWS
+
+    def _build_workflow_tree(t):
+        workflow_tree = cgns.Tree()
+        t = t.copy()
+        t.setName(names.CONTAINER_WORKLFOW_PARAMETERS)
+        workflow_tree.addChild(t)
+        return workflow_tree
+        
+    BaseWorkflow = tree.get(Name='BaseWorkflow', Depth=1)
+    workflow_name = BaseWorkflow.get(Name='Name', Depth=1).value()
+    PreviouslyUsedWorkflow = AVAILABLE_WORKFLOWS.get(workflow_name)
+    base_workflow = PreviouslyUsedWorkflow(tree=_build_workflow_tree(BaseWorkflow))
+
+    dispatcher = WorkflowDispatcher(base_workflow)
+
+    dispatcher.workflows_in_current_job = None
+    dispatcher.root_directories = tree.get(Name='RootDirectories', Depth=1).value()
+    if isinstance(dispatcher.root_directories, str):
+        dispatcher.root_directories = [dispatcher.root_directories]
+
+    dispatcher.table_of_workflows = []
+    TableOfWorkflows = tree.get(Name='TableOfWorkflows', Depth=1)
+    for workflows_in_job in TableOfWorkflows.children():
+        workflows = []
+        for workflow in workflows_in_job.children():
+            workflows.append(PreviouslyUsedWorkflow(tree=_build_workflow_tree(workflow)))
+        dispatcher.table_of_workflows.append(workflows)
+
+    return dispatcher
 
 class WorkflowSequentialManager():
     '''
-    This class is instanciated by :py:meth:`WorkflowManager._init_table_of_workflows`.
+    This class is instanciated by :py:meth:`WorkflowManager._init_sequential_managers`.
     It is **not intented to be called directly by user**.
 
     It handles the creation of one "sequence" of cases (generated from **workflows**), 

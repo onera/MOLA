@@ -38,6 +38,11 @@ class InternalFlowGenerator(ExternalFlowGenerator):
             except:
                 raise MolaException('Cannot compute the inflow Surface automatically. '
                                      'Please provide the parameter "Surface" in workflow.ApplicationContext.')
+        
+        try:
+            self.MainAxis = np.array(workflow.ApplicationContext.get('ShaftAxis', [1,0,0]))
+        except AttributeError:
+            self.MainAxis = np.array([1,0,0])
 
     def set_Flow_defaults(self,
             MassFlow               : float = None,
@@ -58,16 +63,22 @@ class InternalFlowGenerator(ExternalFlowGenerator):
 
     def compute_external_quantities_from_internal_quantities(self):
         assert not('MassFlow' in self.Flow and 'Mach' in self.Flow), 'MassFlow and Mach cannot be given together in Flow. Choose one'
+        cos_α = np.dot(self.Flow['Direction'], self.MainAxis)
         if 'MassFlow' in self.Flow:
-            self.Flow['Mach'] = self.MachFromMassFlow(self.Flow['MassFlow'], 
+            # Axial Mach number
+            Mx = self.MachFromMassFlow(self.Flow['MassFlow'], 
                                                       self.Surface, 
                                                       self.Flow['PressureStagnation'], 
                                                       self.Flow['TemperatureStagnation'], 
                                                       self.Fluid['IdealGasConstant'], 
                                                       self.Fluid['Gamma']
                                                       )
+            # Mach number along the flow direction
+            self.Flow['Mach'] = Mx / cos_α
+
         elif 'Mach' in self.Flow:
-            self.Flow['MassFlow'] = self.MassFlowFromMach(self.Flow['Mach'], 
+            Mx = self.Flow['Mach'] * cos_α
+            self.Flow['MassFlow'] = self.MassFlowFromMach(Mx, 
                                                           self.Surface, 
                                                           self.Flow['PressureStagnation'], 
                                                           self.Flow['TemperatureStagnation'], 

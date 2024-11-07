@@ -700,7 +700,14 @@ def test_get_workflow_parameters_from_tree(filename=''):
     w = Workflow(tree='test.cgns')
     try: os.unlink('test.cgns')
     except: pass
-    if filename: w.write_tree(filename)    
+    if filename: w.write_tree(filename) 
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_equality_between_workflows():
+    w = get_workflow1()
+    w2 = get_workflow1()
+    assert w == w2
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

@@ -21,7 +21,7 @@ import Converter.PyTree as C
 import Converter.Internal as I
 
 from treelab import cgns
-from mola.logging import mola_logger, MolaException, mute_stdout
+from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola.cfd.preprocess.solver_specific_tools import solver_elsa
 from mola.cfd.preprocess.motion import motion
 from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa
@@ -184,7 +184,10 @@ def outpres(workflow, Family, **kwargs):
                           FamilyBC='BCOutflowSubsonic', BCType='outpres', interface_function=outpres_interface,
                           **kwargs
                           )
-        
+
+def outsup(workflow, Family):
+    define_bc_family(workflow, Family, 'BCOutflowSupersonic')
+
 def outmfr2(workflow, Family, **kwargs):
     set_physical_boundary(workflow, Family, 
                           FamilyBC='BCOutflowSubsonic', BCType='outmfr2', interface_function=outmfr2_interface,
@@ -325,10 +328,15 @@ def outradeq_interface(workflow, Family, **kwargs):
         valve_ref_mflow = valve_ref_mflow, 
         valve_relax = kwargs.get('valve_relax', 0.1),
         indpiv = kwargs.get('indpiv', 1),
+        dirorder = kwargs.get('dirorder', -1),
         )
     return parameters
 
-
+def outradeqhyb_interface(workflow, Family, **kwargs):
+    parameters = outradeq_interface(workflow, Family, **kwargs)
+    parameters['nbband'] = kwargs.get('nbband', -1) # default value in etc, compute nbband based on mesh
+    parameters['c'] = kwargs.get('c', 0.3) # default value in etc is 0.1
+    return parameters
 
 def set_physical_boundary(workflow, Family, 
                           FamilyBC, BCType, interface_function,
@@ -655,6 +663,8 @@ def outradeq(workflow, Family, **kwargs):
             sourced).
 
     '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "outradeq" on Family {Family} is available only for structured mesh.')
 
     import etc.transform as trf
     t = workflow.tree
@@ -673,7 +683,7 @@ def outradeq(workflow, Family, **kwargs):
         bcpath = I.getPath(t, bcn)
         bc = trf.BCOutRadEq(t, bcn)
         bc.indpiv = params['indpiv']
-        bc.dirorder = -1
+        bc.dirorder = params['dirorder']
         # Valve laws:
         # <bc>.valve_law(valve_type, pref, Qref, valve_relax=relax, valve_file=None, valve_file_freq=1) # v4.2.01 pour valve_file*
         # valvelaws = [(1, 'SlopePsQ'),     # p(it+1) = p(it) + relax*( pref * (Q(it)/Qref) -p(it)) # relax = sans dim. # isoPs/Q
@@ -701,6 +711,87 @@ def outradeq(workflow, Family, **kwargs):
     workflow.tree = cgns.castNode(t)
 
 @mute_stdout
+def outradeqhyb(workflow, Family, **kwargs):
+    '''
+    Set an outflow boundary condition of type ``outradeqhyb``.
+
+    .. important : This function has a dependency to the ETC module.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            Tree to modify
+
+        FamilyName : str
+            Name of the family on which the boundary condition will be imposed
+
+        valve_type : int
+            Valve law type. See `elsA documentation about valve laws <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/STB-97020/Textes/Boundary/Valve.html>`_.
+            Cannot be 0.
+
+        valve_ref_pres : float
+            Reference static pressure at the pivot index.
+
+        valve_ref_mflow : float
+            Reference mass flow rate.
+
+        valve_relax : float
+            'Relaxation' parameter of the valve law. The default value is 0.1.
+            Be careful:
+
+            * for laws 1, 2 and 5, it is a real Relaxation coefficient without
+              dimension.
+
+            * for law 3, it is a value homogeneous with a pressure divided
+              by a mass flow.
+
+            * for law 4, it is a value homogeneous with a pressure.
+        
+        indpiv : int
+            Index of the cell where the pivot value is imposed.
+
+        nbband : int
+            Number of points in the radial distribution to compute.
+
+        c : float
+            Parameter for the distribution of radial points.
+        
+        ReferenceValues : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`computeReferenceValues`
+
+        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
+            as produced by :py:func:`getTurboConfiguration`
+
+
+    '''
+    import etc.transform as trf
+    t = workflow.tree
+
+    params = outradeqhyb_interface(workflow, Family, **kwargs)
+
+    # Delete previous BC if it exists
+    for bc in C.getFamilyBCs(t, Family):
+        I._rmNodesByName(bc, '.Solver#BC')
+    define_bc_family(workflow, Family, 'BCOutflowSubsonic')
+
+    bc = trf.BCOutRadEqHyb(t, t.get(Name=Family, Type='Family'))
+    bc.glob_border()
+    bc.indpiv = params['indpiv']
+    valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
+                      3: 'QLinear', 4: 'QHyperbolic'}
+    bc.valve_law(valve_law_dict[params['valve_type']], params['valve_ref_pres'],
+                 params['valve_ref_mflow'], valve_relax=params['valve_relax'], 
+                 valve_file=f'prespiv_{Family}.log')
+    bc.dirorder = params['dirorder']
+    radius_filename = f"state_radius_{Family}.plt"
+    radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
+    radius.compute(t, nbband=params['nbband'], c=params['c'])
+    radius.write()
+    bc.create()
+    workflow.tree = cgns.castNode(t)
+
+@mute_stdout
 def stage_mxpl(workflow, Family, LinkedFamily):
     '''
     Set a mixing plane condition between families **Family** and **LinkedFamily**.
@@ -708,6 +799,9 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     .. important : This function has a dependency to the ETC module.
 
     '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "stage_mxpl" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+
     import etc.transform as trf
 
     # HACK: must change the type of all FamilyName to array
@@ -735,6 +829,9 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     .. important : This function has a dependency to the ETC module.
 
     '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "stage_red" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+
     import etc.transform as trf
 
     SectorPassagePeriod = stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod)
@@ -888,6 +985,9 @@ def stage_choro(workflow, Family, LinkedFamily):
 
     .. important : This function has a dependency to the ETC module.
     '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "stage_choro" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+
     import etc.transform as trf
 
     # HACK: must change the type of all FamilyName to array

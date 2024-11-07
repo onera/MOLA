@@ -87,7 +87,7 @@ class WorkflowLinearCascade(Workflow):
             
         return periodic_direction
     
-    def parametrize_with_height(self, lin_axis, method=2):
+    def parametrize_with_height(self, lin_axis):
         '''
         Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
         relies on the turbo module.
@@ -104,36 +104,10 @@ class WorkflowLinearCascade(Workflow):
                 'XY' means that X-axis is the streamwise direction and Y-axis is the
                 spanwise direction.(see turbo documentation)
             
-            method : int
-                Method used for ``turbo.height.generateHLinesAxial()``. Default value is 2.
-
         '''
         import os
         import Converter.Internal as I
         import turbo.height as TH
-
-        def plot_hub_and_shroud_lines(t):
-            # Get geometry
-            hub     = I.getNodeFromName(t, 'Hub')
-            xHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateX'))
-            yHub    = I.getValue(I.getNodeFromName(hub, 'CoordinateY'))
-            shroud  = I.getNodeFromName(t, 'Shroud')
-            xShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateX'))
-            yShroud = I.getValue(I.getNodeFromName(shroud, 'CoordinateY'))
-            # Import matplotlib
-            import matplotlib.pyplot as plt
-            # Plot
-            plt.figure()
-            plt.plot(xHub, yHub, '-', label='Hub')
-            plt.plot(xShroud, yShroud, '-', label='Shroud')
-            plt.axis('equal')
-            plt.grid()
-            plt.xlabel('x (m)')
-            plt.ylabel('y (m)')
-            # Save
-            merid_lines_image_filename = os.path.join(self.RunManagement['RunDirectory'], 'shroud_hub_lines.png')
-            plt.savefig(merid_lines_image_filename, dpi=150, bbox_inches='tight')
-            return 0
 
         mola_logger.info('Add ChannelHeight in the mesh...')
         OLD_FlowSolutionNodes = I.__FlowSolutionNodes__
