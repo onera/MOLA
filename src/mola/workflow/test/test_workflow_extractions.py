@@ -195,6 +195,6 @@ def test_bc_one_run(tmp_path, niter=10):
 
 
 if __name__ == '__main__':
-    # test_integrals_one_run('extract_integrals_one_run_'+os.environ.get("MOLA_SOLVER"))
-    test_integrals_two_runs('extract_integrals_two_runs_'+os.environ.get("MOLA_SOLVER"))
+    test_integrals_one_run('extract_integrals_one_run_'+os.environ.get("MOLA_SOLVER"))
+    # test_integrals_two_runs('extract_integrals_two_runs_'+os.environ.get("MOLA_SOLVER"))
     # test_bc_one_run('test_bc_one_run_'+os.environ.get("MOLA_SOLVER"))

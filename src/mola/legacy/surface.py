@@ -2014,9 +2014,10 @@ def extrapolateSurface(Surface, Boundary, SpineDiscretization, mode='tangent',
         Boundary : str
             One of: ``'imin','imax','jmin','jmax'``
 
-        SpineDiscretization : 1D numpy array or zone
+        SpineDiscretization : float or 1D numpy array or zone
             used to define the position and distance of the new
-            extrapolation sections (array or curve)
+            extrapolation sections (array or curve). Use simply a float if you
+            want to extrapolate a given distance with a single cell.
 
         mode : str
             Can be one of:
@@ -2081,6 +2082,10 @@ def extrapolateSurface(Surface, Boundary, SpineDiscretization, mode='tangent',
             if any( np.diff(s)<0):
                 ErrMsg = "extrapolateSurface(): SpineDiscretization argument was detected as a numpy array.\nHowever, it was NOT monotonically increasing. SpineDiscretization MUST be monotonically increasing. Check that, please."
                 raise AttributeError(ErrMsg)
+    elif isinstance(SpineDiscretization, float) or isinstance(SpineDiscretization, int):
+        s = np.array([0,SpineDiscretization], dtype=float)
+        Ns = s.shape[0]
+
     else:
         raise AttributeError('extrapolateSurface(): Type of SpineDiscretization argument not recognized. Check your input.')
 
@@ -3531,12 +3536,13 @@ def allHaveNormals(t):
                 return False
     return has_normals
 
-def _alignNormalsWithRadialCylindricProjection(t, rotation_center, rotation_axis):
-    alignmentTol=1.0-1.e-10
+def _alignNormalsWithRadialCylindricProjection(t, rotation_center=[0,0,0], rotation_axis=[1,0,0],
+        vectors_alignment_tolerance_in_degree=0.50,):
     c = np.array(rotation_center,dtype=np.float64)
     a = np.array(rotation_axis,dtype=np.float64)
     q = c + a
     qc = c - q
+    np.seterr(all='raise')
     for zone in I.getZones(t):
         x,y,z = J.getxyz(zone)
         sx,sy,sz = J.getVars(zone,['sx','sy','sz'])
@@ -3550,18 +3556,32 @@ def _alignNormalsWithRadialCylindricProjection(t, rotation_center, rotation_axis
             p = np.array([x[i],y[i],z[i]],dtype=float)
             v = np.array([sx[i],sy[i],sz[i]],dtype=float)
             v_norm = np.sqrt(v.dot(v))
+            if v_norm < 1e-3: continue
             qp = p - q
             qp /= np.sqrt(qp.dot(qp))
-            alignment = np.abs(qp.dot(a))
-            if alignment >= alignmentTol: continue
+            if W.vectors_are_collinear(qp,a,vectors_alignment_tolerance_in_degree):
+                continue
             n = np.cross(qc,qp)
+            n /= np.linalg.norm(n)
             b = np.cross(n,v)
             t = np.cross(b,n)
-            t /= np.sqrt(t.dot(t))
+            try:
+                t /= np.linalg.norm(t)
+            except FloatingPointError as e:
+                msg = f"{p=}\n"
+                msg+= f"{b=}\n"
+                msg+= f"{n=}\n"
+                msg+= f"{v=}\n"
+                msg+= f"{qp=}\n"
+                msg+= f"{qc=}\n"
+                msg+= f"{a=}\n"
+                raise FloatingPointError(msg) from e
+
             t *= v_norm
             sx[i] = t[0]
             sy[i] = t[1]
             sz[i] = t[2]
+    np.seterr(divide='warn')
 
 def _hasMatchingFace(contour_struct, faces):
     for f in faces:
@@ -4013,9 +4033,9 @@ def get_equation_coefficients_of_plane(plane):
 
     
 
-
 def intersection_between_curve_and_plane(curve, plane):
     curve = I.copyRef(curve)
+
 
     plane_coefs = get_equation_coefficients_of_plane(plane)
 
@@ -4189,6 +4209,7 @@ def buildLateralFaceFromEdgesAndSupportSurface(support, first_edge, second_edge,
     top[0] = 'top'
     W.putCurveBetweenTwoPoints(top, W.extremum(first_edge,True),
                                     W.extremum(second_edge,True))
+    W.discretizeInPlace(top, Distribution=bottom)
     
     lateral_face = G.TFI([bottom, top, second_edge, first_edge])
 
@@ -4209,3 +4230,36 @@ def fillByTFIfromThreeSurfaces(bottom, side1, side2, bottom_bnd='imin',
     surf = G.TFI([bottom_curve, top_curve, side1_curve, side2_curve])
 
     return surf
+
+def getDistribution(surface):
+    u, v, U, V = J.invokeFields(surface, ['u','v', 'U', 'V'])
+    x, y, z = J.getxyz(surface)
+
+    Δu = np.sqrt(np.diff(x,axis=0)**2 +
+                 np.diff(y,axis=0)**2 +
+                 np.diff(z,axis=0)**2 )
+    Δu = np.vstack((np.zeros(x.shape[1]),Δu))
+    U[:] = np.cumsum(Δu, axis=0)
+    U_length = np.sum(Δu, axis=0)
+    u[:] = U / U_length
+
+    Δv = np.sqrt(np.diff(x,axis=1)**2 +
+                 np.diff(y,axis=1)**2 +
+                 np.diff(z,axis=1)**2 )
+    Δv = np.hstack((np.zeros((x.shape[0],1)),Δv))
+    V[:] = np.cumsum(Δv, axis=1)
+    V_length = np.sum(Δv, axis=1)[np.newaxis].T
+    v[:] = V / V_length
+
+    distribution = J.createZone(surface[0]+'.dist',[u,v,u*0],['x','y','z'])
+    
+    return distribution
+
+def copyDistribution(surface_to_remesh, surface_with_desired_distribution):
+    dist = getDistribution(surface_with_desired_distribution)
+    return G.map(surface_to_remesh, dist)
+
+
+def point(surface,i=0,j=0):
+    x,y,z=J.getxyz(surface)
+    return np.array([x[i,j],y[i,j],z[i,j]],dtype=float)

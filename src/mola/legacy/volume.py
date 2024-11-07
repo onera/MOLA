@@ -2371,58 +2371,13 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
     AllowedInterpolationLaws = ('interp1d_<KindOfInterpolation>', 'pchip', 'akima', 'cubic')
 
     # Construct Spine
-    # Barycenters = map(lambda s: G.barycenter(s), ProvidedSections)
-    Barycenters = [G.barycenter(s) for s in ProvidedSections]
-    SpineCurve  = D.polyline(Barycenters)
+    reference = [tuple(GSD.point(s)) for s in ProvidedSections] # as opposed to a barycenter
+    SpineCurve  = D.polyline(reference)
     RelPositions= W.gets(SpineCurve)
-    # Verify SpineDiscretization argument
-    typeSpan=type(SpineDiscretization)
-    if I.isStdNode(SpineDiscretization) == 0: # It is a node
-        try:
-            s=J.gets(SpineDiscretization)
-            Ns = len(s)
-        except:
-            ErrMsg = "multiSections(): SpineDiscretization argument was a PyTree node (named %s), but I could not obtain the CurvilinearAbscissa.\nPerhaps you forgot GridCoordinates nodes?"%SpineDiscretization[0]
-            raise AttributeError(ErrMsg)
 
-    elif typeSpan is np.ndarray: # It is a numpy array
-        s  = SpineDiscretization
-        if len(s.shape)>1:
-            ErrMsg = "multiSections(): SpineDiscretization argument was detected as a numpy array of dimension %g!\nSpan MUST be a monotonically increasing VECTOR (1D numpy array) and between [0,1] interval."%len(s.shape)
-            raise AttributeError(ErrMsg)
-        Ns = s.shape[0]
-        if any( np.diff(s)<0):
-            ErrMsg = "multiSections(): SpineDiscretization argument was detected as a numpy array.\nHowever, it was NOT monotonically increasing. SpineDiscretization MUST be monotonically increasing and between [0,1] interval. Check that, please."
-            raise AttributeError(ErrMsg)
-        if any(s>1) or any(s<0):
-            ErrMsg = "multiSections(): SpineDiscretization argument was detected as a numpy array.\nHowever, it was NOT between [0,1] interval. Check that, please."
-            raise AttributeError(ErrMsg)
-    elif isinstance(SpineDiscretization, list): # It is a list
-        if isinstance(SpineDiscretization[0], dict):
-            SpineCurve  = W.polyDiscretize(SpineCurve, SpineDiscretization)
-            s  = W.gets(SpineCurve)
-            Ns = len(s)
-        else:
-            try:
-                s = np.array(SpineDiscretization,dtype=np.float64)
-            except:
-                ErrMsg = 'multiSections(): Could not transform SpineDiscretization argument into a numpy array.\nCheck your SpineDiscretization argument.\n'
-                raise AttributeError(ErrMsg)
-            if len(s.shape)>1:
-                ErrMsg = "multiSections(): SpineDiscretization argument was detected as a numpy array of dimension %g!\nSpan MUST be a monotonically increasing VECTOR (1D numpy array) and between [0,1] interval."%len(s.shape)
-                raise AttributeError(ErrMsg)
-            Ns = s.shape[0]
-            if any( np.diff(s)<0):
-                ErrMsg = "multiSections(): SpineDiscretization argument was detected as a numpy array.\nHowever, it was NOT monotonically increasing. SpineDiscretization MUST be monotonically increasing and between [0,1] interval. Check that, please."
-                raise AttributeError(ErrMsg)
-            if any(s>1) or any(s<0):
-                ErrMsg = "multiSections(): SpineDiscretization argument was detected as a numpy array.\nHowever, it was NOT between [0,1] interval. Check that, please."
-                raise AttributeError(ErrMsg)
-    else:
-        raise AttributeError('multiSections(): Type of SpineDiscretization argument not recognized. Check your input.')
-
-
-
+    span, s, zone_distr = J.getDistributionFromHeterogeneousInput__(SpineDiscretization)
+    refined_spine = W.discretize(SpineCurve, Distribution=zone_distr)
+    Ns = len(s)
 
     NPtsI,NPtsJ = J.getx(ProvidedSections[0]).shape
 
@@ -2492,7 +2447,7 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
     Volume = stackSections(Sections)
 
 
-    return Volume, SpineCurve
+    return Volume, refined_spine
 
 
 def stackSurfacesWithFields(FirstSurface, LastSurface, Distribution):

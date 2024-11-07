@@ -26,6 +26,12 @@ def apply_to_solver(workflow):
     if workflow.tree.get(Name='TurbulentDistance', Type='DataArray'):
         import Converter.elsAProfile as elsAProfile
         import Converter.Internal as I
+        previous_container = I.__FlowSolutionCenters__
         I.__FlowSolutionCenters__ = 'FlowSolution#Init'
         elsAProfile._addTurbulentDistanceIndex(workflow.tree)
         workflow.tree = cgns.castNode(workflow.tree)
+
+        # absolutely required to restitute previous container name since this
+        # may provoke unexpected boundary errors during pytests since this 
+        # variable value may persist on different contexts and is dangerous
+        I.__FlowSolutionCenters__ = previous_container 

@@ -1033,6 +1033,8 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
 
     '''
 
+    start, end = extrema(curve)
+
     if not N: N = C.getNPts(curve)
 
     if I.isStdNode(Distribution) == -1:
@@ -1043,7 +1045,8 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
                         Distribution=Distribution)
 
     if MappingLaw == 'Generator.map':
-        return G.map(curve,D.getDistribution(curve_Distri))
+        new_curve = G.map(curve,D.getDistribution(curve_Distri))
+
     else:
 
         # List of variables to remap
@@ -1063,10 +1066,13 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
         VarsArrays = [J.interpolate__(NewAbscissa,OldAbscissa,OldVar, Law=MappingLaw) for OldVar in OldVars]
 
         # Invoke newly remapped curve
-        curveMap = J.createZone(curve[0],VarsArrays,VarsNames)
+        new_curve = J.createZone(curve[0],VarsArrays,VarsNames)
 
-        return curveMap
+    x,y,z = J.getxyz(new_curve)
+    x[0],y[0],z[0] = start
+    x[-1],y[-1],z[-1] = end
 
+    return new_curve
 
 def discretizeInPlace(curve, **kwargs):
     rediscretized = discretize(curve, **kwargs)
@@ -1954,6 +1960,23 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
     if opposedExtremum: T._reorder(ExtrapolatedCurve,(-1,2,3))
 
     return ExtrapolatedCurve
+
+def prolongate(curve, factor=1.05, opposedExtremum=False):
+    if factor <= 1.0: raise AttributeError('factor must be >1')
+
+    x,y,z = J.getxyz(curve)
+    L = getLength(curve)
+    t = tangentExtremum(curve,opposedExtremum)
+    d = (1-factor) * L
+    if not opposedExtremum:
+        x[0]  += t[0] * d
+        y[0]  += t[1] * d
+        z[0]  += t[2] * d
+    else:
+        x[-1] -= t[0] * d
+        y[-1] -= t[1] * d
+        z[-1] -= t[2] * d
+
 
 
 def distancesCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ):
@@ -4759,6 +4782,11 @@ def writeAirfoilInSeligFormat(airfoil, filename='foil.dat'):
             f.write(' %0.6f   %0.6f\n'%(x,y))
 
 
+def segmentExtremum(curve,opposite_extremum=False):
+    if opposite_extremum:
+        return segment(curve,-1)
+    return segment(curve,0)
+
 def tangentExtremum(curve, opposite_extremum=False):
     '''
     get the unitary vector direction (tangent) at the extremum of a structured
@@ -5491,13 +5519,46 @@ def projectOnAxis(t, rotation_axis, rotation_center):
             z[i] = P[2]
 
 def getCharacteristicLength(t):
-    uns = C.convertArray2Tetra(t)
+    tRef = I.copyRef(t)
+    I._rmNodesByType(tRef,'FlowSolution_t')
+    uns = C.convertArray2Tetra(tRef)
     uns = T.merge(uns)
     uns, = I.getZones(uns)
     BB = G.BB(uns,'OBB')
     L = distance(point(BB,0),point(BB,-1))
     return L
 
+
+def loft(curve1, curve2, N=101, RelativeTension1=0.5, RelativeTension2=0.5,
+        StartSegment=None, EndSegment=None, Opposite1=False, Opposite2=False):
+
+    start_point = extremum(curve1, opposite_extremum=Opposite1)
+    if Opposite1:
+        start_tangent = tangentExtremum(curve1, opposite_extremum=True)
+    else:
+        start_tangent = -tangentExtremum(curve1, opposite_extremum=False)
+    start_segment = segmentExtremum(curve1, opposite_extremum=Opposite1) if StartSegment is None else StartSegment
+
+    end_point = extremum(curve2, opposite_extremum=Opposite2)
+    if Opposite2:
+        end_tangent = tangentExtremum(curve2, opposite_extremum=True)
+    else:
+        end_tangent = -tangentExtremum(curve2, opposite_extremum=False)
+    end_segment = segmentExtremum(curve2, opposite_extremum=Opposite2) if EndSegment is None else EndSegment
+    
+    L = distance(start_point, end_point)
+    ctrl_pt_1 = start_point + RelativeTension1*L*start_tangent
+    ctrl_pt_2 = end_point + RelativeTension2*L*end_tangent
+    ctrl_line = D.polyline([tuple(start_point),
+                            tuple(ctrl_pt_1),
+                            tuple(ctrl_pt_2),
+                            tuple(end_point)])
+    bezier = D.bezier(ctrl_line,N=1000)
+    loft_curve = discretize(bezier, N=N, Distribution=dict(
+        kind='tanhTwoSides', FirstCellHeight=start_segment, LastCellHeight=end_segment))
+    loft_curve[0] = 'loft'
+
+    return loft_curve
 
 
 def buildBezierAtCurvesExtrema(curve1, curve2, number_of_points, tension1=0.5,
@@ -6060,7 +6121,10 @@ def reDiscretizeCurvesWithSmoothTransitions(curves):
     return smoothly_discretized_curves
 
 def vectors_are_collinear(vector1, vector2, tolerance_in_degree=0.5):
-    return np.abs(angle_between_vectors(vector1, vector2, in_degree=True)) < tolerance_in_degree
+    θ = np.abs(angle_between_vectors(vector1, vector2, in_degree=True))
+    ε = tolerance_in_degree
+    return θ < ε or θ > 180 - ε
+
 
 vectors_are_aligned = vectors_are_collinear
 
@@ -6444,18 +6508,39 @@ def splitAtValue(curve, fieldname, value):
     cut_indices = [addPointToCurve(curve, p) for p in cut_points]
     return splitAt(curve, cut_indices)
 
-def cut(curve_to_be_cut, razor_surface, delta_mirror=1e-4):
+def roughOffset(curve, offset=1e-4, mirroring=False):
+    signs = (+1,-1) if mirroring else (+1,)
+    curve = I.copyTree(curve)
+
+    if curveIsLine(curve):
+        t0 = tangent(curve)
+        b = t0 + np.array([1,2,3])
+        s = np.cross(b,t0)
+        s /= np.linalg.norm(s)
+        sx, sy, sz = J.invokeFields(curve, ['sx','sy','sz'])
+        sx[:] = s[0]
+        sy[:] = s[1]
+        sz[:] = s[2]
+    else:
+        addNormals(curve)
+        sx,sy,sz = J.getVars(curve,['sx','sy','sz'])
 
     mirrors = []
-    for sign in (+1,-1):
-        mirror = I.copyTree(curve_to_be_cut)
-        addNormals(mirror)
+    for sign in signs:
+        mirror = I.copyTree(curve)
         x,y,z = J.getxyz(mirror) 
-        sx,sy,sz = J.getVars(mirror,['sx','sy','sz'])
-        x += sign*delta_mirror*sx
-        y += sign*delta_mirror*sy
-        z += sign*delta_mirror*sz
+        x += sign*offset*sx
+        y += sign*offset*sy
+        z += sign*offset*sz
+
         mirrors += [mirror]
+    
+    if mirroring: return mirrors
+    return mirror
+
+def cut(curve_to_be_cut, razor_surface, delta_mirror=1e-4):
+
+    mirrors = roughOffset(curve_to_be_cut, offset=delta_mirror, mirroring=True)
 
     bounds = [D.line(extremum(mirrors[0]),
                      extremum(mirrors[1]),2),
@@ -7682,19 +7767,28 @@ def maxRadius(t,center=[0,0,0],axis=[1,0,0]):
     return C.getMaxValue(t,'radius')
 
 
-def splitAndDiscretizeCurveAsProvidedReferenceCurves(curve, reference_curves : list):
+def splitAndDiscretizeCurveAsProvidedReferenceCurves(curve, reference_curves : list,
+        cutting_abscissas_deltas : list = []):
 
     nb_ref_curves = len(reference_curves)
+    nb_cut_deltas = len(cutting_abscissas_deltas)
+
+    if nb_cut_deltas == 0 :
+        cutting_abscissas_deltas = np.zeros((nb_ref_curves-1),dtype=float)
+    elif nb_cut_deltas != nb_ref_curves-1:
+        raise AttributeError('you should provide same nb of items of cutting_abscissas_deltas as nb of reference_curves -1')
+    cutting_abscissas_deltas = np.array(cutting_abscissas_deltas,dtype=float)
 
     if nb_ref_curves == 1: return discretize(curve, Distribution=reference_curves[0])
 
     reference_lengths = [ getLength(c) for c in reference_curves ]
     reference_total_length = np.sum( reference_lengths )
-    cutting_abscissas = list(np.cumsum(reference_lengths)/reference_total_length)
+    cutting_abscissas = (np.cumsum(reference_lengths)/reference_total_length)[:-1]+cutting_abscissas_deltas
 
     curve_to_cut = I.copyTree(curve)
     gets(curve_to_cut)
-    curve_subparts = splitAtValue(curve_to_cut, 's', cutting_abscissas[:-1] )
+    
+    curve_subparts = splitAtValue(curve_to_cut, 's', list(cutting_abscissas) )
     nb_subparts = len(curve_subparts)
     if nb_subparts != nb_ref_curves:
         raise ValueError(J.FAIL+f'expected {nb_ref_curves} subparts after splitting curve {curve[0]} using cutting_abscissas={cutting_abscissas} but got {nb_subparts} instead'+J.ENDC)
@@ -7709,6 +7803,15 @@ def tangent(curve, index=0):
     tangent_curve = D.getTangent(curve)
     tx, ty, tz = J.getxyz(tangent_curve)
     return np.array([tx[index], ty[index], tz[index]])
+
+def curveIsLine(curve):
+    Tangent    = D.getTangent(curve)
+    tx, ty, tz = J.getxyz(Tangent)
+    for i in range(len(tx)-1):
+        ti = np.array([tx[i], ty[i], tz[i]])
+        ti1 = np.array([tx[i+1], ty[i+1], tz[i+1]])
+        if not vectors_are_aligned(ti, ti1): return False
+    return True
 
 def deformWidth(curves, factor=1.5):
     lengths, dirs = getOrientedBoundingBoxLengthsAndDirections(curves)
@@ -7756,3 +7859,6 @@ def getOrientedBoundingBoxLengthsAndDirections(zone):
                                                          [i_dir, j_dir, k_dir])
     
     return lengths, dirs
+
+    
+    

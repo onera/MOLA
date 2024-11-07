@@ -41,7 +41,6 @@ class FakeWorkflow():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_apply_to_solver():
-
     workflow = FakeWorkflow()
     solver_elsa.apply_to_solver(workflow)
 
