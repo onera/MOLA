@@ -36,6 +36,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "user_case: application representative test, user-oriented, usually very costly")
 
+    config.addinivalue_line(
+        "markers", "restricted_user_case: like user_case, but involving not open input data, cannot be shared publicly")
+
     for cost_level, boundaries in cost_levels.items():
         config.addinivalue_line(
             "markers", f"{cost_level}: tests with expected cost {boundaries} sec")

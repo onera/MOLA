@@ -44,6 +44,8 @@ verbose = False
 MAX = np.maximum
 MIN = np.minimum
 
+maxRadius = W.maxRadius
+
 def sweepSections(sections=[], SpanPositions=None,
                   rotation=[0.], rotationLaw='linear',
                   NormalDirection=(1,0,0),
@@ -372,7 +374,10 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         for MustKey in ['RelativeSpan','InterpolationLaw',GeomParam]:
             if MustKey not in kwargs[GeomParam]:
                 raise AttributeError('wing(): %s dictionnary MUST contain "%s" key.'%(GeomParam,MustKey))
-        if len(kwargs[GeomParam]['RelativeSpan']) != len(kwargs[GeomParam][GeomParam]): raise AttributeError('wing(): There MUST be the SAME amount of elements in "RelativeSpan" and "%s" lists'%GeomParam)
+        NbOfItemsRelativeSpan = len(kwargs[GeomParam]['RelativeSpan'])
+        NbOfItemsGeomParam = len(kwargs[GeomParam][GeomParam])
+        if NbOfItemsRelativeSpan != NbOfItemsGeomParam:
+            raise AttributeError(f'there MUST be the SAME amount of elements in "RelativeSpan" (got {NbOfItemsRelativeSpan}) and "{GeomParam}" (got {NbOfItemsGeomParam})')
         if len(kwargs[GeomParam]['RelativeSpan'])==1:
             kwargs[GeomParam]['RelativeSpan'] = [0,kwargs[GeomParam]['RelativeSpan'][0]]
             kwargs[GeomParam][GeomParam]     += [kwargs[GeomParam][GeomParam][0]]
@@ -412,7 +417,12 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     if AirfoilDiscretization is not None:
         # Start with a re-discretization of airfoils
         for i in range(len(AirfoilList)):
-            AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization)
+            if isinstance(AirfoilDiscretization, dict):
+                AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization)
+            elif isinstance(AirfoilDiscretization, list):
+                AirfoilList[i] = W.discretizeAirfoil(AirfoilList[i], **AirfoilDiscretization[i])
+            else:
+                raise AttributeError('type of AirfoilDiscretization must be dict or list of dict')
 
         # Verify if all airfoils have the same number of points:
         ListOfNPts = np.array([C.getNPts(a) for a in AirfoilList])
@@ -2004,9 +2014,10 @@ def extrapolateSurface(Surface, Boundary, SpineDiscretization, mode='tangent',
         Boundary : str
             One of: ``'imin','imax','jmin','jmax'``
 
-        SpineDiscretization : 1D numpy array or zone
+        SpineDiscretization : float or 1D numpy array or zone
             used to define the position and distance of the new
-            extrapolation sections (array or curve)
+            extrapolation sections (array or curve). Use simply a float if you
+            want to extrapolate a given distance with a single cell.
 
         mode : str
             Can be one of:
@@ -2071,6 +2082,10 @@ def extrapolateSurface(Surface, Boundary, SpineDiscretization, mode='tangent',
             if any( np.diff(s)<0):
                 ErrMsg = "extrapolateSurface(): SpineDiscretization argument was detected as a numpy array.\nHowever, it was NOT monotonically increasing. SpineDiscretization MUST be monotonically increasing. Check that, please."
                 raise AttributeError(ErrMsg)
+    elif isinstance(SpineDiscretization, float) or isinstance(SpineDiscretization, int):
+        s = np.array([0,SpineDiscretization], dtype=float)
+        Ns = s.shape[0]
+
     else:
         raise AttributeError('extrapolateSurface(): Type of SpineDiscretization argument not recognized. Check your input.')
 
@@ -3334,7 +3349,7 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
           outter_cell_size=0.1, number_of_points_union=21,
           inner_normal_tension=0.5, outter_normal_tension=0.5,
           projection_support=None, global_projection_relaxation=0.,
-          local_projection_relaxation_length=0.,forced_split_index=None):
+          local_projection_relaxation_length=0.,forced_split_index=None, debug=False):
     '''
     Build an H-mesh surface from four structured curves as exterior boundary and
     an single structure curve as interior contour.
@@ -3454,7 +3469,9 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
 
 
     TFI_surfs = []
+    counter = -1
     for out_bnd, in_bnd in zip(outter_boundaries, inner_boundaries):
+        counter += 1
         sx, sy, sz = J.getVars(in_bnd, ['sx', 'sy', 'sz'])
         sx_o, sy_o, sz_o = J.getVars(out_bnd, ['sx', 'sy', 'sz'])
         union_curves = []
@@ -3471,8 +3488,9 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
                                      tuple(bezier_end_tension_pt),
                                      tuple(end_pt)])
 
-            if projection_support:
-                bezier_pts_proj = T.projectOrtho(bezier_pts, projection_support)
+
+            # if projection_support:
+            #     T._projectOrtho(bezier_pts, projection_support)
 
             fine_bezier = D.bezier(bezier_pts,N=500)
 
@@ -3518,12 +3536,13 @@ def allHaveNormals(t):
                 return False
     return has_normals
 
-def _alignNormalsWithRadialCylindricProjection(t, rotation_center, rotation_axis):
-    alignmentTol=1.0-1.e-10
+def _alignNormalsWithRadialCylindricProjection(t, rotation_center=[0,0,0], rotation_axis=[1,0,0],
+        vectors_alignment_tolerance_in_degree=0.50,):
     c = np.array(rotation_center,dtype=np.float64)
     a = np.array(rotation_axis,dtype=np.float64)
     q = c + a
     qc = c - q
+    np.seterr(all='raise')
     for zone in I.getZones(t):
         x,y,z = J.getxyz(zone)
         sx,sy,sz = J.getVars(zone,['sx','sy','sz'])
@@ -3537,18 +3556,32 @@ def _alignNormalsWithRadialCylindricProjection(t, rotation_center, rotation_axis
             p = np.array([x[i],y[i],z[i]],dtype=float)
             v = np.array([sx[i],sy[i],sz[i]],dtype=float)
             v_norm = np.sqrt(v.dot(v))
+            if v_norm < 1e-3: continue
             qp = p - q
             qp /= np.sqrt(qp.dot(qp))
-            alignment = np.abs(qp.dot(a))
-            if alignment >= alignmentTol: continue
+            if W.vectors_are_collinear(qp,a,vectors_alignment_tolerance_in_degree):
+                continue
             n = np.cross(qc,qp)
+            n /= np.linalg.norm(n)
             b = np.cross(n,v)
             t = np.cross(b,n)
-            t /= np.sqrt(t.dot(t))
+            try:
+                t /= np.linalg.norm(t)
+            except FloatingPointError as e:
+                msg = f"{p=}\n"
+                msg+= f"{b=}\n"
+                msg+= f"{n=}\n"
+                msg+= f"{v=}\n"
+                msg+= f"{qp=}\n"
+                msg+= f"{qc=}\n"
+                msg+= f"{a=}\n"
+                raise FloatingPointError(msg) from e
+
             t *= v_norm
             sx[i] = t[0]
             sy[i] = t[1]
             sz[i] = t[2]
+    np.seterr(divide='warn')
 
 def _hasMatchingFace(contour_struct, faces):
     for f in faces:
@@ -3964,22 +3997,9 @@ def plane_using_two_planar_vectors(point, vector1, vector2, length=1e3):
 
     return _plane_using_frame(point, tangential, binormal, normal, length=length)
 
+def plane_using_normal(point, normal_vector, length=1e3):
 
-def plane_using_normal(point, normal_vector, length=1e3, perturbation_vector=[1,2,3]):
-
-    if W.vectors_are_collinear(normal_vector, perturbation_vector):
-        raise AttributeError('normal_vector and perturbated_normal must not be collinear')
-
-    normal = np.array(normal_vector)
-    normal /= np.linalg.norm(normal)
-        
-    perturbated_normal = normal + np.array(perturbation_vector)
-    perturbated_normal /= np.linalg.norm(perturbated_normal)
-
-    binormal = np.cross(normal, perturbated_normal)
-    binormal /= np.linalg.norm(binormal)
-
-    tangential = np.cross(binormal, normal)
+    tangential, binormal, normal = frameFromObjectiveVector(normal_vector)
 
     return _plane_using_frame(point, tangential, binormal, normal, length=length)
 
@@ -4013,9 +4033,9 @@ def get_equation_coefficients_of_plane(plane):
 
     
 
-
 def intersection_between_curve_and_plane(curve, plane):
     curve = I.copyRef(curve)
+
 
     plane_coefs = get_equation_coefficients_of_plane(plane)
 
@@ -4038,4 +4058,208 @@ def intersection_point_between_curve_and_rotating_plane(curve,
 
     T._rotate(plane, plane_rotation_center, plane_rotation_axis, plane_angle_of_rotation)
 
-    return intersection_between_curve_and_plane(curve, plane)
+    intersection_points = intersection_between_curve_and_plane(curve, plane)
+
+    return intersection_points
+
+def cylinder(radius = 0.5, height=1.0, axis=[1,0,0], center=[0,0,0],
+             delta_theta_in_degrees=1.0):
+    n_pts_theta = int(360//delta_theta_in_degrees)
+
+    x = np.zeros((2,n_pts_theta), order='F')
+    y = np.zeros((2,n_pts_theta), order='F')
+    z = np.zeros((2,n_pts_theta), order='F')
+
+    theta = np.linspace(0,2*np.pi,n_pts_theta)
+    x[:] = radius * np.cos(theta)
+    y[:] = radius * np.sin(theta)
+    half_height = 0.5 * height
+    z[0,:] = half_height
+    z[1,:] = -half_height
+
+    cylinder = J.createZone('cylinder', [x,y,z], ['x','y','z'])
+
+    final_orientation = frameFromObjectiveVector(axis)
+    T._rotate(cylinder,(0,0,0),frameAsEye(), final_orientation)
+    T._translate(cylinder,center)
+
+    return cylinder
+
+def frameFromObjectiveVector(normal_vector):
+
+    eye3 = np.eye(3,dtype=float)
+    for i in range(3):
+        perturbation_vector = eye3[i]
+        if not W.vectors_are_collinear(normal_vector, perturbation_vector): break
+        
+    if W.vectors_are_collinear(normal_vector, perturbation_vector):
+        raise AttributeError('normal_vector and perturbation_vector must not be collinear')
+
+    normal = np.array(normal_vector, dtype=float)
+    normal /= np.linalg.norm(normal)
+        
+    perturbated_normal = normal + np.array(perturbation_vector)
+    perturbated_normal /= np.linalg.norm(perturbated_normal)
+
+    binormal = np.cross(normal, perturbated_normal)
+    binormal /= np.linalg.norm(binormal)
+
+    tangential = np.cross(binormal, normal)
+
+    return tangential, binormal, normal
+
+def frameAsEye(): return ((1,0,0),(0,1,0),(0,0,1))
+
+def sweepCurveNormalOnSurfaceBoundary(curve, surface, boundary='imin'):
+    boundary_curve = getBoundary(surface, boundary)
+
+    curves = []
+    sx, sy, sz = J.getVars(boundary_curve, ['sx','sy','sz'])
+    x, y, z = J.getxyz(boundary_curve)
+    base_of_curve = W.point(curve)
+    for i in range(C.getNPts(boundary_curve)):
+        new_curve = I.copyTree(curve)
+        xyz =  np.array([x[i],y[i],z[i]],dtype=float)
+        align_vector = np.array([sx[i],sy[i],sz[i]],dtype=float)
+        T._translate(new_curve,(xyz-base_of_curve))
+        W.align(new_curve, align_vector)
+        curves += [ new_curve ]
+
+    sweep_surface = G.stack(curves)
+
+    return sweep_surface
+
+
+def sweepCurveBetweenTwoCurves(sweeping_curve, spine_curve_1, spine_curve_2 ):
+    
+    NPts = C.getNPts(spine_curve_1)
+    if NPts != C.getNPts(spine_curve_2):
+        raise AttributeError('spine curves must have the same number of points')
+    
+    if W.distance(W.extremum(sweeping_curve),W.extremum(spine_curve_1)) > 1e-8:
+        sweeping_curve = W.reverse(sweeping_curve)
+    
+    if W.distance(W.extremum(sweeping_curve),W.extremum(spine_curve_1)) > 1e-8:
+        raise AttributeError("sweeping_curve and spine_curve_1 must touch")
+
+    x1, y1, z1 = J.getxyz(spine_curve_1)
+    x2, y2, z2 = J.getxyz(spine_curve_2)
+
+    sections = []
+    for i in range(NPts):
+        p1 = np.array([x1[i], y1[i], z1[i]],dtype=float)
+        p2 = np.array([x2[i], y2[i], z2[i]],dtype=float)
+        section = I.copyTree(sweeping_curve)
+        W.putCurveBetweenTwoPoints(section, p1, p2)
+        sections += [ section ]
+
+    surface = G.stack(sections)
+    T._reorder(surface,(2,1,3))
+
+    return surface
+
+
+def addNormalsAtVertex(curve):
+    G._getNormalMap(curve)
+    C.center2Node__(curve,'centers:sx',cellNType=0)
+    C.center2Node__(curve,'centers:sy',cellNType=0)
+    C.center2Node__(curve,'centers:sz',cellNType=0)
+    I._rmNodesByName(curve,I.__FlowSolutionCenters__)
+    C._normalize(curve,['sx','sy','sz'])
+
+
+
+def buildLateralFaceFromEdgesAndSupportSurface(support, first_edge, second_edge,
+                                               support_boundary='jmax',
+                                               extrapolating_radius=None,
+                                               redistribution=None,
+                                               ):
+
+    
+    if support_boundary == 'jmax':
+        W.putCurveAtSurfaceFollowingVector(first_edge, support, i=0, j=-1)
+        W.putCurveAtSurfaceFollowingVector(second_edge, support, i=-1, j=-1)
+
+    elif support_boundary == 'jmin':
+        W.putCurveAtSurfaceFollowingVector(first_edge, support, i=0, j=0)
+        W.putCurveAtSurfaceFollowingVector(second_edge, support, i=-1, j=0)
+
+    elif support_boundary == 'imin':
+        W.putCurveAtSurfaceFollowingVector(first_edge, support, i=0, j=0)
+        W.putCurveAtSurfaceFollowingVector(second_edge, support, i=0, j=-1)
+
+    elif support_boundary == 'imax':
+        W.putCurveAtSurfaceFollowingVector(first_edge, support, i=-1, j=0)
+        W.putCurveAtSurfaceFollowingVector(second_edge, support, i=-1, j=-1)
+    
+    else:
+        raise AttributeError(f'unsupported {support_boundary}')
+
+    for edge in first_edge, second_edge:
+        if maxRadius(edge) < extrapolating_radius:
+            W.extrapolateUpToRadius(edge,extrapolating_radius)
+        
+        if redistribution:
+            W.discretizeInPlace(edge, Distribution=redistribution)
+
+    bottom = getBoundary(support, support_boundary)
+    bottom[0] = 'bottom'
+
+    top = I.copyTree(bottom)
+    top[0] = 'top'
+    W.putCurveBetweenTwoPoints(top, W.extremum(first_edge,True),
+                                    W.extremum(second_edge,True))
+    W.discretizeInPlace(top, Distribution=bottom)
+    
+    lateral_face = G.TFI([bottom, top, second_edge, first_edge])
+
+    return lateral_face
+
+def fillByTFIfromThreeSurfaces(bottom, side1, side2, bottom_bnd='imin',
+                               side1_bnd='imin', side2_bnd='imin',
+                               force_uniform_top=False):
+
+    bottom_curve = getBoundary(bottom,bottom_bnd)
+    side1_curve = getBoundary(side1,side1_bnd)
+    side2_curve = getBoundary(side2,side2_bnd)
+    top_curve = I.copyTree(bottom_curve)
+    W.putCurveBetweenTwoPoints(top_curve, W.extremum(side1_curve, True),
+                                          W.extremum(side2_curve, True))
+    if force_uniform_top: W.discretizeInPlace(top_curve)
+
+    surf = G.TFI([bottom_curve, top_curve, side1_curve, side2_curve])
+
+    return surf
+
+def getDistribution(surface):
+    u, v, U, V = J.invokeFields(surface, ['u','v', 'U', 'V'])
+    x, y, z = J.getxyz(surface)
+
+    Δu = np.sqrt(np.diff(x,axis=0)**2 +
+                 np.diff(y,axis=0)**2 +
+                 np.diff(z,axis=0)**2 )
+    Δu = np.vstack((np.zeros(x.shape[1]),Δu))
+    U[:] = np.cumsum(Δu, axis=0)
+    U_length = np.sum(Δu, axis=0)
+    u[:] = U / U_length
+
+    Δv = np.sqrt(np.diff(x,axis=1)**2 +
+                 np.diff(y,axis=1)**2 +
+                 np.diff(z,axis=1)**2 )
+    Δv = np.hstack((np.zeros((x.shape[0],1)),Δv))
+    V[:] = np.cumsum(Δv, axis=1)
+    V_length = np.sum(Δv, axis=1)[np.newaxis].T
+    v[:] = V / V_length
+
+    distribution = J.createZone(surface[0]+'.dist',[u,v,u*0],['x','y','z'])
+    
+    return distribution
+
+def copyDistribution(surface_to_remesh, surface_with_desired_distribution):
+    dist = getDistribution(surface_with_desired_distribution)
+    return G.map(surface_to_remesh, dist)
+
+
+def point(surface,i=0,j=0):
+    x,y,z=J.getxyz(surface)
+    return np.array([x[i,j],y[i,j],z[i,j]],dtype=float)

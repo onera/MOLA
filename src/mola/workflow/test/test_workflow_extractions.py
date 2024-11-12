@@ -115,14 +115,8 @@ def test_integrals_one_run(tmp_path, niter=10):
         assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals2",
             "MassFlow", tmp_path, expected_number_of_items)
 
-    if w.Solver != 'sonics':
-        assert_all()
-    else:
-        try: 
-            assert_all() # this should failed
-        except AssertionError:
-            return
-        raise AssertionError
+
+    assert_all() # TODO test also here the residuals output
 
 
 @pytest.mark.integration
@@ -156,22 +150,16 @@ def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
     os.system(f'cd {tmp_path}; mola_update --NumberOfIterations={niter_second_run}')
 
     # Second run: we must read the updated file main.cgns with workflow reader
-    w = read_workflow(str(tmp_path/names.FILE_INPUT_SOLVER))
+    w = read_workflow(os.path.join(tmp_path,names.FILE_INPUT_SOLVER))
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
 
     expected_number_of_items = niter_first_run + niter_second_run + 1
 
-    if w.Solver != 'sonics':
-        assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
-        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items)
-    else:
-        try: 
-            assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
-        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], tmp_path, expected_number_of_items) # this should failed
-        except AssertionError:
-            return
-        raise AssertionError
+    # TODO test also here the residuals output
+    assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
+        ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'],
+          tmp_path, expected_number_of_items)
 
 
 
@@ -207,5 +195,6 @@ def test_bc_one_run(tmp_path, niter=10):
 
 
 if __name__ == '__main__':
-    # test_integrals_one_run('extract_integrals_one_run_'+os.environ.get("MOLA_SOLVER"))
-    test_bc_one_run('test_bc_one_run_'+os.environ.get("MOLA_SOLVER"))
+    test_integrals_one_run('extract_integrals_one_run_'+os.environ.get("MOLA_SOLVER"))
+    # test_integrals_two_runs('extract_integrals_two_runs_'+os.environ.get("MOLA_SOLVER"))
+    # test_bc_one_run('test_bc_one_run_'+os.environ.get("MOLA_SOLVER"))

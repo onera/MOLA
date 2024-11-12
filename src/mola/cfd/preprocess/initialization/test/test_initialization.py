@@ -73,15 +73,13 @@ def test_initialization_copy_not_existing_file():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_compute_turbulent_distance_with_maia():
-
     tree = make_tree()
     tree = initialization.compute_turbulent_distance_with_maia(tree)
-
+    test_compute_turbulent_distance_with_maia
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_force_grid_location_as_first_sibling():
-    
     tree = make_tree()
     
     GridLocation = tree.get('GridLocation')

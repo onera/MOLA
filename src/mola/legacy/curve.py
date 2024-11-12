@@ -111,6 +111,35 @@ def distanceOfPointToLine(Point, LineVector, LinePassingPoint):
         distance : float
             minimum euclidean distance between the provided point and line
     '''
+    v = vectorOfLineToPoint(Point, LineVector, LinePassingPoint)
+    distance = np.linalg.norm(v)
+
+    return distance
+
+
+def vectorOfLineToPoint(Point, LineVector, LinePassingPoint):
+    '''
+    Compute the Euclidean vector between a line that passes through a point and
+    a point in space.
+
+    Parameters
+    ----------
+
+        Point : zone or :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes point coordinates.
+
+        LineVector : :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes line direction vector.
+
+        LinePassingPoint : :py:class:`list` or :py:class:`tuple` or numpy array
+            Includes the line passing point coordinates.
+
+    Returns
+    -------
+
+        vector : 3-float np.array
+            vector of line to point
+    '''
 
     if isPyTreePoint(Point):
         x,y,z = J.getxyz(Point)
@@ -136,10 +165,8 @@ def distanceOfPointToLine(Point, LineVector, LinePassingPoint):
     cp = p - c
     q = c + l*cp.dot(l)
     qp = p - q
-    distance = np.sqrt(qp.dot(qp))
 
-    return distance
-
+    return qp
 
 def angle2D(P1,P2):
     r'''
@@ -625,7 +652,8 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
     ----------
 
         designation : str
-            NACA airfoil identifier of 4 or 5 digits
+            NACA airfoil identifier of 4 or 5 digits, or str or filename in selig, 
+            lidnicer formats, or cgns zone curve
 
         Ntop : int
             Number of points of the Top side of the airfoil.
@@ -675,11 +703,16 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
         Ntop /= 2
 
 
-
     NACAstringLoc = designation.find('NACA')
     # Determines the kind of airfoil to generate
-    if designation.find('.') != -1: # Then user wants to import an airfoil from file
-        Imported = np.genfromtxt(designation, dtype=np.float64, skip_header=1, usecols=(0,1))
+    has_dot = '.' in designation
+    has_linebreak = '\n' in designation
+    if has_dot or has_linebreak: # Then user wants to import an airfoil from file
+        if has_linebreak:
+            input_to_npy = designation.split("\n")
+        else:
+            input_to_npy = designation
+        Imported = np.genfromtxt(input_to_npy, dtype=np.float64, skip_header=1, usecols=(0,1))
         # Deletes useless lines
         RowsToDelete = []
         for i in range(len(Imported[:,0])):
@@ -712,7 +745,6 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
             xU= Imported[xMin:,0]
             yU = Imported[xMin:,1]
         Airfoil = D.line((0,0,0), (1,0,0), len(xL)+len(xU)-1 )
-        Airfoil[0] = designation.split('.')[0]
         Airfoil_x = J.getx(Airfoil)
         Airfoil_y = J.gety(Airfoil)
         Airfoil_x[:] = np.hstack((xL,xU[1:]))
@@ -890,14 +922,68 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
     Top_x, Top_y = J.getxy(Top)
     Bottom_x, Bottom_y = J.getxy(Bottom)
     Airfoil = linelaw(N=len(Top_x)+len(Bottom_x)-1)
-    Airfoil[0] = designation.split('.')[0]
     Airfoil_x, Airfoil_y = J.getxy(Airfoil)
     Airfoil_x[:len(Bottom_x)] = Bottom_x
     Airfoil_x[len(Bottom_x):] = Top_x[1:]
     Airfoil_y[:len(Bottom_y)] = Bottom_y
     Airfoil_y[len(Bottom_y):] = Top_y[1:]
 
+    if has_linebreak:
+        Airfoil[0] = input_to_npy[0]
+    else:
+        Airfoil[0] = designation.split('.')[0]
+
     return Airfoil
+
+
+def loadAirfoilInSafeMode( ZoneOrNACAstringOrFilename, rear_region_portion=0.9):
+
+    if isinstance(ZoneOrNACAstringOrFilename, str):
+        name = ZoneOrNACAstringOrFilename
+        if name.endswith('.dat') or name.endswith('.txt') or \
+           (name.startswith('NACA') and '.' not in name) :
+            return airfoil(name)
+        zone = J.load(name)
+
+    elif isinstance(ZoneOrNACAstringOrFilename, list):
+        zone = I.getZones(ZoneOrNACAstringOrFilename)[0]
+
+    else:
+        raise TypeError('type of ZoneOrNACAstringOrFilename attribute not supported')
+
+    if not isStructuredCurve(zone):
+        raise AttributeError('airfoil zone must be a structured curve')
+    
+    x, y = J.getxy(zone)
+    i_xmax = np.argmax(x)
+    i_xmin = np.argmin(x)
+    chord = x[i_xmax] - x[i_xmin]
+    if chord > 1.05 or chord < 0.95:
+        raise AttributeError('airfoil zone must be of chord ~1 in X direction')
+    
+    rear_region =  rear_region_portion * x[i_xmax] + \
+                (1-rear_region_portion)* x[i_xmin]
+    if x[0] < rear_region:
+        raise AttributeError('airfoil starting point must be on trailing edge')
+
+    if x[-1] < rear_region:
+        raise AttributeError('airfoil end point must be on trailing edge')
+
+    width = y.max() - y.min()
+    if width < 1e-3:
+        raise AttributeError('airfoil zone must have non-null width and must be placed on OXY plane')
+
+    trailing_edge_gap_vector = np.array([x[-1]-x[0],y[-1]-y[0]])
+    trailing_edge_gap = np.linalg.norm(trailing_edge_gap_vector)
+    is_closed = trailing_edge_gap < 1e-8
+
+    if not is_closed:
+        if y[0] > y[-1]:
+            raise AttributeError('airfoil zone must be oriented clockwise around Y')
+
+    return zone
+
+
 
 
 
@@ -947,6 +1033,8 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
 
     '''
 
+    start, end = extrema(curve)
+
     if not N: N = C.getNPts(curve)
 
     if I.isStdNode(Distribution) == -1:
@@ -957,7 +1045,8 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
                         Distribution=Distribution)
 
     if MappingLaw == 'Generator.map':
-        return G.map(curve,D.getDistribution(curve_Distri))
+        new_curve = G.map(curve,D.getDistribution(curve_Distri))
+
     else:
 
         # List of variables to remap
@@ -977,11 +1066,20 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
         VarsArrays = [J.interpolate__(NewAbscissa,OldAbscissa,OldVar, Law=MappingLaw) for OldVar in OldVars]
 
         # Invoke newly remapped curve
-        curveMap = J.createZone(curve[0],VarsArrays,VarsNames)
+        new_curve = J.createZone(curve[0],VarsArrays,VarsNames)
 
-        return curveMap
+    x,y,z = J.getxyz(new_curve)
+    x[0],y[0],z[0] = start
+    x[-1],y[-1],z[-1] = end
 
-def discretizeAirfoil(airfoil, Ntop, Nbot=None, CellSizeAtLE=None, CellSizeAtTE=None, relativeToChord=False):
+    return new_curve
+
+def discretizeInPlace(curve, **kwargs):
+    rediscretized = discretize(curve, **kwargs)
+    curve[1] = rediscretized[1]
+    curve[2] = rediscretized[2] 
+
+def discretizeAirfoil(airfoil, Ntop=101, Nbot=None, CellSizeAtLE=None, CellSizeAtTE=None, relativeToChord=False):
     '''
     *(Re)*-discretize the curve defining the given **airfoil**. The leading is automatically detected, and
     a 'tanhTwoSides' distribution (see doc of :py:func:`linelaw`) is used on suction side and pressure side.  
@@ -1358,7 +1456,15 @@ def getAbscissaAtStation(curve, station, coordinate='x'):
     PlaneCoefs = n[0],n[1],n[2],-n.dot(Pt)
     C._initVars(curve,'SliceVar=%0.12g*{CoordinateX}+%0.12g*{CoordinateY}+%0.12g*{CoordinateZ}+%0.12g'%PlaneCoefs)
 
-    Slice = P.isoSurfMC(curve,'SliceVar',value=0.0)[0]
+    try:
+        Slice = P.isoSurfMC(curve,'SliceVar',value=0.0)[0]
+    except IndexError:
+        from .surface import plane_using_normal
+        plane_db = plane_using_normal(Pt, n, length=getLength(curve))
+        J.save(J.tree(CURVE=curve, PLANE=plane_db),'debug.cgns')
+        raise ValueError(f'did not find intersection between CURVE {curve[0]} and PLANE n={n}, p={Pt}, check debug.cgns')
+
+
     s, = J.getVars(Slice,['s'])
 
     return s
@@ -1847,10 +1953,30 @@ def extrapolate(curve, ExtrapDistance, mode='tangent', opposedExtremum=False):
         
         ExtrapolatedCurve = T.join(curve, Appendix)
 
+    else:
+        raise AttributeError(f'mode {mode} not implemented')
+
 
     if opposedExtremum: T._reorder(ExtrapolatedCurve,(-1,2,3))
 
     return ExtrapolatedCurve
+
+def prolongate(curve, factor=1.05, opposedExtremum=False):
+    if factor <= 1.0: raise AttributeError('factor must be >1')
+
+    x,y,z = J.getxyz(curve)
+    L = getLength(curve)
+    t = tangentExtremum(curve,opposedExtremum)
+    d = (1-factor) * L
+    if not opposedExtremum:
+        x[0]  += t[0] * d
+        y[0]  += t[1] * d
+        z[0]  += t[2] * d
+    else:
+        x[-1] -= t[0] * d
+        y[-1] -= t[1] * d
+        z[-1] -= t[2] * d
+
 
 
 def distancesCurve2SurfDirectional(Curve,Surface,DirX,DirY,DirZ):
@@ -4656,6 +4782,11 @@ def writeAirfoilInSeligFormat(airfoil, filename='foil.dat'):
             f.write(' %0.6f   %0.6f\n'%(x,y))
 
 
+def segmentExtremum(curve,opposite_extremum=False):
+    if opposite_extremum:
+        return segment(curve,-1)
+    return segment(curve,0)
+
 def tangentExtremum(curve, opposite_extremum=False):
     '''
     get the unitary vector direction (tangent) at the extremum of a structured
@@ -5388,13 +5519,46 @@ def projectOnAxis(t, rotation_axis, rotation_center):
             z[i] = P[2]
 
 def getCharacteristicLength(t):
-    uns = C.convertArray2Tetra(t)
+    tRef = I.copyRef(t)
+    I._rmNodesByType(tRef,'FlowSolution_t')
+    uns = C.convertArray2Tetra(tRef)
     uns = T.merge(uns)
     uns, = I.getZones(uns)
     BB = G.BB(uns,'OBB')
     L = distance(point(BB,0),point(BB,-1))
     return L
 
+
+def loft(curve1, curve2, N=101, RelativeTension1=0.5, RelativeTension2=0.5,
+        StartSegment=None, EndSegment=None, Opposite1=False, Opposite2=False):
+
+    start_point = extremum(curve1, opposite_extremum=Opposite1)
+    if Opposite1:
+        start_tangent = tangentExtremum(curve1, opposite_extremum=True)
+    else:
+        start_tangent = -tangentExtremum(curve1, opposite_extremum=False)
+    start_segment = segmentExtremum(curve1, opposite_extremum=Opposite1) if StartSegment is None else StartSegment
+
+    end_point = extremum(curve2, opposite_extremum=Opposite2)
+    if Opposite2:
+        end_tangent = tangentExtremum(curve2, opposite_extremum=True)
+    else:
+        end_tangent = -tangentExtremum(curve2, opposite_extremum=False)
+    end_segment = segmentExtremum(curve2, opposite_extremum=Opposite2) if EndSegment is None else EndSegment
+    
+    L = distance(start_point, end_point)
+    ctrl_pt_1 = start_point + RelativeTension1*L*start_tangent
+    ctrl_pt_2 = end_point + RelativeTension2*L*end_tangent
+    ctrl_line = D.polyline([tuple(start_point),
+                            tuple(ctrl_pt_1),
+                            tuple(ctrl_pt_2),
+                            tuple(end_point)])
+    bezier = D.bezier(ctrl_line,N=1000)
+    loft_curve = discretize(bezier, N=N, Distribution=dict(
+        kind='tanhTwoSides', FirstCellHeight=start_segment, LastCellHeight=end_segment))
+    loft_curve[0] = 'loft'
+
+    return loft_curve
 
 
 def buildBezierAtCurvesExtrema(curve1, curve2, number_of_points, tension1=0.5,
@@ -5598,11 +5762,13 @@ def joinSequentially(curves, reorder=False, sort=False):
         joined_curve : zone
             structured curve (join result of **curves**)
     '''
-    if reorder: curves = reorderCurvesSequentially(curves)
-    if sort: curves = sortCurvesSequentially(curves)
 
-    joined_curve = curves[0]
-    for curve in curves[1:]:
+    copied_curves = J.getZonesByCopy(curves)
+    if reorder: copied_curves = reorderCurvesSequentially(copied_curves)
+    if sort: copied_curves = sortCurvesSequentially(copied_curves)
+
+    joined_curve = copied_curves[0]
+    for curve in copied_curves[1:]:
         x,y,z = J.getxyz(joined_curve)
         x[0] += 999
         y[0] += 999
@@ -5804,17 +5970,22 @@ def interpolateAirfoils(Airfoils, Positions, RequestedPositions, order=1):
     except:
         RequestedPositions = [RequestedPositions]
 
+    OriginalAirfoils = I.copyTree(Airfoils)
+
     Ns = len(RequestedPositions)
     NinterFoils = len(Airfoils)
     ListOfNPts = np.array([C.getNPts(a) for a in Airfoils])
     if not all(ListOfNPts[0] == ListOfNPts):
         Airfoils = useEqualNumberOfPointsOrSameDiscretization(Airfoils)
 
+    AllDistributions = [D.getDistribution(a) for a in Airfoils]
+
     RediscretizedAirfoils = [Airfoils[0]]
     foil_Distri = D.getDistribution(RediscretizedAirfoils[0])
     for foil in Airfoils[1:]: RediscretizedAirfoils += [G.map(foil, foil_Distri)]
     NPts = C.getNPts(RediscretizedAirfoils[0])
     
+    # Interpolates Coordinates in U, V space:
     InterpolatedAirfoils = [D.line((0,0,0),(1,0,0),NPts) for _ in range(Ns)]
 
     InterpXmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
@@ -5839,6 +6010,29 @@ def interpolateAirfoils(Airfoils, Positions, RequestedPositions, order=1):
             SecX,SecY = J.getxy(Section)
             SecX[:] = InterpolatedX[j,:]
             SecY[:] = InterpolatedY[j,:]
+
+    # Interpolates Distributions 
+    InterpolatedDistributions = [D.line((0,0,0),(1,0,0),NPts) for _ in range(Ns)]
+
+    InterpXmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
+    for j in range(NinterFoils):
+        InterpXmatrix[j,:] = J.getx(AllDistributions[j])
+
+        u = gets(AllDistributions[0])
+        v = Positions
+        interpX = scipy.interpolate.RectBivariateSpline(v,u,InterpXmatrix,
+                                                        kx=order, ky=order)
+        InterpolatedX = interpX(RequestedPositions, u)
+
+        for j in range(Ns):
+            Distribution = InterpolatedDistributions[j]
+            Distribution[0] = 'distribution_at_%g'%RequestedPositions[j]
+            DistX = J.getx(Distribution)
+            DistX[:] = InterpolatedX[j,:]
+
+    # applies interpolated distributions to interpolated sections
+    for a, d in zip(InterpolatedAirfoils, InterpolatedDistributions):
+        discretizeInPlace(a,Distribution=d)
 
     if len(InterpolatedAirfoils)==1:
         return InterpolatedAirfoils[0]
@@ -5927,12 +6121,17 @@ def reDiscretizeCurvesWithSmoothTransitions(curves):
     return smoothly_discretized_curves
 
 def vectors_are_collinear(vector1, vector2, tolerance_in_degree=0.5):
-    return np.abs(angle_between_vectors(vector1, vector2, in_degree=True)) < tolerance_in_degree
+    θ = np.abs(angle_between_vectors(vector1, vector2, in_degree=True))
+    ε = tolerance_in_degree
+    return θ < ε or θ > 180 - ε
+
+
+vectors_are_aligned = vectors_are_collinear
 
 def angle_between_vectors(vector1, vector2, in_degree=True):
-    u = np.array(vector1)
+    u = np.array(vector1, dtype=float)
     u /= np.linalg.norm(u)
-    v = np.array(vector2)
+    v = np.array(vector2, dtype=float)
     v /= np.linalg.norm(v)
 
     angle_in_radians = np.arccos(u.dot(v))
@@ -5942,3 +6141,1724 @@ def angle_between_vectors(vector1, vector2, in_degree=True):
         return angle_in_degree
     
     return angle_in_radians
+
+def extrapolateCurvesUpToSameRadius(curve1, curve2, rotation_center, rotation_axis):
+
+    def must_reverse_curve(curve):
+        r = J.getVars(curve, ['Radius'])[0]
+        npts = len(r)
+        argmin = np.argmin(r)
+        argmax = np.argmax(r)
+        
+        if argmin == 0 and argmax == (npts-1):
+            return False
+        elif argmin == (npts-1) and argmax == 0:
+            return True
+        else:
+            raise ValueError('curve is not monotonic on radial direction')
+        
+    addDistanceRespectToLine([curve1,curve2], rotation_center, rotation_axis,
+                                FieldNameToAdd='Radius')
+    
+    for curve in [curve1, curve2]:
+        if must_reverse_curve(curve):
+            reverse(curve, in_place=True)
+
+    max_radius_curve1 = C.getMaxValue(curve1,'Radius')
+    min_radius_curve1 = C.getMinValue(curve1,'Radius')
+    max_radius_curve2 = C.getMaxValue(curve2,'Radius')
+    min_radius_curve2 = C.getMinValue(curve2,'Radius')
+
+    min_radius = np.minimum(min_radius_curve1, min_radius_curve2)
+    max_radius = np.maximum(max_radius_curve1, max_radius_curve2)
+
+    from .surface import cylinder
+    cylinder_params = dict(center=rotation_center,
+                           height=5*(getLength(curve1)+getLength(curve2)),
+                           axis=rotation_axis,
+                           delta_theta_in_degrees=1.0)
+
+    if min_radius_curve1 < min_radius_curve2:
+        cylinder_rmin = cylinder(radius=min_radius_curve1, **cylinder_params)
+        extrapolateUpToGeometry(curve2, cylinder_rmin)
+    
+    elif min_radius_curve1 > min_radius_curve2:
+        cylinder_rmin = cylinder(radius=min_radius_curve2, **cylinder_params)
+        extrapolateUpToGeometry(curve1, cylinder_rmin)
+
+    if max_radius_curve1 < max_radius_curve2:
+        cylinder_rmax = cylinder(radius=max_radius_curve2, **cylinder_params)
+        extrapolateUpToGeometry(curve1, cylinder_rmax, opposed_extremum=True)
+    
+    elif max_radius_curve1 > max_radius_curve2:
+        cylinder_rmax = cylinder(radius=max_radius_curve1, **cylinder_params)
+        extrapolateUpToGeometry(curve2, cylinder_rmax, opposed_extremum=True)
+
+    for curve in [curve1, curve2]: removeMultiplePoints(curve)
+
+    return min_radius, max_radius
+
+
+def extrapolateUpToRadius(curve, radius, center=[0,0,0], axis=[1,0,0]):
+
+    addDistanceRespectToLine(curve,center,axis,'radius')
+    Rmax = C.getMaxValue(curve,'radius')
+    if Rmax >= radius: raise AttributeError(f'curve already has higher radius ({Rmax}) than requested ({radius})')
+    extrapolated_curve = extrapolate(curve, 2*Rmax, opposedExtremum=False)
+    addDistanceRespectToLine(extrapolated_curve,center,axis,'radius')
+    split_parts = splitAtValue(extrapolated_curve,'radius', radius)
+    extrapolated_curve = split_parts[0]
+    curve[1] = extrapolated_curve[1]
+    curve[2] = extrapolated_curve[2]
+
+    
+
+
+def extrapolateUpToGeometry(curve, boundary, opposed_extremum=False, direction='tangent'):
+    I._rmNodesByType(curve,'FlowSolution_t')
+    extremum_coords = extremum(curve,opposed_extremum)
+    extremum_point = D.point(extremum_coords)
+    if direction == 'tangent':
+        tangent = tangentExtremum(curve, opposite_extremum=opposed_extremum)
+    else:
+        tangent = np.array(direction, dtype=float)
+        tangent /= np.linalg.norm(tangent)
+    T._projectDir( extremum_point, boundary, tangent, oriented=1)
+    concatenation = [curve,extremum_point] if opposed_extremum else [extremum_point,curve]
+    extrapolated_curve = concatenate(concatenation)
+    curve[1] = extrapolated_curve[1]
+    curve[2] = extrapolated_curve[2]
+
+def adjustUpToGeometry(curve, boundary, direction='tangent'):
+    working_curve = I.copyTree(curve)
+    split_parts = cut(working_curve, boundary)
+    nb_of_subparts_after_split = len(split_parts)
+    
+    if nb_of_subparts_after_split == 2:
+        first_subpart = discretize(split_parts[0], Distribution=curve)
+        return first_subpart
+    
+    if nb_of_subparts_after_split == 1:
+        extrapolateUpToGeometry(working_curve, boundary, direction=direction,
+                                               opposed_extremum=True)
+        return working_curve
+
+    raise ValueError(f'cannot adjust since split between curve and surface produce {nb_of_subparts_after_split} parts instead of 1 or 2')
+
+
+
+def getExtrapolationUpToGeometry(curve, boundary, direction='tangent',
+                                 relative_tension=0.5, N=None, Distribution=None):
+
+    tangent = tangentExtremum(curve)
+    if direction == 'tangent':
+        direction = tangent
+    else:
+        direction = np.array(direction, dtype=float)
+        direction /= np.linalg.norm(direction)
+
+    last_point = point(curve,-1,True)
+    last_point_projected_on_support = T.projectDir(last_point, boundary,
+                                                   direction, oriented=1)
+    rough_extrapolation_length = distance(last_point, last_point_projected_on_support)
+
+    tangent_extrapolation = extrapolate(curve, rough_extrapolation_length, opposedExtremum=True)
+    
+    tangent_extrapolation_last_point = point(tangent_extrapolation, -1, True)
+    point_on_support = T.projectDir(tangent_extrapolation_last_point, boundary,
+                                    direction, oriented=1)
+    
+    bezier_points = [tuple(point(last_point)),
+                     tuple(point(tangent_extrapolation_last_point)),
+                     tuple(point(point_on_support))]
+    bezier_ctrl_polyline = D.polyline(bezier_points)
+    bezier = D.bezier(bezier_ctrl_polyline,1000)
+    if Distribution: discretizeInPlace(bezier, N=N, Distribution=Distribution)
+
+    return bezier
+    
+
+
+    
+
+
+def bisector(curve1, curve2, weight=0.5, N=3000):
+    curve1_fine = discretize(curve1,N=N)
+    curve2_fine = discretize(curve2,N=N)
+
+    top = D.line(extremum(curve1),extremum(curve2),2)
+    bottom = D.line(extremum(curve1,True),extremum(curve2,True),2)
+
+    top = addPointToCurveAtAbscissa(top, weight) 
+    bottom = addPointToCurveAtAbscissa(bottom, weight)
+
+    wires = [curve1_fine, curve2_fine, bottom, top]
+    I._correctPyTree(wires,level=3)
+
+    surf = G.TFI([curve1_fine, curve2_fine, bottom, top])
+
+    from .surface import getBoundary
+    bisector = getBoundary(surf, 'imin', 1)
+
+    return bisector
+
+def addPointToCurveAtAbscissa(curve, abscissa):
+    if abscissa >= 1 or abscissa <= 0: raise AttributeError('abscissa must be strictly between 0 and 1')
+    s = gets(curve)
+    point = P.isoSurfMC(curve,'s',abscissa)
+    point = I.getZones(point)[0]
+    xp, yp, zp = J.getxyz(point)
+    x,y,z = J.getxyz(curve)
+    before = s < abscissa
+    after = np.logical_not(before)
+    x_new = np.hstack((x[before],xp[0],x[after]))
+    y_new = np.hstack((y[before],yp[0],y[after]))
+    z_new = np.hstack((z[before],zp[0],z[after]))
+    new_curve = J.createZone(curve[0], [x_new, y_new, z_new], ['x','y','z'])
+    return new_curve
+
+
+
+def addTangentCurveAtExtremumUpToRadius(curve, radius, center, axis, relative_tension=0.5):
+    
+    first_point = extremum(curve, opposite_extremum=True)
+    new_curve = extrapolate( curve, relative_tension * getLength(curve) )
+    addRadials( new_curve, center, axis )
+    rx, ry, rz = J.getVars(new_curve,['rx','ry','rz'])
+    radial_vector = np.array([rx[-1],ry[-1],rz[-1]])
+    bezier_point = extremum(new_curve, opposite_extremum=True)
+    bezier_radius = distanceOfPointToLine(bezier_point, axis, center)
+    last_point = bezier_point + radial_vector * (radius - bezier_radius)
+    bezier_points = [tuple(p) for p in [first_point, bezier_point, last_point] ]
+    bezier_control_polyline = D.polyline(bezier_points)
+    bezier = D.bezier(bezier_control_polyline,N=500)
+    bezier[0] ='bezier'
+
+    return bezier
+
+
+def addRadials(curves, center, axis):
+    for curve in I.getZones(curves):
+        rx, ry, rz = J.invokeFields(curve,['rx', 'ry', 'rz'])
+        x,y,z = J.getxyz(curve)
+
+        projected_curve = I.copyTree(curve)
+        projectOnAxis(projected_curve, axis, center)
+        xp,yp,zp = J.getxyz(projected_curve)
+        rx[:] = x - xp
+        ry[:] = y - yp
+        rz[:] = z - zp
+
+        C._normalize(curve,['rx','ry','rz'])
+
+
+def getPointsInContactWith(zone, possibly_touching_zones):
+    hook, _ = C.createGlobalHook(zone, function='nodes', indir=1)
+
+    points = []
+    for block in I.getZones(possibly_touching_zones):
+        nodes = np.array(C.identifyNodes(hook, block))
+        nodes = np.sort(nodes[nodes>0])
+        for node in nodes:
+            points.append(point(zone, node-1))
+    unique_points = np.unique(points, axis=0)
+    return unique_points
+
+def getCurvesInContact(curves, possibly_touching_curves):
+    touching_curves = []
+    for curve in I.getZones(curves):
+        hook, _ = C.createGlobalHook(curve, function='nodes', indir=1)
+
+        for block in I.getZones(possibly_touching_curves):
+            nodes = np.array(C.identifyNodes(hook, block))
+            if any(nodes>0): touching_curves += [block]
+        
+    seen_first_elements = set()
+    filtered_list = []
+    for inner_list in touching_curves:
+        first_element = inner_list[0]
+        if first_element not in seen_first_elements:
+            seen_first_elements.add(first_element)
+            filtered_list.append(inner_list)
+
+    return filtered_list
+
+def transferTouchingSegmentsAndDirections(curves_receiver, curves_donor):
+    for curve in I.getZones(curves_receiver):
+        length = J.invokeFields(curve,['segment'])[0]
+        sx, sy, sz = J.invokeFields(curve,['sx','sy','sz'])
+        hook, _ = C.createGlobalHook(curve, function='nodes', indir=1)
+
+        for donor in I.getZones(curves_donor):
+            nodes = np.array(C.identifyNodes(hook, donor))
+            nodes = np.sort(nodes[nodes>0])
+            if len(nodes) == 0: continue
+            for node in nodes:
+                receiver_index = node - 1
+                donor_index = D.getNearestPointIndex(donor, tuple(point(curve,receiver_index)))[0]-1
+                length[receiver_index] = segment(donor,donor_index)
+                txyz = tangent(donor, donor_index)
+                sx[receiver_index] = txyz[0]
+                sy[receiver_index] = txyz[1]
+                sz[receiver_index] = txyz[2]
+
+
+def middle(curve):
+    x,y,z = J.getxyz(curve)
+    xmin = np.min(x)
+    xmax = np.max(x)
+    ymin = np.min(y)
+    ymax = np.max(y)
+    zmin = np.min(z)
+    zmax = np.max(z)
+
+    return np.array([0.5*(xmin+xmax),
+                     0.5*(ymin+ymax),
+                     0.5*(zmin+zmax)])
+
+
+def addPointToCurve(curve, point, exclude_point_if_distance_less_than=1e-8):
+
+    if len(point) == 4:
+        x,y,z=J.getxyz(point)
+        point = (x[0], y[0], z[0])
+    
+    elif isinstance(point, np.ndarray) or isinstance(point, list):
+        point = tuple(point)
+
+    if not isinstance(point, tuple) or len(point) != 3:
+        raise AttributeError('wrong point attribute')
+
+
+    segments = C.node2Center(curve)
+    nearest_cell_index = D.getNearestPointIndex(segments, [point])[0][0]
+
+
+    ind, sqrd_dist = D.getNearestPointIndex(curve, [point])[0]
+    if np.sqrt(sqrd_dist) < exclude_point_if_distance_less_than: return ind
+
+    x_node = I.getNodeFromName2(curve, 'CoordinateX')
+    y_node = I.getNodeFromName2(curve, 'CoordinateY')
+    z_node = I.getNodeFromName2(curve, 'CoordinateZ')
+    Δx = x_node[1][nearest_cell_index+1]-x_node[1][nearest_cell_index]
+    Δy = y_node[1][nearest_cell_index+1]-y_node[1][nearest_cell_index]
+    Δz = z_node[1][nearest_cell_index+1]-z_node[1][nearest_cell_index]
+    
+    previous_point = np.array([x_node[1][nearest_cell_index],
+                               y_node[1][nearest_cell_index],
+                               z_node[1][nearest_cell_index]])
+    
+
+    length = np.sqrt(Δx*Δx+Δy*Δy+Δz*Δz)
+    point_distance = distance(point, previous_point)
+
+
+    x_node[1] = np.hstack((x_node[1][:nearest_cell_index+1],
+                           point[0],
+                           x_node[1][nearest_cell_index+1:]))
+    y_node[1] = np.hstack((y_node[1][:nearest_cell_index+1],
+                           point[1],
+                           y_node[1][nearest_cell_index+1:]))
+    z_node[1] = np.hstack((z_node[1][:nearest_cell_index+1],
+                           point[2],
+                           z_node[1][nearest_cell_index+1:]))
+
+
+    for container in I.getNodesFromType1(curve,'FlowSolution_t'):
+        for data_field in I.getNodesFromType1(container,'DataArray_t'):
+            value = data_field[1]
+            try:
+                interpolated_value = np.interp(point_distance/length,
+                                                [0,length],
+                                                [value[nearest_cell_index],
+                                                value[nearest_cell_index+1]])
+            except BaseException as e:
+                msg = f'FAILED interpolating field {curve[0]}/{container[0]}/{data_field[0]}\n'
+                msg+= f'with:\n'
+                msg+= f'{value=}\n'
+                msg+= f'{point_distance=}\n'
+                msg+= f'{length=}\n'
+                msg+= f'{nearest_cell_index=}\n'
+
+                raise Exception(str(e)+J.FAIL+msg+J.ENDC)
+
+            data_field[1] = np.hstack(( value[:nearest_cell_index+1],
+                                        interpolated_value,
+                                        value[nearest_cell_index+1:]))
+
+    curve[1][0][:2] +=1
+
+    return nearest_cell_index+1 # useful for splitting
+                
+
+def splitAtPoint(curve, point):
+    cut_index = addPointToCurve(curve, point)
+    return splitAt(curve, cut_index)
+
+def splitAtValue(curve, fieldname, value):
+
+    values = value if isinstance(value,list) else [value]
+
+    cut_pypoints = []
+    for v in values:
+        cut_pypoints += I.getZones(P.isoSurfMC(curve,fieldname,value=v))
+    
+    if not cut_pypoints: return [curve]
+    cut_points = [ point(p) for p in cut_pypoints]
+    cut_indices = [addPointToCurve(curve, p) for p in cut_points]
+    return splitAt(curve, cut_indices)
+
+def roughOffset(curve, offset=1e-4, mirroring=False):
+    signs = (+1,-1) if mirroring else (+1,)
+    curve = I.copyTree(curve)
+
+    if curveIsLine(curve):
+        t0 = tangent(curve)
+        b = t0 + np.array([1,2,3])
+        s = np.cross(b,t0)
+        s /= np.linalg.norm(s)
+        sx, sy, sz = J.invokeFields(curve, ['sx','sy','sz'])
+        sx[:] = s[0]
+        sy[:] = s[1]
+        sz[:] = s[2]
+    else:
+        addNormals(curve)
+        sx,sy,sz = J.getVars(curve,['sx','sy','sz'])
+
+    mirrors = []
+    for sign in signs:
+        mirror = I.copyTree(curve)
+        x,y,z = J.getxyz(mirror) 
+        x += sign*offset*sx
+        y += sign*offset*sy
+        z += sign*offset*sz
+
+        mirrors += [mirror]
+    
+    if mirroring: return mirrors
+    return mirror
+
+def cut(curve_to_be_cut, razor_surface, delta_mirror=1e-4):
+
+    mirrors = roughOffset(curve_to_be_cut, offset=delta_mirror, mirroring=True)
+
+    bounds = [D.line(extremum(mirrors[0]),
+                     extremum(mirrors[1]),2),
+              D.line(extremum(mirrors[0], True),
+                     extremum(mirrors[1], True),2)]
+    
+    curve_as_surface = G.TFI([*mirrors, *bounds])
+    curve_as_surface = C.convertArray2Tetra(curve_as_surface)
+    tri_razor_surface = C.convertArray2Tetra(razor_surface)
+
+    conformed = XOR.conformUnstr(curve_as_surface, tri_razor_surface, left_or_right=2, itermax=1)
+    manifold = I.getZones(T.splitManifold(conformed))
+    points = getPointsInContactWith(manifold[0],manifold[1:])
+    if len(points) == 0: return [curve_to_be_cut]
+    intersection = middle(D.polyline([tuple(p) for p in points]))
+    curve_being_cut = I.copyTree(curve_to_be_cut)
+    return splitAtPoint(curve_being_cut, intersection)
+
+
+def align(curve, vector, tolerance_in_degree=0.1):
+
+    n = np.array(vector, dtype=float)
+    n /= np.linalg.norm(n)
+    v = tangentExtremum(curve)
+
+    θ = angle_between_vectors(n, v, in_degree=True)
+    if θ < tolerance_in_degree: return
+    
+    axis = np.cross(v,n)
+    center = extremum(curve)
+    T._rotate(curve, tuple(center), tuple(axis), θ)
+
+
+def putCurveBetweenTwoPoints(curve, start_point, end_point, tolerance_in_degree=1e-6):
+    x, y, z = J.getxyz(curve)
+    x[:] -= x[0]
+    y[:] -= y[0]
+    z[:] -= z[0]
+    original_length = getLength(curve)
+    Δ = end_point-start_point
+    final_length = np.linalg.norm(Δ)
+
+    scale = final_length/original_length
+    x[:] *= scale
+    y[:] *= scale
+    z[:] *= scale
+
+    x[:] += start_point[0]
+    y[:] += start_point[1]
+    z[:] += start_point[2]
+
+    u = np.array([x[-1]-x[0], y[-1]-y[0], z[-1]-z[0]],dtype=float)
+    v = np.array([end_point[0]-x[0], end_point[1]-y[0], end_point[2]-z[0]],dtype=float)
+    θ = angle_between_vectors(u, v, in_degree=True)
+    
+    if θ > tolerance_in_degree:
+        axis = np.cross(v,u)
+        T._rotate(curve, (x[0], y[0], z[0]), tuple(axis), -θ)
+    
+    x[0] = start_point[0]
+    y[0] = start_point[1]
+    z[0] = start_point[2]
+
+    x[-1] = end_point[0]
+    y[-1] = end_point[1]
+    z[-1] = end_point[2]
+
+
+def putCurveAtSurfaceFollowingVector(curve, surface, i=0, j=0, vector_name='s'):
+    x, y, z = J.getxyz(surface)
+    X = np.array([x[i,j], y[i,j], z[i,j]], dtype=float)
+    T._translate(curve,tuple(X-point(curve)))
+
+    vx, vy, vz = J.getVector(surface, vector_name)
+    v = np.array([vx[i,j], vy[i,j], vz[i,j]], dtype=float)
+    align(curve, v, 1e-4)
+
+def matchExtremaOfCurveToExtremaOfOtherCurve(curve_with_extrema_to_fix,
+                                             curve_with_reference_extrema):
+    xyz1 = J.getxyz(curve_with_extrema_to_fix)
+    xyz2 = J.getxyz(curve_with_reference_extrema)
+    for i in (0,-1):
+        for x1, x2 in zip(xyz1, xyz2):
+            x1[i] = x2[i]
+
+def forceVectorPointOutwards(curve, center=[0,0,0], vector_name='s'):
+    O = np.array(center,dtype=float)
+    x,y,z = J.getxyz(curve)
+    vx, vy, vz = J.getVector(curve,vector_name)
+
+    for i in range(len(x)):
+        X = np.array([x[i],y[i],z[i]])
+        V = np.array([vx[i],vy[i],vz[i]])
+        OX = X-O
+
+        if OX.dot(V) < 0:
+            vx[i] *= -1
+            vy[i] *= -1
+            vz[i] *= -1
+
+
+def getAirfoil_NASA_SC_2_0412(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0412 AIRFOIL
+  1.000000  0.003300
+  0.990000  0.005300
+  0.980000  0.007200
+  0.970000  0.009000
+  0.960000  0.010800
+  0.950000  0.012500
+  0.940000  0.014200
+  0.930000  0.015800
+  0.920000  0.017400
+  0.910000  0.019000
+  0.900000  0.020500
+  0.890000  0.022000
+  0.880000  0.023500
+  0.870000  0.025000
+  0.860000  0.026400
+  0.850000  0.027800
+  0.840000  0.029200
+  0.830000  0.030600
+  0.820000  0.031900
+  0.810000  0.033200
+  0.800000  0.034500
+  0.790000  0.035800
+  0.780000  0.037000
+  0.770000  0.038200
+  0.760000  0.039400
+  0.750000  0.040600
+  0.740000  0.041700
+  0.730000  0.042800
+  0.720000  0.043900
+  0.710000  0.044900
+  0.700000  0.045900
+  0.690000  0.046900
+  0.680000  0.047900
+  0.670000  0.048800
+  0.660000  0.049700
+  0.650000  0.050600
+  0.640000  0.051400
+  0.630000  0.052200
+  0.620000  0.052900
+  0.610000  0.053600
+  0.600000  0.054300
+  0.590000  0.054900
+  0.580000  0.055500
+  0.570000  0.056000
+  0.560000  0.056500
+  0.550000  0.057000
+  0.540000  0.057400
+  0.530000  0.057800
+  0.520000  0.058200
+  0.510000  0.058500
+  0.500000  0.058800
+  0.490000  0.059100
+  0.480000  0.059300
+  0.470000  0.059500
+  0.460000  0.059700
+  0.450000  0.059800
+  0.440000  0.059900
+  0.430000  0.060000
+  0.420000  0.060100
+  0.410000  0.060100
+  0.400000  0.060100
+  0.390000  0.060100
+  0.380000  0.060100
+  0.370000  0.060000
+  0.360000  0.059900
+  0.350000  0.059800
+  0.340000  0.059700
+  0.330000  0.059500
+  0.320000  0.059300
+  0.310000  0.059100
+  0.300000  0.058900
+  0.290000  0.058600
+  0.280000  0.058300
+  0.270000  0.057900
+  0.260000  0.057500
+  0.250000  0.057100
+  0.240000  0.056700
+  0.230000  0.056200
+  0.220000  0.055600
+  0.210000  0.055000
+  0.200000  0.054400
+  0.190000  0.053700
+  0.180000  0.053000
+  0.170000  0.052200
+  0.160000  0.051300
+  0.150000  0.050400
+  0.140000  0.049400
+  0.130000  0.048400
+  0.120000  0.047300
+  0.110000  0.046100
+  0.100000  0.044800
+  0.090000  0.043400
+  0.080000  0.041800
+  0.070000  0.040000
+  0.060000  0.038000
+  0.050000  0.035700
+  0.040000  0.033000
+  0.030000  0.029700
+  0.020000  0.025300
+  0.010000  0.019000
+  0.005000  0.014100
+  0.002000  0.009200
+  0.000000  0.000000
+  0.002000 -0.009200
+  0.005000 -0.014100
+  0.010000 -0.019000
+  0.020000 -0.025300
+  0.030000 -0.029600
+  0.040000 -0.032900
+  0.050000 -0.035600
+  0.060000 -0.037900
+  0.070000 -0.040000
+  0.080000 -0.041800
+  0.090000 -0.043400
+  0.100000 -0.044900
+  0.110000 -0.046300
+  0.120000 -0.047600
+  0.130000 -0.048800
+  0.140000 -0.049900
+  0.150000 -0.050900
+  0.160000 -0.051800
+  0.170000 -0.052700
+  0.180000 -0.053500
+  0.190000 -0.054200
+  0.200000 -0.054900
+  0.210000 -0.055500
+  0.220000 -0.056100
+  0.230000 -0.056700
+  0.240000 -0.057200
+  0.250000 -0.057700
+  0.260000 -0.058100
+  0.270000 -0.058500
+  0.280000 -0.058800
+  0.290000 -0.059100
+  0.300000 -0.059300
+  0.310000 -0.059500
+  0.320000 -0.059700
+  0.330000 -0.059800
+  0.340000 -0.059900
+  0.350000 -0.060000
+  0.360000 -0.060000
+  0.370000 -0.060000
+  0.380000 -0.059900
+  0.390000 -0.059800
+  0.400000 -0.059600
+  0.410000 -0.059400
+  0.420000 -0.059200
+  0.430000 -0.058900
+  0.440000 -0.058600
+  0.450000 -0.058200
+  0.460000 -0.057800
+  0.470000 -0.057300
+  0.480000 -0.056800
+  0.490000 -0.056200
+  0.500000 -0.055500
+  0.510000 -0.054700
+  0.520000 -0.053900
+  0.530000 -0.053000
+  0.540000 -0.052000
+  0.550000 -0.050900
+  0.560000 -0.049800
+  0.570000 -0.048600
+  0.580000 -0.047300
+  0.590000 -0.045900
+  0.600000 -0.044400
+  0.610000 -0.042900
+  0.620000 -0.041300
+  0.630000 -0.039700
+  0.640000 -0.038000
+  0.650000 -0.036200
+  0.660000 -0.034400
+  0.670000 -0.032600
+  0.680000 -0.030700
+  0.690000 -0.028800
+  0.700000 -0.026900
+  0.710000 -0.025000
+  0.720000 -0.023100
+  0.730000 -0.021200
+  0.740000 -0.019300
+  0.750000 -0.017400
+  0.760000 -0.015500
+  0.770000 -0.013700
+  0.780000 -0.011900
+  0.790000 -0.010200
+  0.800000 -0.008500
+  0.810000 -0.006800
+  0.820000 -0.005200
+  0.830000 -0.003700
+  0.840000 -0.002300
+  0.850000 -0.000900
+  0.860000  0.000300
+  0.870000  0.001400
+  0.880000  0.002400
+  0.890000  0.003200
+  0.900000  0.003800
+  0.910000  0.004300
+  0.920000  0.004500
+  0.930000  0.004500
+  0.940000  0.004200
+  0.950000  0.003800
+  0.960000  0.003100
+  0.970000  0.002200
+  0.980000  0.001000
+  0.990000 -0.000500
+  1.000000 -0.002200
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+
+def getAirfoil_NASA_SC_2_0410(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0410 AIRFOIL
+  1.000000  0.003200
+  0.990000  0.005000
+  0.980000  0.006700
+  0.970000  0.008300
+  0.960000  0.009800
+  0.950000  0.011300
+  0.940000  0.012700
+  0.930000  0.014100
+  0.920000  0.015400
+  0.910000  0.016700
+  0.900000  0.018000
+  0.890000  0.019300
+  0.880000  0.020500
+  0.870000  0.021700
+  0.860000  0.022900
+  0.850000  0.024100
+  0.840000  0.025200
+  0.830000  0.026300
+  0.820000  0.027400
+  0.810000  0.028500
+  0.800000  0.029600
+  0.790000  0.030600
+  0.780000  0.031600
+  0.770000  0.032600
+  0.760000  0.033600
+  0.750000  0.034500
+  0.740000  0.035400
+  0.730000  0.036300
+  0.720000  0.037200
+  0.710000  0.038000
+  0.700000  0.038800
+  0.690000  0.039600
+  0.680000  0.040400
+  0.670000  0.041100
+  0.660000  0.041800
+  0.650000  0.042500
+  0.640000  0.043100
+  0.630000  0.043700
+  0.620000  0.044300
+  0.610000  0.044900
+  0.600000  0.045400
+  0.590000  0.045900
+  0.580000  0.046400
+  0.570000  0.046800
+  0.560000  0.047200
+  0.550000  0.047600
+  0.540000  0.047900
+  0.530000  0.048200
+  0.520000  0.048500
+  0.510000  0.048800
+  0.500000  0.049000
+  0.490000  0.049200
+  0.480000  0.049400
+  0.470000  0.049600
+  0.460000  0.049700
+  0.450000  0.049800
+  0.440000  0.049900
+  0.430000  0.050000
+  0.420000  0.050000
+  0.410000  0.050000
+  0.400000  0.050000
+  0.390000  0.050000
+  0.380000  0.050000
+  0.370000  0.049900
+  0.360000  0.049800
+  0.350000  0.049700
+  0.340000  0.049600
+  0.330000  0.049500
+  0.320000  0.049300
+  0.310000  0.049100
+  0.300000  0.048900
+  0.290000  0.048700
+  0.280000  0.048400
+  0.270000  0.048100
+  0.260000  0.047800
+  0.250000  0.047400
+  0.240000  0.047000
+  0.230000  0.046600
+  0.220000  0.046100
+  0.210000  0.045600
+  0.200000  0.045000
+  0.190000  0.044400
+  0.180000  0.043800
+  0.170000  0.043100
+  0.160000  0.042400
+  0.150000  0.041600
+  0.140000  0.040800
+  0.130000  0.039900
+  0.120000  0.038900
+  0.110000  0.037900
+  0.100000  0.036800
+  0.090000  0.035600
+  0.080000  0.034200
+  0.070000  0.032700
+  0.060000  0.031000
+  0.050000  0.029100
+  0.040000  0.026900
+  0.030000  0.024200
+  0.020000  0.020700
+  0.010000  0.015500
+  0.005000  0.011600
+  0.002000  0.007600
+  0.000000  0.000000
+  0.002000 -0.007600
+  0.005000 -0.011600
+  0.010000 -0.015500
+  0.020000 -0.020700
+  0.030000 -0.024200
+  0.040000 -0.026900
+  0.050000 -0.029100
+  0.060000 -0.031000
+  0.070000 -0.032700
+  0.080000 -0.034200
+  0.090000 -0.035600
+  0.100000 -0.036900
+  0.110000 -0.038100
+  0.120000 -0.039200
+  0.130000 -0.040200
+  0.140000 -0.041100
+  0.150000 -0.042000
+  0.160000 -0.042800
+  0.170000 -0.043500
+  0.180000 -0.044200
+  0.190000 -0.044900
+  0.200000 -0.045500
+  0.210000 -0.046000
+  0.220000 -0.046500
+  0.230000 -0.047000
+  0.240000 -0.047400
+  0.250000 -0.047800
+  0.260000 -0.048100
+  0.270000 -0.048400
+  0.280000 -0.048700
+  0.290000 -0.048900
+  0.300000 -0.049100
+  0.310000 -0.049300
+  0.320000 -0.049400
+  0.330000 -0.049500
+  0.340000 -0.049600
+  0.350000 -0.049700
+  0.360000 -0.049700
+  0.370000 -0.049700
+  0.380000 -0.049700
+  0.390000 -0.049600
+  0.400000 -0.049500
+  0.410000 -0.049400
+  0.420000 -0.049200
+  0.430000 -0.049000
+  0.440000 -0.048800
+  0.450000 -0.048500
+  0.460000 -0.048200
+  0.470000 -0.047800
+  0.480000 -0.047400
+  0.490000 -0.047000
+  0.500000 -0.046500
+  0.510000 -0.046000
+  0.520000 -0.045400
+  0.530000 -0.044700
+  0.540000 -0.044000
+  0.550000 -0.043200
+  0.560000 -0.042300
+  0.570000 -0.041300
+  0.580000 -0.040200
+  0.590000 -0.039000
+  0.600000 -0.037800
+  0.610000 -0.036500
+  0.620000 -0.035200
+  0.630000 -0.033800
+  0.640000 -0.032400
+  0.650000 -0.030900
+  0.660000 -0.029400
+  0.670000 -0.027800
+  0.680000 -0.026200
+  0.690000 -0.024600
+  0.700000 -0.023000
+  0.710000 -0.021400
+  0.720000 -0.019800
+  0.730000 -0.018200
+  0.740000 -0.016600
+  0.750000 -0.015000
+  0.760000 -0.013400
+  0.770000 -0.011800
+  0.780000 -0.010200
+  0.790000 -0.008700
+  0.800000 -0.007200
+  0.810000 -0.005800
+  0.820000 -0.004400
+  0.830000 -0.003100
+  0.840000 -0.001800
+  0.850000 -0.000600
+  0.860000  0.000500
+  0.870000  0.001500
+  0.880000  0.002400
+  0.890000  0.003100
+  0.900000  0.003700
+  0.910000  0.004100
+  0.920000  0.004300
+  0.930000  0.004300
+  0.940000  0.004100
+  0.950000  0.003700
+  0.960000  0.003100
+  0.970000  0.002300
+  0.980000  0.001200
+  0.990000 -0.000100
+  1.000000 -0.001700
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+def getAirfoil_NASA_SC_2_0406(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0406 AIRFOIL
+  1.000000 -0.001600
+  0.990000 -0.000600
+  0.980000  0.000400
+  0.970000  0.001400
+  0.960000  0.002300
+  0.950000  0.003200
+  0.940000  0.004100
+  0.930000  0.005000
+  0.920000  0.005900
+  0.910000  0.006800
+  0.900000  0.007600
+  0.890000  0.008400
+  0.880000  0.009200
+  0.870000  0.010000
+  0.860000  0.010800
+  0.850000  0.011600
+  0.840000  0.012400
+  0.830000  0.013200
+  0.820000  0.013900
+  0.810000  0.014600
+  0.800000  0.015300
+  0.790000  0.016000
+  0.780000  0.016700
+  0.770000  0.017400
+  0.760000  0.018100
+  0.750000  0.018700
+  0.740000  0.019300
+  0.730000  0.019900
+  0.720000  0.020500
+  0.710000  0.021100
+  0.700000  0.021700
+  0.690000  0.022200
+  0.680000  0.022700
+  0.670000  0.023200
+  0.660000  0.023700
+  0.650000  0.024200
+  0.640000  0.024700
+  0.630000  0.025100
+  0.620000  0.025500
+  0.610000  0.025900
+  0.600000  0.026300
+  0.590000  0.026700
+  0.580000  0.027000
+  0.570000  0.027300
+  0.560000  0.027600
+  0.550000  0.027900
+  0.540000  0.028200
+  0.530000  0.028400
+  0.520000  0.028600
+  0.510000  0.028800
+  0.500000  0.029000
+  0.490000  0.029200
+  0.480000  0.029400
+  0.470000  0.029500
+  0.460000  0.029600
+  0.450000  0.029700
+  0.440000  0.029800
+  0.430000  0.029900
+  0.420000  0.030000
+  0.410000  0.030100
+  0.400000  0.030100
+  0.390000  0.030100
+  0.380000  0.030100
+  0.370000  0.030100
+  0.360000  0.030100
+  0.350000  0.030100
+  0.340000  0.030000
+  0.330000  0.029900
+  0.320000  0.029800
+  0.310000  0.029700
+  0.300000  0.029600
+  0.290000  0.029500
+  0.280000  0.029300
+  0.270000  0.029100
+  0.260000  0.028900
+  0.250000  0.028700
+  0.240000  0.028500
+  0.230000  0.028200
+  0.220000  0.027900
+  0.210000  0.027600
+  0.200000  0.027300
+  0.190000  0.027000
+  0.180000  0.026600
+  0.170000  0.026200
+  0.160000  0.025800
+  0.150000  0.025300
+  0.140000  0.024800
+  0.130000  0.024200
+  0.120000  0.023600
+  0.110000  0.023000
+  0.100000  0.022300
+  0.090000  0.021500
+  0.080000  0.020700
+  0.070000  0.019800
+  0.060000  0.018700
+  0.050000  0.017500
+  0.040000  0.016100
+  0.030000  0.014400
+  0.020000  0.012200
+  0.010000  0.008900
+  0.005000  0.006400
+  0.002000  0.004300
+  0.000000  0.000000
+  0.002000 -0.004300
+  0.005000 -0.006400
+  0.010000 -0.008900
+  0.020000 -0.012200
+  0.030000 -0.014400
+  0.040000 -0.016100
+  0.050000 -0.017500
+  0.060000 -0.018700
+  0.070000 -0.019700
+  0.080000 -0.020600
+  0.090000 -0.021500
+  0.100000 -0.022300
+  0.110000 -0.023000
+  0.120000 -0.023700
+  0.130000 -0.024300
+  0.140000 -0.024900
+  0.150000 -0.025400
+  0.160000 -0.025900
+  0.170000 -0.026400
+  0.180000 -0.026800
+  0.190000 -0.027200
+  0.200000 -0.027600
+  0.210000 -0.027900
+  0.220000 -0.028200
+  0.230000 -0.028500
+  0.240000 -0.028800
+  0.250000 -0.029000
+  0.260000 -0.029200
+  0.270000 -0.029400
+  0.280000 -0.029600
+  0.290000 -0.029700
+  0.300000 -0.029800
+  0.310000 -0.029900
+  0.320000 -0.030000
+  0.330000 -0.030100
+  0.340000 -0.030100
+  0.350000 -0.030100
+  0.360000 -0.030100
+  0.370000 -0.030100
+  0.380000 -0.030000
+  0.390000 -0.029900
+  0.400000 -0.029800
+  0.410000 -0.029700
+  0.420000 -0.029500
+  0.430000 -0.029300
+  0.440000 -0.029100
+  0.450000 -0.028800
+  0.460000 -0.028500
+  0.470000 -0.028200
+  0.480000 -0.027900
+  0.490000 -0.027500
+  0.500000 -0.027100
+  0.510000 -0.026700
+  0.520000 -0.026300
+  0.530000 -0.025800
+  0.540000 -0.025300
+  0.550000 -0.024800
+  0.560000 -0.024300
+  0.570000 -0.023700
+  0.580000 -0.023100
+  0.590000 -0.022500
+  0.600000 -0.021900
+  0.610000 -0.021300
+  0.620000 -0.020700
+  0.630000 -0.020100
+  0.640000 -0.019500
+  0.650000 -0.018800
+  0.660000 -0.018100
+  0.670000 -0.017400
+  0.680000 -0.016700
+  0.690000 -0.016000
+  0.700000 -0.015300
+  0.710000 -0.014600
+  0.720000 -0.013900
+  0.730000 -0.013200
+  0.740000 -0.012500
+  0.750000 -0.011800
+  0.760000 -0.011100
+  0.770000 -0.010400
+  0.780000 -0.009700
+  0.790000 -0.009000
+  0.800000 -0.008400
+  0.810000 -0.007800
+  0.820000 -0.007200
+  0.830000 -0.006600
+  0.840000 -0.006000
+  0.850000 -0.005500
+  0.860000 -0.005000
+  0.870000 -0.004500
+  0.880000 -0.004100
+  0.890000 -0.003700
+  0.900000 -0.003400
+  0.910000 -0.003100
+  0.920000 -0.002900
+  0.930000 -0.002800
+  0.940000 -0.002800
+  0.950000 -0.002900
+  0.960000 -0.003100
+  0.970000 -0.003400
+  0.980000 -0.003900
+  0.990000 -0.004600
+  1.000000 -0.005500
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+def getAirfoil_NASA_SC_2_0404(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0404 AIRFOIL
+  1.000000 -0.001500
+  0.990000 -0.000500
+  0.980000  0.000450
+  0.970000  0.001350
+  0.960000  0.002250
+  0.950000  0.003100
+  0.940000  0.003950
+  0.930000  0.004750
+  0.920000  0.005500
+  0.910000  0.006250
+  0.900000  0.006950
+  0.890000  0.007650
+  0.880000  0.008300
+  0.870000  0.008950
+  0.860000  0.009550
+  0.850000  0.010150
+  0.840000  0.010700
+  0.830000  0.011250
+  0.820000  0.011750
+  0.810000  0.012250
+  0.800000  0.012700
+  0.790000  0.013150
+  0.780000  0.013550
+  0.770000  0.013950
+  0.760000  0.014350
+  0.750000  0.014700
+  0.740000  0.015050
+  0.730000  0.015400
+  0.720000  0.015700
+  0.710000  0.016000
+  0.700000  0.016300
+  0.690000  0.016550
+  0.680000  0.016800
+  0.670000  0.017050
+  0.660000  0.017300
+  0.650000  0.017500
+  0.640000  0.017700
+  0.630000  0.017900
+  0.620000  0.018100
+  0.610000  0.018300
+  0.600000  0.018450
+  0.590000  0.018600
+  0.580000  0.018750
+  0.570000  0.018900
+  0.560000  0.019050
+  0.550000  0.019200
+  0.540000  0.019300
+  0.530000  0.019400
+  0.520000  0.019500
+  0.510000  0.019600
+  0.500000  0.019700
+  0.490000  0.019800
+  0.480000  0.019850
+  0.470000  0.019900
+  0.460000  0.019950
+  0.450000  0.020000
+  0.440000  0.020050
+  0.430000  0.020100
+  0.420000  0.020100
+  0.410000  0.020100
+  0.400000  0.020100
+  0.390000  0.020100
+  0.380000  0.020100
+  0.370000  0.020100
+  0.360000  0.020050
+  0.350000  0.020000
+  0.340000  0.019950
+  0.330000  0.019900
+  0.320000  0.019850
+  0.310000  0.019750
+  0.300000  0.019650
+  0.290000  0.019550
+  0.280000  0.019450
+  0.270000  0.019300
+  0.260000  0.019150
+  0.250000  0.019000
+  0.240000  0.018850
+  0.230000  0.018650
+  0.220000  0.018450
+  0.210000  0.018250
+  0.200000  0.018050
+  0.190000  0.017800
+  0.180000  0.017550
+  0.170000  0.017300
+  0.160000  0.017000
+  0.150000  0.016700
+  0.140000  0.016350
+  0.130000  0.016000
+  0.120000  0.015600
+  0.110000  0.015200
+  0.100000  0.014750
+  0.090000  0.014250
+  0.080000  0.013650
+  0.070000  0.013050
+  0.060000  0.012350
+  0.050000  0.011550
+  0.040000  0.010600
+  0.030000  0.009500
+  0.020000  0.008000
+  0.010000  0.005900
+  0.005000  0.004300
+  0.002000  0.002800
+  0.000000  0.000000
+  0.002000 -0.002800
+  0.005000 -0.004300
+  0.010000 -0.005900
+  0.020000 -0.008000
+  0.030000 -0.009500
+  0.040000 -0.010600
+  0.050000 -0.011550
+  0.060000 -0.012350
+  0.070000 -0.013050
+  0.080000 -0.013650
+  0.090000 -0.014250
+  0.100000 -0.014750
+  0.110000 -0.015250
+  0.120000 -0.015700
+  0.130000 -0.016100
+  0.140000 -0.016500
+  0.150000 -0.016900
+  0.160000 -0.017200
+  0.170000 -0.017500
+  0.180000 -0.017800
+  0.190000 -0.018100
+  0.200000 -0.018400
+  0.210000 -0.018600
+  0.220000 -0.018800
+  0.230000 -0.019000
+  0.240000 -0.019200
+  0.250000 -0.019400
+  0.260000 -0.019500
+  0.270000 -0.019600
+  0.280000 -0.019700
+  0.290000 -0.019800
+  0.300000 -0.019900
+  0.310000 -0.020000
+  0.320000 -0.020000
+  0.330000 -0.020000
+  0.340000 -0.020000
+  0.350000 -0.020000
+  0.360000 -0.020000
+  0.370000 -0.020000
+  0.380000 -0.020000
+  0.390000 -0.019900
+  0.400000 -0.019800
+  0.410000 -0.019700
+  0.420000 -0.019600
+  0.430000 -0.019500
+  0.440000 -0.019300
+  0.450000 -0.019100
+  0.460000 -0.018900
+  0.470000 -0.018700
+  0.480000 -0.018500
+  0.490000 -0.018200
+  0.500000 -0.017900
+  0.510000 -0.017600
+  0.520000 -0.017300
+  0.530000 -0.016950
+  0.540000 -0.016550
+  0.550000 -0.016150
+  0.560000 -0.015750
+  0.570000 -0.015300
+  0.580000 -0.014850
+  0.590000 -0.014400
+  0.600000 -0.013900
+  0.610000 -0.013400
+  0.620000 -0.012900
+  0.630000 -0.012400
+  0.640000 -0.011850
+  0.650000 -0.011300
+  0.660000 -0.010750
+  0.670000 -0.010200
+  0.680000 -0.009650
+  0.690000 -0.009100
+  0.700000 -0.008550
+  0.710000 -0.008000
+  0.720000 -0.007450
+  0.730000 -0.006900
+  0.740000 -0.006350
+  0.750000 -0.005800
+  0.760000 -0.005250
+  0.770000 -0.004700
+  0.780000 -0.004200
+  0.790000 -0.003700
+  0.800000 -0.003250
+  0.810000 -0.002800
+  0.820000 -0.002400
+  0.830000 -0.002000
+  0.840000 -0.001650
+  0.850000 -0.001350
+  0.860000 -0.001100
+  0.870000 -0.000850
+  0.880000 -0.000650
+  0.890000 -0.000500
+  0.900000 -0.000400
+  0.910000 -0.000400
+  0.920000 -0.000450
+  0.930000 -0.000550
+  0.940000 -0.000750
+  0.950000 -0.001050
+  0.960000 -0.001450
+  0.970000 -0.002000
+  0.980000 -0.002650
+  0.990000 -0.003450
+  1.000000 -0.004350
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+
+def getAirfoil_NASA_SC_2_0403(ClosedTolerance=1e-5):
+    foil_coords = '''NASA SC(2)-0403 AIRFOIL
+  1.000000 -0.001300
+  0.990000 -0.000300
+  0.980000  0.000600
+  0.970000  0.001500
+  0.960000  0.002300
+  0.950000  0.003100
+  0.940000  0.003800
+  0.930000  0.004500
+  0.920000  0.005100
+  0.910000  0.005700
+  0.900000  0.006200
+  0.890000  0.006700
+  0.880000  0.007100
+  0.870000  0.007500
+  0.860000  0.007900
+  0.850000  0.008300
+  0.840000  0.008600
+  0.830000  0.008900
+  0.820000  0.009200
+  0.810000  0.009500
+  0.800000  0.009750
+  0.790000  0.010000
+  0.780000  0.010250
+  0.770000  0.010500
+  0.760000  0.010750
+  0.750000  0.011000
+  0.740000  0.011200
+  0.730000  0.011400
+  0.720000  0.011600
+  0.710000  0.011800
+  0.700000  0.012000
+  0.690000  0.012200
+  0.680000  0.012400
+  0.670000  0.012600
+  0.660000  0.012750
+  0.650000  0.012900
+  0.640000  0.013050
+  0.630000  0.013200
+  0.620000  0.013350
+  0.610000  0.013500
+  0.600000  0.013650
+  0.590000  0.013800
+  0.580000  0.013900
+  0.570000  0.014000
+  0.560000  0.014100
+  0.550000  0.014200
+  0.540000  0.014300
+  0.530000  0.014400
+  0.520000  0.014500
+  0.510000  0.014600
+  0.500000  0.014650
+  0.490000  0.014700
+  0.480000  0.014750
+  0.470000  0.014800
+  0.460000  0.014850
+  0.450000  0.014900
+  0.440000  0.014950
+  0.430000  0.015000
+  0.420000  0.015000
+  0.410000  0.015000
+  0.400000  0.015000
+  0.390000  0.015000
+  0.380000  0.015000
+  0.370000  0.015000
+  0.360000  0.015000
+  0.350000  0.014950
+  0.340000  0.014900
+  0.330000  0.014850
+  0.320000  0.014800
+  0.310000  0.014750
+  0.300000  0.014700
+  0.290000  0.014600
+  0.280000  0.014500
+  0.270000  0.014400
+  0.260000  0.014300
+  0.250000  0.014200
+  0.240000  0.014100
+  0.230000  0.013950
+  0.220000  0.013800
+  0.210000  0.013650
+  0.200000  0.013500
+  0.190000  0.013300
+  0.180000  0.013100
+  0.170000  0.012900
+  0.160000  0.012700
+  0.150000  0.012500
+  0.140000  0.012200
+  0.130000  0.011900
+  0.120000  0.011600
+  0.110000  0.011300
+  0.100000  0.010900
+  0.090000  0.010500
+  0.080000  0.010100
+  0.070000  0.009600
+  0.060000  0.009100
+  0.050000  0.008500
+  0.040000  0.007800
+  0.030000  0.007000
+  0.020000  0.005900
+  0.010000  0.004400
+  0.005000  0.003200
+  0.002000  0.002100
+  0.000000  0.000000
+  0.002000 -0.002100
+  0.005000 -0.003200
+  0.010000 -0.004400
+  0.020000 -0.005900
+  0.030000 -0.007000
+  0.040000 -0.007800
+  0.050000 -0.008500
+  0.060000 -0.009100
+  0.070000 -0.009600
+  0.080000 -0.010100
+  0.090000 -0.010500
+  0.100000 -0.010900
+  0.110000 -0.011300
+  0.120000 -0.011700
+  0.130000 -0.012000
+  0.140000 -0.012300
+  0.150000 -0.012600
+  0.160000 -0.012900
+  0.170000 -0.013100
+  0.180000 -0.013300
+  0.190000 -0.013500
+  0.200000 -0.013700
+  0.210000 -0.013900
+  0.220000 -0.014100
+  0.230000 -0.014300
+  0.240000 -0.014400
+  0.250000 -0.014500
+  0.260000 -0.014600
+  0.270000 -0.014700
+  0.280000 -0.014800
+  0.290000 -0.014900
+  0.300000 -0.015000
+  0.310000 -0.015000
+  0.320000 -0.015000
+  0.330000 -0.015000
+  0.340000 -0.015000
+  0.350000 -0.015000
+  0.360000 -0.015000
+  0.370000 -0.015000
+  0.380000 -0.015000
+  0.390000 -0.014900
+  0.400000 -0.014800
+  0.410000 -0.014700
+  0.420000 -0.014600
+  0.430000 -0.014500
+  0.440000 -0.014400
+  0.450000 -0.014300
+  0.460000 -0.014100
+  0.470000 -0.013900
+  0.480000 -0.013700
+  0.490000 -0.013500
+  0.500000 -0.013300
+  0.510000 -0.013100
+  0.520000 -0.012800
+  0.530000 -0.012500
+  0.540000 -0.012200
+  0.550000 -0.011900
+  0.560000 -0.011600
+  0.570000 -0.011300
+  0.580000 -0.011000
+  0.590000 -0.010600
+  0.600000 -0.010200
+  0.610000 -0.009800
+  0.620000 -0.009400
+  0.630000 -0.009000
+  0.640000 -0.008600
+  0.650000 -0.008200
+  0.660000 -0.007800
+  0.670000 -0.007400
+  0.680000 -0.007000
+  0.690000 -0.006600
+  0.700000 -0.006200
+  0.710000 -0.005800
+  0.720000 -0.005400
+  0.730000 -0.005000
+  0.740000 -0.004600
+  0.750000 -0.004200
+  0.760000 -0.003800
+  0.770000 -0.003400
+  0.780000 -0.003000
+  0.790000 -0.002600
+  0.800000 -0.002200
+  0.810000 -0.001800
+  0.820000 -0.001500
+  0.830000 -0.001200
+  0.840000 -0.000900
+  0.850000 -0.000600
+  0.860000 -0.000400
+  0.870000 -0.000200
+  0.880000  0.000000
+  0.890000  0.000100
+  0.900000  0.000200
+  0.910000  0.000200
+  0.920000  0.000100
+  0.930000  0.000000
+  0.940000 -0.000200
+  0.950000 -0.000500
+  0.960000 -0.000900
+  0.970000 -0.001400
+  0.980000 -0.002000
+  0.990000 -0.002800
+  1.000000 -0.003700
+    '''
+
+    foil = airfoil(foil_coords,ClosedTolerance=ClosedTolerance)
+    return foil
+
+
+    
+
+
+def bezier_curve_2D(points, N=1000):
+    """
+       https://stackoverflow.com/questions/12643079/b%C3%A9zier-curve-fitting-with-scipy
+
+       Given a set of control points, return the
+       bezier curve defined by the control points.
+
+       points should be a list of lists, or list of tuples
+       such as [ [1,1], 
+                 [2,3], 
+                 [4,5], ..[Xn, Yn] ]
+        N is the number of evaluation points
+
+        See http://processingjs.nihongoresources.com/bezierinfo/
+    """
+    from scipy.special import comb
+
+    def bernstein_poly(i, n, t):
+        """
+        The Bernstein polynomial of n, i as a function of t
+        """
+        return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
+
+    nPoints = len(points)
+    xPoints = np.array([p[0] for p in points])
+    yPoints = np.array([p[1] for p in points])
+
+    t = np.linspace(0.0, 1.0, N)
+
+    polynomial_array = np.array([ bernstein_poly(i, nPoints-1, t) for i in range(0, nPoints)   ])
+
+    xvals = np.dot(xPoints, polynomial_array)
+    yvals = np.dot(yPoints, polynomial_array)
+
+    return xvals, yvals
+
+
+def azimutal_angle_between_vectors(vector1, vector2, axis):
+    from .surface import frameFromObjectiveVector
+    ex, ey, e_axial = frameFromObjectiveVector(axis)
+
+    x1 = vector1.dot(ex)
+    y1 = vector1.dot(ey)
+    x2 = vector2.dot(ex)
+    y2 = vector2.dot(ey)
+
+    α1 = np.rad2deg( np.arctan2( y1, x1 ) ) 
+    α2 = np.rad2deg( np.arctan2( y2, x2 ) ) 
+
+    α = α2 - α1
+
+    return α
+
+
+def maxRadius(t,center=[0,0,0],axis=[1,0,0]):
+    addDistanceRespectToLine(t,center,axis,'radius')
+    return C.getMaxValue(t,'radius')
+
+
+def splitAndDiscretizeCurveAsProvidedReferenceCurves(curve, reference_curves : list,
+        cutting_abscissas_deltas : list = []):
+
+    nb_ref_curves = len(reference_curves)
+    nb_cut_deltas = len(cutting_abscissas_deltas)
+
+    if nb_cut_deltas == 0 :
+        cutting_abscissas_deltas = np.zeros((nb_ref_curves-1),dtype=float)
+    elif nb_cut_deltas != nb_ref_curves-1:
+        raise AttributeError('you should provide same nb of items of cutting_abscissas_deltas as nb of reference_curves -1')
+    cutting_abscissas_deltas = np.array(cutting_abscissas_deltas,dtype=float)
+
+    if nb_ref_curves == 1: return discretize(curve, Distribution=reference_curves[0])
+
+    reference_lengths = [ getLength(c) for c in reference_curves ]
+    reference_total_length = np.sum( reference_lengths )
+    cutting_abscissas = (np.cumsum(reference_lengths)/reference_total_length)[:-1]+cutting_abscissas_deltas
+
+    curve_to_cut = I.copyTree(curve)
+    gets(curve_to_cut)
+    
+    curve_subparts = splitAtValue(curve_to_cut, 's', list(cutting_abscissas) )
+    nb_subparts = len(curve_subparts)
+    if nb_subparts != nb_ref_curves:
+        raise ValueError(J.FAIL+f'expected {nb_ref_curves} subparts after splitting curve {curve[0]} using cutting_abscissas={cutting_abscissas} but got {nb_subparts} instead'+J.ENDC)
+
+    for subpart, ref_curve in zip(curve_subparts, reference_curves):
+        discretizeInPlace(subpart, Distribution=ref_curve)
+        subpart[0] = ref_curve[0] + '.split'
+
+    return curve_subparts
+
+def tangent(curve, index=0):
+    tangent_curve = D.getTangent(curve)
+    tx, ty, tz = J.getxyz(tangent_curve)
+    return np.array([tx[index], ty[index], tz[index]])
+
+def curveIsLine(curve):
+    Tangent    = D.getTangent(curve)
+    tx, ty, tz = J.getxyz(Tangent)
+    for i in range(len(tx)-1):
+        ti = np.array([tx[i], ty[i], tz[i]])
+        ti1 = np.array([tx[i+1], ty[i+1], tz[i+1]])
+        if not vectors_are_aligned(ti, ti1): return False
+    return True
+
+def deformWidth(curves, factor=1.5):
+    lengths, dirs = getOrientedBoundingBoxLengthsAndDirections(curves)
+
+    b = np.array(G.barycenter(curves))
+    for curve in I.getZones(curves):
+        x,y,z = J.getxyz(curve)
+        x_ = np.ravel(x,order='K')
+        y_ = np.ravel(y,order='K')
+        z_ = np.ravel(z,order='K')
+        for i in range( len(x_) ):
+            p = np.array([x_[i], y_[i], z_[i]])
+            bp = p-b
+            distance_deform_dir = bp.dot(dirs[1])
+            new_p = p + (factor-1) * distance_deform_dir*dirs[1]
+            x_[i] = new_p[0]
+            y_[i] = new_p[1]
+            z_[i] = new_p[2]
+
+
+def getOrientedBoundingBoxLengthsAndDirections(zone):
+    bar = C.convertArray2Tetra(zone)
+    bar = T.join(bar)
+    bbox = G.BB(bar,method='OBB')
+    x, y, z = J.getxyz(bbox)
+    i_vector = np.array([x[1,0,0]-x[0,0,0],
+                         y[1,0,0]-y[0,0,0],
+                         z[1,0,0]-z[0,0,0]])
+    i_length = np.linalg.norm(i_vector)
+    i_dir = i_vector / i_length if i_length > 0 else i_vector
+    
+    j_vector = np.array([x[0,1,0]-x[0,0,0],
+                         y[0,1,0]-y[0,0,0],
+                         z[0,1,0]-z[0,0,0]])
+    j_length = np.linalg.norm(j_vector)
+    j_dir = j_vector / j_length if j_length > 0 else j_vector
+
+    k_vector = np.array([x[0,0,1]-x[0,0,0],
+                         y[0,0,1]-y[0,0,0],
+                         z[0,0,1]-z[0,0,0]])
+    k_length = np.linalg.norm(k_vector)
+    k_dir = k_vector / k_length if k_length > 0 else k_vector
+
+    lengths, dirs = J.sortListsUsingSortOrderOfFirstList([i_length, j_length, k_length],
+                                                         [i_dir, j_dir, k_dir])
+    
+    return lengths, dirs
+
+    
+    

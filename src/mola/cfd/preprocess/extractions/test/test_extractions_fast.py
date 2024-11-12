@@ -81,21 +81,6 @@ def test_stress_example():
 
     assert len(effort) == 11
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_add_convergence_history():
-
-    class FakeWorkflow():
-        def __init__(self):
-            self.tree = build_tree()
-            self.Numerics = dict(IterationAtInitialState=1,
-                                 NumberOfIterations=5)
-
-    workflow = FakeWorkflow()
-    solver_fast.add_convergence_history(workflow)
-
-
 
 if __name__ == '__main__':
-    # test_stress_example()
-    test_add_convergence_history()
+    test_stress_example()

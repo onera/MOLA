@@ -33,11 +33,13 @@ def apply_to_solver(workflow):
 
     set_numerics(workflow, t)
 
+    add_convergence_history(t, niter)
+
     t, tc, metrics = FastS.warmup(t, tc, graph)
-        
+
     t = cgns.castNode(t)
     tc = cgns.castNode(tc)
-    
+
     workflow.tree = t
     workflow._treeAtCenters = tc 
     workflow._fast_metrics = metrics
