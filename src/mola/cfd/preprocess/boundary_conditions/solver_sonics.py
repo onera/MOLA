@@ -161,10 +161,6 @@ def BCInflowSubsonicMassFlow_interface(workflow, **kwargs):
     VelocityUnitVectorX   = kwargs.get('VelocityUnitVectorX', workflow.Flow['Direction'][0])
     VelocityUnitVectorY   = kwargs.get('VelocityUnitVectorY', workflow.Flow['Direction'][1])
     VelocityUnitVectorZ   = kwargs.get('VelocityUnitVectorZ', workflow.Flow['Direction'][2])
-    turb_values = workflow.Turbulence['Conservatives']
-    for key in turb_values.keys():
-        if key in kwargs:
-            turb_values[key] = kwargs[key]
 
     ImposedVariables = dict(
         MassFlow            = SurfacicMassFlow,
@@ -172,7 +168,7 @@ def BCInflowSubsonicMassFlow_interface(workflow, **kwargs):
         VelocityUnitVectorX = VelocityUnitVectorX,
         VelocityUnitVectorY = VelocityUnitVectorY,
         VelocityUnitVectorZ = VelocityUnitVectorZ,
-        **turb_values
+        **get_turbulent_primitives(workflow, **kwargs)
         )
     return ImposedVariables
 
