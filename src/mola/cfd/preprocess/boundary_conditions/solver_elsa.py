@@ -28,14 +28,6 @@ from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_corre
 from mola.cfd.preprocess.boundary_conditions import boundary_conditions
 from mola.cfd.preprocess.mesh.families import get_zone_family_from_bc_or_gc_family
 
-def get_bcs(t, Family):
-    bcs = []
-    all_bcs = t.group(Type='BC')
-    for bc in all_bcs:
-        if bc.get('FamilyName') == Family:
-            bcs.append(bc)
-    return bc
-
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
     familyNode.findAndRemoveNode(Name='.Solver#BC', Depth=1)
@@ -293,7 +285,7 @@ def outmfr2_interface(workflow, groupmassflow=1, **kwargs):
 def outradeq_interface(workflow, Family, **kwargs):
 
     def _get_default_valve_ref_mflow():
-        bcs = get_bcs(workflow.tree, Family)
+        bcs = boundary_conditions.get_bc_nodes_from_family(workflow.tree, Family)
         bc = bcs[0]
         zone = bc.getParent(Type='Zone_t')
         row = zone.get(Type='FamilyName').value()
@@ -363,7 +355,7 @@ def set_physical_boundary(workflow, Family,
                 variableForInterpolation=variableForInterpolation
                 )
     elif not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc, ImposedVariables in get_bcs(workflow.tree, Family):
+        for bc, ImposedVariables in boundary_conditions.get_bc_nodes_from_family(workflow.tree, Family):
             setBCwithImposedVariables(
                 workflow, 
                 Family, 

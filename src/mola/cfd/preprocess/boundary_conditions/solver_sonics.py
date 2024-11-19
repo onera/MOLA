@@ -18,7 +18,7 @@
 from treelab import cgns
 
 from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames, get_turbulent_primitives
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames, get_turbulent_primitives, get_bc_nodes_from_family
 from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
 
 BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
@@ -179,8 +179,63 @@ def BCOutflowSubsonic_interface(workflow, **kwargs):
     return ImposedVariables
 
 def BCOutflowRadialEquilibrium_interface(workflow, **kwargs):
-    ImposedVariables = dict(
+
+    AVAILABLE_VALVE_LAWS = [None, 'BCValveLawSlopePsQ', 'BCValveLawQTarget', 'BCValveLawQHyperbolic'] # respectively laws 1, 2 and 4
+
+    parameters = dict(
         Pressure = kwargs.get('Pressure', workflow.Flow['Pressure']),
         PivotPercenthH = kwargs.get('PivotPercenthH', 0.),
         )
-    return ImposedVariables
+    
+    valve_type = kwargs.get('valve_type')
+    assert valve_type in AVAILABLE_VALVE_LAWS
+    if valve_type is None:
+        return parameters
+
+    def _get_default_valve_ref_mflow():
+        bcs = get_bc_nodes_from_family(workflow.tree, kwargs['Family'])
+        bc = bcs[0]
+        zone = bc.getParent(Type='Zone_t')
+        row = zone.get(Type='FamilyName').value()
+        try:
+            rowParams = workflow.ApplicationContext['Rows'][row]
+        except:
+            raise MolaException('Worklow must have an attribute ApplicationContext with a dict named "Rows" inside.')
+        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+        try:
+            valve_ref_mflow = workflow.Flow['MassFlow'] / fluxcoeff
+        except:
+            raise MolaException('Miss MassFlow in Flow attribute')
+        
+        return valve_ref_mflow
+
+    valve_ref_mflow = kwargs.get('valve_ref_mflow')
+    if not valve_ref_mflow:
+        valve_ref_mflow = kwargs.get('MassFlow', _get_default_valve_ref_mflow())
+
+    parameters.update(
+        dict(
+            valve_type = valve_type, 
+            valve_ref_mflow = valve_ref_mflow, 
+            valve_relax = kwargs.get('valve_relax', 0.1),
+        )
+    )
+    
+    return parameters
+
+def get_valve_law_trigger(config, bc, niter, hardware_target='cpu', period=10):
+    from sonics.toolkit.triggers import valve_law_trigger as VLT
+
+    valve_law_trigger = VLT.ValveLawRadialEquilibrium(
+        config, 
+        hardware_target, 
+        bc['Family'], 
+        bc['valve_ref_pres'], 
+        bc['valve_ref_mflow'], 
+        niter, 
+        valve_law=bc['valve_type'], 
+        valve_relax=bc['valve_relax'], 
+        period=period
+        )
+    
+    return valve_law_trigger

@@ -116,24 +116,16 @@ def get_iterators(workflow, config, hardware_target='cpu'):
             ) 
         pytriggers.append(integral_extraction_trigger)
 
-    # if any([bc['Type'] == 'OutflowRadialEquilibrium' for bc in workflow.BoundaryConditions]):
-    #     from sonics.toolkit.triggers import valve_law_trigger as VLT
-    #     for bc in workflow.BoundaryConditions:
-    #         if bc['Type'] != 'OutflowRadialEquilibrium':
-    #             continue
+    if any([bc['Type'] == 'OutflowRadialEquilibrium' for bc in workflow.BoundaryConditions]):
+        for bc in workflow.BoundaryConditions:
+            try:
+                valve_type = bc['valve_type']
+            except:
+                continue
 
-    #         valve_law_trigger = VLT.ValveLawRadialEquilibrium(
-    #             config, 
-    #             hardware_target, 
-    #             bc['Family'], 
-    #             bc['Presure'], 
-    #             bc['MassFlow'], # bc['Presure'] 
-    #             workflow.Numerics['NumberOfIterations'], 
-    #             valve_law='BCValveLawQHyperbolic', 
-    #             valve_relax=valve_relax*state.Pio, 
-    #             period=10
-    #             )
-    #         pytriggers.append(valve_law_trigger)
+            from mola.cfd.preprocess.boundary_conditions.solver_sonics import get_valve_law_trigger
+            valve_law_trigger = get_valve_law_trigger(config, bc, period=10, hardware_target=hardware_target)
+            pytriggers.append(valve_law_trigger)
 
     # This Trigger write time at the end of run:
     #    + end computation[<iterations>]: time : (<execution_time>, <execution_time_for_all_ranks>, <time/cell/iteration>)
