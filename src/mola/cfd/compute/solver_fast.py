@@ -51,7 +51,7 @@ def apply_to_solver(workflow):
                        workflow._fast_graph)
 
         FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store')
-        # workflow.tree = FastS.calc_global_convergence(workflow.tree) # FIXME https://github.com/onera/Fast/issues/14
+        FastS._calc_global_convergence(workflow.tree) # should work now: https://github.com/onera/Fast/issues/14
 
         # TODO : split run_iteration in two ?
         # workflow._iteration = it
