@@ -350,36 +350,35 @@ def createLambOseenVortexRing(t = [], Parameters = {}, VortexParameters = {}):
             User-provided VULCAINS parameters as established in
             :py:func:`~MOLA.VULCAINS.User.computeFreeVortex`
     '''
-    Gamma = VortexParameters['Intensity'][0]
+    Gamma = VortexParameters['Intensity']
     sigma = Parameters['PrivateParameters']['Sigma0'][0]
     lmbd_s = Parameters['ModelingParameters']['SmoothingRatio'][0]
     nu = Parameters['FluidParameters']['KinematicViscosity'][0]
-    R = VortexParameters['RingRadius'][0]
+    R = VortexParameters['RingRadius']
     nc = [0]
     h = Parameters['NumericalParameters']['Resolution'][0]
     
     if 'CoreRadius' in VortexParameters:
-        a = VortexParameters['CoreRadius'][0]
+        a = VortexParameters['CoreRadius']
         if nu != 0.: tau = a*a/4./nu
         else: tau = 0.
-        VortexParameters['Tau'] = np.array([tau], dtype = np.float64, order = 'F')
+        VortexParameters['Tau'] = tau
     elif 'Tau' in VortexParameters:
-        tau = VortexParameters['Tau'][0]
+        tau = VortexParameters['Tau']
         a = np.sqrt(4.*nu*tau)
-        VortexParameters['CoreRadius'] = np.array([a], dtype = np.float64, order = 'F')
+        VortexParameters['CoreRadius'] = a
 
-    a = VortexParameters['CoreRadius'][0]
+    a = VortexParameters['CoreRadius']
     w = lambda r : Gamma/(np.pi*a*a)*np.exp(-r*r/(a*a))
 
     if 'MinimumVorticityFraction' in VortexParameters:
-        r = a*np.sqrt(-np.log(VortexParameters['MinimumVorticityFraction'][0]*np.pi*a**2/Gamma))
+        r = a*np.sqrt(-np.log(VortexParameters['MinimumVorticityFraction']*np.pi*a**2/Gamma))
         nc = int(r/h)
-        VortexParameters['NumberLayers'] = np.array([nc], dtype = np.int32, order = 'F')
+        VortexParameters['NumberLayers'] = nc
     elif 'NumberLayers' in VortexParameters:
-        nc = VortexParameters['NumberLayers'][0]
+        nc = VortexParameters['NumberLayers']
         frac = w(nc*h) + 1e-15
-        VortexParameters['MinimumVorticityFraction'] = \
-                                              np.array([frac], dtype = np.float64, order = 'F')
+        VortexParameters['MinimumVorticityFraction'] = frac
 
     N_s = 1 + 3*nc*(nc + 1)
     N_phi = int(2.*np.pi*R/h)
@@ -432,7 +431,23 @@ def createLambOseenVortexRing(t = [], Parameters = {}, VortexParameters = {}):
     VortexParameters['Nphi'] = N_phi
     VortexParameters['Ns'] = N_s
     VortexParameters['NumberLayers'] = nc
+
+    Particles = V.getParticles(t)
+    FreeParticles = V.getFreeParticles(Particles)
+    for field in ['Fluid', 'Hybrid', 'Modeling', 'Numerical', 'Private']:
+        name = field + 'Parameters'
+        if name in Parameters and Parameters[name]:
+            J.set(FreeParticles, '.' + field + '#Parameters', **Parameters[name])
+            I._sortByName(I.getNodeFromName1(FreeParticles, '.' + field + '#Parameters'))
+
+
+    J.set(FreeParticles, '.' + 'Vortex#Parameters', **VortexParameters)
+    I._sortByName(I.getNodeFromName1(FreeParticles, '.' + 'Vortex#Parameters'))
+    Particles[0] = 'ParticlesBase'
+    FreeParticles[0] = 'Particles'
     V.adjust_vortex_ring(t, N_s, N_phi, Gamma, np.pi*r0*r0, np.pi*r0*r0*4./3., nc)
+    Particles[0] = 'Particles'
+    FreeParticles[0] = 'FreeParticles'
 
 def createLambOseenVortexBlob(t = [], Parameters = {}, VortexParameters = {}):
     '''
@@ -451,21 +466,21 @@ def createLambOseenVortexBlob(t = [], Parameters = {}, VortexParameters = {}):
             User-provided VULCAINS parameters as established in
             :py:func:`~MOLA.VULCAINS.User.computeFreeVortex`
     '''
-    Gamma = VortexParameters['Intensity'][0]
+    Gamma = VortexParameters['Intensity']
     sigma = Parameters['PrivateParameters']['Sigma0'][0]
     lmbd_s = Parameters['ModelingParameters']['SmoothingRatio'][0]
     nu = Parameters['FluidParameters']['KinematicViscosity'][0]
-    L = VortexParameters['Length'][0]
-    frac = VortexParameters['MinimumVorticityFraction'][0]
+    L = VortexParameters['Length']
+    frac = VortexParameters['MinimumVorticityFraction']
     h = Parameters['NumericalParameters']['Resolution'][0]
     if 'CoreRadius' in VortexParameters:
-        a = VortexParameters['CoreRadius'][0]
+        a = VortexParameters['CoreRadius']
         tau = a*a/4./nu
-        VortexParameters['Tau'] = np.array([tau], dtype = np.float64, order = 'F')
+        VortexParameters['Tau'] = tau
     elif 'Tau' in VortexParameters:
         tau = VortexParameters['Tau'][0]
         a = np.sqrt(4.*nu*tau)
-        VortexParameters['CoreRadius'] = np.array([a], dtype = np.float64, order = 'F')
+        VortexParameters['CoreRadius'] = a
 
     w = lambda r : Gamma/(4.*np.pi*nu*tau)*np.exp(-r*r/(4.*nu*tau))
     minw = w(0)*frac
@@ -498,15 +513,15 @@ def createLambOseenVortexBlob(t = [], Parameters = {}, VortexParameters = {}):
 
     X = [0]
     Z = [0.]
-    W = [Gamma/np.pi/a*a]
-    V = [h*np.pi*r0*r0]
+    W = [Gamma/np.pi/a**2]
+    Vol = [h*np.pi*r0*r0]
     for n in range(1, nc + 1):
         for j in range(6*n):
             theta = np.pi*(2.*j + 1.)/6./n
             r = r0*(1. + 12.*n*n)/6./n
             X.append(r*np.cos(theta))
             Z.append(r*np.sin(theta))
-            V.append(V[0]*4./3.)
+            Vol.append(Vol[0]*4./3.)
             W.append(W[0]*np.exp(-r*r/(a*a)))
     
     V.show("W in", w(0), np.min(W))
@@ -519,7 +534,7 @@ def createLambOseenVortexBlob(t = [], Parameters = {}, VortexParameters = {}):
     VorticityY[:Ns] = W[:]
     VorticityZ[:Ns] = 0.
     AlphaX[:Ns] = 0.
-    AlphaY[:Ns] = np.array(V[:])*np.array(W[:])
+    AlphaY[:Ns] = np.array(Vol[:])*np.array(W[:])
     AlphaZ[:Ns] = 0.
     for i in range(1, NL, 2):
         for j in range(Ns):
@@ -531,7 +546,7 @@ def createLambOseenVortexBlob(t = [], Parameters = {}, VortexParameters = {}):
             VorticityY[i*Ns + j] = W[j]
             VorticityZ[i*Ns + j] = 0.
             AlphaX[i*Ns + j] = 0.
-            AlphaY[i*Ns + j] = V[j]*VorticityY[i*Ns + j]
+            AlphaY[i*Ns + j] = Vol[j]*VorticityY[i*Ns + j]
             AlphaZ[i*Ns + j] = 0.
         for j in range(Ns):
             px[(i + 1)*Ns + j] = X[j]
@@ -542,7 +557,24 @@ def createLambOseenVortexBlob(t = [], Parameters = {}, VortexParameters = {}):
             VorticityY[(i + 1)*Ns + j] = W[j]
             VorticityZ[(i + 1)*Ns + j] = 0.
             AlphaX[(i + 1)*Ns + j] = 0.
-            AlphaY[(i + 1)*Ns + j] = V[j]*VorticityY[(i + 1)*Ns + j]
+            AlphaY[(i + 1)*Ns + j] = Vol[j]*VorticityY[(i + 1)*Ns + j]
             AlphaZ[(i + 1)*Ns + j] = 0.
+
+
     
+    Particles = V.getParticles(t)
+    FreeParticles = V.getFreeParticles(Particles)
+    for field in ['Fluid', 'Hybrid', 'Modeling', 'Numerical', 'Private']:
+        name = field + 'Parameters'
+        if name in Parameters and Parameters[name]:
+            J.set(FreeParticles, '.' + field + '#Parameters', **Parameters[name])
+            I._sortByName(I.getNodeFromName1(FreeParticles, '.' + field + '#Parameters'))
+
+    J.set(FreeParticles, '.' + 'Vortex#Parameters', **VortexParameters)
+    I._sortByName(I.getNodeFromName1(FreeParticles, '.' + 'Vortex#Parameters'))
+
+    Particles[0] = 'ParticlesBase'#TODO: change the name in the cpp and update it to the new VUCLAINS standard
+    FreeParticles[0] = 'Particles'
     V.adjust_vortex_tube(t, Ns, NL, Gamma, np.pi*r0*r0, np.pi*r0*r0*4./3., nc)
+    Particles[0] = 'Particles'
+    FreeParticles[0] = 'FreeParticles'

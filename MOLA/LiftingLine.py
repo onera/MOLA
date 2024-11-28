@@ -3162,7 +3162,7 @@ def plotStructPyZonePolars(PyZonePolars, addiationalQuantities=[],
 
 
 def setRPM(LiftingLines, newRPM):
-    for LiftingLine in I.getZones(LiftingLines):
+    for LiftingLine in getLiftingLines(LiftingLines):
         if not checkComponentKind(LiftingLine,'LiftingLine'): continue
         Kin_n = I.getNodeFromName1(LiftingLine,'.Kinematics')
         if Kin_n:
