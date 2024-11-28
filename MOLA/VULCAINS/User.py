@@ -42,12 +42,40 @@ from . import Main as V
 ############################################## Solver ##############################################
 ####################################################################################################
 ####################################################################################################
-def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationField = [],
+def runOneIteration(t = [], **coProcessOptions):
+    '''
+    Runs one VULCAINS iteration.
+
+    Parameters
+    ----------
+        t : Tree
+            Contains the Lagrangian field, Lifting Lines, Eulerian field, Hybrid Domain and
+            Perturbation field.
+
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be used during computation for
+            coprocess.
+    Returns
+    -------
+        IterationInfo : :py:class:`dict`
+            VULCAINS information on the current iteration.
+    '''
+    IterationInfo = {}
+    V.updateSmagorinskyConstantAndComputeTurbulentViscosity(t)
+    V.computeLagrangianNextTimeStep(t)
+    IterationInfo.update(V.populationControl(t))
+    IterationInfo.update(V.shedVorticitySourcesFromLiftingLines(t))
+    IterationInfo.update(V.computeEulerianNextTimeStep(t))
+    IterationInfo.update(V.shedVorticitySourcesFromHybridDomain(t))
+    IterationInfo.update(V.induceVPMField(t))
+    return IterationInfo
+
+def compute(Parameters = {}, Polars = [], EulerianMesh = None, PerturbationField = [],
     LiftingLines = [], NumberOfIterations = 1000, RestartPath = None, DIRECTORY_OUTPUT = 'OUTPUT',
     SaveFields = ['all'], StdDeviationSample = 50, SaveVPMPeriod = 100, Verbose = True,
     VisualisationOptions = {'addLiftingLineSurfaces':True}, SaveImageOptions = {}, Surface = 0.,
     FieldsExtractionGrid = [], SaveFieldsPeriod = np.inf, SaveImagePeriod = np.inf,
-    NoRedistributionZones = []):
+                 NoRedistributionZones = [], mainFunction = runOneIteration, coProcessOptions = {}):
     '''
     Launches the VPM solver.
 
@@ -337,6 +365,13 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
         NoRedistributionZones: :py:class:`list` of :py:class:`~MOLA.Data.Zone.Zone`
             Particles cannot be deleted or redistributed within the coordinates of the zones in
             NoRedistributionZones. These zones must be rectangular parallelepipeds.
+
+        mainFunction : :py:func:
+            Function over which VULCAINS loops.
+
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be put used within the
+            **mainFunction** during computation for coprocess.
     '''
     if Verbose: V.enablePrint()
     else: V.blockPrint()
@@ -355,7 +390,6 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
     else: t = initialiseComputation(Parameters = Parameters, EulerianMesh = EulerianMesh,
                                  LiftingLines = LiftingLines, PerturbationField = PerturbationField)
 
-
     SaveFields = V.checkSaveFields(SaveFields)
 
     it = V.getParameter(t, 'CurrentIteration')
@@ -367,10 +401,10 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
     for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
     V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Begin VPM Computation '))
     for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
-
+    
     iterateVPM(t, SaveFields, NumberOfIterations, DIRECTORY_OUTPUT,
-        VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
-                                                  StdDeviationSample, FieldsExtractionGrid, Surface)
+           VisualisationOptions, SaveImageOptions, SaveFieldsPeriod, SaveImagePeriod, SaveVPMPeriod,
+                  StdDeviationSample, FieldsExtractionGrid, Surface, mainFunction, coProcessOptions)
     if FieldsExtractionGrid:
         extractFields(Targets = FieldsExtractionGrid, t = t)
         filename = os.path.join(DIRECTORY_OUTPUT, 'fields_It%d.cgns'%it)
@@ -386,7 +420,7 @@ def compute(Parameters = {}, Polars  = [], EulerianMesh = None, PerturbationFiel
 
     return t
 
-def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = []):
+def runOneIterationOnSeparateTrees(tL = [], tLL = [], tE = [], tH = [], tP = [],**coProcessOptions):
     '''
     Runs one VULCAINS iteration.
 
@@ -406,6 +440,10 @@ def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = []):
 
         tP : Tree
             Perturbation field
+
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be used during computation for
+            coprocess.
     Returns
     -------
         IterationInfo : :py:class:`dict`
@@ -421,34 +459,10 @@ def runVPMTrees(tL = [], tLL = [], tE = [], tH = [], tP = []):
     IterationInfo.update(V.induceVPMField(tL, tP))
     return IterationInfo
 
-def runVPM(t = []):
-    '''
-    Runs one VULCAINS iteration.
-
-    Parameters
-    ----------
-        t : Tree
-            Contains the Lagrangian field, Lifting Lines, Eulerian field, Hybrid Domain and
-            Perturbation field.
-    Returns
-    -------
-        IterationInfo : :py:class:`dict`
-            VULCAINS information on the current iteration.
-    '''
-    IterationInfo = {}
-    V.updateSmagorinskyConstantAndComputeTurbulentViscosity(t)
-    V.computeLagrangianNextTimeStep(t)
-    IterationInfo.update(V.populationControl(t))
-    IterationInfo.update(V.shedVorticitySourcesFromLiftingLines(t))
-    IterationInfo.update(V.computeEulerianNextTimeStep(t))
-    IterationInfo.update(V.shedVorticitySourcesFromHybridDomain(t))
-    IterationInfo.update(V.induceVPMField(t))
-    return IterationInfo
-
 def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT = '',
     VisualisationOptions = {}, SaveImageOptions = {}, SaveFieldsPeriod = 0, SaveImagePeriod = 0,
     SaveVPMPeriod = 0, StdDeviationSample = 100, FieldsExtractionGrid = [], Surface = 0.,
-                                                                        mainFunction = runVPMTrees):
+                                             mainFunction = runOneIteration, coProcessOptions = {}):
     '''
     Loops over the VULCAINS iterations.
 
@@ -493,6 +507,10 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
 
         mainFunction : :py:func:
             Function over which VULCAINS loops.
+
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be put used within the
+            **mainFunction** during computation for coprocess.
     Returns
     -------
         t : Tree
@@ -500,7 +518,7 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
             Perturbation field.
     '''
     IterationInfo = {'Rel. err. of Velocity': 0, 'Rel. err. of Velocity Gradient': 0,
-       'Rel. err. of Vorticity': 0, 'Rel. err. of PSE': 0, 'Rel. err. of Diffusion Velocity': 0}
+                                                                        'Rel. err. of Vorticity': 0}
     TotalTime = J.tic()
 
     tL = V.getParticlesTree(t)
@@ -512,8 +530,6 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
     Np = V.getParticlesNumber(t, pointer = True)
     it = Parameters['PrivateParameters']['CurrentIteration']
     simuTime = Parameters['PrivateParameters']['Time']
-    PSE = V.DiffusionScheme_str2int[Parameters['ModelingParameters']['DiffusionScheme']] < 2
-    DVM = V.DiffusionScheme_str2int[Parameters['ModelingParameters']['DiffusionScheme']] == 2
     Freestream = (np.linalg.norm(Parameters['FluidParameters']['VelocityFreestream']) != 0.)
     try: Wing = (I.getValue(I.getNodeFromName(t, 'RPM')) == 0)
     except: Wing = True
@@ -529,8 +545,8 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
         
         IterationTime = J.tic()
         
-        newInfo = mainFunction(tL, tLL, tE, tH, tP)
-        # newInfo = mainFunction(t)
+        # newInfo = mainFunction(tL, tLL, tE, tH, tP, **coProcessOptions)
+        newInfo = mainFunction(t, **coProcessOptions)
 
         if newInfo: IterationInfo.update(newInfo)
         IterationInfo['Iteration'] = it[0]
@@ -541,7 +557,7 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
         IterationInfo.update(V.getAerodynamicCoefficientsOnLiftingLine(t, Wings = Wing,
                StdDeviationSample = StdDeviationSample, Freestream = Freestream, Surface = Surface))
         IterationInfo['Total simulation time'] = J.tic() - TotalTime
-        printIterationInfo(IterationInfo, PSE = PSE, DVM = DVM, Wings = Wing)
+        printIterationInfo(IterationInfo)
 
         if (SAVE_FIELDS or SAVE_ALL) and FieldsExtractionGrid:
             extractFields(Targets = FieldsExtractionGrid, t = t)
@@ -563,7 +579,7 @@ def iterateVPM(t = [], SaveFields = [], NumberOfIterations = 1, DIRECTORY_OUTPUT
     return t
 
 def initialiseComputation(Parameters = {}, LiftingLines = [], EulerianMesh = [],
-                                                                            PerturbationField = []):
+    PerturbationField = []):
     '''
     Initialises all the trees used for the VULCAINS simulation.
 
@@ -649,8 +665,203 @@ def restartComputation(path = 'OUTPUT.cgns', Parameters = {}):
                                                    I.getBases(tH) + I.getBases(tLL) + I.getBases(tP)
     return t
 
+def computePolar(Parameters = {}, PolarParameters = {}, LiftingLinesPolars = [],
+    EulerianMesh = None, PerturbationField = [], LiftingLines = [], RestartPath = None,
+    DIRECTORY_OUTPUT = 'POLARS', SaveFields = ['all'], Verbose = True,
+    VisualisationOptions = {'addLiftingLineSurfaces' : True}, Surface = 1.,
+                                                                        NoRedistributionZones = []):
+
+    def TransitionFunction(t = [], PolarParameters = {}, ratio = 0):
+        IterationInfo = {}
+        V.updateSmagorinskyConstantAndComputeTurbulentViscosity(t)
+        V.computeLagrangianNextTimeStep(t)
+
+        pos = PolarParameters['CurrentPolar']
+        Pitch = 0
+        for key in PolarParameters['Variables']:
+            Vars = PolarParameters['Variables'][key]
+            NewVar = Vars[pos - 1] + (Vars[pos] - Vars[pos - 1])*ratio
+            oldParam = V.getParameter(t, key)
+            if key == 'Pitch':
+                Pitch = NewVar - Vars[pos - 1]
+                V.LL.addPitch(t, Pitch)
+            elif key == 'RPM': V.LL.setRPM(t, NewVar)
+            else: oldParam[:] = NewVar
+
+            if key in ['VelocityFreestream', 'Density', 'Temperature']:
+                for LL in V.getLiftingLines(t): J.get(LL, '.Conditions')[key][:] = NewVar
+
+        IterationInfo.update(V.populationControl(t))
+        IterationInfo.update(V.shedVorticitySourcesFromLiftingLines(t))
+        IterationInfo.update(V.computeEulerianNextTimeStep(t))
+        IterationInfo.update(V.shedVorticitySourcesFromHybridDomain(t))
+        IterationInfo.update(V.induceVPMField(t))
+        V.LL.addPitch(t, -Pitch*(ratio != 1))
+        return IterationInfo
+
+    if Verbose: V.enablePrint()
+    else: V.blockPrint()
+
+    if not V.printedlogo[0]:
+        # V.show(logo)
+        V.printedlogo[0] = True
+    
+    try: os.makedirs(DIRECTORY_OUTPUT)
+    except: pass
+
+    if isinstance(LiftingLinesPolars, str): LiftingLinesPolars = V.load(LiftingLinesPolars)
+    V.buildPolarsInterpolator(LiftingLinesPolars)
+    if LiftingLinesPolars: VisualisationOptions['AirfoilPolars'] = LiftingLinesPolars
+    else: VisualisationOptions['addLiftingLineSurfaces'] = False
+    V.addSafeZones(NoRedistributionZones)
+    SaveFields = V.checkSaveFields(SaveFields)
+    if RestartPath:
+        t = restartComputation(path = RestartPath, Parameters = Parameters)
+        PolarParameters.update(J.get(t, '.Polar#Parameters'))
+        try: Wing = (I.getValue(I.getNodeFromName(t, 'RPM')) == 0)
+        except: Wing = True
+    else:
+        if 'NumberOfThreads' not in Parameters['NumericalParameters']:
+            Parameters['NumericalParameters']['NumberOfThreads'] = 1
+            OMP_NUM_THREADS = 'auto'
+        else: OMP_NUM_THREADS = Parameters['NumericalParameters']['NumberOfThreads']
+
+        for field in [f + 'Parameters' for f in ['Fluid', 'Hybrid', 'Modeling', 'Numerical',
+                                                                                        'Private']]:
+            if field not in Parameters: Parameters[field] = dict()
+
+        if not 'LiftingLineParameters' in Parameters: Parameters['LiftingLineParameters'] = dict()
+        V.checkParameters(Parameters)
+        Parameters['NumericalParameters']['NumberOfThreads'] = OMP_NUM_THREADS
+        for key in PolarParameters['Variables']:
+            V.getParameterFromDico(Parameters, key)[:] = PolarParameters['Variables'][key][0]
+        
+        NbPolar = len(PolarParameters['Variables'][key])
+        PolarParameters['CurrentPolar'] = 0
+        t = initialiseComputation(Parameters = Parameters, EulerianMesh = EulerianMesh,
+                                 LiftingLines = LiftingLines, PerturbationField = PerturbationField)
+        try: Wing = (I.getValue(I.getNodeFromName(t, 'RPM')) == 0)
+        except: Wing = True
+        if Wing == 1:
+            PolarParameters['Lift'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['Drag'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['cL'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['cD'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['f'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['LiftStandardDeviation'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['DragStandardDeviation'] = np.array([], dtype = np.float64, order = 'F')
+        else:
+            PolarParameters['Thrust'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['Power'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['cT'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['cP'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['Efficiency'] = np.array([], dtype = np.float64, order = 'F')
+            PolarParameters['ThrustStandardDeviation'] = np.array([], dtype = np.float64, order='F')
+            PolarParameters['PowerStandardDeviation'] = np.array([], dtype = np.float64, order ='F')
+
+    TotalTime = J.tic()
+    MaxItePerPolar = PolarParameters['MaxNumberOfIterationsPerPolar']
+    MaxStdThrust = PolarParameters['MaxThrustStandardDeviation']
+    MaxStdPower = PolarParameters['MaxPowerStandardDeviation']
+    NbSampleStdDev = PolarParameters['NumberOfSampleForStdDeviation']
+    NbItTransition = PolarParameters['NumberOfIterationsForTransition']
+    Freestream = (np.linalg.norm(Parameters['FluidParameters']['VelocityFreestream']) != 0.)
+    it = V.getParameter(t, 'CurrentIteration')
+    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+    V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(' Begin VPM Polar '))
+    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+    while PolarParameters['CurrentPolar'] < NbPolar:
+        if NbItTransition and PolarParameters['CurrentPolar']:
+            for n in range(1, NbItTransition + 1):
+                TransitionFunction(t, PolarParameters, n/NbItTransition)
+                if Verbose:
+                    if n != 1: V.deletePrintedLines()
+                
+                    V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Transition ' + \
+                                                     '{:.1f}'.format(n/NbItTransition*100.) + '% '))
+
+        it0 = it[0]
+        stdThrust = MaxStdThrust + 1
+        stdPower = MaxStdPower + 1
+
+        while (it[0]-it0 < MaxItePerPolar and (MaxStdThrust < stdThrust or MaxStdPower < stdPower)):
+            runOneIteration(t)
+            IterationInfo = V.getAerodynamicCoefficientsOnLiftingLine(t, Wings = Wing,
+               StdDeviationSample = NbSampleStdDev, Freestream = Freestream, Surface = Surface)
+            IterationInfo['Iteration'] = it[0] - it0
+            IterationInfo['Percentage'] = it[0] - it0
+            if Wing:
+                stdThrust = IterationInfo['Lift Standard Deviation']
+                stdPower = IterationInfo['Drag Standard Deviation']
+            else:
+                stdThrust = IterationInfo['Thrust Standard Deviation']
+                stdPower = IterationInfo['Power Standard Deviation']
+
+            if Verbose:
+                if it[0] != it0 + 1: V.deletePrintedLines(9)
+                printIterationInfo(IterationInfo)
+
+        if Wing:
+            PolarParameters['Lift'] = np.append(PolarParameters['Lift'], IterationInfo['Lift'])
+            PolarParameters['Drag'] = np.append(PolarParameters['Drag'], IterationInfo['Drag'])
+            PolarParameters['cL'] = np.append(PolarParameters['cL'], IterationInfo['cL'])
+            PolarParameters['cD'] = np.append(PolarParameters['cD'], IterationInfo['cD'])
+            PolarParameters['f'] = np.append(PolarParameters['f'], IterationInfo['f'])
+            PolarParameters['LiftStandardDeviation'] = np.append(PolarParameters['LiftStandardDeviation']
+                                                        , IterationInfo['Lift Standard Deviation'])
+            PolarParameters['DragStandardDeviation'] = np.append(PolarParameters['DragStandardDeviation']
+                                                        , IterationInfo['Drag Standard Deviation'])
+        else:
+            PolarParameters['Thrust'] = np.append(PolarParameters['Thrust'], IterationInfo['Thrust'])
+            PolarParameters['Power'] = np.append(PolarParameters['Power'], IterationInfo['Power'])
+            PolarParameters['cT'] = np.append(PolarParameters['cT'], IterationInfo['cT'])
+            PolarParameters['cP'] = np.append(PolarParameters['cP'], IterationInfo['cP'])
+            PolarParameters['Efficiency'] = np.append(PolarParameters['Efficiency'], IterationInfo['Eff'])
+            PolarParameters['ThrustStandardDeviation'] = np.append(PolarParameters['ThrustStandardDeviation']
+                                                        , IterationInfo['Thrust Standard Deviation'])
+            PolarParameters['PowerStandardDeviation'] = np.append(PolarParameters['PowerStandardDeviation']
+                                                        , IterationInfo['Power Standard Deviation'])
+
+        if Verbose:
+            V.deletePrintedLines(1)
+            V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(''))
+
+        if PolarParameters['CurrentPolar'] == 1: num = 'st'
+        elif PolarParameters['CurrentPolar'] == 2: num = 'nd'
+        elif PolarParameters['CurrentPolar'] == 3: num = 'rd'
+        else: num = 'th'
+        if (it[0] - it0 == MaxItePerPolar): msg = ' Maximum iteration reached for ' + \
+                                              str(PolarParameters['CurrentPolar']) + num + ' polar.'
+        else: msg = ' Convergence criteria met for ' + str(PolarParameters['CurrentPolar']) \
+                                                                                   + num + ' polar.'
+
+        filename = os.path.join(DIRECTORY_OUTPUT, 'VPM_Polars' + \
+                                                     str(PolarParameters['CurrentPolar']) + '.cgns')
+        if Verbose: V.show(f"{'||':>57}\r" + '||' + '{:-^53}'.format(msg))
+
+        J.set(t, 'Polars', **PolarParameters)
+        V.setVisualization(t, **VisualisationOptions)
+        V.save(t, filename, VisualisationOptions, SaveFields)
+        J.createSymbolicLink(filename,  DIRECTORY_OUTPUT + '.cgns')
+        
+        if Verbose:
+            for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+
+        PolarParameters['CurrentPolar'] += 1
+
+    PolarsTree = C.newPyTree()
+    J.set(PolarsTree, 'Polars', **PolarParameters)
+    V.save(PolarsTree, os.path.join(DIRECTORY_OUTPUT, 'VPM_Polars.cgns'))
+
+    TotalTime = J.tic() - TotalTime
+    V.show(f"{'||':>57}\r" + '|| ' + '{:34}'.format('Total time spent') + ': ' + \
+                                  '{:d}'.format(int(round(TotalTime//60))) + ' min ' + \
+                                  '{:d}'.format(int(round(TotalTime - TotalTime//60*60))) + ' s ')
+    for _ in range(3): V.show(f"{'||':>57}\r" + '||' + '{:=^53}'.format(''))
+
 def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations = 10000,
-    SaveVPMPeriod = 10, DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all']):
+    SaveVPMPeriod = 10, DIRECTORY_OUTPUT = 'OUTPUT', SaveFields = ['all'],
+                                             mainFunction = runOneIteration, coProcessOptions = {}):
     '''
     Initialises all the trees used for the VULCAINS simulation of unbounded vortex rings.
 
@@ -696,12 +907,21 @@ def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations
         SaveFields : :py:class:`list` or numpy.ndarray of :py:class:`str`
             same as in :py:func:`compute`
 
+        mainFunction : :py:func:
+            Function over which VULCAINS loops.
+
+        coProcessOptions : :py:class:`dict`
+            May contain additionnal user-defined parameters to be put used within the
+            **mainFunction** during computation for coprocess.
+
     Returns
     -------
         t : Tree
             Contains the Lagrangian field, Lifting Lines, Eulerian field, Hybrid Domain and
             Perturbation field.
     '''
+    if 'NumericalParameters' not in Parameters:
+        Parameters['NumericalParameters'] = {}
     if 'NumberOfThreads' not in Parameters['NumericalParameters']:
         Parameters['NumericalParameters']['NumberOfThreads'] = 'auto'
     
@@ -711,11 +931,14 @@ def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations
         if field not in Parameters: Parameters[field] = dict()
 
     V.checkParameters(Parameters)
+    Parameters['HybridParameters'] = {}
+    Parameters['LiftingLineParameters'] = {}
+    print(VortexParameters)
     t = V.buildEmptyVPMTree()
     if 'Length' in VortexParameters:
-        createLambOseenVortexBlob(t, Parameters, VortexParameters)
+        V.createLambOseenVortexBlob(t, Parameters, VortexParameters)
     else:
-        createLambOseenVortexRing(t, Parameters, VortexParameters)
+        V.createLambOseenVortexRing(t, Parameters, VortexParameters)
         if 'InitialSpacing' in VortexParameters:
             Particles = V.getParticles(t)
             Np = V.getParticlesNumber(Particles)
@@ -727,20 +950,13 @@ def computeFreeVortex(Parameters = {}, VortexParameters = {}, NumberOfIterations
             x, y, z = J.getxyz(Particles)
             x[Np:], y[Np:], z[Np:] = x[:Np], y[:Np], z[:Np] + VortexParameters['InitialSpacing']
 
-    
-    Particles = V.getParticles(t)
-    for field in ['Fluid', 'Hybrid', 'Modeling', 'Numerical', 'Private']:
-        name = field + 'Parameters'
-        if name in Parameters and Parameters[name]:
-            J.set(Particles, '.' + field + '#Parameters', **Parameters[name])
-            I._sortByName(I.getNodeFromName1(Particles, '.' + field + '#Parameters'))
-
     V.induceVPMField(t)
     V.getParameter(t, 'IterationCounter')[0] = Parameters['ModelingParameters']['IntegrationOrder']\
                            *Parameters['NumericalParameters']['FMMParameters']['IterationTuningFMM']
     V.compute(RestartPath = t, NumberOfIterations = NumberOfIterations,
         DIRECTORY_OUTPUT = DIRECTORY_OUTPUT, SaveFields = SaveFields,
-        VisualisationOptions = {'addLiftingLineSurfaces':False}, SaveVPMPeriod = SaveVPMPeriod)
+        VisualisationOptions = {'addLiftingLineSurfaces':False}, SaveVPMPeriod = SaveVPMPeriod,
+                                   mainFunction = mainFunction, coProcessOptions = coProcessOptions)
 
 def extractFields(Targets = [], t = [], FarFieldPolynomialOrder = 12,
     NearFieldOverlapingFactor = 4, NbOfParticlesForPrecisionEvaluation = 1000):
@@ -909,7 +1125,7 @@ def extractFields(Targets = [], t = [], FarFieldPolynomialOrder = 12,
 ######################################### IO/Visualisation #########################################
 ####################################################################################################
 ####################################################################################################
-def printIterationInfo(IterationInfo = {}, PSE = False, DVM = False, Wings = False):
+def printIterationInfo(IterationInfo = {}):
     '''
     Prints the current iteration information.
 
@@ -918,70 +1134,65 @@ def printIterationInfo(IterationInfo = {}, PSE = False, DVM = False, Wings = Fal
         IterationInfo : :py:class:`dict`
             VPM solver information on the current iteration.
 
-        PSE : :py:class:`bool`
-            States whether the PSE was used.
-
-        DVM : :py:class:`bool`
-            States whether the DVM was used.
-
         Wings : :py:class:`bool`
             States whether the Lifting Line(s) Wings were used.
     '''
     msg = f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Iteration ' + \
                                                 '{:d}'.format(IterationInfo['Iteration']) + ' (' + \
                                         '{:.1f}'.format(IterationInfo['Percentage']) + '%) ') + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Physical time') + ': ' + \
+    if 'Physical time' in IterationInfo:
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Physical time') + ': ' + \
                                        '{:.5f}'.format(IterationInfo['Physical time']) + ' s' + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of particles') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of particles') + ': ' + \
                                           '{:d}'.format(IterationInfo['Number of particles']) + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Total iteration time') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Total iteration time') + ': ' + \
                                 '{:.2f}'.format(IterationInfo['Total iteration time']) + ' s' + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Total simulation time') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Total simulation time') + ': ' + \
                                '{:.1f}'.format(IterationInfo['Total simulation time']) + ' s' + '\n'
-    msg += f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Loads ') + '\n'
-    if (Wings and 'Lift' in IterationInfo) or (not Wings and 'Thrust' in IterationInfo):
-        if (Wings):
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Lift') + ': ' + \
+        msg += f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Loads ') + '\n'
+    if 'Lift' in IterationInfo:
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Lift') + ': ' + \
                                                 '{:.4g}'.format(IterationInfo['Lift']) + ' N' + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Lift Standard Deviation') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Lift Standard Deviation') + ': ' + \
                              '{:.2f}'.format(IterationInfo['Lift Standard Deviation']) + ' %' + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Drag') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Drag') + ': ' + \
                                                 '{:.4g}'.format(IterationInfo['Drag']) + ' N' + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Drag Standard Deviation') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Drag Standard Deviation') + ': ' + \
                              '{:.2f}'.format(IterationInfo['Drag Standard Deviation']) + ' %' + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('cL') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('cL') + ': ' + \
                                                          '{:.4f}'.format(IterationInfo['cL']) + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('cD') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('cD') + ': ' + \
                                                          '{:.5f}'.format(IterationInfo['cD']) + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('f') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('f') + ': ' + \
                                                           '{:.4f}'.format(IterationInfo['f']) + '\n'
-        else:
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Thrust') + ': ' + \
+    elif 'Thrust' in IterationInfo:
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Thrust') + ': ' + \
                                               '{:.5g}'.format(IterationInfo['Thrust']) + ' N' + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Thrust Standard Deviation') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Thrust Standard Deviation') + ': ' + \
                            '{:.2f}'.format(IterationInfo['Thrust Standard Deviation']) + ' %' + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Power') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Power') + ': ' + \
                                                '{:.5g}'.format(IterationInfo['Power']) + ' W' + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Power Standard Deviation') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Power Standard Deviation') + ': ' + \
                             '{:.2f}'.format(IterationInfo['Power Standard Deviation']) + ' %' + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('cT') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('cT') + ': ' + \
                                                          '{:.5f}'.format(IterationInfo['cT']) + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Cp') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Cp') + ': ' + \
                                                          '{:.5f}'.format(IterationInfo['cP']) + '\n'
-            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Eff') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Eff') + ': ' + \
                                                         '{:.5f}'.format(IterationInfo['Eff']) + '\n'
-    msg += f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Population Control ') + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of resized particles') + ': ' + \
+    if 'Population Control time' in IterationInfo:
+        msg += f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Population Control ') + '\n'
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of resized particles') + ': ' + \
                                   '{:d}'.format(IterationInfo['Number of resized particles']) + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of particles beyond cutoff') + ': ' + \
-                   '{:d}'.format(IterationInfo['Number of particles beyond cutoff']) + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of depleted particles') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of particles beyond cutoff') + ': '\
+                          + '{:d}'.format(IterationInfo['Number of particles beyond cutoff']) + '\n'
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of depleted particles') + ': ' + \
                                  '{:d}'.format(IterationInfo['Number of depleted particles']) + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of split particles') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of split particles') + ': ' + \
                                     '{:d}'.format(IterationInfo['Number of split particles']) + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of merged particles') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of merged particles') + ': ' + \
                                    '{:d}'.format(IterationInfo['Number of merged particles']) + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Control Computation time') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Control Computation time') + ': ' + \
                               '{:.2f}'.format(IterationInfo['Population Control time']) + ' s (' + \
                                           '{:.1f}'.format(IterationInfo['Population Control time']/\
                                                 IterationInfo['Total iteration time']*100.) + '%)\n'
@@ -997,7 +1208,6 @@ def printIterationInfo(IterationInfo = {}, PSE = False, DVM = False, Wings = Fal
                                     '{:.2f}'.format(IterationInfo['Lifting Line time']) + ' s (' + \
                                             '{:.1f}'.format(IterationInfo['Lifting Line time']/\
                                                 IterationInfo['Total iteration time']*100.) + '%)\n'
-
     if 'Eulerian time' in IterationInfo:
         msg += f"{'||':>57}\r" + '||' + '{:-^53}'.format(' Hybrid Solver ') + '\n'
         msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Number of shed particles') + ': ' + \
@@ -1012,22 +1222,21 @@ def printIterationInfo(IterationInfo = {}, PSE = False, DVM = False, Wings = Fal
                                         '{:.2f}'.format(IterationInfo['Eulerian time']) + ' s (' + \
                                                     '{:.1f}'.format(IterationInfo['Eulerian time']/\
                                                 IterationInfo['Total iteration time']*100.) + '%)\n'
-        
-    msg += f"{'||':>57}\r" + '||' + '{:-^53}'.format(' FMM ') + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of Velocity') + ': ' + \
+    if 'Rel. err. of Velocity' in IterationInfo:
+        msg += f"{'||':>57}\r" + '||' + '{:-^53}'.format(' FMM ') + '\n'
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of Velocity') + ': ' + \
                                         '{:e}'.format(IterationInfo['Rel. err. of Velocity']) + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of Velocity Gradient') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of Velocity Gradient') + ': ' + \
                                '{:e}'.format(IterationInfo['Rel. err. of Velocity Gradient']) + '\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of Vorticity') + ': ' + \
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of Vorticity') + ': ' + \
                                        '{:e}'.format(IterationInfo['Rel. err. of Vorticity']) + '\n'
-    if PSE: msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of PSE') + ': ' + \
+        if 'Rel. err. of PSE' in IterationInfo:
+            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of PSE') + ': ' + \
                                              '{:e}'.format(IterationInfo['Rel. err. of PSE']) + '\n'
-    if DVM:
-        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of PSE') + ': ' + \
-                                             '{:e}'.format(IterationInfo['Rel. err. of PSE']) + '\n'
-        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of Diffusion Velocity') + ': ' +\
-                               '{:e}'.format(IterationInfo['Rel. err. of Diffusion Velocity']) +'\n'
-    msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('FMM Computation time') + ': ' + \
+        if 'Rel. err. of Diffusion Velocity' in IterationInfo:
+            msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('Rel. err. of Diffusion Velocity') + \
+                        ': ' + '{:e}'.format(IterationInfo['Rel. err. of Diffusion Velocity']) +'\n'
+        msg += f"{'||':>57}\r" + '|| ' + '{:34}'.format('FMM Computation time') + ': ' + \
                                              '{:.2f}'.format(IterationInfo['FMM time']) + ' s (' + \
                                                          '{:.1f}'.format(IterationInfo['FMM time']/\
                                                 IterationInfo['Total iteration time']*100.) + '%)\n'

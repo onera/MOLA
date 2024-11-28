@@ -78,7 +78,7 @@ float_Params = ['Density', 'EddyViscosityConstant', 'KinematicViscosity', 'Tempe
     'ResizeParticleFactor', 'ClusterSizeFactor', 'NearFieldOverlapingFactor',
     'NearFieldSmoothingFactor', 'TimeFMM', 'PerturbationOverlappingFactor',
     'TimeVelocityPerturbation', 'CirculationThreshold', 'CirculationRelaxationFactor', 
-    'LocalResolution', 'RPM', 'VelocityTranslation', 'EulerianTimeStep', 'GenerationZones',
+    'LocalResolution', 'Pitch', 'RPM', 'VelocityTranslation', 'EulerianTimeStep', 'GenerationZones',
     'HybridDomainSize', 'MinimumSplitStrengthFactor', 'RelaxationRatio', 'RelaxationThreshold',
                                                                                         'Intensity']
                                                                                         
@@ -671,16 +671,17 @@ def getDefaultNumericalParameters(EnstrophyControlRamp          = 100,
 def getDefaultLiftingLineParameters(CirculationThreshold             = 1e-4,
                                     CirculationRelaxationFactor      = 1./3.,
                                     IntegralLaw                      = 'linear',
+                                    LocalResolution                  = None,
                                     MaxLiftingLineSubIterations      = 100,
                                     MinNbShedParticlesPerLiftingLine = 26,
                                     NumberOfParticleSources          = 50,
+                                    Pitch                            = 0,
+                                    RPM                              = None,
                                     SourcesDistribution              = dict(
                                                           kind              = 'tanhTwoSides',
                                                           FirstSegmentRatio = 2.,
                                                           LastSegmentRatio  = 0.5,
                                                           Symmetrical       = False),
-                                    LocalResolution                  = None,
-                                    RPM                              = None,
                                     VelocityTranslation              = None,
                                     **kwargs):
     '''
@@ -703,6 +704,11 @@ def getDefaultLiftingLineParameters(CirculationThreshold             = 1e-4,
                 linear, uniform, tanhOneSide, tanhTwoSides or ratio`, gives the type of interpolation
                 of the circulation from the Lifting Lines sections onto the particles sources
                 embedded on the Lifting Lines.
+
+            LocalResolution : :py:class:`float`
+                :math:`\in ]0, +\infty[`, resolution of the Lifting Line, i.e., mean distance between the
+                particle sources. If undefined, :py:class:`NumberOfParticleSources` is imposed as:
+                :: NumberOfParticleSources = int(round(MOLA.Wireframe.getLength(LiftingLine)/LocalResolution))
                 
             MaxLiftingLineSubIterations : :py:class:`int`
                 :math:`\in [0, +\infty[`, max number of sub-iteration when sheding the particles from the Lifting
@@ -717,6 +723,12 @@ def getDefaultLiftingLineParameters(CirculationThreshold             = 1e-4,
                 :math:`\in [26, +\infty[`, number of particle sources on the Lifting Lines. Will impose
                 :py:class:`LocalResolution` as:
                 :: LocalResolution = MOLA.Wireframe.getLength(LiftingLine)/NumberOfParticleSources
+
+            Pitch : py:class:`float`
+                :math:`\in ]-\infty, +\infty[`, Pitch angleto add to the Lifting Lines, in °.
+
+            RPM : :py:class:`float`
+                :math:`\in [0, +\infty[`, revolution per minute of the Lifting Lines, rev.min-1
                 
             SourcesDistribution : :py:class:`dict`
                 Provides with the repartition of the particle sources on the Lifting Lines.
@@ -736,14 +748,6 @@ def getDefaultLiftingLineParameters(CirculationThreshold             = 1e-4,
                         :math:`\in [0, 1]`, forces or not the symmetry of the particle sources on the Lifting
                         Lines.
 
-            LocalResolution : :py:class:`float`
-                :math:`\in ]0, +\infty[`, resolution of the Lifting Line, i.e., mean distance between the
-                particle sources. If undefined, :py:class:`NumberOfParticleSources` is imposed as:
-                :: NumberOfParticleSources = int(round(MOLA.Wireframe.getLength(LiftingLine)/LocalResolution))
-
-            RPM : :py:class:`float`
-                :math:`\in [0, +\infty[`, revolution per minute of the Lifting Lines, rev.min-1
-
             VelocityTranslation : numpy.ndarray of :py:class:`float`
                 :math:`\in ]-\infty, +\infty[^3`, translation velocity of the Lifting Lines.
         Returns
@@ -758,10 +762,11 @@ def getDefaultLiftingLineParameters(CirculationThreshold             = 1e-4,
         'CirculationRelaxationFactor'      : [0., 1.],
         'IntegralLaw'                      : ['linear', 'uniform', 'tanhOneSide', 'tanhTwoSides',
                                                                                            'ratio'],
+        'LocalResolution'                  : [0, +np.inf],
         'MaxLiftingLineSubIterations'      : [0, +np.inf],
         'MinNbShedParticlesPerLiftingLine' : [0, +np.inf],
         'NumberOfParticleSources'          : [26, +np.inf],
-        'LocalResolution'                  : [0, +np.inf],
+        'Pitch'                            : [-np.inf, +np.inf],
         'RPM'                              : [-np.inf, +np.inf],
         'VelocityTranslation'              : [-np.inf, +np.inf],
     }
@@ -769,12 +774,13 @@ def getDefaultLiftingLineParameters(CirculationThreshold             = 1e-4,
         CirculationThreshold             = setType(CirculationThreshold, np.float64),
         CirculationRelaxationFactor      = setType(CirculationRelaxationFactor, np.float64),
         IntegralLaw                      = np.str_(IntegralLaw),
+        LocalResolution                  = setType(LocalResolution, np.float64),
         MaxLiftingLineSubIterations      = setType(MaxLiftingLineSubIterations, np.int32),
         MinNbShedParticlesPerLiftingLine = setType(MinNbShedParticlesPerLiftingLine, np.int32),
         NumberOfParticleSources          = setType(NumberOfParticleSources, np.int32),
-        SourcesDistribution              = dict(SourcesDistribution),
-        LocalResolution                  = setType(LocalResolution, np.float64),
+        Pitch                            = setType(Pitch, np.float64),
         RPM                              = setType(RPM, np.float64),
+        SourcesDistribution              = dict(SourcesDistribution),
         VelocityTranslation              = setType(VelocityTranslation, np.float64),
     )
     checkRange(LiftingLineParameters, LiftingLineParametersRange)
@@ -1810,7 +1816,7 @@ def getParameter(t = [], Name = '', Field = ['Numerical', 'Private', 'Modeling',
             Pointer of the parameter.
     '''
     if Field:
-        Parameters = J.get(getFreeParticles(t), '.' + Field[0] + '#Parameters')    
+        Parameters = J.get(getFreeParticles(t), '.' + Field[0] + '#Parameters')
         if Name in Parameters: return Parameters[Name]
         elif Field[0] == 'Numerical':
             if 'ParticleControlParameters' in Parameters and \
@@ -1820,6 +1826,46 @@ def getParameter(t = [], Name = '', Field = ['Numerical', 'Private', 'Modeling',
                 return Parameters['FMMParameters'][Name]
             else: return getParameter(t, Name, Field[1:])
         else: return getParameter(t, Name, Field[1:])
+    return None
+
+def getParameterFromDico(Dico = {}, Name = '', Field = ['Numerical', 'Modeling', 'Hybrid', 'Fluid',
+                                                                         'LiftingLine', 'Private']):
+    '''
+    Recursively searches for a parameter.
+
+    Parameters
+    ----------
+        Dico : :py:class:`dict`
+            Contains the parameter nodes in ``Field`` as ``.Field#Parameters``.
+
+        Name : :py:class:`str`
+            Name of the parameter to get.
+
+        Field : list of :py:class:`str`
+            Containers in which to look for.
+            ``'Numerical'``
+            ``'Private'``
+            ``'Modeling'``
+            ``'Hybrid'``
+            ``'Fluid'``
+            ``'LiftingLine'``
+
+    Returns
+    -------
+        Parameter : :py:class:`float`, :py:class:`int`, :py:class:`str` or :py:class:`dict`
+            Pointer of the parameter.
+    '''
+    if Field:
+        Parameters = Dico[Field[0] + 'Parameters']
+        if Name in Parameters: return Parameters[Name]
+        elif Field[0] == 'Numerical':
+            if 'ParticleControlParameters' in Parameters and \
+                                                    Name in Parameters['ParticleControlParameters']:
+                return Parameters['ParticleControlParameters'][Name]
+            elif 'FMMParameters' in Parameters and Name in Parameters['FMMParameters']:
+                return Parameters['FMMParameters'][Name]
+            else: return getParameterFromDico(Dico, Name, Field[1:])
+        else: return getParameterFromDico(Dico, Name, Field[1:])
     return None
 
 def getParameters(t = [], Names = []):
@@ -2125,8 +2171,8 @@ def getAerodynamicCoefficientsOnRotor(tLL = [], StdDeviationSample = 50):
     Power = IntegralLoads['Power'][0]
     U = RPM*np.pi/30.*R
     q0 = Rho*np.square(U)*np.pi*R**2
-    cT = Thrust/q0     if 1e-6 < q0 else 0.
-    cP = P/(q0*U) if 1e-6 < q0 else 0.
+    cT = Thrust/q0    if 1e-6 < q0 else 0.
+    cP = Power/(q0*U) if 1e-6 < q0 else 0.
     Eff = np.sqrt(np.abs(cT))*cT/(np.sqrt(2.)*cP) if 1e-12 < np.abs(cP) else 0.
 
     std_Thrust, std_Power = getStandardDeviationBlade(tLL = tLL,

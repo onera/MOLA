@@ -492,7 +492,7 @@ Several VPM examples of wings, rotors and propellers are available here:
 
     $MOLA/EXAMPLES/VPM
 
-.. figure:: ../../EXAMPLES/VPM/QUADROTOR_KDE/flow_kde_quad.png
+.. figure:: ../../EXAMPLES/VPM/flow_kde_quad.png
     :width: 80%
     :align: center
 

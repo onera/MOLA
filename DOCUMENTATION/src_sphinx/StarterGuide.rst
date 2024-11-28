@@ -24,7 +24,7 @@ environment file found at :
 
 .. code-block:: bash
 
-    source /stck/mola/v1.17/env_MOLA.sh
+    source /stck/mola/v1.19/env_MOLA.sh
 
 You will see a message indicating the main available libraries:
 

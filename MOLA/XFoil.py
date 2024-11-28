@@ -841,10 +841,23 @@ def convertXFoilDict2PyZonePolar(ResultsDictionary, Title, Variables2Store=[],
     J._addSetOfNodes(PyZonePolar,'.Polar#OutOfRangeValues',children)
 
     # Add Foil-data information
+    def interpolate_column(col):
+        valid = ~np.isnan(col) 
+        if np.any(valid):  
+            return np.interp(
+                np.arange(len(col)),       
+                np.flatnonzero(valid),   
+                col[valid]                 
+            )
+        else:
+            return np.full_like(col, 0) 
+
     children = []
     for var in ResultsDictionary:
-        if (var in FoilVariables)    and \
-           (var not in ('s','x','y')):
+        if (var in FoilVariables) and  (var not in ('s','x','y')):
+            
+            ResultsDictionary[var] = np.apply_along_axis(interpolate_column, axis=0, arr=ResultsDictionary[var])
+
             children += [[var, ResultsDictionary[var]]]
     if len(children) > 0:
         J._addSetOfNodes(PyZonePolar,'.Polar#FoilValues',children)
