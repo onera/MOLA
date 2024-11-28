@@ -1013,8 +1013,7 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.], RightHandRuleRotati
     Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)
     NumberOfSections = len(Span)
     if NumberOfSections%2 == 0:
-        raise AttributeError(J.FAIL + 'An even number of sections has been given: %i'\
-                                                                         %len(TwistAngles) + J.ENDC)
+        raise AttributeError(J.FAIL + f'An even number of sections were given: {NumberOfSections}'+ J.ENDC)
 
     s = Span/Span[-1]
     RelSpan = Span/Span.max()
@@ -1724,9 +1723,7 @@ def buildPolarsInterpolatorDict(PyZonePolars, InterpFields=['Cl', 'Cd','Cm'],
         if PolarInterpNode is None: continue
         mode = I.getValue(I.getNodeFromName1(PolarInterpNode,'Algorithm'))
 
-        if mode == 'RbfInterpolator':
-            InterpDict[polar[0]] = RbfInterpFromPyZonePolar(polar, InterpFields=InterpFields)
-        elif mode == 'PyZoneExtractMesh':
+        if mode == 'PyZoneExtractMesh':
             InterpDict[polar[0]] = extractorFromPyZonePolar(polar, Nrequest, InterpFields=InterpFields)
         elif mode == 'RectBivariateSpline':
             InterpDict[polar[0]] = interpolatorFromPyZonePolar(polar, InterpFields=InterpFields)
@@ -2144,231 +2141,6 @@ def extractorFromPyZonePolar(PyZonePolar, Nrequest,
 
         return ListOfValues
 
-
-    return interpolationFunction
-
-def RbfInterpFromPyZonePolar(PyZonePolar, InterpFields=['Cl', 'Cd', 'Cm']):
-    '''
-    This function creates the interpolation function of Polar
-    data of an airfoil stored as a PyTree Zone, using radial-basis-functions.
-
-    It handles out-of-range polar-specified angles of attack.
-
-    Parameters
-    ----------
-
-        PyZonePolar : PyTree Zone containing Polar information,
-            as produced by e.g. :py:func:`convertHOSTPolarFile2PyZonePolar`
-
-        interpOptions : dict
-            options to pass to the interpolator function.
-
-            .. warning:: this will be include in a node inside **PyZonePolar**
-
-        InterpFields : :py:class:`tuple` of :py:class:`str`
-            variables to be interpolated.
-
-    Returns
-    -------
-
-        InterpolationFunction : function
-            function of interpolation, with expected usage:
-
-            >>> Cl, Cd, Cm = InterpolationFunction(AoA, Mach, Reynolds)
-    '''
-    from scipy.spatial import Delaunay
-    import scipy.interpolate as si
-
-    # Check kind of PyZonePolar
-    PolarInterpNode = I.getNodeFromName1(PyZonePolar,'.Polar#Interp')
-    PyZonePolarKind = I.getValue(I.getNodeFromName1(PolarInterpNode,'PyZonePolarKind'))
-    Algorithm = I.getValue(I.getNodeFromName1(PolarInterpNode,'Algorithm'))
-    if PyZonePolarKind != 'Unstr_AoA_Mach_Reynolds':
-        raise AttributeError('RbfInterpolator object can only be associated with a PyZonePolar of type "Unstr_AoA_Mach_Reynolds". Check PyZonePolar "%s"'%PyZonePolar[0])
-    if Algorithm != 'RbfInterpolator':
-        raise ValueError("Attempted to use RbfInterpolator, but Algorithm node in PyZonePolar named '%s' was '%s'"%(PyZonePolar[0], Algorithm))
-
-    # Get the fields to interpolate
-    Data       = {}
-    DataRank   = {}
-    DataShape  = {}
-    for IntField in InterpFields:
-        Data[IntField] = I.getNodeFromName(PyZonePolar,IntField)[1]
-        DataShape[IntField]  = Data[IntField].shape
-        DataRank[IntField] = len(DataShape[IntField])
-
-    # Get polar independent variables (AoA, Mach, Reynolds)
-    PolarRangeNode = I.getNodeFromName1(PyZonePolar,'.Polar#Range')
-    AoARange = I.getNodeFromName1(PolarRangeNode,'AngleOfAttack')[1]
-    MachRange = I.getNodeFromName1(PolarRangeNode,'Mach')[1]
-    ReRange = I.getNodeFromName1(PolarRangeNode,'Reynolds')[1]
-
-    # Compute bounding box of independent variables
-    AoAMin,  AoAMax =  AoARange.min(),  AoARange.max()
-    ReMin,    ReMax =   ReRange.min(),   ReRange.max()
-    MachMin,MachMax = MachRange.min(), MachRange.max()
-
-    # Compute ranges of big angle-of-attack
-    BigAoARange = {}
-    OutOfRangeValues_ParentNode = I.getNodeFromName(PyZonePolar,'.Polar#OutOfRangeValues')
-    for IntField in InterpFields:
-        BigAoARangeVar_n = I.getNodeFromName(PyZonePolar,'BigAngleOfAttack%s'%IntField)
-        if BigAoARangeVar_n is None:
-            BigAoARangeVar_n = I.getNodeFromName(PyZonePolar,'BigAngleOfAttackCl')
-        BigAoARange[IntField] = BigAoARangeVar_n[1]
-
-    # Compute Delaunay triangulation of independent variables
-    # (AoA, Mach, Reynolds)
-    points = np.vstack((AoARange,MachRange,ReRange)).T
-    triDelaunay = Delaunay(points)
-
-    # CONSTRUCT INTERPOLATORS
-    # -> inside qhull : use Rbf interpolator
-    # -> outside qhull but inside ranges BoundingBox : use
-    #       NearestNDInterpolator
-    # -> outside ranges BoundingBox : use interp1d_linear
-    #       on Big angle-of-attack data, if available
-
-    inQhullFun, outQhullFun, outMaxAoAFun, outMinAoAFun = {}, {}, {}, {}
-    def makeNaNFun(dummyArray):
-        newArray = dummyArray*0.
-        newArray[:] = np.nan
-        return newArray
-
-    for IntField in InterpFields:
-        if DataRank[IntField] == 1:
-            # Integral quantity: Cl, Cd, Cm, Top_Xtr...
-            '''
-            Rbf functions:
-            'multiquadric' # ok
-            'inverse'      # bit expensive
-            'gaussian'     # expensive (and innacurate?)
-            'linear'       # ok
-            'cubic'        # expensive
-            'quintic'      # expensive
-            'thin_plate'   # bit expensive
-            '''
-            inQhullFun[IntField] = si.Rbf(0.1*AoARange, MachRange,1e-6*ReRange, Data[IntField], function='multiquadric',
-                smooth=1, # TODO: control through PyTree node
-                )
-            outQhullFun[IntField] = si.NearestNDInterpolator(points,Data[IntField])
-            outBBRangeValues_n = I.getNodeFromName(OutOfRangeValues_ParentNode,'BigAngleOfAttack%s'%IntField)
-            if outBBRangeValues_n is not None:
-                MaxAoAIndices = BigAoARange[IntField]>0
-                outMaxAoAFun[IntField] = si.interp1d( BigAoARange[IntField][MaxAoAIndices], outBBRangeValues_n[1][MaxAoAIndices], assume_sorted=True, copy=False,fill_value='extrapolate')
-                MinAoAIndices = BigAoARange[IntField]<0
-                outMinAoAFun[IntField] = si.interp1d( BigAoARange[IntField][MinAoAIndices], outBBRangeValues_n[1][MinAoAIndices], assume_sorted=True, copy=False,fill_value='extrapolate')
-            else:
-                outMaxAoAFun[IntField] = makeNaNFun
-                outMinAoAFun[IntField] = makeNaNFun
-
-        elif DataRank[IntField] == 2:
-            # Foil-distributed quantity: Cp, delta1, theta...
-            inQhullFun[IntField]  = []
-            outQhullFun[IntField] = []
-            outBBFun[IntField]    = []
-
-            outBBRangeValues_n = I.getNodeFromName(OutOfRangeValues_ParentNode,'BigAngleOfAttack%s'%IntField)
-            for k in range(DataShape[IntField][1]):
-                inQhullFun[IntField] += [si.Rbf(0.1*AoARange, MachRange,1e-6*ReRange, Data[IntField][:,k], function='multiquadric',
-                smooth=0, # TODO: control through PyTree node
-                )]
-                outQhullFun[IntField] += [si.NearestNDInterpolator(points,Data[IntField][:,k])]
-                if outBBRangeValues_n is not None:
-                    outBBFun[IntField] += [si.interp1d( BigAoARange[IntField][:,k], outBBRangeValues_n[1][:,k], assume_sorted=True, copy=False)]
-                else:
-                    outBBFun[IntField] += [makeNaNFun]
-
-        else:
-            raise ValueError('FATAL ERROR: Rank of data named "%s" to be interpolated is %d, and must be 1 (for integral quantities like Cl, Cd...) or 2 (for foil-distributed quantities like Cp, theta...).\nCheck your PyZonePolar data.'%(IntField,DataRank[IntField]))
-
-
-    def interpolationFunction(AoA, Mach, Reynolds):
-
-        # Check input data structure
-        if isinstance(AoA,list): AoA = np.array(AoA,dtype=np.float64, order='F')
-        if isinstance(Mach,list): Mach = np.array(Mach,dtype=np.float64, order='F')
-        if isinstance(Reynolds,list): Reynolds = np.array(Reynolds,dtype=np.float64, order='F')
-
-        # Replace some NaN in Mach or Reynolds number by 0
-        if all(np.isnan(Mach)): raise ValueError('all-NaN Found in Mach')
-        elif any(np.isnan(Mach)): Mach[np.isnan(Mach)] = 0
-
-        if all(np.isnan(Reynolds)): raise ValueError('all-NaN Found in Reynolds')
-        elif any(np.isnan(Reynolds)): Reynolds[np.isnan(Reynolds)] = 0
-
-        # Find boolean ranges depending on requested data:
-        OutAoAMax = AoA > AoAMax
-        AnyOutAoAMax = np.any(OutAoAMax)
-        OutAoAMin = AoA < AoAMin
-        AnyOutAoAMin = np.any(OutAoAMin)
-        outBB = OutAoAMax + OutAoAMin
-        AllOutBB = np.all(outBB)
-        AnyOutBB = np.any(outBB)
-        inBB  = np.logical_not(outBB)
-
-        # Interpolate for each requested field "IntField"
-        Values = {}
-        FirstField = True
-        for IntField in InterpFields:
-
-            if DataRank[IntField] == 1:
-                Values[IntField] = AoA*0 # Declare array
-
-                if not AllOutBB:
-                    # Compute values inside Bounding-Box
-                    Values[IntField][inBB] = inQhullFun[IntField](0.1*AoA[inBB], Mach[inBB], 1e-6*Reynolds[inBB])
-
-                    # Determine compute points outside Qhull but
-                    # still inside Bounding-Box
-                    if FirstField:
-                        inBBoutQhull = np.isnan(Values[IntField])
-                        someInBBoutQhull = np.any(inBBoutQhull)
-
-                    # Compute outside-Qhull points by nearest
-                    # point algorithm
-                    if someInBBoutQhull:
-                        Values[IntField][inBBoutQhull] = outQhullFun[IntField](AoA[inBBoutQhull], Mach[inBBoutQhull], Reynolds[inBBoutQhull])
-
-                # Compute outside big-angle of attack values
-                if AnyOutAoAMax:
-                    Values[IntField][OutAoAMax] = outMaxAoAFun[IntField](np.minimum(np.maximum(AoA[OutAoAMax],-180.),+180.))
-                if AnyOutAoAMin:
-                    Values[IntField][OutAoAMax] = outMinAoAFun[IntField](np.minimum(np.maximum(AoA[OutAoAMax],-180.),+180.))
-
-
-            else:
-                # DataRank[IntField] == 2
-                FoilValues = []
-                for k in range(DataShape[IntField][1]):
-                    CurrentValues = AoA*0 # Declare array
-
-                    if not AllOutBB:
-                        # Compute values inside Bounding-Box
-                        CurrentValues[inBB] = inQhullFun[IntField](AoA[inBB], Mach[inBB], Reynolds[inBB])
-
-                        # Determine compute points outside Qhull but
-                        # still inside Bounding-Box
-                        if FirstField:
-                            inBBoutQhull = np.isnan(Values[IntField])
-                            someInBBoutQhull = np.any(inBBoutQhull)
-
-                        # Compute outside-Qhull points by nearest
-                        # point algorithm
-                        if someInBBoutQhull:
-                            CurrentValues[inBBoutQhull] = outQhullFun[IntField](AoA[inBBoutQhull], Mach[inBBoutQhull], Reynolds[inBBoutQhull])
-
-                    # Compute outside big-angle of attack values
-                    if AnyOutBB:
-                        CurrentValues[outBB] = outBBFun[IntField](AoA[outBB])
-
-                    FoilValues += [CurrentValues]
-
-                Values[IntField] = np.vstack(FoilValues,dtype=np.float64,order='F')
-            FirstField = False
-        ListOfValues = [Values[IntField] for IntField in InterpFields]
-
-        return ListOfValues
 
     return interpolationFunction
 
@@ -4990,7 +4762,6 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0, 0.5, 1.],
 
 
     for LiftingLine, AbscissaSegment in zip(LiftingLines, AbscissaSegments):
-        VPM_Parameters = J.get(LiftingLine,'.VPM#Parameters')
 
         AbscissaSegment = np.append(2.*AbscissaSegment[0] - AbscissaSegment[1],
                                         AbscissaSegment)
@@ -5017,6 +4788,7 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0, 0.5, 1.],
                                                    sourcefields[fieldname][-3]
 
         elif IntegralLaw.startswith('interp1d'):
+            import scipy.interpolate as si
             kind = IntegralLaw.replace('interp1d_','')
             for fieldname in FieldsNames2Extract:
                 interpolator = si.interp1d(v['s'], v[fieldname],
@@ -5027,14 +4799,16 @@ def buildVortexParticleSourcesOnLiftingLine(t, AbscissaSegments=[0, 0.5, 1.],
                 sourcefields[fieldname] = interpolator(AbscissaSegment)
 
         elif IntegralLaw == 'pchip':
+            import scipy.interpolate as si
             for fieldname in FieldsNames2Extract:
                 interpolator = si.PchipInterpolator(v['s'], v[fieldname],
                                                     extrapolate = True)
                 sourcefields[fieldname] = interpolator(AbscissaSegment)
 
         elif IntegralLaw == 'akima':
-                interpolator = si.PchipInterpolator(v['s'], v[fieldname])
-                sourcefields[fieldname] = interpolator(AbscissaSegment, extrapolate = True)
+            import scipy.interpolate as si
+            interpolator = si.PchipInterpolator(v['s'], v[fieldname])
+            sourcefields[fieldname] = interpolator(AbscissaSegment, extrapolate = True)
 
         else:
             raise AttributeError('IntegralLaw "%s" not supported'%IntegralLaw)
