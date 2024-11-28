@@ -2441,7 +2441,7 @@ def adaptEndOfRun(to):
     I._renameNode(to, 'cellnf', 'cellN')
     I._renameNode(to, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
     I._rmNodesByName(to, 'FlowSolution#Init-1')
-    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration:04d}', 'FlowSolution#Init-1')
+    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration-1:04d}', 'FlowSolution#Init-1')
 
 
 def moveCoordsFromEndOfRunToGridCoords(to):

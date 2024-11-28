@@ -1048,8 +1048,7 @@ def computeSectionalLoads(surface, distribution = None,
 
             * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
 
-                :math:`(x,y,z)` direction of the reference axis along which
-                sectional loads are to be computed.
+                :math:`(x,y,z)` direction of the reference axis for AbscissaBased slicing.
 
                 .. warning:: Must be provided for AbscissaBased slicing.
 
@@ -1082,8 +1081,17 @@ def computeSectionalLoads(surface, distribution = None,
     if distribution is None:
         distribution = np.linspace(0,1,101)
     
+    surface = I.rmNodesByName(surface,'FlowSolution#Init')
+    I.__FlowSolutionNodes__ = 'FlowSolution'
     I.__FlowSolutionCenters__ = 'BCDataSet'
+
     _addNormalsIfAbsent(surface)
+
+    surface = C.center2Node(surface,var=I.__FlowSolutionCenters__)
+
+    surface = T.merge(surface)
+    surface = C.newPyTree(['Base', surface])
+
     if slicing_options['slicing_method'] == 'SpanBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
             ERRMSG = '''Span based sectional load computation requires both/ 
@@ -1094,7 +1102,6 @@ def computeSectionalLoads(surface, distribution = None,
             dmin = C.getMinValue(surface, 'Span')
             dmax = C.getMaxValue(surface, 'Span')            
             surface = C.initVars(surface,'Span2', Abscissa, ['Span'])
-            surface = C.node2Center(surface, ['Span','Span2'])
             slicing_var = 'Span2'
 
     elif slicing_options['slicing_method'] == 'AbscissaBased':
@@ -1108,7 +1115,6 @@ def computeSectionalLoads(surface, distribution = None,
             dmin = C.getMinValue(surface, 'Distance2Axis')
             dmax = C.getMaxValue(surface, 'Distance2Axis')
             surface = C.initVars(surface,'Abscissa', Abscissa, ['Distance2Axis']) 
-            surface = C.node2Center(surface, ['Distance2Axis','Abscissa'])
             slicing_var = 'Abscissa'          
 
     
@@ -1119,10 +1125,8 @@ def computeSectionalLoads(surface, distribution = None,
                 raise ValueError(ERRMSG)
             else:
                 slicing_var = slicing_options['custom_variable']
-
-                surface = mergeContainers(surface, FlowSolutionVertexName='FlowSolution',
-                FlowSolutionCellCenterName='FlowSolution#Centers',
-                BCDataSetFaceCenterName='BCDataSet')
+                surface = mergeContainers(surface, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
             
                 fieldsNames_n = I.getNodeFromName(surface,'fields_names')
                 containersNames_n = I.getNodeFromName(surface,'containers_names')
@@ -1149,21 +1153,23 @@ def computeSectionalLoads(surface, distribution = None,
     SectionalSpan               = []
     SectionalCustomVar          = []
     SectionalCustomVarOverMax   = []
-
+    SectionalDistance2Axis          = []
+    SectionalDistance2AxisOverMax   = [] 
 
     sectionalLoads = I.newCGNSBase('SectionalLoads', cellDim=1, physDim=3, parent=None)
 
     for d in distribution:
 
         if slicing_options['slicing_method'] != 'Custom':
-            section = isoSurface(surface, fieldname=slicing_var, value=d, container='BCDataSet')
+            section = isoSurface(surface, fieldname=slicing_var, value=d, container=I.__FlowSolutionNodes__)
+            if slicing_options['slicing_method'] == 'AbscissaBased':
+                value = d*(dmax-dmin)+dmin
         else:
             value = d*(dmax-dmin)+dmin
             section = isoSurface(surface, fieldname=slicing_var, value=value, container=customVarContainerName)
         
         if not section: continue
 
-        I.__FlowSolutionNodes__ = 'BCDataSetV'
 
         C._normalize(section,['nx','ny','nz'])
         C._initVars(section, 'fx=-({Pressure}-%.12g)*{nx}+{SkinFrictionX}'%(reference_pressure))
@@ -1184,6 +1190,10 @@ def computeSectionalLoads(surface, distribution = None,
         SectionalTorqueZ     += [ -STorqueZ ]
         SectionalSpan        += [ d ]
 
+        if slicing_options['slicing_method'] == 'AbscissaBased':
+            SectionalDistance2Axis         += [ value ]
+            SectionalDistance2AxisOverMax  += [ value/dmax ]
+
         if slicing_options['slicing_method'] == 'Custom':
             SectionalCustomVar          += [ value ]
             SectionalCustomVarOverMax   += [ value/dmax ]  
@@ -1193,9 +1203,12 @@ def computeSectionalLoads(surface, distribution = None,
                 SectionalTorqueY=np.array(SectionalTorqueY),SectionalTorqueZ=np.array(SectionalTorqueZ),
                 SectionalSpan=np.array(SectionalSpan))
      
+    if slicing_options['slicing_method'] == 'AbscissaBased':
+            sloads['SectionalDistance2Axis'] = np.array(SectionalDistance2Axis)
+            sloads['SectionalDistance2AxisOverMax'] = np.array(SectionalDistance2AxisOverMax)   
     if slicing_options['slicing_method'] == 'Custom':
-        sloads['Sectional'+slicing_options['custom_variable']] = np.array(SectionalCustomVar)
-        sloads['Sectional'+slicing_options['custom_variable']+'OverMax'] = np.array(SectionalCustomVarOverMax)
+        sloads['Sectional'+slicing_var] = np.array(SectionalCustomVar)
+        sloads['Sectional'+slicing_var+'OverMax'] = np.array(SectionalCustomVarOverMax)
 
     varValues = []
     varNames = []
@@ -1295,6 +1308,8 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
 
                 .. warning:: 
                     Must be provided for SpanBased slicing and AbscissaBased slicing.
+                .. warning:: 
+                    Must be on the axis of rotation if a `rotation_speed` is provided.
 
             * end_point : 3-float :py:class:`list` or :py:class:`tuple` or
               :py:class:`numpy.ndarray`
@@ -1312,6 +1327,7 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
                 pressure coefficent are to be computed.
 
                 .. warning:: Must be provided for AbscissaBased slicing.
+                .. warning:: Must corresponds to the axis of rotation if a `rotation_speed` is provided.
 
         reference_state : :py:class:`dict`
 
@@ -1334,6 +1350,8 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
                 Value of the rotation speed of the surface in rad/s. 0 if it is
                 not rotating. This velocity is combined with the freestream
                 velocity to compute the pressure coefficient.
+
+                .. warning:: Not relevant for Spanbased slicing.
     Returns
     -------
 
@@ -1452,7 +1470,7 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
             I.setName(slice, 'Iso{}_{}'.format(slicing_var,customVarValue))
 
         I._renameNode(slice, 'ChannelHeight'+heightContainerTag, 'ChannelHeight')
-        var2keepOnCpProfiles = ['CoordinateX', 'CoordinateY', 'CoordinateZ','-Cp',
+        var2keepOnCpProfiles = ['CoordinateX', 'CoordinateY', 'CoordinateZ','-Cp','-KpRot',
             'ChannelHeight',slicing_var,'Span', 'Abscissa','Distance2Axis']
         C._extractVars(slice, var2keepOnCpProfiles)
         I._addChild(BladeSlices, slice,pos=-1)
@@ -1895,7 +1913,6 @@ def isoSurface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     tPrev = I.copyRef(t)
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
-#COntainers OK at this point on FLowSolution and FlowSOlutionCenters
 
     isosurfs = []
     for zone in I.getZones(t):

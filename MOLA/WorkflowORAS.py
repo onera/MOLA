@@ -500,7 +500,7 @@ def computeRowSectionalLoad(surface, row, torque_center= None):
     except:
         setup = None
 
-    distribution = np.linspace(0,1,50)
+    distribution = np.linspace(0,1,51)
 
     blade_surf = searchBladeInTree(row)
     
@@ -514,6 +514,7 @@ def computeRowSectionalLoad(surface, row, torque_center= None):
         distribution=distribution, slicing_options=dict(slicing_method='AbscissaBased',custom_variable=None), 
         geometrical_parameters=dict(start_point=[0.,0.,0.],end_point=None,axis_direction=[1.,0.,0.]),
         torque_center=torque_center, reference_pressure=reference_pressure)
+
     sectionalLoads = I.renameNode(sectionalLoads, 'SectionalLoads', f'{row}_SectionalLoads')
     I.addChild(surface, sectionalLoads)
 
@@ -522,7 +523,8 @@ def computeRowSectionalLoad(surface, row, torque_center= None):
 
 def computeSectionalLoadInAnnularConfiguration(surface, distribution, 
     slicing_options=dict(slicing_method='SpanBased',custom_variable=None), 
-    geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None),
+    geometrical_parameters=dict(start_point=None,end_point=None),
+    rotation_axis=dict(ref_point=[0,0,0], axis_direction=[1,0,0]),
     torque_center=[0,0,0], reference_pressure=0.):
     '''
     Compute the sectional loads (spanwise distributions) along a direction from
@@ -546,7 +548,7 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
 
             .. hint:: for example 
                 
-                >>> distribution = np.linspace(0,1,201)
+                >>> distribution = np.linspace(0,1,101)
 
             .. note:: 
                 for slicing_method = ``Custom``, this function automatically
@@ -600,7 +602,7 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
                 sectional loads are to be computed.
 
                 .. warning:: 
-                    Must be provided for SpanBased slicing and AbscissaBased slicing.
+                    Must be provided for SpanBased slicing.
 
             * end_point : 3-float :py:class:`list` or :py:class:`tuple` or
               :py:class:`numpy.ndarray`
@@ -611,13 +613,22 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
                 .. warning:: 
                     Must be provided for SpanBased slicing.
 
+        rotation_axis : :py:class:`dict`
+
+            * ref_point : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` coordinates of a point through which th rotation axis passes.
+
+                .. warning:: 
+                    Must be provided for all slicing type.
+
             * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or
               :py:class:`numpy.ndarray`
 
-                :math:`(x,y,z)` direction of the reference axis along which
-                sectional loads are to be computed.
+                :math:`(x,y,z)` direction of the rotation axis
 
-                .. warning:: Must be provided for AbscissaBased slicing.
+                .. warning:: Must be provided for all slicing type.
 
         torque_center : 3-float :py:class:`list` or :py:class:`tuple` or
         :py:class:`numpy`
@@ -645,11 +656,24 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
     def Theta (y, z): return np.arctan2(z,y)
     def ThetaProjection(vecty, vectz, Theta): return vectz*np.cos(Theta)-vecty*np.sin(Theta)
     def RProjection(vecty, vectz, Theta): return vecty*np.cos(Theta)+vectz*np.sin(Theta)
-    
+
+    if distribution is None:
+        distribution = np.linspace(0,1,101)
+
     FlowSolutionNodesOld  = I.__FlowSolutionNodes__
     FlowSolutionCentersOld = I.__FlowSolutionCenters__
-
+    
+    surface = I.rmNodesByName(surface,'FlowSolution#Init')
+    I.__FlowSolutionNodes__ = 'FlowSolution'
     I.__FlowSolutionCenters__ = 'BCDataSet'
+    W.addDistanceRespectToLine(surface, np.array(rotation_axis['ref_point']), 
+                               np.array(rotation_axis['axis_direction']), 
+                               FieldNameToAdd='Distance2Axis')
+
+    surface = C.center2Node(surface,var=I.__FlowSolutionCenters__)
+
+    surface = T.merge(surface)
+    surface = C.newPyTree(['Base', surface])
 
     if slicing_options['slicing_method'] == 'SpanBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
@@ -661,26 +685,19 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
             dmin = C.getMinValue(surface, 'Span')
             dmax = C.getMaxValue(surface, 'Span')            
             surface = C.initVars(surface,'Span2', Abscissa, ['Span'])
-            surface = C.node2Center(surface, ['Span','Span2'])
             slicing_var = 'Span2'
 
     elif slicing_options['slicing_method'] == 'AbscissaBased':
-        if geometrical_parameters['start_point'] == None or geometrical_parameters['axis_direction']== None:
+        if geometrical_parameters['start_point'] == None or rotation_axis['axis_direction']== None:
             ERRMSG = '''Abscissa based sectional load computation requires both 
                 start_point and axis_direction as input parameters'''
             raise ValueError(ERRMSG)
         else:
-            W.addDistanceRespectToLine(surface, np.array(geometrical_parameters['start_point']), 
-                np.array(geometrical_parameters['axis_direction']), 
-                FieldNameToAdd='Distance2Axis')
-            
             dmin = C.getMinValue(surface, 'Distance2Axis')
             dmax = C.getMaxValue(surface, 'Distance2Axis')
             surface = C.initVars(surface,'Abscissa', Abscissa, ['Distance2Axis']) 
-            surface = C.node2Center(surface, ['Distance2Axis','Abscissa'])
             slicing_var = 'Abscissa'            
 
-    
     elif slicing_options['slicing_method'] == 'Custom':
             if slicing_options['custom_variable'] == None:
                 ERRMSG = '''The user needs to provide a custom_variable value 
@@ -689,11 +706,9 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
                 raise ValueError(ERRMSG)
             else:
                 slicing_var = slicing_options['custom_variable']
+                surface = Post.mergeContainers(surface, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
 
-                surface = Post.mergeContainers(surface, FlowSolutionVertexName='FlowSolution',
-                FlowSolutionCellCenterName='FlowSolution#Centers',
-                BCDataSetFaceCenterName='BCDataSet')
-            
                 fieldsNames_n = I.getNodeFromName(surface,'fields_names')
                 containersNames_n = I.getNodeFromName(surface,'containers_names')
               
@@ -727,10 +742,10 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
     SectionalDistance2AxisOverMax   = []     
 
     sectionalLoads = I.newCGNSBase('SectionalLoads', cellDim=1, physDim=3, parent=None)
-
+    
     for d in distribution:
         if slicing_options['slicing_method'] != 'Custom':
-            section = Post.isoSurface(surface, fieldname=slicing_var, value=d, container='BCDataSet')
+            section = Post.isoSurface(surface, fieldname=slicing_var, value=d, container=I.__FlowSolutionNodes__)
             if slicing_options['slicing_method'] == 'AbscissaBased':
                 value = d*(dmax-dmin)+dmin
 
@@ -739,9 +754,6 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
             section = Post.isoSurface(surface, fieldname=slicing_var, value=value, container=customVarContainerName)
         
         if not section: continue
-
-        I.__FlowSolutionNodes__ = 'BCDataSetV'
-       
 
         section = C.initVars(section,'Theta', Theta, ['CoordinateY','CoordinateZ'])
         section = C.initVars(section,'ntheta', ThetaProjection, ['ny','nz','Theta'])
@@ -757,9 +769,11 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
         C._initVars(section, 'ftheta', ThetaProjection, ['fy','fz','Theta'])
         C._initVars(section, 'fr', RProjection, ['fy','fz','Theta'])
         C._initVars(section, '{mx}={Distance2Axis}*{ftheta}')
+        C._initVars(section, '{mx}=0*{ftheta}')
         C._initVars(section, '{mr}=-({CoordinateX}-'+str(torque_center[0])+')*{ftheta}')
         C._initVars(section, '{mtheta}=-{Distance2Axis}*{fx}+({CoordinateX}-'+str(torque_center[0])+')*{fr}')
-        
+
+
         # computation of sectional forces
         SectionalForceX += [ -P.integ(section,'fx')[0] ]
         SectionalForceY += [ -P.integ(section,'fy')[0] ]
@@ -814,8 +828,10 @@ def computeSectionalLoadInAnnularConfiguration(surface, distribution,
         varValues.append(sloads[key])
         
     sectionalLoads = J.createZone('SectionalLoads',Arrays=varValues,Vars=varNames) 
+
     I.__FlowSolutionNodes__ = FlowSolutionNodesOld
     I.__FlowSolutionCenters__ = FlowSolutionCentersOld
+
     return sectionalLoads
 
 
