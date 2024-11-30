@@ -29,10 +29,15 @@ def apply(workflow):
     
     #. Adapt this node to the solver
     '''
-    if workflow.Solver == 'sonics':
-        FlowSolution_name = 'FSolution#CellCenter#Init'
-    else:
-        FlowSolution_name = 'FlowSolution#Init'
+
+    container = workflow.Initialization.get('Container')
+    if container is not None:
+        FlowSolution_name = container 
+    else:            
+        if workflow.Solver == 'sonics':
+            FlowSolution_name = 'FSolution#CellCenter#Init'
+        else:
+            FlowSolution_name = 'FlowSolution#Init'
 
     add_reference_state(workflow)
     
