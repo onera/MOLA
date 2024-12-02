@@ -400,7 +400,9 @@ class WorkflowInterface(object):
                                   Tree,
                                   Base,
                                   Zone ]  = None,
-            KeepTurbulentDistance    : bool  = False):
+            KeepTurbulentDistance    : bool  = False,
+            Container : str = 'auto',
+            ComputeTurbulentDistance : bool = True):
         self.Initialization = self._get_comp(
             WorkflowInterface.set_Initialization, self.get_default_values_from_local_signature())
 
@@ -840,7 +842,8 @@ class WorkflowInterface(object):
                             raise TypeError(f'argument {name} was expected to be one of the following types: {expected_types}, but got {type(value)}')
                     elif not isinstance(value, expected_type):
                         raise TypeError(f'argument {name} was expected to be type: {expected_type}, but got {type(value)}')
-                new_component[name] = value
+                new_component[name] = value        
+       
         return new_component
 
     @staticmethod

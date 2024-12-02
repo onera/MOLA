@@ -48,6 +48,7 @@ def update_motion_with_defaults(Motion):
         Motion['RotationSpeed'] = [RotationSpeed, 0., 0.]
     Motion.setdefault('RotationAxisOrigin', [0., 0., 0.])
     Motion.setdefault('TranslationSpeed', [0., 0., 0.])
+    
 
 def is_mobile(Motion):
     return is_rotating(Motion) or is_translating(Motion)
