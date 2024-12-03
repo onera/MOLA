@@ -28,7 +28,7 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
                             tuple,
                             np.ndarray] = [1,0,0],
             ShaftRotationSpeedUnit : str = 'rad/s', 
-            HubRotationSpeed : list = None,
+            HubRotationIntervals : list = [],
             Surface : float = None,
             NormalizationCoefficient : dict = None,
             *,
@@ -42,12 +42,50 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
             self.add_Row_to_ApplicationContext(_Key=key, **row_parameters)
         
         self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
+        self.apply_ShaftRotationSpeedUnit(default_ShaftRotationSpeedUnit=kwargs["ShaftRotationSpeedUnit"])
+        self.set_HubRotationIntervals()
         
+    def apply_ShaftRotationSpeedUnit(self, default_ShaftRotationSpeedUnit):
         if not self.ApplicationContext['ShaftRotationSpeedUnit'].lower() in ['rpm', 'rad/s']:
-            raise MolaUserError(f'ShaftRotationSpeedUnit must be rpm or rad/s ({kwargs["ShaftRotationSpeedUnit"]} by default)')
+            raise MolaUserError(f'ShaftRotationSpeedUnit must be rpm or rad/s ({default_ShaftRotationSpeedUnit} by default)')
         if self.ApplicationContext['ShaftRotationSpeedUnit'].lower() == 'rpm':
             self.ApplicationContext['ShaftRotationSpeed'] *= np.pi / 30.
             self.ApplicationContext['ShaftRotationSpeedUnit'] = 'rad/s'
+
+    def set_HubRotationIntervals(self):
+        if callable(self.ApplicationContext['HubRotationIntervals']):
+            return
+        
+        HubRotationIntervals = []
+        for interval in self.ApplicationContext['HubRotationIntervals']:
+            raise_error = False
+            if isinstance(interval, (tuple, list)):
+                if not len(interval) == 2:
+                    raise_error = True
+                xmin, xmax = interval
+                HubRotationIntervals.append(
+                    dict(xmin=xmin, xmax=xmax)
+                )
+            elif isinstance(interval, dict):
+                try:
+                    xmin = interval.get('xmin', -1e20)
+                    xmax = interval.get('xmax',  1e20)
+                    HubRotationIntervals.append(
+                        dict(xmin=xmin, xmax=xmax)
+                    )
+                except:
+                    raise_error = True
+            else:
+                raise_error = True
+                
+            if raise_error:
+                raise MolaUserError(
+                    'Each element of HubRotationIntervals must be either a tuple or list '
+                    'of 2 values (xmin, xmax), or a dict with 2 elements called xmin and xmax. '
+                    f'Current value of HubRotationIntervals is {HubRotationIntervals}'
+                    )
+            
+        self.ApplicationContext['HubRotationIntervals'] = HubRotationIntervals
 
     def add_Row_to_ApplicationContext(self,
             IsRotating : bool = False,

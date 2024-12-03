@@ -87,7 +87,7 @@ def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa
 
     if callable(Motion) or any([callable(v) for v in Motion.values()]):
         # Put global parameters in the family
-        Motion_default = dict(RotationSpeed=workflow.ComponentAxis)
+        Motion_default = dict(RotationSpeed=workflow.ApplicationContext['ShaftAxis'])
         motion.update_motion_with_defaults(Motion_default)
         assert_rotation_axis_is_correct(Motion_default)
         Motion_elsa = translate_motion_to_elsa(Motion_default)

@@ -89,7 +89,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
                                             'NumberOfBladesInInitialMesh':nb_blades}
         SpinnerRotationInterval=(-1e6,+1e6)
         TurboConfiguration = WC.getTurboConfiguration(t, ShaftRotationSpeed=omega,
-                                    HubRotationSpeed=[SpinnerRotationInterval],
+                                    HubRotationIntervals=[SpinnerRotationInterval],
                                     Rows=RowTurboConfDict)
         FluidProperties = PRE.computeFluidProperties()
         if not 'Surface' in ReferenceValuesParams:

@@ -157,7 +157,7 @@ def test_set_hub_boundary_conditions_default():
 @pytest.mark.cost_level_0
 def test_set_hub_boundary_conditions_list():
     w = FakeWorkflow()
-    w.ApplicationContext['HubRotationSpeed'] = [(1, 2)]
+    w.ApplicationContext['HubRotationIntervals'] = [(1, 2)]
     w.set_hub_boundary_conditions()
     last_bc = w.BoundaryConditions[1]
     assert last_bc['Family'] == 'Hub_test'
@@ -168,7 +168,7 @@ def test_set_hub_boundary_conditions_list():
 @pytest.mark.cost_level_0
 def test_set_hub_boundary_conditions_function():
     w = FakeWorkflow()
-    w.ApplicationContext['HubRotationSpeed'] = lambda x: 2*x
+    w.ApplicationContext['HubRotationIntervals'] = lambda x: 2*x
     w.set_hub_boundary_conditions()
     last_bc = w.BoundaryConditions[1]
     assert last_bc['Family'] == 'Hub_test'
@@ -179,7 +179,7 @@ def test_set_hub_boundary_conditions_function():
 @pytest.mark.cost_level_0
 def test_set_hub_boundary_conditions_error_axis():
     w = FakeWorkflow()
-    w.ApplicationContext['HubRotationSpeed'] = [(1, 2)]
+    w.ApplicationContext['HubRotationIntervals'] = [(1, 2)]
     w.ApplicationContext['ShaftAxis'] = [-1, 0, 0]
     try:
         w.set_hub_boundary_conditions()

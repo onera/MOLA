@@ -48,7 +48,7 @@ class WorkflowRotatingComponent(Workflow):
             RPM = 5000., # rotation speed in rotation per minute
             # or you can also provide:
             # ShaftRotationSpeed = ..., # in rad/s
-            HubRotationSpeed = [(xmin1, xmax1), (xmin2, xmax2)]  
+            HubRotationIntervals = [(xmin1, xmax1), (xmin2, xmax2)]  
             Rows = dict(
                 Rotor = dict(
                     IsRotating = True,
@@ -143,7 +143,7 @@ class WorkflowRotatingComponent(Workflow):
             if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
                 continue
 
-            if not 'HubRotationSpeed' in self.ApplicationContext:
+            if not 'HubRotationIntervals' in self.ApplicationContext:
                 # Assume that hub rotates at the same speed that the zone family
                 mola_logger.warning(f'Assume that motion is uniform on Family {FamilyBoundary}.')
                 row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
@@ -179,20 +179,21 @@ class WorkflowRotatingComponent(Workflow):
         return row_family
        
     def _get_hub_rotation_function(self):
-        if isinstance(self.ApplicationContext['HubRotationSpeed'], (list, np.ndarray)):
+        if isinstance(self.ApplicationContext['HubRotationIntervals'], list):
+            # FIXME not working for now because treelab cannot write a list of tuples or lists
 
             if list(self.ApplicationContext['ShaftAxis']) != [1., 0., 0.]:
                 raise MolaAssertionError(f"Cannot handle hub rotation if the shaft axis is not the X axis.")
 
             def hub_rotation_function(CoordinateX):
                 omega = np.zeros(CoordinateX.shape, dtype=float)
-                for (x1, x2) in self.ApplicationContext['HubRotationSpeed']:  
-                    omega[(x1<=CoordinateX) & (CoordinateX<=x2)] = self.ShaftRotationSpeed
+                for interval in self.ApplicationContext['HubRotationIntervals']:
+                    omega[(interval['xmin']<=CoordinateX) & (CoordinateX<=interval['xmax'])] = self.ApplicationContext['ShaftRotationSpeed']
                 return np.asfortranarray(omega).ravel(order='K')
 
         else:
-            assert callable(self.ApplicationContext['HubRotationSpeed'])
-            hub_rotation_function = self.ApplicationContext['HubRotationSpeed']
+            assert callable(self.ApplicationContext['HubRotationIntervals'])
+            hub_rotation_function = self.ApplicationContext['HubRotationIntervals']
 
         return hub_rotation_function     
 
