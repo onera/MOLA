@@ -400,7 +400,8 @@ class WorkflowInterface(object):
                                   Tree,
                                   Base,
                                   Zone ]  = None,
-            KeepTurbulentDistance    : bool  = False):
+            ComputeWallDistanceAtPreprocess : bool = False,
+            KeepWallDistance    : bool  = False):
         self.Initialization = self._get_comp(
             WorkflowInterface.set_Initialization, self.get_default_values_from_local_signature())
 

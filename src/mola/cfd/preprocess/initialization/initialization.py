@@ -45,9 +45,7 @@ def apply(workflow):
 
     initialize_flow_with_given_method(workflow, FlowSolution_name)
     check_initial_flow_is_in_all_zones(workflow, FlowSolution_name)
-    if workflow.Turbulence['Model'] != 'Euler' and workflow.Solver.lower() != 'sonics': # HACK, should not fail
-        workflow.tree = compute_turbulent_distance_with_maia(workflow.tree)
-    force_grid_location_as_first_sibling(workflow.tree) # HACK
+    compute_wall_distance_if_needed(workflow)
     
     apply_to_solver(workflow)
 
@@ -115,12 +113,10 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
         mola_logger.info(f"Initialize FlowSolution by copy of the given tree",rank=0)
         errtag='tree'
 
-    keepTurbulentDistance = workflow.Initialization.get('KeepTurbulentDistance', False)
-
     sourceTree = cgns.load(workflow.Initialization['Source'])
 
     varNames = list(workflow.Flow['ReferenceState'])
-    if keepTurbulentDistance:
+    if workflow.Initialization['KeepWallDistance']:
         varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
 
     for zone in workflow.tree.zones():
@@ -138,8 +134,25 @@ def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
         if not zone.get(Name=FlowSolution_name, Type='FlowSolution', Depth=1):
             raise MolaException(f'{FlowSolution_name} is missing in zone {zone.name()}')
 
+def compute_wall_distance_if_needed(workflow):
+    if workflow.Turbulence['Model'] == 'Euler':
+        workflow.Initialization['ComputeWallDistanceAtPreprocess'] = False
+    elif workflow.Initialization['ComputeWallDistanceAtPreprocess'] and workflow.Solver.lower() == 'sonics': 
+        # HACK, should not fail with SoNICS
+        mola_logger.warning(
+            'Currently, a bug in MOLA prevents computing wall distance '
+            'at preprocess for a simulation with SoNICS. '
+            )
+        workflow.Initialization['ComputeWallDistanceAtPreprocess'] = False
+    elif not workflow.Initialization['ComputeWallDistanceAtPreprocess'] and workflow.Solver.lower() == 'fast':
+        workflow.Initialization['ComputeWallDistanceAtPreprocess'] = True
+
+    if workflow.Initialization['ComputeWallDistanceAtPreprocess']:
+        workflow.tree = compute_wall_distance_with_maia(workflow.tree)
+    force_grid_location_as_first_sibling(workflow.tree) # HACK
+
 @MaiaParallel
-def compute_turbulent_distance_with_maia(dist_tree):
+def compute_wall_distance_with_maia(dist_tree):
     '''
     The input tree has to be distributed, read by maia.
     '''
