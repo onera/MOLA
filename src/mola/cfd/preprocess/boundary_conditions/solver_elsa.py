@@ -43,9 +43,10 @@ def define_bc_family(workflow, Family, Value):
     cgns.Node( Name='FamilyBC', Value=Value, Type='FamilyBC', Parent=familyNode )
     return familyNode
 
-def impose_bc_fields(workflow, bc_path, ImposedVariables):
+def impose_bc_fields(workflow, bc_path, ImposedVariables, GridLocation='FaceCenter'):
     bc_node = workflow.tree.getAtPath(bc_path)
     BCDataSet = cgns.Node( Name='BCDataSet#Init', Value='Null', Type='BCDataSet', Parent=bc_node )
+    cgns.Node(Name='GridLocation', Type='GridLocation', Value=GridLocation, Parent=BCDataSet)
     BCDataSet.setParameters('NeumannData', ContainerType='BCData', **ImposedVariables)
 
 def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa='walladia'):

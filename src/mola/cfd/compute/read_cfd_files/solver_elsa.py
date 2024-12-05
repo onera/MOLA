@@ -29,128 +29,121 @@ from mola.logging import MolaAssertionError
 import Distributor2.PyTree as D2 
 
 def apply_to_solver(workflow):
+    
+    splitter = workflow.SplittingAndDistribution['Splitter'].lower()
+
+    if splitter == 'cassiopee':
+        xdt_object = read_workflow_with_cassiopee(workflow)
+    elif splitter == 'pypart': 
+        xdt_object = read_workflow_with_pypart(workflow)
+    elif splitter == 'maia': 
+        # from packaging.version import Version
+        # if Version(os.getenv('ELSAVERSION', '0.0.0')) < Version('5.3.03'):
+        #     raise MolaAssertionError(
+        #         'Maia splitter is not available for elsA simulations with MOLA ' 
+        #         'for elsA versions less than v5.3.03'
+        #         )
+        xdt_object = read_workflow_with_maia(workflow)
+    else:
+        raise MolaAssertionError(f'Unknown Splitter "{splitter}". Must be either cassiopee, pypart or maia.')        
+
+    return xdt_object
+
+def read_workflow_with_pypart(workflow):
     import elsAxdt
 
-    if workflow.SplittingAndDistribution['Splitter'].lower() == 'pypart':
-        part_tree, skeleton, PyPartBase = read_and_split_with_pypart(names.FILE_INPUT_SOLVER)
-        add_coordinates_in_skeleton(skeleton, part_tree)
+    part_tree, skeleton, PyPartBase = read_and_split_with_pypart(names.FILE_INPUT_SOLVER)
+    add_coordinates_in_skeleton(skeleton, part_tree)
 
-        workflow.tree = cgns.castNode(part_tree)
-        workflow._Skeleton = cgns.castNode(skeleton)
-        remove_workflow_attributes_from_bases(workflow, workflow.tree)
-        remove_workflow_attributes_from_bases(workflow, workflow._Skeleton)
-        workflow._PyPartBase = PyPartBase
+    workflow.tree = cgns.castNode(part_tree)
+    workflow._Skeleton = cgns.castNode(skeleton)
+    remove_workflow_attributes_from_bases(workflow, workflow.tree)
+    remove_workflow_attributes_from_bases(workflow, workflow._Skeleton)
+    workflow._PyPartBase = PyPartBase
 
-        e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
-        e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
+    e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
+    e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
 
+    return e
 
+def read_workflow_with_cassiopee(workflow):
+    # For simulation with Chimera method (xdt will read the file)
+    import Converter.Mpi as Cmpi
+    import elsAxdt
+    
+    skeleton = Cmpi.convertFile2SkeletonTree(workflow.tree)
+    workflow.read_tree('cassiopee_mpi')
+    add_coordinates_in_skeleton(skeleton, workflow.tree)
+    workflow._Skeleton = cgns.castNode(skeleton)
 
-    # FIXME defaults to cassiopee, since maia breaks EndOfRun None fields
-    # elif workflow.has_overset_component() \
-    #     or workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee':  # TODO change that
+    e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
+
+    return e
+
+# def read_workflow_with_cassiopee_bis(workflow):
+#     import elsAxdt
+#     import Converter.Mpi as Cmpi
+
+#     skeleton = Cmpi.convertFile2SkeletonTree(workflow.tree)
+#     workflow.read_tree('cassiopee_mpi')
+#     add_coordinates_in_skeleton(skeleton, workflow.tree)
+#     workflow._Skeleton = cgns.castNode(skeleton)
+
+#     Cmpi._convert2PartialTree(workflow.tree)
+#     workflow.tree = cgns.castNode(workflow.tree)
+
+#     # Cmpi.convertPyTree2File(workflow.tree, f'test.cgns')
+#     import Converter.PyTree as C
+#     C.convertPyTree2File(workflow.tree, f'test_{Cmpi.rank}.cgns')
+
+#     e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
+#     e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
+
+#     return e
+
+def read_workflow_with_maia(workflow):
+    import elsAxdt
+    import maia4elsA
+
+    is_to_split_with_maia = workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation' \
+        and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia'
+    
+    was_already_split = workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess'  # whatever the splitter
+    
+    if is_to_split_with_maia:
+        workflow.read_tree('maia')
+        part_tree = maia.factory.partition_dist_tree(workflow.tree, comm, data_transfer='ALL')
+
+    elif was_already_split:
+        # distribution = D2.getProcDict(workflow.tree, prefixByBase=True)   
+        # zone_to_parts = dict((zone_proc[0], [1.]) for zone_proc in distribution.items() if zone_proc[1]==rank)   
+        if workflow.RunManagement['NumberOfProcessors'] == 1:
+            workflow.read_tree('maia')
+            part_tree = maia.factory.partition_dist_tree(workflow.tree, comm, data_transfer='ALL')
+        else:
+            part_tree = maia.io.file_to_part_tree(workflow.tree, comm) 
 
     else:
-
-        # For simulation with Chimera method (xdt will read the file)
-        import Converter.Mpi as Cmpi
-        skeleton = Cmpi.convertFile2SkeletonTree(workflow.tree)
-        workflow.read_tree('cassiopee_mpi')
-        add_coordinates_in_skeleton(skeleton, workflow.tree)
-        workflow._Skeleton = cgns.castNode(skeleton)
-
-        e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
+        raise MolaAssertionError('The splitting strategy is not taken into account.')
     
-    # elif workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee':
-    #     import Converter.Mpi as Cmpi
+    part_tree = cgns.castNode(part_tree)
+    for zone in part_tree.zones():
+        SolverParam = zone.get(Name='.Solver#Param')
+        if not SolverParam:
+            zone.setParameters('.Solver#Param', proc=rank)
+        else:
+            cgns.Node(Name='proc', Value=rank, Type='DataArray', Parent=SolverParam)
 
-    #     workflow.read_tree('cassiopee_mpi')
-    #     skeleton = Cmpi.convert2SkeletonTree(workflow.tree)
-    #     add_coordinates_in_skeleton(skeleton, workflow.tree)
+    maia4elsA.add_renumbering_data(part_tree)
+    skeleton_tree = maia4elsA.get_skeleton_tree(part_tree, comm)
+    add_coordinates_in_skeleton(skeleton_tree, part_tree)
+    distribution = maia4elsA.get_distribution(part_tree, comm)
+    part_tree = maia.pytree.union(skeleton_tree, part_tree)  
+    workflow.tree = cgns.castNode(part_tree)
+    workflow._Skeleton = cgns.castNode(skeleton_tree)
 
-    #     workflow._Skeleton = cgns.castNode(skeleton)
-    #     Cmpi._convert2PartialTree(workflow.tree)
-    #     workflow.tree = cgns.castNode(workflow.tree)
-
-    #     # Cmpi.convertPyTree2File(workflow.tree, f'test.cgns')
-    #     import Converter.PyTree as C
-    #     C.convertPyTree2File(workflow.tree, f'test_{Cmpi.rank}.cgns')
-
-    #     e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
-    #     e.distribution = D2.getProcDict(workflow._Skeleton, prefixByBase=True)
-    
-    # FIXME defaults to cassiopee, since maia breaks EndOfRun None fields
-    # else:
-
-    #     import maia4elsA
-    #     from mola.cfd.preprocess.mesh.tools import copyRelevantUserDefinedDataNodes
-
-
-    #     is_to_split_with_maia = workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation' \
-    #         and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia'
-        
-    #     was_already_split = workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess'  # whatever the splitter
-        
-    #     print('mola: will read using maia')
-    #     if is_to_split_with_maia:
-    #         print('mola: is_to_split_with_maia')
-    #         workflow.read_tree('maia')
-    #         print('mola: read using maia, will partition')
-    #         part_tree = maia.factory.partition_dist_tree(workflow.tree, comm)
-    #         print('mola: partitioned ok')
-    #         copyRelevantUserDefinedDataNodes(workflow.tree, part_tree, comm)
-
-    #     elif was_already_split:
-    #         # distribution = D2.getProcDict(workflow.tree, prefixByBase=True)   
-    #         # zone_to_parts = dict((zone_proc[0], [1.]) for zone_proc in distribution.items() if zone_proc[1]==rank)   
-    #         if workflow.RunManagement['NumberOfProcessors'] == 1:
-    #             print('mola: was_already_split')
-    #             workflow.read_tree('maia')
-    #             print('mola: read using maia, will partition, single proc')
-    #             part_tree = maia.factory.partition_dist_tree(workflow.tree, comm)
-    #             print('mola: partitioned ok')
-    #             copyRelevantUserDefinedDataNodes(workflow.tree, part_tree, comm)
-    #         else:
-    #             part_tree = maia.io.file_to_part_tree(workflow.tree, comm) 
-
-    #     else:
-    #         raise MolaAssertionError('The splitting strategy is not taken into account.')
-        
-    #     part_tree = cgns.castNode(part_tree)
-    #     for zone in part_tree.zones():
-    #         SolverParam = zone.get(Name='.Solver#Param')
-    #         if not SolverParam:
-    #             zone.setParameters('.Solver#Param', proc=rank)
-    #         else:
-    #             cgns.Node(Name='proc', Value=rank, Type='DataArray', Parent=SolverParam)
-
-    #     print('mola: add_renumbering_data... ')
-    #     maia4elsA.add_renumbering_data(part_tree)
-    #     print('mola: add_renumbering_data... ok')
-    #     print('mola: get_skeleton_tree...')
-    #     skeleton_tree = maia4elsA.get_skeleton_tree(part_tree, comm)
-    #     print('mola: get_skeleton_tree... ok')
-
-    #     print('mola: add_coordinates_in_skeleton...')
-    #     add_coordinates_in_skeleton(skeleton_tree, part_tree)
-    #     print('mola: add_coordinates_in_skeleton... ok')
-
-    #     print('mola: maia4elsA.get_distribution...')
-    #     distribution = maia4elsA.get_distribution(part_tree, comm)
-    #     print('mola: maia4elsA.get_distribution... ok')
-
-    #     print('mola: maia.pytree.union(skeleton_tree, part_tree)  ...')
-    #     part_tree = maia.pytree.union(skeleton_tree, part_tree)  
-    #     print('mola: maia.pytree.union(skeleton_tree, part_tree)  ... ok')
-
-    #     workflow.tree = cgns.castNode(part_tree)
-    #     workflow._Skeleton = cgns.castNode(skeleton_tree)
-
-    #     print('mola: XdtCGNS...')
-    #     e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
-    #     print('mola: XdtCGNS... ok')
-    #     e.distribution = distribution
-        
+    e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
+    e.distribution = distribution
 
     return e
 

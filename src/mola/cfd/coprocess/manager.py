@@ -259,8 +259,7 @@ class CoprocessManager():
             os.makedirs(output_dir, exist_ok=True)
             os.makedirs(log_dir, exist_ok=True)
 
-        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path,
-                                      level='DEBUG')
+        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path)
 
     @property
     def status(self):

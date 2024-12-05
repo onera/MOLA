@@ -196,7 +196,7 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
                     elif len(nodes) == 1:
                         node = nodes[0]
                     else:
-                        pass
+                        raise Exception(f'Several nodes with name {arg_name} are found in {bc.name()}')
 
                     kwargs[arg_name] = I.getValue(node)
 

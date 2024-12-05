@@ -77,7 +77,7 @@ def process_extractions_of_type_field(workflow):
 
     for zone in workflow.tree.zones():
         for Extraction in workflow.Extractions:
-            if Extraction['Type'] in ['3D', 'Restart'] and is_zone_in_extraction_family(zone, Extraction):
+            if Extraction['Type'] in ['3D', 'Restart', 'IsoSurface'] and is_zone_in_extraction_family(zone, Extraction):
 
                 add_3d_extraction_to_zone(zone, Extraction)
 
