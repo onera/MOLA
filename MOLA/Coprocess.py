@@ -145,10 +145,10 @@ def extractFields(Skeleton):
     '''
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     adaptEndOfRun(t)
+    for tree in t, Skeleton: removeEmptyBCDataSet(tree)
     for tree in [t, Skeleton]: ravelBCDataSet(tree) # HACK https://elsa.onera.fr/issues/11219
     resumeFieldsAveraging(Skeleton, t)
     t = I.merge([Skeleton, t])
-    removeEmptyBCDataSet(t)
     PRE.forceFamilyBCasFamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
 
     return t
@@ -2684,12 +2684,15 @@ def loadSkeleton(Skeleton=None, PartTree=None):
                 replaceNodeByName(zone, zonePath, 'NGonElements')
                 replaceNodeByName(zone, zonePath, 'NFaceElements')
                 # PointList in BCs and GridConnectivities
-                for BC in I.getNodesFromType2(zone, 'BC_t'):
-                    BCpath = '{}/ZoneBC/{}'.format(zonePath, I.getName(BC))
-                    replaceNodeByName(BC, BCpath, 'PointList')
+
                 for GC in I.getNodesFromType2(zone, 'GridConnectivity_t'):
                     GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
                     replaceNodeByName(GC, GCpath, 'PointList')
+
+            for BC in I.getNodesFromType2(zone, 'BC_t'):
+                BCpath = '{}/ZoneBC/{}'.format(zonePath, I.getName(BC))
+                replaceNodeByName(BC, BCpath, 'PointList')
+                replaceNodeByName(BC, BCpath, 'BCDataSet#Average')
 
             # put BCDataSet#Average in Skeleton
             if not PartTree: # from file
@@ -2767,6 +2770,7 @@ def splitWithPyPart():
     # See http://elsa.onera.fr/restricted/MU_MT_tuto/latest/MU-98057/Textes/Attribute/numerics.html#numerics.implicit
     PartTree = PyPartBase.runPyPart(method=2, partN=1, reorder=[6, 2], nCellPerCache=1024)
     PyPartBase.finalise(PartTree, savePpart=True, method=1)
+
     Skeleton = PyPartBase.getPyPartSkeletonTree()
     is_unsteady = setup.elsAkeysNumerics['time_algo'] != 'steady'
     try:
@@ -2793,6 +2797,7 @@ def splitWithPyPart():
         Cmpi._setProc(zone, Distribution[zonePath])
 
     t = I.merge([Skeleton, PartTree])
+
 
     Skeleton = loadSkeleton(Skeleton, PartTree)
     # Add empty Coordinates for skeleton zones
@@ -3529,9 +3534,8 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
     if cit < firstiter: return
 
     # adapt BC fields:
-    tot = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet#Average')
-    Cmpi.barrier()
-    old = _getDictofNodesBCFieldsPerZoneAtSkeleton(Skeleton, 'BCDataSet#Average', tot)
+    old = _getDictofNodesBCFieldsPerZoneAtSkeleton(Skeleton, 'BCDataSet#Average')
+    tot = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet#Average')    
     Cmpi.barrier()
     if cit == firstiter:
         ini = _getDictofNodesBCFieldsPerZone(t, 'BCDataSet')
@@ -3540,12 +3544,12 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
             for field_name in tot[zone_name][bcfamily_name]:
                 if field_name in ['cellN','indicm']: continue
                 try:
-                    avg_old = old[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
-                except KeyError:
+                    avg_old = old[zone_name][bcfamily_name][field_name]
+                except KeyError: # first run do not have previous data
                     avg_old = [field_name,None,[],'DataArray_t']
 
                 avg_tot = tot[zone_name][bcfamily_name][field_name] # BEWARE this is a CGNS node
-                
+
                 if cit == firstiter:
                     avg_old[1] = np.copy(avg_tot[1], order='F')
                     avg_tot[1] = np.copy(ini[zone_name][bcfamily_name][field_name][1], order='F')
@@ -3566,7 +3570,6 @@ def resumeFieldsAveraging(Skeleton, t, container_name='FlowSolution#Average'):
                                 +avg_tot[1]*(cit-inititer+1))/(cit-firstiter)
 
                 avg_tot[1] = avg_new # update of OUTPUT_TREE
-                avg_old[1] = avg_new # update of OUTPUT_TREE
 
 
 def _getDictofNodesFieldsPerZone(t, Container):
@@ -3585,10 +3588,11 @@ def _getDictofNodesFieldsPerZone(t, Container):
     return fields
 
 
-def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
+def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container):
     fields = dict()
     for base in I.getNodesFromType1(t, 'CGNSBase_t'):
         for zone in I.getNodesFromType1(base, 'Zone_t'):
+            if rank != getProc(zone): continue
             zone_name = zone[0]
             fields[zone_name] = dict()
             for bc in I.getNodesFromType(zone,'BC_t'):
@@ -3602,24 +3606,25 @@ def _getDictofNodesBCFieldsPerZoneAtSkeleton(t, Container, tot):
                     if data:
                         for f in data[2]:
                             if f[3] != 'DataArray_t': continue
+                            # LB: this should be the real scenario if link BCDataSet#Average is well read!
+                            # but apparently they're not
                             fields[zone_name][bcfamily_name][f[0]] = f
                     else:
-                        try: fields_tot = tot[zone_name][bcfamily_name]
-                        except KeyError: continue
-                        if not fields_tot: continue
-                        nd = I.createUniqueChild(bcds,'NeumannData','BCData_t')
-                        for field_name, f in fields_tot.items():
-                            field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
-                            fields[zone_name][bcfamily_name][f[0]] = field_node
+                        J.save(zone,f'failed_{rank}.cgns')
+                        msg = "empty BCDataSet#Average/NeumannData at skeleton at:\n"
+                        msg+= '/'.join([zone_name,bcfamily_name]) + f" rank {rank}"
+                        raise AttributeError(msg)
+                        # try: fields_tot = tot[zone_name][bcfamily_name]
+                        # except KeyError: continue
+                        # if not fields_tot: continue
+                        # nd = I.createUniqueChild(bcds,'NeumannData','BCData_t')
+                        # for field_name, f in fields_tot.items():
+                        #     field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
+                        #     fields[zone_name][bcfamily_name][f[0]] = field_node
                 else:
-                    try: fields_tot = tot[zone_name][bcfamily_name]
-                    except KeyError: continue
-                    if not fields_tot: continue
-                    bcds = I.createUniqueChild(bc,Container,'BCDataSet_t')
-                    nd = I.createUniqueChild(bcds,'NeumannData','BCData_t')
-                    for field_name, f in fields_tot.items():
-                        field_node = I.createUniqueChild(nd,f[0],'DataArray_t',np.copy(f[1],order='F'))
-                        fields[zone_name][bcfamily_name][f[0]] = field_node
+                    # in this case BCDataSet#Average is missing in Skeleton (t),
+                    # because it was not requested (e.g. at FARFIELD)
+                    continue
 
     return fields
 
@@ -3774,3 +3779,10 @@ def _hackAddNullSourceTermIfXdtNaturePresent(t):
 
 def touch(filename):
     with open(filename,'w') as f: f.write(filename)
+
+def getProc(zone):
+    sp = I.getNodeFromName1(zone,'.Solver#Param')
+    if not sp: raise ValueError('missing .Solver#Param')
+    proc_node = I.getNodeFromName(sp,'proc')
+    if not proc_node: raise ValueError('missing .Solver#Param/proc')
+    return int(proc_node[1][0])

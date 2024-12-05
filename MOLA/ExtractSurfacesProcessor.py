@@ -245,7 +245,7 @@ def windowsOfSurfaceTouchingGrid(surface, grid):
         NbOfTouchingPts = len(unr[0])
         if NbOfTouchingPts == 0 or NbOfTouchingPts == 1: continue
         i_dupl = _getDuplicated(unr[0])
-        j_dupl = _getDuplicated(unr[0])
+        j_dupl = _getDuplicated(unr[1])
         if i_dupl and j_dupl:
             if len(i_dupl)==1:
                 if i_dupl[0] == 1:
@@ -263,6 +263,9 @@ def windowsOfSurfaceTouchingGrid(surface, grid):
                 msg+= str(j_dupl)+'\n'
                 msg+= 'unr:\n'
                 msg+= str(unr)
+                msg+= f'\nnodes=\n{nodes}'
+                C.convertPyTree2File([surface,block],'debug.cgns')
+
                 raise ValueError(msg)
 
         windows += [ np.array([[unr[0,0],unr[0,-1]],
@@ -361,20 +364,8 @@ def addSurfacesByWindowComposition(surfaces):
 
         if NbOfSplit == 1:
             w = I.getValue(I.getNodeFromName1(SplitWindows[0],'Window'))
-            inwInd = I.getValue(I.getNodeFromName1(SplitWindows[0],'InwardIndex'))
-
-
-            if   inwInd == '+i':
-                slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
-            elif inwInd == '-i':
-                slice = (1,w[1,0],1),(w[0,0],w[1,1],1)
-            elif inwInd == '+j':
-                slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
-            elif inwInd == '-j':
-                slice = (w[0,0],1,1),(w[0,1],w[1,1],1)
-            else:
-                raise ValueError('InwardIndex "%s" not implemented'%inwInd)
-
+            slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
+            
         elif NbOfSplit == 2:
             w0 = I.getValue(I.getNodeFromName1(SplitWindows[0],'Window'))
             inwInd0 = I.getValue(I.getNodeFromName1(SplitWindows[0],'InwardIndex'))
