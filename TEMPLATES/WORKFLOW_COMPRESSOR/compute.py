@@ -187,10 +187,6 @@ arraysTree = CO.extractArrays(t, arrays, RequestedStatistics=RequestedStatistics
           Extractions=setup.Extractions, addMemoryUsage=True)
 CO.save(arraysTree, os.path.join(DIRECTORY_OUTPUT,FILE_ARRAYS))
 
-# save bodyforce source terms
-if BODYFORCE_INITIATED:
-    CO.save(BodyForceTree, os.path.join(DIRECTORY_OUTPUT, FILE_BODYFORCESRC))
-
 # save fields
 CO.save(t, os.path.join(DIRECTORY_OUTPUT,FILE_FIELDS))
 
