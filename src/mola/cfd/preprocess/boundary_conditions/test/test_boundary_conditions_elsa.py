@@ -22,6 +22,7 @@ from mola.cfd.preprocess.boundary_conditions.boundary_conditions import Boundary
 from mola.cfd.preprocess.boundary_conditions.test.test_boundary_conditions import get_workflow_prepared_to_test_bcs
 
 from mola.workflow.rotating_component import turbomachinery
+from mola.workflow.rotating_component.turbomachinery.test.test_turbomachinery_workflow import get_compressor_example_parameters
 
 pytestmark = pytest.mark.elsa
 
@@ -52,7 +53,7 @@ def test_bc():
 @pytest.mark.parametrize('interface_type', ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface'])
 def test_RotorStatorInterface(tmp_path, interface_type):
 
-    params = turbomachinery.test.test_turbomachinery_workflow.get_compressor_example_parameters(tmp_path)
+    params = get_compressor_example_parameters(tmp_path)
     params['BoundaryConditions'] = [
         dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
         dict(Family='Stator_OUTFLOW', Type='OutflowPressure', Pressure=1e5),

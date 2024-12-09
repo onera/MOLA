@@ -77,9 +77,24 @@ def process_extractions_of_type_field(workflow):
 
     for zone in workflow.tree.zones():
         for Extraction in workflow.Extractions:
-            if Extraction['Type'] in ['3D', 'Restart', 'IsoSurface'] and is_zone_in_extraction_family(zone, Extraction):
 
+            if Extraction['Type'] in ['3D', 'Restart'] and is_zone_in_extraction_family(zone, Extraction):
                 add_3d_extraction_to_zone(zone, Extraction)
+
+            elif Extraction['Type'] == 'IsoSurface' and is_zone_in_extraction_family(zone, Extraction):
+                Fields = Extraction.get('Fields')
+                if Fields is None or len(Fields) == 0:
+                    continue
+
+                import inspect                
+                signature = inspect.signature(workflow._interface.add_to_Extractions_3D)
+                extraction3D = dict((name, param.default) for name, param in signature.parameters.items() if name != 'self')
+                extraction3D['Fields'] = Fields
+                extraction3D['GridLocation'] = 'Vertex'
+                extraction3D['Container'] = 'FlowSolution#Output'
+                extraction3D['OtherOptions'] = dict()
+                
+                add_3d_extraction_to_zone(zone, extraction3D)
 
 def is_zone_in_extraction_family(zone, Extraction):
     try:
@@ -123,18 +138,18 @@ def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocat
     try:
         # Check compatibility
         ExistingGridLocation = Container.get(Type='GridLocation', Depth=1)
-        assert GridLocation == ExistingGridLocation.value()
+        assert GridLocation == ExistingGridLocation.value(), f'conflict between GriLocation values {GridLocation} and {ExistingGridLocation.value()}'
 
         writingframe = Container.get(Name='writingframe')
-        assert frame == writingframe.value()
+        assert frame == writingframe.value(), f'conflict between writingframe values {frame} and {writingframe.value()}'
 
         # Add variables that are not already in this FlowSolution
         for field in Fields2Extract:
             if not Container.get(Name=field, Type='DataArray', Depth=1):
                 cgns.Node(Parent=Container, Name=field, Type='DataArray')
 
-    except AssertionError:
-        raise MolaException('several 3D extractions are incompatible together')
+    except AssertionError as err:
+        raise MolaException('several 3D extractions are incompatible together: ' + str(err))
 
 
 def process_extractions_of_type_bc_and_integral(workflow):
