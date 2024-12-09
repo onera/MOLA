@@ -262,15 +262,6 @@ def extractSurfaces(t, Extractions, arrays=None):
             * ``field`` : :py:class:`str` (contextual)
                 Name of the field employed for slicing if ``type`` = ``IsoSurface``
 
-            * ``ClippingParameters`` : :py:class:`dict` (contextual)
-                Parameters employed ti clip slices of ``type`` = ``IsoSurface``
-                **  ``field`` : :py:class:`str` (contextual)
-                    Name of the field employed for clipping if ``type`` = ``IsoSurface``
-                ** min_value: :py:class:`float` (contextual)
-                    Clipping minimum value.
-                ** max_value: :py:class:`float` (contextual)
-                    Clipping maximum value.
-
             * ``value`` : :py:class:`str` (contextual)
                 Value of the field employed for slicing if ``type`` = ``IsoSurface``
 
@@ -412,56 +403,18 @@ def extractSurfaces(t, Extractions, arrays=None):
             addBase2SurfacesTree(basename)
 
         elif TypeOfExtraction == 'IsoSurface':
-            PartialTree4Iso = Cmpi.convert2PartialTree(t)
-
-            if 'ClippingParameters' in Extraction.keys():
-                print('IN CLIPPING:')
-                ClippingField = Extraction['ClippingParameters']['field']
-                container = deduceContainerForClipping(Extraction['ClippingParameters'])
-
-                PartialTree4Iso = POST.mergeContainers(PartialTree4Iso, FlowSolutionVertexName='FlowSolution',
-                FlowSolutionCellCenterName='FlowSolution#Centers',
-                BCDataSetFaceCenterName='BCDataSet')
-                containersNames_n = I.getNodeFromName(PartialTree4Iso,'containers_names')
-                if container == 'GridCoordinates':
-                    clippingFieldContainerTag = ''
-                else:
-                    for child in I.getChildren(containersNames_n):
-                        if container == I.getValue(child):
-                            clippingFieldContainerTag = I.getName(child)
-
-                if ClippingField in ['Radius', 'radius', 'CoordinateR']:
-                    C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(ClippingField))
-                if 'min_value' in Extraction['ClippingParameters'].keys():
-                    min_value = Extraction['ClippingParameters']['min_value']
-                    def F(x):
-                        if ( x > min_value): return True
-                        else: return False
-                    PartialTree4Iso = P.selectCells(PartialTree4Iso,F,[ClippingField+clippingFieldContainerTag],strict =1)
-                if 'max_value' in Extraction['ClippingParameters'].keys():
-                    max_value = Extraction['ClippingParameters']['max_value']
-                    def F(x):
-                        if ( x < max_value): return True
-                        else: return False
-                    PartialTree4Iso = P.selectCells(PartialTree4Iso,F,[ClippingField+clippingFieldContainerTag],strict =1) 
-                PartialTree4Iso = POST.recoverContainers(PartialTree4Iso)  
-       
-       
             if Extraction['field'] in ['Radius', 'radius', 'CoordinateR']:
-                C._initVars(PartialTree4Iso, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
+                C._initVars(Tree4Extraction, '{}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5'.format(Extraction['field']))
             container = deduceContainerForSlicing(Extraction)
-            zones = POST.isoSurface(PartialTree4Iso,
+            zones = POST.isoSurface(Tree4Extraction,
                                     fieldname=Extraction['field'],
                                     value=Extraction['value'],
                                     container=container)
-
             try: basename = Extraction['name']
             except KeyError:
                 FieldName = Extraction['field'].replace('Coordinate','').replace('Radius', 'R').replace('ChannelHeight', 'H')
                 basename = 'Iso_%s_%g'%(FieldName,Extraction['value'])
             addBase2SurfacesTree(basename)
-
-
 
         elif TypeOfExtraction == 'Sphere':
             try: center = Extraction['center']
@@ -807,7 +760,7 @@ def saveWithPyPart_NEW(t, filename, tagWithIteration=False):
             to the saved filename (creates a copy)
     '''
     import Distributor2.PyTree as D2
-    
+
     # Write PyPart files
     t = I.copyRef(t)
     Cmpi._convert2PartialTree(t)

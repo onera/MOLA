@@ -1074,23 +1074,33 @@ def computeSectionalLoads(surface, distribution = None,
     '''
 
     def Abscissa(d): return (d-dmin)/(dmax-dmin)
-
+    def LoadComponent(Pressure,SkinFrictionComponent,NormalComponent):
+        return -(Pressure-reference_pressure)*NormalComponent+SkinFrictionComponent
+    
     FlowSolutionNodesOld  = I.__FlowSolutionNodes__
     FlowSolutionCentersOld = I.__FlowSolutionCenters__
 
     if distribution is None:
         distribution = np.linspace(0,1,101)
-    
-    surface = I.rmNodesByName(surface,'FlowSolution#Init')
-    I.__FlowSolutionNodes__ = 'FlowSolution'
-    I.__FlowSolutionCenters__ = 'BCDataSet'
 
-    _addNormalsIfAbsent(surface)
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
+    I.__FlowSolutionNodes__ = 'FlowSolution'
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+    
+    surface = mergeContainers(surface, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
 
     surface = C.center2Node(surface,var=I.__FlowSolutionCenters__)
+    surface = I.rmNodesByName(surface, I.__FlowSolutionCenters__)
 
-    surface = T.merge(surface)
-    surface = C.newPyTree(['Base', surface])
+    containersNames_n = I.getNodeFromName(surface,'containers_names')
+    fieldsNames_n = I.getNodeFromName(surface,'fields_names')
+
+    for child in I.getChildren(containersNames_n):
+        if 'BCDataSet' == I.getValue(child):
+            bcDataSetContainerTag = I.getName(child)
 
     if slicing_options['slicing_method'] == 'SpanBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
@@ -1125,24 +1135,16 @@ def computeSectionalLoads(surface, distribution = None,
                 raise ValueError(ERRMSG)
             else:
                 slicing_var = slicing_options['custom_variable']
-                surface = mergeContainers(surface, FlowSolutionVertexName=I.__FlowSolutionNodes__,
-                FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
-            
-                fieldsNames_n = I.getNodeFromName(surface,'fields_names')
-                containersNames_n = I.getNodeFromName(surface,'containers_names')
               
                 for child in I.getChildren(fieldsNames_n):
                     if  slicing_var in I.getValue(child):
                         customVarContainerTag = I.getName(child)
-                        customVarContainerName = I.getValue(I.getNodeFromName(containersNames_n,customVarContainerTag))
+
                     if slicing_var in ['CoordinateX','CoordinateY','CoordinateZ']:
                         customVarContainerTag = ''
-                        customVarContainerName = ''
 
                 dmin = C.getMinValue(surface, slicing_options['custom_variable']+customVarContainerTag)
-                dmax = C.getMaxValue(surface, slicing_options['custom_variable']+customVarContainerTag)
-                surface = recoverContainers(surface) 
-                
+                dmax = C.getMaxValue(surface, slicing_options['custom_variable']+customVarContainerTag)              
 
     SectionalForceX             = []
     SectionalForceY             = []
@@ -1156,6 +1158,8 @@ def computeSectionalLoads(surface, distribution = None,
     SectionalDistance2Axis          = []
     SectionalDistance2AxisOverMax   = [] 
 
+    surface = T.merge(surface)
+    surface = C.newPyTree(['Base', surface])
     sectionalLoads = I.newCGNSBase('SectionalLoads', cellDim=1, physDim=3, parent=None)
 
     for d in distribution:
@@ -1166,15 +1170,15 @@ def computeSectionalLoads(surface, distribution = None,
                 value = d*(dmax-dmin)+dmin
         else:
             value = d*(dmax-dmin)+dmin
-            section = isoSurface(surface, fieldname=slicing_var, value=value, container=customVarContainerName)
+            section = isoSurface(surface, fieldname=slicing_var+customVarContainerTag, value=value, container=I.__FlowSolutionNodes__)
         
         if not section: continue
 
 
-        C._normalize(section,['nx','ny','nz'])
-        C._initVars(section, 'fx=-({Pressure}-%.12g)*{nx}+{SkinFrictionX}'%(reference_pressure))
-        C._initVars(section, 'fy=-({Pressure}-%.12g)*{ny}+{SkinFrictionY}'%(reference_pressure))
-        C._initVars(section, 'fz=-({Pressure}-%.12g)*{nz}+{SkinFrictionZ}'%(reference_pressure))
+        C._normalize(section,['nx'+bcDataSetContainerTag,'ny'+bcDataSetContainerTag,'nz'+bcDataSetContainerTag])
+        C._initVars(section, 'fx', LoadComponent, ['Pressure'+bcDataSetContainerTag,'SkinFrictionX'+bcDataSetContainerTag,'nx'+bcDataSetContainerTag])
+        C._initVars(section, 'fy', LoadComponent, ['Pressure'+bcDataSetContainerTag,'SkinFrictionY'+bcDataSetContainerTag,'ny'+bcDataSetContainerTag])
+        C._initVars(section, 'fz', LoadComponent, ['Pressure'+bcDataSetContainerTag,'SkinFrictionZ'+bcDataSetContainerTag,'nz'+bcDataSetContainerTag])
 
         # computation of sectional forces
         SectionalForceX += [ -P.integ(section,'fx')[0] ]
@@ -1385,6 +1389,7 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
     FlowSolutionCellCenterName='FlowSolution#Centers',
     BCDataSetFaceCenterName='BCDataSet')
 
+
     containersNames_n = I.getNodeFromName(surface,'containers_names')
     fieldsNames_n = I.getNodeFromName(surface,'fields_names')
 
@@ -1438,6 +1443,9 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
                 for child in I.getChildren(fieldsNames_n):
                     if  slicing_var in I.getValue(child):
                         customVarContainerTag = I.getName(child)
+                    if slicing_var in ['CoordinateX','CoordinateY','CoordinateZ']:
+                        customVarContainerTag = ''
+
                 dmin = C.getMinValue(surface, slicing_var+customVarContainerTag)
                 dmax = C.getMaxValue(surface, slicing_var+customVarContainerTag)
 
@@ -1446,7 +1454,7 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
         if slicing_options['slicing_method'] == 'SpanBased':
             slice = T.join(P.isoSurfMC(surface, 'Span', d))
             if not slice:continue
-            slice = C.initVars(slice,'nodes:-Cp', Cp, ['Pressure'])
+            slice = C.initVars(slice,'nodes:-Cp', Cp, ['Pressure'+bcDataSetContainerTag])
             slice = C.convertBAR2Struct(slice)
             I.setName(slice, 'Iso{}_{}'.format(slicing_var,d))         
         elif slicing_options['slicing_method'] == 'AbscissaBased':
@@ -1458,8 +1466,8 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
 
         elif slicing_options['slicing_method'] == 'Custom':
             customVarValue = d*(dmax-dmin)+dmin
-
             slice =  T.join(P.isoSurfMC(surface,slicing_var+customVarContainerTag, value=customVarValue))
+
             if not slice: continue 
             if omega != 0:
                 slice = C.initVars(slice,'nodes:-KpRot', KpRot, ['Pressure'+bcDataSetContainerTag, slicing_var+customVarContainerTag])
