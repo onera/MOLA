@@ -19,6 +19,7 @@ import os
 from typing import List
 import copy
 from fnmatch import fnmatch
+from pathlib import Path
 
 from treelab import cgns
 from mola import __MOLA_PATH__
@@ -116,7 +117,7 @@ class WorkflowManager():
         
         if isinstance(arg, str):
             # init reading a file previously written by WorkflowManager.write
-            self.read()
+            self.read(arg)
         else:
             # arg is the base workflow of the manager object
             assert isinstance(arg, Workflow)
@@ -211,50 +212,97 @@ class WorkflowManager():
         self.machine = parameters['Machine']
         self.run_directories = parameters['RunDirectories']
 
-    def gather_signals(self, queries, filename=None):
+    def get_synchronized_directories(self, filenames): 
+        from . import read_workflow  # Cannot be in the header of this file, otherwise it raises a ImportError du to a circular import
+
+        if not hasattr(self, 'run_directories'):
+            self.run_directories = self.get_run_directories()
+
+        def _get_local_run_directories():
+            local_run_directories = []
+            for local_dir in self.run_directories:
+                w = read_workflow(f'{local_dir}/{names.FILE_INPUT_WORKLFOW}')
+                status = w.simulation_status()
+                mola_logger.info(f'{local_dir} -> {status}')
+                if status == names.FILE_JOB_COMPLETED:
+                    local_run_directories.append(local_dir)
+            return local_run_directories
+        
+        def _synchronize_local_run_directories():
+            local_run_directories = []
+            for run_directory in self.run_directories:
+                local_dir = os.path.relpath(run_directory, self.root_directory)
+                SV.makedirs_remote(f'{local_dir}/{names.DIRECTORY_OUTPUT}', machine='localhost')
+
+                # Check status  # TODO improve this 
+                try: 
+                    if SV.is_file(f'{run_directory}/{names.FILE_JOB_COMPLETED}', self.machine):
+                        status = names.FILE_JOB_COMPLETED  
+                    else:
+                        status = names.FILE_JOB_FAILED
+                    assert status == names.FILE_JOB_COMPLETED
+                    mola_logger.info(f'{local_dir} -> {status}')
+                except:
+                    mola_logger.info(f'{local_dir} -> not synchronized')
+                    continue
+
+                
+                try:
+                    for filename in filenames:
+                        SV.copy_remote(
+                            f'{run_directory}/{filename}',
+                            f'{local_dir}/{filename}', 
+                            source_machine=self.machine, 
+                            force_copy=True
+                            )
+                    local_run_directories.append(local_dir)
+                except MolaException as err:
+                    mola_logger.warning(str(err))
+                    pass
+            return local_run_directories
+        
+        if not SV.run_on_localhost(machine=self.machine, run_directory=self.run_directories[0]):
+            # raise MolaException('Not implemented for remote machines yet.')
+            local_run_directories = _synchronize_local_run_directories()
+        else:
+            local_run_directories = _get_local_run_directories()
+        
+        return local_run_directories
+        
+
+    def gather_signals(self, queries, filename=None, keep_last_point=False):
         """
         Need for an extraction method from queries (path, metadata)
         get scalars from signals.cgns and plot a curve
         plot several curves (one per case) on the same plot
         get a surface from each instant
         """
-        from . import read_workflow  # Cannot be in the header of this file, otherwise it raises a ImportError du to a circular import
-
         if not filename:
             filename = os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D)
 
         def _extract(signals, queries):
             # This extraction function must be developped
             # The query should be a path, a part of a path, or parameters to check metadata of extractions in names.CGNS_NODE_EXTRACTION_LOG
-            path = queries
-            node = signals.getAtPath(path)
-            if node:
-                return {node.name(): node.value()}
-            else:
-                return {}
+            results = dict()
+            for query in queries:
+                path = query
+                node = signals.getAtPath(path)
+                if node:
+                    results[node.name()] = node.value()
+            return results
         
-        if not SV.run_on_localhost(machine=self.machine, run_directory=self.run_directories[0]):
-            raise MolaException('Not implemented for remote machines yet.')
-            # To test. The copy should be lighter (see mola_repatriate in mola v1)
-            local_run_directories = []
-            for run_directory in self.run_directories:
-                local_dir = os.path.relpath(run_directory, self.root_directory)
-                SV.copy_remote(run_directory, local_dir, source_machine=self.machine, force_copy=False)
-                local_run_directories.append(local_dir)
-        else:
-            local_run_directories = self.run_directories
+        local_run_directories = self.get_synchronized_directories([filename])
 
         all_data = dict()
         user_dir = os.getcwd()
         for local_dir in local_run_directories:
             os.chdir(local_dir)
-            w = read_workflow(names.FILE_INPUT_WORKLFOW)
-            status = w.simulation_status()
-            mola_logger.info(f'{local_dir} -> {status}')
-            if status == names.FILE_JOB_COMPLETED:
-                signals = cgns.load(filename)
-                data = _extract(signals, queries)
-                all_data[local_dir] = data
+            signals = cgns.load(filename)
+            data = _extract(signals, queries)
+            if keep_last_point:
+                for v in data: 
+                    data[v] = data[v][-1]
+            all_data[local_dir] = data
             os.chdir(user_dir)
         
         return all_data
@@ -325,14 +373,6 @@ class WorkflowDispatcher():
             set_value_on_leaf(new_workflow, path_in_workflow, value)
 
         self.workflows_in_current_job.append(new_workflow)
-
-    # def reorder(self, request, reverse=False):
-    #     path_in_workflow = self.request_to_paths(request)
-    #     leaves = [get_value_on_leaf(workflow, path_in_workflow) for workflow in self.workflows]
-    #     # Sort workflows accordind leaves
-    #     self.workflows = [w for _, w in sorted(zip(leaves, self.workflows))]
-    #     if reverse:
-    #         self.workflows = self.workflows[::-1]
     
     def _check_new_job_is_declared(self):
         if self.workflows_in_current_job is None:
@@ -341,10 +381,8 @@ class WorkflowDispatcher():
     def _add_variations_to_initialize_from_previous(self, variations):
         try:
             previous_workflow = self.workflows_in_current_job[-1]
-            previous_case_path = previous_workflow.RunManagement['RunDirectory']
             init_variations = [
-                ('Initialization|method', 'copy'),
-                ('Initialization|source', f'../{previous_case_path}/{names.FILE_INPUT_SOLVER}'),
+                ('Initialization|Method', 'from_previous'), 
             ]
             variations += init_variations
         except IndexError:
@@ -477,14 +515,28 @@ class WorkflowSequentialManager():
 
     def prepare(self):
         SV.makedirs_remote(self.root_directory, machine=self.machine)
+        previous_workflow = None
         for workflow in self.workflows:
             mola_logger.info(f"\n{CYAN}  > preparing {workflow.RunManagement['RunDirectory']}...{ENDC}")
             if self.skip_if_exists and SV.is_directory(workflow.RunManagement['RunDirectory'], self.machine):
                 mola_logger.warning(f"Skip directory {workflow.RunManagement['RunDirectory']} that already exists")
                 continue
-            workflow.write_tree_remote(data_directory=self.data_directory)
 
-        self.write_sequence_job()
+            if workflow.Initialization.get('Method') == 'from_previous':
+                workflow.Initialization['Method'] = 'copy'
+                try:
+                    previous_case_path = Path(previous_workflow.RunManagement['RunDirectory'])
+                except IndexError:
+                    mola_logger.warning(f'Cannot initialize the first case of a sequence ({self.root_directories[-1]}) from a previous case')
+                workflow.Initialization['Source'] = f'../{previous_case_path.name}/{names.FILE_INPUT_SOLVER}'
+                copy_options = dict(excluded_attributes=['Extractions', 'Initialization'])
+            else:
+                copy_options = None
+
+            workflow.write_tree_remote(data_directory=self.data_directory, copy_options=copy_options)
+            previous_workflow = workflow
+
+        self.write_sequence_job()        
 
     def write_sequence_job(self):
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
@@ -581,7 +633,7 @@ class WorkflowSender():
 
     _workflow_filename = names.FILE_INPUT_WORKLFOW
 
-    def __init__(self, workflow, data_directory=None, patterns_to_copy_files=None):
+    def __init__(self, workflow, data_directory=None, copy_options=None): 
         self.workflow = copy.deepcopy(workflow)
         self.run_directory = copy.deepcopy(self.workflow.RunManagement['RunDirectory'])
 
@@ -590,10 +642,13 @@ class WorkflowSender():
         else:
             self.data_directory = data_directory
 
-        if patterns_to_copy_files is None:
-            self.patterns_to_copy_files = ['*.cgns']
-        else:
-            self.patterns_to_copy_files = patterns_to_copy_files
+        self.copy_options = dict(
+            patterns = ['*.cgns'],
+            operation = self._get_adapted_path,
+            excluded_attributes = ['Extractions'],
+        )
+        if isinstance(copy_options, dict):
+            self.copy_options.update(copy_options)
         
         run_manager.set_default_machine(self.workflow.RunManagement)
         self.machine = self.workflow.RunManagement['Machine']
@@ -610,7 +665,7 @@ class WorkflowSender():
             self.workflow.write_tree(filename=destination)
             
         else:
-            self._copy_files_and_update_paths_in_workflow()
+            self._copy_files_and_update_paths_in_workflow(**self.copy_options)
 
             self.workflow.set_workflow_parameters_in_tree()
             self.workflow.write_tree(filename=self._workflow_filename)
@@ -621,14 +676,8 @@ class WorkflowSender():
                 )
             SV.remove_path(self._workflow_filename, machine='localhost')
 
-    def _copy_files_and_update_paths_in_workflow(self):
-        files2copy = find_matching_leaves(
-            self.workflow, 
-            self.patterns_to_copy_files, 
-            operation=self._get_adapted_path,
-            excluded_attributes=['Extractions']
-            )
-        
+    def _copy_files_and_update_paths_in_workflow(self, patterns, operation, excluded_attributes):
+        files2copy = find_matching_leaves(self.workflow, patterns, operation, excluded_attributes)
         files2copy = [filename for filename in files2copy if not filename.endswith(names.FILE_INPUT_SOLVER)]
         
         for filename in files2copy:
@@ -755,9 +804,7 @@ def find_matching_leaves(tree, patterns: list, operation=None, excluded_attribut
 
     operation : function, optional
         If not None, this function is applied to all matching leaves.
-        For example, to add the preffix to strings matching **patterns**:
-
-        >>> operation = ['*.cgns']
+        It must return a variable (same type as the input).
     
     excluded_attributes : :py:class:`list` of :py:class:`str`
         Names of attributes of Workflow to exclude of the search.

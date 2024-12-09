@@ -225,9 +225,9 @@ class Workflow(object):
         MPI.COMM_WORLD.barrier()
         return job_nb
 
-    def write_tree_remote(self, data_directory=None):
+    def write_tree_remote(self, data_directory=None, copy_options=None):
         from . import manager as WM
-        sender = WM.WorkflowSender(self, data_directory=data_directory)
+        sender = WM.WorkflowSender(self, data_directory=data_directory, copy_options=copy_options)
         sender.apply()
 
     def write_tree(self, filename=names.FILE_INPUT_SOLVER):

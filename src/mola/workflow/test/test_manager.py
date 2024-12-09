@@ -256,6 +256,42 @@ def test_WorkflowManager_prepare(tmp_path):
         [names.FILE_INPUT_WORKLFOW]
         ]
     
+    for workflows in manager.dispatcher.table_of_workflows:
+        init_files = []
+        for workflow in workflows:
+            try:
+                source = workflow.Initialization['Source']
+                init_files.append(source)
+            except:
+                init_files.append('no_file')
+        assert init_files == ['no_file', '../test_10/main.cgns', '../test_20/main.cgns']
+    
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_WorkflowManager_prepare_on_sator(tmp_path):
+
+    test_dir = str(tmp_path)
+    w = get_fake_workflow()
+    w.RunManagement['Machine'] = 'sator'
+    manager = WM.WorkflowManager(w, root_directory=test_dir)
+
+    for model in ['model1', 'model2']:
+        manager.new_job(model)
+        for pressure in [10, 20, 30]:
+            manager.add_variations([('RunManagement|RunDirectory', f'test_{pressure}')])
+
+    manager.prepare()
+    
+    for sequence_of_workflows in manager.sequential_managers:
+        init_files = []
+        for workflow in sequence_of_workflows.workflows:
+            try:
+                source = workflow.Initialization['Source']
+                init_files.append(source)
+            except:
+                init_files.append('no_file')
+        assert init_files == ['no_file', '../test_10/main.cgns', '../test_20/main.cgns']
+    
 # TODO adapt to run it with sonics too. For now, it won't work because the mesh is strucutred
 @pytest.mark.elsa
 @pytest.mark.fast
