@@ -5692,12 +5692,8 @@ def fillWithBezier(curve1, curve2, number_of_points, tension1=0.5, tension2=0.5,
                                                       FirstCellHeight=length1,
                                                       LastCellHeight=length2))
         fill_curve[0] = 'fill_curve'
-        # if i == 2:
-        #     for p in polypoints:
-        #         print(p)
-        #     C.convertPyTree2File([fill_curve, bezier, poly, curve1, curve2,
-        #         support, D.point(pt1), D.point(pt2)],'test.cgns');exit()
         fill_curves += [ fill_curve ]
+
 
     if len(indices) > 1:
         fill_surface = G.stack(fill_curves)
@@ -6322,7 +6318,7 @@ def addPointToCurveAtAbscissa(curve, abscissa):
 def addTangentCurveAtExtremumUpToRadius(curve, radius, center, axis, relative_tension=0.5):
     
     first_point = extremum(curve, opposite_extremum=True)
-    new_curve = extrapolate( curve, relative_tension * getLength(curve) )
+    new_curve = extrapolate( curve, relative_tension * radius )
     addRadials( new_curve, center, axis )
     rx, ry, rz = J.getVars(new_curve,['rx','ry','rz'])
     radial_vector = np.array([rx[-1],ry[-1],rz[-1]])
@@ -7859,6 +7855,3 @@ def getOrientedBoundingBoxLengthsAndDirections(zone):
                                                          [i_dir, j_dir, k_dir])
     
     return lengths, dirs
-
-    
-    

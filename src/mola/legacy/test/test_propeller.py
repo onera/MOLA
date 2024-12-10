@@ -60,7 +60,7 @@ def test_oras_mesher_single(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = True # True:testing False:debugging
+    test_mode_else_debug = False # True:testing False:debugging
 
     if test_mode_else_debug:
         check_dir = ''
@@ -122,7 +122,7 @@ def test_oras_mesher_ultracoarse(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = True # True:testing False:debugging
+    test_mode_else_debug = False # True:testing False:debugging
 
     if test_mode_else_debug:
         check_dir = ''
@@ -223,7 +223,7 @@ def test_oras_mesher_designer_ultracoarse(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = True # True:testing (no file write) False:debugging (file write)
+    test_mode_else_debug = False # True:testing (no file write) False:debugging (file write)
 
     if test_mode_else_debug:
         check_dir = ''
@@ -391,6 +391,7 @@ def test_oras_mesher_designer_ultracoarse(tmp_path):
         RotorHspreadingAngles= [-10, +3],
         RotorTipScaleFactorAtRadialFarfield= 0.25,
         RotorFarfieldRadialCellLengthRelativeToFarfieldRadius=0.1,
+        RotorBladeExtrusionParams=dict(smoothing_start_at_layer=0), 
 
         # ------------------------ STATOR parameters ------------------------ #
         StatorNumberOfBlades=StatorNumberOfBlades,
@@ -408,6 +409,7 @@ def test_oras_mesher_designer_ultracoarse(tmp_path):
         StatorHspreadingAngles= [0, 10],
         StatorTipScaleFactorAtRadialFarfield= 0.25,
         StatorFarfieldRadialCellLengthRelativeToFarfieldRadius=0.1,
+        StatorBladeExtrusionParams=dict(smoothing_start_at_layer=0), 
 
         # ------------------------------- misc ------------------------------- #
         LOCAL_DIRECTORY_CHECKME = check_dir,
@@ -435,7 +437,7 @@ def test_oras_mesher_inpro_ultracoarse(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = True # True:testing False:debugging
+    test_mode_else_debug = False # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
 
     if test_mode_else_debug:
@@ -500,7 +502,7 @@ def test_oras_mesher_inpro_ultracoarse(tmp_path):
     discretizations = RW.getSimpleORASHubProfileDiscretizations(rotor, stator,
         RotorNumberOfBlades=RotorNumberOfBlades,
         StatorNumberOfBlades=StatorNumberOfBlades,
-        AzimutalCellAngle=1.0,
+        AzimutalCellAngle=AzimutalCellAngleInDegrees,
         InterfaceAxialCellLength=1.5e-2,
         BreakPointsAxialCellLength=1.5e-2,
         
@@ -571,6 +573,175 @@ def test_oras_mesher_inpro_ultracoarse(tmp_path):
 @pytest.mark.restricted_user_case
 @pytest.mark.elsa
 @pytest.mark.fast
+@pytest.mark.cost_level_3
+def test_oras_mesher_inpro(tmp_path):
+
+    import mola.legacy.InternalShortcuts as J
+    import mola.legacy.propeller_mesher as RW
+
+    test_mode_else_debug = False # True:testing False:debugging
+    msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
+
+    if test_mode_else_debug:
+        check_dir = ''
+        raise_error_if_negative_volume_cells = True
+    else:
+        print(msg_restricted)
+        check_dir = os.path.join(tmp_path,'CHECK_ME')
+        raise_error_if_negative_volume_cells = False
+
+    RotorNumberOfBlades = 14
+    StatorNumberOfBlades = 12
+    AzimutalCellAngleInDegrees = 0.50 # TODO use 0.15 (acoustic)
+
+    toc = J.tic()
+
+    profile = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/hub_profile.cgns",
+                        return_type='zone')
+    x = J.getx(profile)
+    x[-1] = 21 # prolongation
+
+
+
+    rotor = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/rotor_structured_surface.cgns")
+    stator = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/stator_structured_surface.cgns")
+
+
+    # extrapolate at root in order to guarantee that blade fully intersects hub
+    rotor_blade = J.selectZoneWithHighestNumberOfPoints(rotor)
+    rotor_blade = RW.GSD.extrapolateSurface(rotor_blade,'jmin',0.05)
+    stator_blade = J.selectZoneWithHighestNumberOfPoints(stator)
+    stator_blade = RW.GSD.extrapolateSurface(stator_blade,'jmin',0.05)
+
+    rotor = RW.rediscretizeBlade(rotor_blade,
+        RadialNbOfPoints = 80,
+        RadialCellLengthAtTip = 2e-3,
+        RadialCellLengthAtRoot = 0.05,
+        SectionsDistribution = dict(
+            RelativeAbscissa =   [0.0,  0.4,  1.0],
+            TrailingEdgeSegmentLength = [2e-4, 1.25e-4, 0.62e-4],
+            LeadingEdgeSegmentLength = [2e-4, 1.25e-4, 0.62e-4],
+            LeadingEdgeAbscissa = [0.508, 0.5005, 0.5005],
+            TopSideNumberOfPoints = 101, # must be odd
+            BottomSideNumberOfPoints = 101, # must be odd
+            TopToBottomAtTipNumberOfPoints = 15,
+            InterpolationLaw = 'interp1d_linear'))
+
+
+
+    stator = RW.rediscretizeBlade(stator_blade,
+        RadialNbOfPoints = 80,
+        RadialCellLengthAtTip = 1.5e-3,
+        RadialCellLengthAtRoot = 0.05,
+        SectionsDistribution = dict(
+            RelativeAbscissa =   [0.0,  0.5,  0.75, 1.0],
+            TrailingEdgeSegmentLength = [1e-4, 0.75e-4, 0.65e-4, 0.5e-4],
+            LeadingEdgeSegmentLength = [1e-4, 0.75e-4, 0.65e-4, 0.5e-4],
+            LeadingEdgeAbscissa = [0.495, 0.498, 0.499, 0.495],
+            TopSideNumberOfPoints = 101, # must be odd
+            BottomSideNumberOfPoints = 101, # must be odd
+            TopToBottomAtTipNumberOfPoints = 15, 
+            InterpolationLaw = 'interp1d_linear'))
+
+
+    RotorHgridXlocations = RW.proposeHgridXlocations(rotor,profile,0.3) # (-1.50, -0.75)
+    StatorHgridXlocations = RW.proposeHgridXlocations(stator, profile,0.3) # (-0.45, 0.20)
+
+
+    discretizations = RW.getSimpleORASHubProfileDiscretizations(rotor, stator,
+        RotorNumberOfBlades=RotorNumberOfBlades,
+        StatorNumberOfBlades=StatorNumberOfBlades,
+        AzimutalCellAngle=AzimutalCellAngleInDegrees,
+        InterfaceAxialCellLength=5e-3,
+        BreakPointsAxialCellLength=5e-3,
+        
+        # rotor hub profile discretization
+        RotorHgridXlocations=RotorHgridXlocations,
+        RotorFrontNPts=130,
+        RotorRearNPts=27,
+        RotorFrontSegmentLength=0.033,
+        
+        # stator hub profile discretization
+        StatorHgridXlocations=StatorHgridXlocations,
+        StatorFrontNPts=27,
+        StatorRearNPts=150,
+        StatorRearSegmentLength=1.0
+            )
+
+
+    t = RW.buildOpenRotorAndStatorMesh(rotor,stator,profile,
+            FarfieldRadius = 20,
+
+            RotorNumberOfBlades=RotorNumberOfBlades,
+            RotorDeltaPitch= -0.10,
+            RotorPitchCenter= 0.0,
+            RotorRadialExtrusionNbOfPoints=70,
+            RotorBladeWallCellHeight = 2e-6,
+            RotorHubWallCellHeight = 2e-6,
+            RotorBladeRootWallNormalDistanceRelativeToRootChord = 0.08,
+            RotorHubProfileReDiscretization = discretizations[0],
+            RotorAzimutalCellAngle = AzimutalCellAngleInDegrees,
+            RotorHgridXlocations=RotorHgridXlocations,
+            RotorHgridNbOfPoints=27,
+            RotorRootRemeshRadialNbOfPoints=80,
+            RotorRootWallRemeshRadialDistanceRelativeToMaxRadius=0.10,
+            RotorFarfieldProfileAbscissaDeltas = [0.0,-0.05,0.0],
+            RotorFarfieldTipSmoothIterations = 10,
+            RotorBladeExtrusionParams = dict(
+                smoothing_start_at_layer=30,
+                smoothing_normals_iterations=3,
+                smoothing_normals_subiterations=[2,30,'distance'],
+                smoothing_growth_iterations=2,
+                smoothing_growth_subiterations=50,
+                smoothing_growth_coefficient=[0.1,0.5,'distance'],
+                smoothing_expansion_factor=[0.05,0.2,'index'],),
+
+            # # NOTE that rotor requires specific optimum indexing H grid closer to root:
+            RotorBuildMatchMeshAdditionalParams=dict(radial_H_compromise=0),
+
+            StatorNumberOfBlades=StatorNumberOfBlades,
+            StatorDeltaPitch = 0.0,
+            StatorPitchCenter = 0.9955,
+            StatorRadialExtrusionNbOfPoints=70,
+            StatorBladeWallCellHeight = 2e-6,
+            StatorHubWallCellHeight = 2e-6,
+            StatorBladeRootWallNormalDistanceRelativeToRootChord = 0.08,
+            StatorHubProfileReDiscretization = discretizations[1],
+            StatorAzimutalCellAngle = AzimutalCellAngleInDegrees,
+            StatorHgridXlocations=StatorHgridXlocations,
+            StatorHgridNbOfPoints=27,
+            StatorRootRemeshRadialNbOfPoints=80,
+            StatorRootWallRemeshRadialDistanceRelativeToMaxRadius=0.10,
+            StatorFarfieldProfileAbscissaDeltas = [0.10,0.25],
+            StatorFarfieldTipSmoothIterations = 10,
+            StatorBladeExtrusionParams = dict(
+                smoothing_start_at_layer=30,
+                smoothing_normals_iterations=3,
+                smoothing_normals_subiterations=[2,30,'distance'],
+                smoothing_growth_iterations=2,
+                smoothing_growth_subiterations=50,
+                smoothing_growth_coefficient=[0.1,0.5,'distance'],
+                smoothing_expansion_factor=[0.05,0.2,'index'],),
+
+            LOCAL_DIRECTORY_CHECKME=check_dir,
+            raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
+            )
+
+    J.printElapsedTime('total meshing time was:', previous_timer=toc)
+    
+    toc = J.tic()
+
+    if not test_mode_else_debug:
+        print('will save mesh')
+        J.save(t,os.path.join(tmp_path,'mesh.cgns'))
+        J.printElapsedTime('saving mesh took:', previous_timer=toc)
+        print(msg_restricted)
+
+
+@pytest.mark.user_case
+@pytest.mark.restricted_user_case
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.cost_level_4
 def test_oras_mesher_barrier_ultracoarse(tmp_path):
 
@@ -579,7 +750,7 @@ def test_oras_mesher_barrier_ultracoarse(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = True # True:testing False:debugging
+    test_mode_else_debug = False # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
 
     if test_mode_else_debug:
@@ -663,7 +834,6 @@ def test_oras_mesher_barrier_ultracoarse(tmp_path):
 
     t = RW.buildOpenRotorAndStatorMesh(rotor,stator,profile,
             FarfieldRadius = 3,
-            InterfaceRadialTensionRelativeToFarfieldRadius = 0.07,
 
             RotorNumberOfBlades=RotorNumberOfBlades,
             RotorDeltaPitch=  0.0,
@@ -744,7 +914,7 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = True # True:testing False:debugging
+    test_mode_else_debug = False # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
 
     if test_mode_else_debug:
@@ -757,7 +927,7 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
 
     RotorNumberOfBlades = 14
     StatorNumberOfBlades = 12
-    AzimutalCellAngleInDegrees = 0.75
+    AzimutalCellAngleInDegrees = 0.53
 
     toc = J.tic()
 
@@ -772,7 +942,6 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
     rotor_blade = RW.GSD.extrapolateSurface(rotor_blade,'jmin',0.05)
     stator_blade = J.selectZoneWithHighestNumberOfPoints(stator)
     stator_blade = RW.GSD.extrapolateSurface(stator_blade,'jmin',0.05)
-
 
     rotor = RW.rediscretizeBlade(rotor_blade,
         RadialNbOfPoints = 190,
@@ -813,7 +982,7 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
         AzimutalCellAngle=AzimutalCellAngleInDegrees,
         InterfaceAxialCellLength=4e-3,
         BreakPointsAxialCellLength=4e-3,
-        
+
         # rotor hub profile discretization
         RotorHgridXlocations=RotorHgridXlocations,
         RotorFrontNPts=300,
@@ -829,7 +998,6 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
 
     t = RW.buildOpenRotorAndStatorMesh(rotor,stator,profile,
             FarfieldRadius = 20,
-            InterfaceRadialTensionRelativeToFarfieldRadius = 0.01,
 
             RotorNumberOfBlades=RotorNumberOfBlades,
             RotorThetaAdjustmentInDegrees=1.0,
@@ -839,8 +1007,7 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
             RotorBladeWallCellHeight = 2.5e-5,
             RotorHubWallCellHeight = 2.5e-5,
             RotorBladeWallGrowthRate=1.12,
-            RotorTipScaleFactorAtRadialFarfield = 0.25,
-            RotorBladeRootWallNormalDistanceRelativeToRootChord = 0.08,
+            RotorBladeRootWallNormalDistanceRelativeToRootChord = 0.05,
             RotorHubProfileReDiscretization = discretizations[0],
             RotorAzimutalCellAngle = AzimutalCellAngleInDegrees,
             RotorHgridXlocations=RotorHgridXlocations,
@@ -850,13 +1017,13 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
             RotorFarfieldProfileAbscissaDeltas=[0,-0.050,0],
             RotorFarfieldRadialCellLengthRelativeToFarfieldRadius=0.10,
             RotorRootWallRemeshRadialDistanceRelativeToMaxRadius=0.05,
-            RotorRadialTensionRelativeToRadialExtrusionDistance=0.001,
 
             RotorBuildMatchMeshAdditionalParams=dict(
                 radial_H_compromise=0.05,
                 relax_relative_length=1.0,
                 tip_radial_tension=0.0175,
                 ),
+
 
             StatorNumberOfBlades=StatorNumberOfBlades,
             StatorDeltaPitch = 0.0,
@@ -865,8 +1032,7 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
             StatorBladeWallCellHeight = 2.5e-5,
             StatorHubWallCellHeight = 2.5e-5,
             StatorBladeWallGrowthRate=1.12,
-            StatorTipScaleFactorAtRadialFarfield = 0.25,
-            StatorBladeRootWallNormalDistanceRelativeToRootChord = 0.08,
+            StatorBladeRootWallNormalDistanceRelativeToRootChord = 0.05,
             StatorHubProfileReDiscretization = discretizations[1],
             StatorAzimutalCellAngle = AzimutalCellAngleInDegrees,
             StatorHgridXlocations=StatorHgridXlocations,
@@ -875,15 +1041,14 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
             StatorRootRemeshRadialNbOfPoints=50,
             StatorFarfieldProfileAbscissaDeltas=[+0.10,+0.30],
             StatorFarfieldRadialCellLengthRelativeToFarfieldRadius=0.10,
-            StatorFarfieldTipSmoothIterations=50,
             StatorRootWallRemeshRadialDistanceRelativeToMaxRadius=0.05,
-            StatorRadialTensionRelativeToRadialExtrusionDistance=0.001,
 
             StatorBuildMatchMeshAdditionalParams=dict(
                 radial_H_compromise=0.05,
                 relax_relative_length=1.0,
                 tip_radial_tension=0.005,
                 ),
+
 
             LOCAL_DIRECTORY_CHECKME=check_dir,
             raise_error_if_negative_volume_cells=raise_error_if_negative_volume_cells,
@@ -903,10 +1068,10 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
 
 if __name__ == '__main__':
 
-    # test_oras_mesher_designer_ultracoarse('test_oras_mesher_designer_ultracoarse')
+    test_oras_mesher_designer_ultracoarse('test_oras_mesher_designer_ultracoarse')
     # test_oras_mesher_ultracoarse('test_oras_mesher_ultracoarse')
-    test_oras_mesher_single('test_oras_mesher_single')
-    # test_oras_mesher_barrier_acoustic("test_oras_mesher_barrier_acoustic")
     # test_oras_mesher_inpro_ultracoarse("test_oras_mesher_inpro_ultracoarse")    
     # test_oras_mesher_barrier_ultracoarse("test_oras_mesher_barrier_ultracoarse")
-    
+    # test_oras_mesher_single('test_oras_mesher_single')
+    # test_oras_mesher_inpro('test_oras_mesher_inpro')
+    # test_oras_mesher_barrier_acoustic("test_oras_mesher_barrier_acoustic")

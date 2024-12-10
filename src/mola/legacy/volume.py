@@ -2398,7 +2398,11 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
         InterpZmatrix[k,:,:] = J.getz(ProvidedSections[k])
     if 'interp1d' in InterpolationData['InterpolationLaw'].lower():
         ScipyLaw = InterpolationData['InterpolationLaw'].split('_')[1]
-        interpX = scipy.interpolate.interp1d( RelPositions, InterpXmatrix, axis=0, kind=ScipyLaw, bounds_error=False, fill_value='extrapolate')
+        try:
+            interpX = scipy.interpolate.interp1d( RelPositions, InterpXmatrix, axis=0, kind=ScipyLaw, bounds_error=False, fill_value='extrapolate')
+        except ValueError as e:
+            msg=f"{InterpXmatrix.shape=}  {RelPositions.shape=}"  
+            raise ValueError(J.FAIL+msg+J.ENDC) from e
         interpY = scipy.interpolate.interp1d( RelPositions, InterpYmatrix, axis=0, kind=ScipyLaw, bounds_error=False, fill_value='extrapolate')
         interpZ = scipy.interpolate.interp1d( RelPositions, InterpZmatrix, axis=0, kind=ScipyLaw, bounds_error=False, fill_value='extrapolate')
         for k in range(Ns):

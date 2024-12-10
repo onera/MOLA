@@ -38,7 +38,7 @@ def add_convergence_history(t, niter):
 
     
     import FastS.PyTree as FastS
-    FastS.createConvergenceHistory(t, niter+1) # https://github.com/onera/Fast/issues/13 
+    FastS._createConvergenceHistory(t, niter+1) # https://github.com/onera/Fast/issues/13 
     
 
 
