@@ -113,19 +113,13 @@ def to_partitioned(tree : cgns.Tree):
 
     if is_part:
         return tree
-    elif not is_dist: 
+    elif is_dist:
+        return to_partitioned_if_distributed(tree)
+    else: 
+        # full tree
         tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-
-    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
-    t = cgns.castNode(t)
-
-    for zone in t.zones():
-        zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
-        if zone.isStructured(): 
-            reshape_DataArray(zone)
-        
-    t = cgns.castNode(t)
-    return t
+        tree = cgns.castNode(tree)
+        return to_partitioned_if_distributed(tree)
 
 def to_partitioned_if_distributed(tree : cgns.Tree):
     is_dist = bool(tree.get(':CGNS#Distribution'))
@@ -133,15 +127,15 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
 
     from mpi4py import MPI
     import maia
-    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
-    t = cgns.castNode(t)
 
+    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+
+    t = cgns.castNode(t)
     for zone in t.zones():
         zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
         if zone.isStructured(): 
             reshape_DataArray(zone)
         
-    t = cgns.castNode(t)
     return t
 
 def to_full_tree_at_rank_0(tree : cgns.Tree):

@@ -18,7 +18,7 @@
 from treelab import cgns
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException
-from mola.server import MaiaParallel
+from mola.cfd.preprocess.mesh.tools import to_partitioned
 
 
 def apply(workflow):
@@ -29,10 +29,7 @@ def apply(workflow):
     
     #. Adapt this node to the solver
     '''
-    if workflow.Solver == 'sonics':
-        FlowSolution_name = 'FSolution#CellCenter#Init'
-    else:
-        FlowSolution_name = 'FlowSolution#Init'
+    FlowSolution_name = 'FlowSolution#Init'
 
     add_reference_state(workflow)
     
@@ -40,6 +37,7 @@ def apply(workflow):
         uniform = initialize_flow_with_reference_state,
         copy = initialize_flow_from_file_by_copy,
         interpolate = initialize_flow_from_file_by_interpolation,
+        from_previous = initialize_flow_from_previous,
     )
     initialize_flow_with_given_method = initialization_functions[workflow.Initialization['Method']]
 
@@ -79,21 +77,37 @@ def initialize_flow_with_reference_state(workflow, FlowSolution_name):
 
 def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     '''
-    Initialize the flow solution of **t** from the flow solution in the file
-    **sourceFilename**.
-    Modify the tree **t** in-place.
+    Initialize the flow solution of **t** from the flow solution in the file **sourceFilename**.
 
     Parameters
     ----------
 
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
+    from mpi4py import MPI
+    import maia
+
     if isinstance(workflow.Initialization['Source'], str):
         mola_logger.info(f"Initialize FlowSolution by interpolation from {workflow.Initialization['Source']}", rank=0)
+        tree_source = maia.io.file_to_dist_tree(workflow.Initialization['Source'], MPI.COMM_WORLD)
     else:
         mola_logger.info(f"Initialize FlowSolution by interpolation from the given tree", rank=0)
+        tree_source = workflow.Initialization['Source']
     
-    raise Exception('Not yet implemented')
+    tree_source = to_partitioned(tree_source)
+    workflow.tree = to_partitioned(workflow.tree)
+
+    maia.algo.part.interpolate(
+        tree_source, 
+        workflow.tree, 
+        MPI.COMM_WORLD, 
+        containers_name=[FlowSolution_name], 
+        location='CellCenter',
+        strategy='Closest',
+        n_closest_pt=4,
+        )
+    
+    workflow.tree = cgns.castNode(workflow.tree)
 
 def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
     '''
@@ -107,13 +121,13 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
     if isinstance(workflow.Initialization['Source'], str):
-        mola_logger.info(f"Initialize FlowSolution by copy of {workflow.Initialization['Source']}",rank=0)
-        errtag=workflow.Initialization['Source']
+        mola_logger.info(f"Initialize FlowSolution by copy of {workflow.Initialization['Source']}", rank=0)
+        tree_source = cgns.load(workflow.Initialization['Source'])
+        errtag = 'tree_source'
     else:
-        mola_logger.info(f"Initialize FlowSolution by copy of the given tree",rank=0)
-        errtag='tree'
-
-    sourceTree = cgns.load(workflow.Initialization['Source'])
+        mola_logger.info(f"Initialize FlowSolution by copy of the given tree", rank=0)
+        tree_source = workflow.Initialization['Source']
+        errtag = 'tree'
 
     varNames = list(workflow.Flow['ReferenceState'])
     if workflow.Initialization['KeepWallDistance']:
@@ -121,13 +135,20 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
     for zone in workflow.tree.zones():
         FSpath = zone.path() + '/' + FlowSolution_name
-        FlowSolutionInSourceTree = sourceTree.getAtPath(FSpath)
+        FlowSolutionInSourceTree = tree_source.getAtPath(FSpath)
 
         if FlowSolutionInSourceTree is None:
             raise MolaException(f"The node {FSpath} is not found in {errtag}")
 
         zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
 
+def initialize_flow_from_previous(**kwargs):
+    raise MolaException(
+        'Initialization Method="from_previous" is a special method that should '
+        'have been replaced during the "prepare" of a WorkflowManager. '
+        'If you was using a Workflow directly (without WorkflowManager), '
+        'then this Method should not be used.'
+        )
 
 def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
     for zone in workflow.tree.zones():
@@ -151,37 +172,34 @@ def compute_wall_distance_if_needed(workflow):
         workflow.tree = compute_wall_distance_with_maia(workflow.tree)
     force_grid_location_as_first_sibling(workflow.tree) # HACK
 
-@MaiaParallel
-def compute_wall_distance_with_maia(dist_tree):
-    '''
-    The input tree has to be distributed, read by maia.
-    '''
+def compute_wall_distance_with_maia(tree):
     import maia
     import maia.pytree as PT
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
-    # TODO Add test to check that the tree was read with maia
+    # TODO compute row by row for turbomachinery application
+    # TODO get out this function if no BC Wall*
     # This function needs to be after the definition of boundary conditions
 
-    part_tree = maia.factory.partition_dist_tree(dist_tree, comm) 
-    maia.algo.part.compute_wall_distance(part_tree, comm) #, out_fs_name='FlowSolution#Init')  # create a FlowSolution container named WallDistance
-    maia.transfer.part_tree_to_dist_tree_all(dist_tree, part_tree, comm)
+    tree = to_partitioned(tree)
+    maia.algo.part.compute_wall_distance(tree, comm)  # create a FlowSolution container named WallDistance
 
-    # If out_fs_name='FlowSolution#Init' is not used, we need to move the TurbulentDistance node
-    for zone in PT.iter_all_Zone_t(dist_tree):
-        FlowSolution = PT.get_child_from_name(zone, 'FlowSolution#Init') # CAVEAT name of container
-        WallDistance =  PT.get_child_from_name(zone, 'WallDistance')
-        if not WallDistance: continue
-        TurbulentDistance = PT.get_child_from_name(WallDistance, 'TurbulentDistance')
+    tree = cgns.castNode(tree)
+    for zone in tree.zones():
+        FlowSolution = zone.get(Name='FlowSolution#Init')
+        WallDistance = zone.get(Name='WallDistance')
+        if not WallDistance: 
+            continue
+        TurbulentDistance = WallDistance.get(Name='TurbulentDistance')
+        TurbulentDistance.dettach()
+        TurbulentDistance.attachTo(FlowSolution)
+        WallDistance.remove()
 
-        PT.add_child(FlowSolution, TurbulentDistance)
-        PT.rm_child(zone, WallDistance)
+    return tree
 
 def force_grid_location_as_first_sibling( tree : cgns.Tree ):
     
-    tree = cgns.castNode(tree)
-
     for fs in tree.group(Type='FlowSolution_t', Depth=4):
         
         gl = fs.get(Type='GridLocation_t', Depth=1)

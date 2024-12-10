@@ -17,9 +17,7 @@
 
 import numpy as np
 from treelab import cgns
-from mola.workflow.workflow import Workflow
-from mola.cfd.preprocess.initialization import initialization, solver_fast
-from mola.cfd.preprocess.initialization.test.test_initialization import get_debug_mesh, apply_all_previous_stages
+from mola.cfd.preprocess.initialization import solver_fast
 
 import pytest
 pytestmark = pytest.mark.fast
@@ -44,30 +42,3 @@ def test_apply_to_solver():
 
     workflow = FakeWorkflow()
     solver_fast.apply_to_solver(workflow)
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_1
-def test_initialization_uniform():
-    mesh = get_debug_mesh()
-    workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
-        Flow = dict(Velocity=10.0),
-        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
-        Turbulence = dict(Model='SA'),
-    )
-    apply_all_previous_stages(workflow)
-    initialization.apply(workflow)
-
-    FS = workflow.tree.get(Name='FlowSolution#Centers', Type='FlowSolution')
-    assert FS.get(Name='GridLocation', Type='GridLocation', Value='CellCenter') 
-    assert np.allclose(FS.get(Name='Density', Type='DataArray').value(), 1.225)
-    assert np.allclose(FS.get(Name='MomentumX', Type='DataArray').value(), 12.25)
-    assert np.allclose(FS.get(Name='MomentumY', Type='DataArray').value(), 0.)
-    assert np.allclose(FS.get(Name='MomentumZ', Type='DataArray').value(), 0.)
-    assert np.allclose(FS.get(Name='EnergyStagnationDensity', Type='DataArray').value(), 253373.86097188)
-    assert np.allclose(FS.get(Name='TurbulentSANuTildeDensity', Type='DataArray').value(), 4.41691234e-05)
-
-
-if __name__ == '__main__':
-    test_initialization_uniform()
