@@ -39,17 +39,25 @@ def apply_to_solver(workflow):
     turn_off("sonics_hpc")
     turn_off("sonics_debug")
 
-    workflow.tree, configuration = read_cfd_files.apply(workflow)
+    workflow.tree, config = read_cfd_files.apply(workflow)
 
     from mola.cfd.coprocess.manager import CoprocessManager
     coprocess_manager = CoprocessManager(workflow)
     workflow._coprocess_manager = coprocess_manager
 
-    iterators = get_iterators(workflow, configuration)
 
     dist_tree = workflow.tree.copy()
 
-    sonics.solver.run(configuration, dist_tree, comm, iterators=iterators)
+    hardware_target = 'cpu'
+
+    sonics.solver.run(dist_tree, comm, 
+                      iterators = get_iterators(workflow, config, hardware_target), 
+                      additional_parameters = dict(
+                          output_folder = names.DIRECTORY_LOG,
+                          hpc_conf = dict(hardware_target=hardware_target),
+                          )
+                      )
+
     coprocess_manager.output_tree = cgns.castNode(dist_tree)
     if not coprocess_manager.output_tree.get(Name='NFaceElements'):
         maia.algo.pe_to_nface(dist_tree, comm)
@@ -60,96 +68,71 @@ def apply_to_solver(workflow):
     coprocess_manager.finalize()
     del workflow._coprocess_manager
  
-def get_iterators(workflow, configuration):
+def get_iterators(workflow, config, hardware_target='cpu'): 
     from pathlib import Path
     import sonics.toolkit.triggers as triggers
     from sonics.toolkit.iterators import SteadyIterators
+    
+    execution_trigger = triggers.ExecutionTrigger(config, workflow.Numerics['NumberOfIterations'])
+    cfl_trigger = triggers.CflTrigger(config, get_cfl_function(workflow.Numerics['CFL']))
 
-    transform_miles_config_in_sonics_config(configuration)
-
-    pytriggers = []
-    pytriggers.append(triggers.ExecutionTrigger(configuration["conf"], workflow.Numerics['NumberOfIterations']))
-    pytriggers.append(triggers.CflTrigger(configuration["conf"], get_cfl_function(workflow.Numerics['CFL'])))
+    pytriggers = [
+        execution_trigger,
+        cfl_trigger,
+    ]
 
     if any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
-        pytriggers.append(triggers.ResidualTrigger(configuration["conf"], workflow.Numerics['NumberOfIterations'],
-                                            output_folder=Path(names.DIRECTORY_LOG)))
+        residuals_trigger = triggers.ResidualTrigger(
+            config, 
+            workflow.Numerics['NumberOfIterations'],
+            output_folder=Path(names.DIRECTORY_LOG),
+            check_convergence=triggers.convergence_per_subsystem({0:{0:1.e-14}}, normalize=False), 
+            )
+        pytriggers.append(residuals_trigger)
 
     if any([ext['Type'] in ['Restart', '3D', 'BC'] for ext in workflow.Extractions]):
         if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
             periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] in ['3D', 'BC']]
         else:
             periods = [workflow.Numerics['NumberOfIterations']]
-        pytriggers.append(triggers.ComputeAndExtractDataInGraphTrigger(configuration["conf"],
+        
+        fields_and_bc_extraction_trigger = triggers.ComputeAndExtractDataInGraphTrigger(
+            config,
             add_fields_and_bc_extractions(workflow),
-            configuration["hpc_conf"]["hardware_target"], 
-            period=np.gcd.reduce(periods)), 
+            hardware_target, 
+            period=np.gcd.reduce(periods)
             )
+        
+        pytriggers.append(fields_and_bc_extraction_trigger)
 
     if any([ext['Type'] == 'Integral' for ext in workflow.Extractions]):
         periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']  # FIXME
-        pytriggers.append(triggers.MonitoringIntegralData( 
-            configuration['conf'], 
+        integral_extraction_trigger = triggers.MonitoringIntegralData( 
+            config, 
             add_integral_extractions(workflow), 
-            configuration['niter'], 
-            configuration['hpc_conf']['hardware_target'], 
-            period=10) #np.gcd.reduce(periods)) 
-        )
+            workflow.Numerics['NumberOfIterations'], 
+            hardware_target, 
+            period=10 #np.gcd.reduce(periods)
+            ) 
+        pytriggers.append(integral_extraction_trigger)
+
+    if any([bc['Type'] == 'OutflowRadialEquilibrium' for bc in workflow.BoundaryConditions]):
+        for bc in workflow.BoundaryConditions:
+            try:
+                valve_type = bc['valve_type']
+            except:
+                continue
+
+            from mola.cfd.preprocess.boundary_conditions.solver_sonics import get_valve_law_trigger
+            valve_law_trigger = get_valve_law_trigger(config, bc, period=10, hardware_target=hardware_target)
+            pytriggers.append(valve_law_trigger)
 
     # This Trigger write time at the end of run:
     #    + end computation[<iterations>]: time : (<execution_time>, <execution_time_for_all_ranks>, <time/cell/iteration>)
-    execution_trigger = pytriggers[0]
-    pytriggers.append(triggers.HookPbSizeTrigger(configuration['conf'], workflow.tree, execution_trigger))
+    time_record_trigger = triggers.HookPbSizeTrigger(config, workflow.tree, execution_trigger)
+    pytriggers.append(time_record_trigger)
 
     iterators = SteadyIterators(pytriggers, workflow.Numerics['NumberOfIterations'], comm)
 
     return iterators
-
-def transform_miles_config_in_sonics_config(configuration):
-    import sonics
-
-    def deep_update(d, u):
-        for k, v in u.items():
-            if isinstance(v, dict):
-                d[k] = deep_update(d.get(k, {}), v)
-            elif isinstance(v, list):
-                d[k].extend(v)
-            else:
-                d[k] = v
-        return d
-
-    def nest_dict_from_string(s : str, leaf=None):
-        keys = s.split('/')
-        if len(keys) > 2:
-            result = {keys[0]: nest_dict_from_string('/'.join(keys[1:]), leaf=leaf)}
-        elif len(keys) == 2:
-            if leaf is None:
-                result = {keys[0]: keys[1]}
-            else:
-                result = {keys[0]: {keys[1]: leaf}}
-        else:
-            if leaf is None:
-                raise Exception
-                result = keys[0]
-            else:
-                result = {keys[0]: leaf}
-
-        return result
-
-    def convert_in_nest_dict(conf):
-        result = dict(sonics=dict())
-        subdicts = []
-        for key, value in conf.items():
-            if value in [True, False, None]:
-                subdict = nest_dict_from_string(key)
-            else:
-                subdict = nest_dict_from_string(key, leaf=value)
-
-            subdicts.append(subdict)
-        for subdict in subdicts:
-            deep_update(result, subdict)
-        return result
-    
-    configuration['conf'] = sonics.configuration(convert_in_nest_dict(configuration['conf']))
-
 

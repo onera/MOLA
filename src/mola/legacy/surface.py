@@ -4263,3 +4263,9 @@ def copyDistribution(surface_to_remesh, surface_with_desired_distribution):
 def point(surface,i=0,j=0):
     x,y,z=J.getxyz(surface)
     return np.array([x[i,j],y[i,j],z[i,j]],dtype=float)
+
+def hasSelfIntersectingFaces(surface):
+    # TODO make Cassiopee ticket :
+    # structured quad with angle>180 produces incorrect negative volume
+    s = G.getVolumeMap(surface) 
+    return C.getMinValue(s,'centers:vol') < 0

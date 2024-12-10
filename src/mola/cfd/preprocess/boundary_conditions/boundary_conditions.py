@@ -210,6 +210,14 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
 
     return bc_dict      
 
+def get_bc_nodes_from_family(t, Family):
+    bcs = []
+    all_bcs = t.group(Type='BC')
+    for bc in all_bcs:
+        if bc.get('FamilyName') == Family:
+            bcs.append(bc)
+    return bcs
+
 def get_fields_from_file(t, FamilyName, filename, var2interp, fileformat=None):
 
     # TODO This function is not working yet. The function migrateFields must be replaced.

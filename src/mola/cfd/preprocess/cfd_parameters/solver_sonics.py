@@ -122,6 +122,13 @@ for model in ['SST-2003', 'SST-V2003']:
 
 def apply_to_solver(workflow):
 
+    my_config = get_sonics_config(workflow)
+    my_config.apply(workflow.tree)
+
+    workflow.tree = cgns.castNode(workflow.tree)
+
+def get_sonics_config(workflow):
+
     import miles
 
     fluid_features, fluid_parameters = get_fluid_template(workflow.Fluid)
@@ -129,7 +136,7 @@ def apply_to_solver(workflow):
     flux_features, flux_parameters = get_spatial_fluxes_template(workflow.Numerics)
     time_features, time_parameters = get_time_marching_template(workflow.Numerics)
 
-    my_config = miles.solver.config.Configuration(workflow.tree)
+    my_config = miles.solver.config.Configuration(pure_cgns_mode=True)
     my_config.update(
         "motion/mobile",
         *fluid_features,
@@ -143,22 +150,9 @@ def apply_to_solver(workflow):
         **flux_parameters, 
         **time_parameters,
     )
-    user_given_parameters = update_config_with_user_parameters(my_config, workflow)
+    update_config_with_user_parameters(my_config, workflow)
 
-    configuration = my_config.apply()
-    configuration.update(
-        dict(
-            output_folder = names.DIRECTORY_LOG,
-            niter = workflow.Numerics['NumberOfIterations'],
-        )
-    )
-
-    del configuration['configuration']
-    del configuration['hpc_conf'] 
-
-    workflow.SolverParameters['configuration'] = nested_dict_from_keys(configuration)
-    workflow.tree = cgns.castNode(workflow.tree)
-    deep_update(workflow.SolverParameters, user_given_parameters) 
+    return my_config
 
 def update_config_with_user_parameters(my_config, workflow):
     if 'features' in workflow.SolverParameters:
