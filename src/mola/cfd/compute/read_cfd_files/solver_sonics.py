@@ -26,14 +26,12 @@ import mola.naming_conventions as names
 
 def apply_to_solver(workflow):
     import maia
+    import miles
 
     workflow.tree = maia.io.file_to_dist_tree(names.FILE_INPUT_SOLVER, comm)
     workflow.tree = cgns.castNode(workflow.tree)
 
-    # import miles
-    # config = miles.solver.config.Configuration(workflow.tree)
-    # HACK before the previous line works well
-    from mola.cfd.preprocess.cfd_parameters.solver_sonics import get_sonics_config
-    config = get_sonics_config(workflow)
+    config = miles.Configuration()
+    config.from_cgns_base(workflow.tree)
 
     return workflow.tree, config
