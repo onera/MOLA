@@ -172,7 +172,7 @@ def compute_wall_distance_if_needed(workflow):
         workflow.tree = compute_wall_distance_with_maia(workflow.tree)
     force_grid_location_as_first_sibling(workflow.tree) # HACK
 
-def compute_wall_distance_with_maia(tree):
+def compute_wall_distance_with_maia(tree: cgns.Tree):
     import maia
     import maia.pytree as PT
     from mpi4py import MPI
