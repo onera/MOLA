@@ -42,7 +42,8 @@ from  mola.cfd.preprocess import (flow_generators,
                                extractions,
                                run_manager,
                                finalization,
-                               write_cfd_files)
+                               write_cfd_files,
+                               check)
 from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
 
@@ -135,53 +136,13 @@ class Workflow(object):
     def set_extractions(self):
         extractions.apply(self)
         self.set_workflow_parameters_in_tree()
+    
+    def check_preprocess(self):
+        check.apply(self)
+        # self.set_workflow_parameters_in_tree()
 
     def finalize_preprocess(self):
         finalization.apply(self)
-
-    def check_preprocess(self):
-        def isEmpty(emptyBC):
-            if isinstance(emptyBC, list) or isinstance(emptyBC, np.ndarray):
-                for i in emptyBC:
-                    return isEmpty(i)
-                return False
-            elif np.isfinite(emptyBC):
-                return True
-            else:
-                raise ValueError('unexpected type %s'%type(emptyBC))
-
-        try:
-            import Converter.PyTree as C
-            import Converter.Internal as I
-        except ModuleNotFoundError:
-            mola_logger.warning('could not import Cassiopee Converter. Cannot check if there is any empty BC')
-            return
-
-        t = self.tree.copy()
-
-        from mpi4py import MPI
-        mpi_size = MPI.COMM_WORLD.Get_size()
-        rank = MPI.COMM_WORLD.Get_rank()
-        if mpi_size > 1:
-            # TODO check /stck/jcoulet/dev/dev-Tools/maia/Support/lbernard/find_empty_bc.py
-            is_dist = bool(self.tree.get(':CGNS#Distribution'))
-            if is_dist:
-                if not self.tree.isStructured:
-                    from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
-                    t = to_full_tree_at_rank_0(self.tree)
-
-        I._adaptPE2NFace(t)
-        emptyBC = C.getEmptyBC(t, dim=3)
-        hasEmpty = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
-        if rank ==0:
-            if hasEmpty:
-                mola_logger.error('UNDEFINED BC IN TREE')
-            else:
-                mola_logger.info(f'{GREEN}No undefined BC found in tree{ENDC}')
-
-        self.set_workflow_parameters_in_tree()
-
-
 
     def write_cfd_files(self):
         write_cfd_files.apply(self)
