@@ -22,6 +22,8 @@ from mola.logging import mola_logger, MolaException
 from ..families import join_families
 from .reader import read
 
+AUTOGRID_SPECIAL_BASES = ['Numeca*', 'meridional_base', 'tools_base']
+
 # def set_reader_defaults(
 #         Name             : str = 'auto',
 #         InitialFrame     : dict = dict(Point=[0,0,0], Axis1=[0,0,1], Axis2=[1,0,0], Axis3=[0,1,0]),
@@ -82,8 +84,20 @@ def reader(w, component):
     #################################################################################
     
     mesh = read(w, component['Source'])
-    # update_Connection_from_mesh(mesh, w.Solver, component, w.ApplicationContext.get('ShaftAxis'))
-    remove_periodic_families_and_bc_but_keep_gc(mesh)
+
+    if need_to_add_gc(mesh):
+        # There is no GC in the mesh --> add them automatically
+        component['Connection'].append(dict(Type='Match', Tolerance=component['DefaultToleranceForConnection']))
+    
+    if not mesh.get(Type='Periodic'):
+        # There is no periodic GC in the mesh --> add them automatically
+        # update_Connection_from_mesh(mesh, w.Solver, component, w.ApplicationContext.get('ShaftAxis'))
+        if w.solver == 'sonics':
+            raise MolaException('Periodic BCs must be already defined in the input mesh for sonics.')
+        periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], w.ApplicationContext.get('ShaftAxis'))
+        component['Connection'] += periodic_connections
+    else:
+        remove_periodic_families_and_bc_but_keep_gc(mesh)    
 
     if component['CleaningMacro'] == 'Autogrid':
         # TODO handle families inlet_bulb* and outlet_bulb*, and merge them with other families
@@ -104,16 +118,6 @@ def reader(w, component):
         component['Name'] = base.name()
 
     return base
-
-def update_Connection_from_mesh(mesh, solver, component, axis):
-    # Only if grid connectivities are not already in the mesh
-    # TODO: Test on the presence of GC
-    # component['Connection'].append(dict(Type='Match', Tolerance=component['DefaultToleranceForConnection']))
-    if solver != 'sonics' and axis is not None:
-        periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], axis)
-        component['Connection'] += periodic_connections
-    else:
-        remove_periodic_families_and_bc_but_keep_gc(mesh)
             
 def apply_cleaning_macro_autogrid(mesh):
     clean_autogrid_log_bases(mesh)
@@ -123,9 +127,8 @@ def apply_cleaning_macro_autogrid(mesh):
     shorten_zones_names(mesh)
 
 def clean_autogrid_log_bases(t):
-    t.findAndRemoveNodes(Name='Numeca*', Type='CGNSBase', Depth=1)
-    t.findAndRemoveNodes(Name='meridional_base', Type='CGNSBase', Depth=1)
-    t.findAndRemoveNodes(Name='tools_base', Type='CGNSBase', Depth=1)
+    for name in AUTOGRID_SPECIAL_BASES:
+        t.findAndRemoveNodes(Name=name, Type='CGNSBase', Depth=1)
 
     t.findAndRemoveNodes(Name='blockName', Type='UserDefinedData', Depth=3)
     t.findAndRemoveNodes(Name='NumecaBlockName', Type='Descriptor', Depth=3)
@@ -189,3 +192,21 @@ def remove_periodic_families_and_bc_but_keep_gc(mesh):
         if "_PER" in fam:
             BC.remove()    
             mesh.findAndRemoveNode(Type='Family', Name=fam, Depth=2)
+
+def need_to_add_gc(mesh):
+    excluded_bases = []
+    for name in AUTOGRID_SPECIAL_BASES:
+        excluded_bases += [base.name() for base in mesh.group(Type='CGNSBase', Depth=1, Name=name)]
+
+    for base in mesh.group(Type='CGNSBase', Depth=1):
+        if base.name() in excluded_bases: 
+            continue
+        if base.numberOfZones() < 2:
+            # normal that there is no GC because there is only on zone
+            continue
+
+        join_gc_list = [gc for gc in base.group(Type='GridConnectivity1to1') if not gc.get(Type='Periodic')]
+        if len(join_gc_list) == 0:
+            mola_logger.debug(f'no GridConnectivity node detected in base {base.name()}')
+            return True
+    return False
