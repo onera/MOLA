@@ -59,8 +59,7 @@ def reader(w, component):
     
     # TODO These parameters should be managed by an interface
     #################################################################################
-    component.setdefault('CleaningMacro', 'Autogrid') 
-    JoinHubAndShroudFamilies = True
+    component.setdefault('CleaningMacro', 'Autogrid_joinBC') 
 
     # Defaults for Connection
     component.setdefault('DefaultToleranceForConnection', 1e-8)
@@ -88,7 +87,11 @@ def reader(w, component):
 
     if component['CleaningMacro'] == 'Autogrid':
         # TODO handle families inlet_bulb* and outlet_bulb*, and merge them with other families
-        apply_cleaning_macro_autogrid(mesh, JoinHubAndShroudFamilies)
+        apply_cleaning_macro_autogrid(mesh)
+    elif component['CleaningMacro'] == 'Autogrid_joinBC':
+        apply_cleaning_macro_autogrid(mesh)
+        join_families(mesh, 'HUB')
+        join_families(mesh, 'SHROUD')
 
     nb_of_bases = len(mesh.bases())
     if nb_of_bases != 1:
@@ -112,15 +115,12 @@ def update_Connection_from_mesh(mesh, solver, component, axis):
     else:
         remove_periodic_families_and_bc_but_keep_gc(mesh)
             
-def apply_cleaning_macro_autogrid(mesh, JoinHubAndShroudFamilies=True):
+def apply_cleaning_macro_autogrid(mesh):
     clean_autogrid_log_bases(mesh)
     clean_family_properties(mesh)
     remove_gc_abutting(mesh)
 
     shorten_zones_names(mesh)
-    if JoinHubAndShroudFamilies:
-        join_families(mesh, 'HUB')
-        join_families(mesh, 'SHROUD')
 
 def clean_autogrid_log_bases(t):
     t.findAndRemoveNodes(Name='Numeca*', Type='CGNSBase', Depth=1)
