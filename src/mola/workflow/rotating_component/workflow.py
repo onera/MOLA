@@ -119,7 +119,10 @@ class WorkflowRotatingComponent(Workflow):
                 continue
             
             self.BoundaryConditions.append(
-                dict(Family=FamilyBoundary, Type='Wall')
+                # Careful, it is mandatory to impose a null Motion on the shroud, 
+                # otherwise the frame of reference of the BC will be inheritated 
+                # from the zone with a FoR in rotation 
+                dict(Family=FamilyBoundary, Type='Wall', Motion=dict(RotationSpeed=[0.,0.,0.]))  
                 )
     
     def set_blade_boundary_conditions(self, families=['blade', 'aube']):

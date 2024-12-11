@@ -72,11 +72,10 @@ def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa
     wall = define_bc_family(workflow, Family, bctype_cgns)
 
     if Motion is None: 
-        Motion = dict()
-    motion.update_motion_with_defaults(Motion)
-
-    if not motion.is_mobile(Motion):
         return
+    else: 
+        assert isinstance(Motion, dict)
+        motion.update_motion_with_defaults(Motion)
 
     if callable(Motion) or any([callable(v) for v in Motion.values()]):
         # Put global parameters in the family
