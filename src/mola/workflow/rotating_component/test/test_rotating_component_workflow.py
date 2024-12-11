@@ -133,7 +133,7 @@ def test_init(tmp_path):
 def test_set_shroud_boundary_conditions():
     w = FakeWorkflow()
     w.set_shroud_boundary_conditions()
-    assert dict(Family='Shroud', Type='Wall') in w.BoundaryConditions
+    assert dict(Family='Shroud', Type='Wall', Motion=dict(RotationSpeed=[0.0, 0.0, 0.0])) in w.BoundaryConditions
     # Check fake_shroud has not been modified
     assert not dict(Family='fake_shroud', Type='Wall') in w.BoundaryConditions
     assert dict(Family='fake_shroud', Type='Farfield') in w.BoundaryConditions
