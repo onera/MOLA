@@ -142,6 +142,10 @@ def read_workflow_with_maia(workflow):
     workflow.tree = cgns.castNode(part_tree)
     workflow._Skeleton = cgns.castNode(skeleton_tree)
 
+    if workflow.tree.isHybrid():
+        # see https://elsa.onera.fr/issues/11718
+        maia4elsA.adapt_hybrid_join_pointlist(workflow.tree)
+
     e = elsAxdt.XdtCGNS(tree=workflow.tree, links=[], paths=[])
     e.distribution = distribution
 
