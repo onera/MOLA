@@ -316,9 +316,9 @@ def mpi_allgather_and_merge_trees(local_tree : cgns.Tree, comm=comm ) -> cgns.Tr
 
 
 def update_signals_using( current_iteration_signals : cgns.Tree,
-                          and_previous_signals_to_be_updated : cgns.Tree ) -> None:
+                          previous_signals_to_be_updated : cgns.Tree ) -> None:
     
-    previous_tree = and_previous_signals_to_be_updated
+    previous_tree = previous_signals_to_be_updated
     current_tree = current_iteration_signals
 
     for current_base in current_tree.bases():

@@ -64,7 +64,7 @@ def perform_extractions(workflow, coprocess_manager):
     families_to_bctype = get_family_to_BCType(output_tree)
     
     for extraction in coprocess_manager.Extractions:
-        if extraction['IsToExtract'] == False:
+        if not extraction['IsToExtract']:
             continue
 
         coprocess_manager.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
@@ -203,8 +203,8 @@ def extract_residuals(output_tree, extraction):
     current_iteration_signals =  mpi_allgather_and_merge_trees(t)
     
     if 'Data' in extraction and extraction['Data'] is not None:
-        and_previous_signals_to_be_updated = extraction['Data']
-        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+        previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, previous_signals_to_be_updated)
     else: 
         extraction['Data'] = current_iteration_signals
 
@@ -239,8 +239,8 @@ def extract_integral(output_tree, extraction, workflow) -> None:
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
     if 'Data' in extraction and extraction['Data'] is not None:
-        and_previous_signals_to_be_updated = extraction['Data']
-        update_signals_using(current_iteration_signals, and_previous_signals_to_be_updated)
+        previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, previous_signals_to_be_updated)
     else: 
         extraction['Data'] = current_iteration_signals
 
