@@ -57,7 +57,7 @@ def print_module_version(module_name, printed_name=None):
     if not printed_name:
         printed_name = module_name
     tag = f' --> {printed_name} '
-    print(tag+v.ljust(20-len(tag))+printTime(toc))
+    print(tag+v.ljust(20-len(tag))+print_time(toc))
 
 def print_solver_version():
     solver = os.getenv('MOLA_SOLVER', 'UNKNOWN')
@@ -82,7 +82,7 @@ def print_solver_version():
                 if hasattr(etc, vatt):
                     v = getattr(etc,vatt)
                     break
-        print(v.ljust(20-len(tag))+printTime(toc))
+        print(v.ljust(20-len(tag))+print_time(toc))
 
     elif solver == 'sonics':
         vSONICS = os.getenv('SONICSVERSION', 'UNAVAILABLE')
@@ -99,43 +99,23 @@ def print_solver_version():
 
 def print_status_on_mola_version():
 
-    def getMajorMinorMicro(version_string):
-        version_string = version_string.replace('v','')
-        MajorMinorMicro = version_string.split('.')
-        try:
-            Major, Minor, Micro = MajorMinorMicro
-        except ValueError:
-            Major, Minor = MajorMinorMicro
-            Micro = '0'
-        return int(Major), int(Minor), int(Micro)
-
-    def gatherMOLAversions():
+    def gather_mola_versions():
         ALL_MOLAS_DIR = os.path.sep+os.path.join(*__MOLA_PATH__.split(os.path.sep)[:-1])+os.path.sep
         ALL_MOLAS_VER = [v.replace(ALL_MOLAS_DIR,'') for v in glob.glob(os.path.join(ALL_MOLAS_DIR,'*'))]
-        v = {}
+        versions = []
         for ver in ALL_MOLAS_VER:
-            if not ver.startswith('v'): continue
-            M, m, n = getMajorMinorMicro(ver)
-            ver_format = Version(ver)
-            M, m, n = ver_format.major, ver_format.minor, ver_format.micro
-            ver.major, ver.minor, ver.micro
-            if M not in v:
-                v.update({M:{m:[n]}})
-            elif m not in v[M]:
-                v[M][m] = [n]
-            else:
-                v[M][m].append(n)
-
-        return v
+            if not ver.startswith('v'): 
+                continue
+            versions.append(Version(ver))
+        return versions
 
     mola_version = Version(__version__)
     if mola_version.is_devrelease:
         print(YELLOW+'WARNING: you are using an UNSTABLE version of MOLA.\nConsider using a stable version.'+ENDC)
     else:
-        AllVersions = gatherMOLAversions()
+        AllVersions = gather_mola_versions()
         most_updated_version = Version('0.0.0')
         for v in AllVersions:
-            v = Version(v)
             if mola_version.major != v.major:
                 continue
             if mola_version < v:
@@ -147,9 +127,13 @@ def print_status_on_mola_version():
         else:
             print(GREEN+'You are using the latest version of MOLA'+ENDC)
 
-def printTime(toc):
+def print_time(toc):
     ElapsedTime = tic() - toc
-    if ElapsedTime < 0.1: return ''
-    if ElapsedTime < 0.5: return ' (took %g s)'%ElapsedTime
-    if ElapsedTime < 1.0: return YELLOW+' (took %g s)'%ElapsedTime+ENDC
-    return RED+' (took %g s : too long)'%ElapsedTime+ENDC
+    if ElapsedTime < 0.1: 
+        return ''
+    elif ElapsedTime < 0.5: 
+        return ' (took %g s)'%ElapsedTime
+    elif ElapsedTime < 1.0: 
+        return YELLOW+' (took %g s)'%ElapsedTime+ENDC
+    else:
+        return RED+' (took %g s : too long)'%ElapsedTime+ENDC

@@ -105,6 +105,14 @@ def read_workflow_with_maia(workflow):
     import elsAxdt
     import maia4elsA
 
+    def add_FlowSolution_EoR(t):
+        from mola.cfd.preprocess.extractions.solver_elsa import add_3d_extraction_to_zone
+        for Extraction in workflow.Extractions:
+            if Extraction['Type'] == 'Restart':
+                break
+        for zone in t.zones():
+            add_3d_extraction_to_zone(zone, Extraction)
+
     is_to_split_with_maia = workflow.SplittingAndDistribution['Strategy'].lower() == 'atcomputation' \
         and workflow.SplittingAndDistribution['Splitter'].lower() == 'maia'
     
@@ -127,6 +135,7 @@ def read_workflow_with_maia(workflow):
         raise MolaAssertionError('The splitting strategy is not taken into account.')
     
     part_tree = cgns.castNode(part_tree)
+    add_FlowSolution_EoR(part_tree)  # HACK https://gitlab.onera.net/numerics/mesh/maia/-/issues/164
     for zone in part_tree.zones():
         SolverParam = zone.get(Name='.Solver#Param')
         if not SolverParam:

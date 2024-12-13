@@ -191,19 +191,17 @@ def extract_isosurface(output_tree, extraction):
     return isosurface
 
 def extract_residuals(output_tree, extraction):
-    residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
-    if not residuals: return cgns.Tree()
-    residuals = cgns.castNode(residuals)
-    residuals.findAndRemoveNode(Name='.Solver#Output')
+    
     t = cgns.Tree()
-    base = cgns.Base(Name='Residuals', Parent=t)
-
-    # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
-    residuals.setType('FlowSolution_t')
-    residuals.setName('FlowSolution')
-    residuals.setValue(None)
-
-    cgns.Zone(Name=base.name(), Parent=base, Children=[residuals])
+    residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
+    if residuals: 
+        residuals.findAndRemoveNode(Name='.Solver#Output')
+        base = cgns.Base(Name='Residuals', Parent=t)
+        # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
+        residuals.setType('FlowSolution_t')
+        residuals.setName('FlowSolution')
+        residuals.setValue(None)
+        cgns.Zone(Name=base.name(), Parent=base, Children=[residuals])
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 

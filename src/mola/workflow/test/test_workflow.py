@@ -856,7 +856,11 @@ def test_workflow_sphere_unstruct_local(tmp_path):
 # @pytest.mark.integration
 # @pytest.mark.cost_level_3
 # def test_workflow_sphere_hybrid_local(tmp_path):
+#     # Tested with elsA v5.3.03 and Maia, it works. Other cases are to debug
 #     w = get_workflow_sphere_hybrid(tmp_path)
+#     if w.Solver == 'sonics':
+#         adapt_workflow_for_sonics(w)
+#     # w.SplittingAndDistribution=dict(Strategy='AtComputation', Splitter='maia')
 #     w.prepare()
 #     w.write_cfd_files()
 #     w.submit(f'cd {tmp_path}; bash job.sh')
