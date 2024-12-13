@@ -35,7 +35,7 @@ def set_default_motion_on_families(workflow):
             workflow.Motion[FamilyName.value()] = dict()
 
     for family, MotionOnFamily in workflow.Motion.items():
-        update_motion_with_defaults(MotionOnFamily) 
+        update_motion_with_defaults(MotionOnFamily)
 
 def update_motion_with_defaults(Motion):
     if callable(Motion) or any([callable(v) for v in Motion.values()]):
@@ -48,7 +48,7 @@ def update_motion_with_defaults(Motion):
         Motion['RotationSpeed'] = [RotationSpeed, 0., 0.]
     Motion.setdefault('RotationAxisOrigin', [0., 0., 0.])
     Motion.setdefault('TranslationSpeed', [0., 0., 0.])
-    
+
 
 def is_mobile(Motion):
     return is_rotating(Motion) or is_translating(Motion)
@@ -58,7 +58,7 @@ def is_rotating(Motion):
         # complex motion given as a function
         return True
     if sum(Motion['RotationSpeed']) == 0:
-        return False
+        return True
     else:
         return True
 

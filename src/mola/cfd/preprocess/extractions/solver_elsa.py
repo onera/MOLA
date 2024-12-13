@@ -31,7 +31,7 @@ def apply_to_solver(workflow):
     process_extractions_of_type_field(workflow)
     process_extractions_of_type_bc_and_integral(workflow)
     add_trigger(workflow.tree)
-    for Extraction in workflow.Extractions: 
+    for Extraction in workflow.Extractions:
         if Extraction['Type'] == 'Residuals':
             add_global_convergence_history(workflow, Extraction['ExtractionPeriod'])
             # In elsA, the extraction period is defined by add_global_convergence_history
@@ -39,13 +39,13 @@ def apply_to_solver(workflow):
             Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
         # elif Extraction['Type'] == 'Integral':
         #     Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
-            
+
 
 def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():
         workflow._interface.add_to_Extractions_3D(
-            Fields    = list(workflow.Flow['Conservatives']), 
-            Container = 'FlowSolution#Overset', 
+            Fields    = list(workflow.Flow['Conservatives']),
+            Container = 'FlowSolution#Overset',
             Frame     = 'absolute'
         )
 
@@ -63,16 +63,16 @@ def add_extractions_for_restart(workflow):
     workflow.tree.findAndRemoveNodes(Name='FlowSolution#EndOfRun', Type='FlowSolution')
 
     workflow._interface.add_to_Extractions_Restart(
-        Container='FlowSolution#EndOfRun', 
+        Container='FlowSolution#EndOfRun',
         Fields=list(workflow.Flow['ReferenceState']),
         )
 
 def process_extractions_of_type_field(workflow):
 
-    # For 3D averaged field : 
+    # For 3D averaged field :
     #   dict(type='3D', Container='FlowSolution#Average', fields=[...], options=dict(average='time', period_init='inactive'))
 
-    # For coordinates : 
+    # For coordinates :
     #    dict(type='3D', Container='FlowSolution#EndOfRun#Coords', fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], GridLocation='Vertex', Frame='absolute')
 
     for zone in workflow.tree.zones():
@@ -94,22 +94,22 @@ def is_zone_in_extraction_family(zone, Extraction):
         return True
 
 def add_3d_extraction_to_zone(zone, Extraction):
-    
+
     if 'Container' in Extraction:
-        EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
+        EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1)
     else:
         EoRnode = None
 
     options = Extraction.get('OtherOptions', dict())
     if not EoRnode:
-        create_new_container_for_3d_extraction(zone, Extraction['Fields'], Extraction['Container'], 
+        create_new_container_for_3d_extraction(zone, Extraction['Fields'], Extraction['Container'],
                                                Extraction['GridLocation'], Extraction['Frame'], options)
     else:
         add_3d_extraction_to_existing_container(EoRnode, Extraction['Fields'], Extraction['GridLocation'], Extraction['Frame'])
 
 def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name, GridLocation, frame, OtherOptions):
-    EoRnode = zone.setParameters(container_name, 
-                                ContainerType='FlowSolution', 
+    EoRnode = zone.setParameters(container_name,
+                                ContainerType='FlowSolution',
                                 **dict((field, None) for field in Fields2Extract)
                                 )
     cgns.Node(Parent=EoRnode, Name='GridLocation', Type='GridLocation', Value=GridLocation)
@@ -118,7 +118,7 @@ def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name,
                             writingmode=2,
                             writingframe=frame,
                             **OtherOptions)
-    
+
 def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocation, frame):
     try:
         # Check compatibility
@@ -142,22 +142,22 @@ def process_extractions_of_type_bc_and_integral(workflow):
     familiesBC = get_familiesBC_nodes(workflow.tree)
 
     for Extraction in workflow.Extractions:
-        if Extraction['Type'] not in ['Integral', 'BC']: continue 
-
+        if Extraction['Type'] not in ['Integral', 'BC']: continue
+        print(Extraction)
         families_to_extract = get_bc_families_to_extract(workflow.tree, Extraction, familiesBC)
 
         for family in families_to_extract:
             add_2d_extractions_in_SolverOutput(family, Extraction, workflow)
 
 def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
-    
+
     bc_type = FamilyNode.get(Name='FamilyBC').value()
 
     fields_to_extract = adapt_variables_for_2d_extraction(workflow, Extraction, bc_type)
 
     if fields_to_extract != []:
 
-        elsa_var_list = translate_to_elsa(fields_to_extract, type='var')       
+        elsa_var_list = translate_to_elsa(fields_to_extract, type='var')
 
         solver_output_name = '.Solver#Output#'+Extraction['Name'] # note that we may have several outputs (e.g. different requested frames)
 
@@ -168,7 +168,7 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
             FamilyNode.setParameters(solver_output_name, **output_keys)
         else:
             update_existing_solver_output(SolverOutput_node, output_keys)
-        
+
     else:
         mola_logger.warning(f'Caution: the list of fields to extract on family {FamilyNode.name()} is empty')
 
@@ -189,13 +189,15 @@ def update_existing_solver_output(SolverOutput_node, output_keys):
 
 def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) -> dict:
 
+    print(Extraction)
+
     output_keys = dict(
         period        = Extraction["ExtractionPeriod"],
 
         # TODO make ticket:
-        # BUG with writingmode=2 and Cfdpb.compute() (required by unsteady overset) 
+        # BUG with writingmode=2 and Cfdpb.compute() (required by unsteady overset)
         # wall extractions ignored during coprocess
-        # BEWARE : contradiction in doc :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/extract.html#extract.writingmode 
+        # BEWARE : contradiction in doc :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/extract.html#extract.writingmode
         #                        versus :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU_Annexe/CGNS/CGNS.html#Solver-Output
         writingmode   = 2, # NOTE requires extract_filtering='inactive'
 
@@ -203,7 +205,7 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
         writingframe  = Extraction['Frame'],
     )
 
-    
+
     if Extraction["Type"] == "BC":
         requested_location = Extraction["GridLocation"]
         if requested_location == "CellCenter":
@@ -213,14 +215,14 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
         else:
             extraction_name = Extraction["Name"]
             raise MolaException(f"requested location {requested_location} for Extraction {extraction_name} not supported for elsA")
-    
+
     elif Extraction["Type"] == "Integral":
         output_keys["loc"] = 'interface' # always required by elsA for integrals
-        
+
     else:
         raise MolaException('UNEXPECTED TYPE WHEN SETTING loc TO SOLVER OUTPUT AT EXTRACTION'+Extraction['Name'])
 
-    
+
     is_wall = 'Wall' in bc_type
     is_inviscid_wall = is_wall and 'Inviscid' in bc_type
     is_viscous_wall = is_wall and not is_inviscid_wall
@@ -240,11 +242,11 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
             if Extraction['Frame'] == 'absolute' and not workflow.tree.isStructured():
                 output_keys["writingframe"] = "relative" # TODO identify elsA ticket
                 mola_logger.warning(f"Extraction {Extraction['Name']} requested absolute frame, but elsA cannot extract bc wall quantities in absolute frame for not structured grids. Switching to relative.")
-            
+
             boundary_layer_requested = any([v.startswith('bl_') for v in elsa_var_list])
-            
+
             if boundary_layer_requested:
-            
+
                 output_keys.update(dict(
                     delta_compute = workflow.SolverParameters['model']['delta_compute'],
                     vortratiolim  = workflow.SolverParameters['model']['vortratiolim'],
@@ -271,7 +273,7 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
             ExtractVariablesList.remove('BoundaryLayer')
 
     if ExtractBCType == 'BCWallInviscid':
-        ViscousKeys = ['BoundaryLayer', 'yPlus', 
+        ViscousKeys = ['BoundaryLayer', 'yPlus',
                        'geomdepdom','delta_cell_max','delta_compute',
                        'vortratiolim','shearratiolim','pressratiolim']
         for vk in ViscousKeys:
@@ -291,7 +293,7 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
             elif workflow.Turbulence['TransitionMode'] == 'Imposed':
                 extraVariables = ['intermittency', 'clim']
                 ExtractVariablesList.extend(extraVariables)
-    
+
     return ExtractVariablesList
 
 

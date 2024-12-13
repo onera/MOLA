@@ -103,7 +103,7 @@ def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa
             assert list(ImposedVariables) == ['RotationSpeed'], f'list(ImposedVariables)={list(ImposedVariables)}'
             impose_bc_fields(workflow, bc_path, dict(omega = ImposedVariables['RotationSpeed']))
 
-    else:
+    else:        
         assert_rotation_axis_is_correct(Motion)
         wall.setParameters('.Solver#BC',
                             type=bctype_elsa,
