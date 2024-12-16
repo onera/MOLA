@@ -268,7 +268,7 @@ def test_WorkflowManager_prepare(tmp_path):
     
 @pytest.mark.integration
 @pytest.mark.cost_level_1
-def test_WorkflowManager_prepare_on_sator(tmp_path):
+def test_WorkflowManager_prepare_remote_sator(tmp_path):
 
     test_dir = str(tmp_path)
     w = get_fake_workflow()
