@@ -58,7 +58,7 @@ def is_rotating(Motion):
         # complex motion given as a function
         return True
     if sum(Motion['RotationSpeed']) == 0:
-        return True
+        return False
     else:
         return True
 
