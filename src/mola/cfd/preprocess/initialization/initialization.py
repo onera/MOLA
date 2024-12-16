@@ -26,13 +26,13 @@ def apply(workflow):
     Initialize the flow solution.
 
     #. Compute FlowSolution#Init in all zones
-    
+
     #. Adapt this node to the solver
     '''
     FlowSolution_name = 'FlowSolution#Init'
 
     add_reference_state(workflow)
-    
+
     initialization_functions = dict(
         uniform = initialize_flow_with_reference_state,
         copy = initialize_flow_from_file_by_copy,
@@ -47,6 +47,7 @@ def apply(workflow):
     
     apply_to_solver(workflow)
 
+
 def add_reference_state(workflow):
     '''
     Add ``ReferenceState`` node to CGNS using user-provided conditions
@@ -56,7 +57,7 @@ def add_reference_state(workflow):
 
     for var in ['Mach','Pressure','Temperature']:
         ReferenceState[var] = workflow.Flow[var]
- 
+
     namesForCassiopee = dict(
         cv                    = 'Cv',
         Gamma                 = 'Gamma',
@@ -93,6 +94,12 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     else:
         mola_logger.info(f"Initialize FlowSolution by interpolation from the given tree", rank=0)
         tree_source = workflow.Initialization['Source']
+
+    workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
+    # Rename FlowSolution nodes in the source tree if needed
+    if workflow.Initialization['SourceContainer'] != FlowSolution_name:
+        for FS in tree_source.group(Name=workflow.Initialization['SourceContainer'], Type='FlowSolution'):
+            FS.setName(FlowSolution_name)
     
     tree_source = to_partitioned(tree_source)
     workflow.tree = to_partitioned(workflow.tree)
@@ -133,12 +140,18 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
     if workflow.Initialization['KeepWallDistance']:
         varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
 
+    workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
+
     for zone in workflow.tree.zones():
-        FSpath = zone.path() + '/' + FlowSolution_name
+        FSpath = zone.path() + '/' + workflow.Initialization['SourceContainer']
         FlowSolutionInSourceTree = tree_source.getAtPath(FSpath)
 
         if FlowSolutionInSourceTree is None:
             raise MolaException(f"The node {FSpath} is not found in {errtag}")
+
+        #Rename the container if needed
+        if workflow.Initialization['SourceContainer'] != FlowSolution_name:
+            FlowSolutionInSourceTree.setName(FlowSolution_name)
 
         zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
 
@@ -201,9 +214,9 @@ def compute_wall_distance_with_maia(tree: cgns.Tree):
 def force_grid_location_as_first_sibling( tree : cgns.Tree ):
     
     for fs in tree.group(Type='FlowSolution_t', Depth=4):
-        
+
         gl = fs.get(Type='GridLocation_t', Depth=1)
-    
+
         if not gl: continue
 
         gl.dettach()
