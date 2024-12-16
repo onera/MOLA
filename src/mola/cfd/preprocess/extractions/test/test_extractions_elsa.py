@@ -101,36 +101,27 @@ def test_global_convergence_history():
 @pytest.mark.cost_level_0
 def test_process_extractions_of_type_field_base():
     params = get_workflow2_parameters()
-    params['Extractions'] = [dict(Type='3D', Fields=['Density', 'Momentum', 'Energy'], Container='FlowSolution#Output')]
+    params['Extractions'] = [dict(Type='3D', Fields=['Density', 'MomentumX'], Container='FlowSolution#Output')]
     workflow = Workflow(**params)
     workflow.assemble()
     solver_elsa.process_extractions_of_type_field(workflow)
 
     zone = workflow.tree.zones()[0]
     FS = zone.get(Name='FlowSolution#Output', Type='FlowSolution')
-    assert FS
 
-    FS_ref = ['FlowSolution#Output', None, [
-                ['Density', None, [], 'DataArray_t'], 
-                ['Momentum', None, [], 'DataArray_t'], 
-                ['Energy', None, [], 'DataArray_t'], 
-                ['GridLocation', np.array([b'V', b'e', b'r', b't', b'e', b'x'], dtype='|S1'), [], 'GridLocation_t'], 
-                ['.Solver#Output', None, [
-                    ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
-                    ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
-                    ['writingframe', np.array([b'r', b'e', b'l', b'a', b't', b'i', b'v', b'e'], dtype='|S1'), [], 'DataArray_t']
-                ], 'UserDefinedData_t']], 'FlowSolution_t']
-
-    assert str(FS) == str(FS_ref)
-
-
+    assert FS is not None
+    assert FS.get(Name='period').value() == 1
+    assert FS.get(Name='writingmode').value() == 2
+    assert FS.get(Name='writingframe').value() == 'relative'
+    assert FS.get(Name='loc').value() == 'node'
+    assert FS.get(Name='var').value() == ['ro', 'rovx']
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_process_extractions_3d_additional_variables():
     params = get_workflow2_parameters()
     params['Extractions'] = [
-        dict(Type='3D', Fields=['Density', 'Momentum', 'Energy'], Container='FS#Output3D'),
+        dict(Type='3D', Fields=['Density', 'MomentumX'], Container='FS#Output3D'),
         dict(Type='3D', Fields=['Mach', 'Pressure'], Container='FS#Output3D'),
         ]
     workflow = Workflow(**params)
@@ -139,23 +130,13 @@ def test_process_extractions_3d_additional_variables():
 
     zone = workflow.tree.zones()[0]
     FS = zone.get(Name='FS#Output3D', Type='FlowSolution')
-    assert FS
-
-    FS_ref = ['FS#Output3D', None, [
-                ['Density', None, [], 'DataArray_t'], 
-                ['Momentum', None, [], 'DataArray_t'], 
-                ['Energy', None, [], 'DataArray_t'], 
-                ['GridLocation', np.array([b'V', b'e', b'r', b't', b'e', b'x'], dtype='|S1'), [], 'GridLocation_t'], 
-                ['.Solver#Output', None, [
-                    ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
-                    ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
-                    ['writingframe', np.array([b'r', b'e', b'l', b'a', b't', b'i', b'v', b'e'], dtype='|S1'), [], 'DataArray_t']
-                ], 'UserDefinedData_t'],
-                ['Mach', None, [], 'DataArray_t'], 
-                ['Pressure', None, [], 'DataArray_t'], 
-            ], 'FlowSolution_t']
-    
-    assert str(FS) == str(FS_ref)
+   
+    assert FS is not None
+    assert FS.get(Name='period').value() == 1
+    assert FS.get(Name='writingmode').value() == 2
+    assert FS.get(Name='writingframe').value() == 'relative'
+    assert FS.get(Name='loc').value() == 'node'
+    assert FS.get(Name='var').value() == ['ro', 'rovx', 'mach', 'psta']
 
 
 
@@ -163,57 +144,45 @@ def test_process_extractions_3d_additional_variables():
 @pytest.mark.cost_level_0
 def test_process_extractions_3d_coords():
     params = get_workflow2_parameters()
-    params['Extractions'] = [dict(Type='3D', Container='FlowSolution#EndOfRun#Coords', Fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], GridLocation='Vertex', Frame='absolute')]
+    params['Extractions'] = [
+        dict(Type='3D', Container='FlowSolution#EndOfRun#Coords', 
+             Fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], 
+             GridLocation='Vertex', Frame='absolute')
+             ]
     workflow = Workflow(**params)
     workflow.assemble()
     solver_elsa.process_extractions_of_type_field(workflow)
 
     zone = workflow.tree.zones()[0]
     FS = zone.get(Name='FlowSolution#EndOfRun#Coords', Type='FlowSolution')
-    assert FS
 
-    FS_ref = ['FlowSolution#EndOfRun#Coords', None, [
-                ['CoordinateX', None, [], 'DataArray_t'], 
-                ['CoordinateY', None, [], 'DataArray_t'], 
-                ['CoordinateZ', None, [], 'DataArray_t'], 
-                ['GridLocation', np.array([b'V', b'e', b'r', b't', b'e', b'x'], dtype='|S1'), [], 'GridLocation_t'], 
-                ['.Solver#Output', None, [
-                    ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
-                    ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
-                    ['writingframe', np.array([b'a', b'b', b's', b'o', b'l', b'u', b't', b'e'], dtype='|S1'), [], 'DataArray_t']
-                ], 'UserDefinedData_t']], 'FlowSolution_t']
-
-    assert str(FS) == str(FS_ref)
-
-
+    assert FS is not None
+    assert FS.get(Name='period').value() == 1
+    assert FS.get(Name='writingmode').value() == 2
+    assert FS.get(Name='writingframe').value() == 'absolute'
+    assert FS.get(Name='loc').value() == 'node'
+    assert FS.get(Name='var').value() == ['x', 'y', 'z']
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_process_extractions_3d_average():
     params = get_workflow2_parameters()
-    params['Extractions'] = [dict(Type='3D', Container='FlowSolution#Average', Fields=['Density', 'Momentum'], OtherOptions=dict(average='time', period_init='inactive'))]
+    params['Extractions'] = [dict(Type='3D', Container='FlowSolution#Average', Fields=['Density', 'MomentumX'], OtherOptions=dict(average='time', period_init='inactive'))]
     workflow = Workflow(**params)
     workflow.assemble()
     solver_elsa.process_extractions_of_type_field(workflow)
 
     zone = workflow.tree.zones()[0]
     FS = zone.get(Name='FlowSolution#Average', Type='FlowSolution')
-    assert FS
 
-    FS_ref = ['FlowSolution#Average', None, [
-                ['Density', None, [], 'DataArray_t'], 
-                ['Momentum', None, [], 'DataArray_t'], 
-                ['GridLocation', np.array([b'V', b'e', b'r', b't', b'e', b'x'], dtype='|S1'), [], 'GridLocation_t'], 
-                ['.Solver#Output', None, [
-                    ['period', np.array([1], dtype=np.int32), [], 'DataArray_t'], 
-                    ['writingmode', np.array([2], dtype=np.int32), [], 'DataArray_t'], 
-                    ['writingframe', np.array([b'r', b'e', b'l', b'a', b't', b'i', b'v', b'e'], dtype='|S1'), [], 'DataArray_t'],
-                    ['average', np.array([b't', b'i', b'm', b'e'], dtype='|S1'), [], 'DataArray_t'],
-                    ['period_init', np.array([b'i', b'n', b'a', b'c', b't', b'i', b'v', b'e'], dtype='|S1'), [], 'DataArray_t'],
-                ], 'UserDefinedData_t']], 'FlowSolution_t']
-
-    assert str(FS) == str(FS_ref)
-
+    assert FS is not None
+    assert FS.get(Name='period').value() == 1
+    assert FS.get(Name='writingmode').value() == 2
+    assert FS.get(Name='writingframe').value() == 'relative'
+    assert FS.get(Name='loc').value() == 'node'
+    assert FS.get(Name='var').value() == ['ro', 'rovx']
+    assert FS.get(Name='average').value() == 'time'
+    assert FS.get(Name='period_init').value() == 'inactive'
 
 
 @pytest.mark.unit
