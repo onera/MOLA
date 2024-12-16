@@ -19,7 +19,9 @@ from treelab import cgns
 from mola.logging import MolaException
 
 def apply_to_solver(workflow):
-    check_FlowSolutionEoR(workflow.tree, list(workflow.Flow['ReferenceState']))
+    pass
+    # See evolution of issue https://gitlab.onera.net/numerics/mesh/maia/-/issues/164
+    # check_FlowSolutionEoR(workflow.tree, list(workflow.Flow['ReferenceState']))
 
 def check_FlowSolutionEoR(tree: cgns.Tree, conservatives: list):
     for zone in tree.zones():

@@ -108,19 +108,58 @@ def is_zone_in_extraction_family(zone, Extraction):
         # No Family is given as a filter: no filter is applied
         return True
 
-def add_3d_extraction_to_zone(zone, Extraction):
+# def add_3d_extraction_to_zone(zone, Extraction):
     
-    if 'Container' in Extraction:
-        EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
-    else:
-        EoRnode = None
+#     if 'Container' in Extraction:
+#         EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
+#     else:
+#         EoRnode = None
 
+#     options = Extraction.get('OtherOptions', dict())
+#     if not EoRnode:
+#         create_new_container_for_3d_extraction(zone, Extraction['Fields'], Extraction['Container'], 
+#                                                Extraction['GridLocation'], Extraction['Frame'], options)
+#     else:
+#         add_3d_extraction_to_existing_container(EoRnode, Extraction['Fields'], Extraction['GridLocation'], Extraction['Frame'])
+
+def add_3d_extraction_to_zone(zone, Extraction):  #add_3d_extractions_in_SolverOutput
+    
+    if Extraction['Fields'] == []: 
+        mola_logger.warning(f'Caution: the list of fields in Extraction of name {Extraction["Name"]} is empty')
+        return
+
+    EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
+    if EoRnode is None:
+        EoRnode = zone.setParameters(
+            Extraction['Container'], 
+            ContainerType='FlowSolution', 
+            # GridLocation=Extraction['GridLocation']
+            )
+
+    elsa_var_list = translate_to_elsa(Extraction['Fields'], type='var')     
+    solver_output_name = '.Solver#Output'
     options = Extraction.get('OtherOptions', dict())
-    if not EoRnode:
-        create_new_container_for_3d_extraction(zone, Extraction['Fields'], Extraction['Container'], 
-                                               Extraction['GridLocation'], Extraction['Frame'], options)
+    if Extraction['GridLocation'] == 'CellCenter':
+        loc = 'cell'
+    elif Extraction['GridLocation'] == 'Vertex':
+        loc = 'node'
     else:
-        add_3d_extraction_to_existing_container(EoRnode, Extraction['Fields'], Extraction['GridLocation'], Extraction['Frame'])
+        raise MolaException(f'no defined GridLocation for 3D extraction: {Extraction["GridLocation"]}. Choose CellCenter or Vertex.')
+    output_keys = dict(
+        loc           = loc,
+        period        = 1,
+        writingmode   = 2,
+        writingframe  = Extraction['Frame'],
+        var           = elsa_var_list,
+        **options
+    )
+
+    SolverOutput_node = EoRnode.get(Name=solver_output_name, Depth=1)
+    if not SolverOutput_node:
+        EoRnode.setParameters(solver_output_name, **output_keys)
+    else:
+        update_existing_solver_output(SolverOutput_node, output_keys)
+                
 
 def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name, GridLocation, frame, OtherOptions):
     EoRnode = zone.setParameters(container_name, 
