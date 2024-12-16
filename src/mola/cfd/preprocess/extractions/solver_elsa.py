@@ -137,14 +137,17 @@ def add_3d_extraction_to_zone(zone, Extraction):  #add_3d_extractions_in_SolverO
             )
 
     elsa_var_list = translate_to_elsa(Extraction['Fields'], type='var')     
-    solver_output_name = '.Solver#Output'
-    options = Extraction.get('OtherOptions', dict())
+    
+    # Set GridLocation
     if Extraction['GridLocation'] == 'CellCenter':
         loc = 'cell'
     elif Extraction['GridLocation'] == 'Vertex':
         loc = 'node'
     else:
         raise MolaException(f'no defined GridLocation for 3D extraction: {Extraction["GridLocation"]}. Choose CellCenter or Vertex.')
+    
+    solver_output_name = '.Solver#Output'
+    options = Extraction.get('OtherOptions', dict())
     output_keys = dict(
         loc           = loc,
         period        = 1,
