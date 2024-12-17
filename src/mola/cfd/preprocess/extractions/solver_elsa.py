@@ -75,11 +75,13 @@ def process_extractions_of_type_field(workflow):
     # For coordinates : 
     #    dict(type='3D', Container='FlowSolution#EndOfRun#Coords', fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], GridLocation='Vertex', Frame='absolute')
 
+    add_GridLocation = workflow.SplittingAndDistribution['Splitter'].lower() != 'maia'
+
     for zone in workflow.tree.zones():
         for Extraction in workflow.Extractions:
 
             if Extraction['Type'] in ['3D', 'Restart'] and is_zone_in_extraction_family(zone, Extraction):
-                add_3d_extraction_to_zone(zone, Extraction)
+                add_3d_extraction_to_zone(zone, Extraction, add_GridLocation)
 
             elif Extraction['Type'] == 'IsoSurface' and is_zone_in_extraction_family(zone, Extraction):
                 Fields = Extraction.get('Fields')
@@ -94,7 +96,7 @@ def process_extractions_of_type_field(workflow):
                 extraction3D['Container'] = 'FlowSolution#Output'
                 extraction3D['OtherOptions'] = dict()
                 
-                add_3d_extraction_to_zone(zone, extraction3D)
+                add_3d_extraction_to_zone(zone, extraction3D, add_GridLocation)
 
 def is_zone_in_extraction_family(zone, Extraction):
     try:
@@ -108,21 +110,7 @@ def is_zone_in_extraction_family(zone, Extraction):
         # No Family is given as a filter: no filter is applied
         return True
 
-# def add_3d_extraction_to_zone(zone, Extraction):
-    
-#     if 'Container' in Extraction:
-#         EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
-#     else:
-#         EoRnode = None
-
-#     options = Extraction.get('OtherOptions', dict())
-#     if not EoRnode:
-#         create_new_container_for_3d_extraction(zone, Extraction['Fields'], Extraction['Container'], 
-#                                                Extraction['GridLocation'], Extraction['Frame'], options)
-#     else:
-#         add_3d_extraction_to_existing_container(EoRnode, Extraction['Fields'], Extraction['GridLocation'], Extraction['Frame'])
-
-def add_3d_extraction_to_zone(zone, Extraction):  #add_3d_extractions_in_SolverOutput
+def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True): 
     
     if Extraction['Fields'] == []: 
         mola_logger.warning(f'Caution: the list of fields in Extraction of name {Extraction["Name"]} is empty')
@@ -133,8 +121,9 @@ def add_3d_extraction_to_zone(zone, Extraction):  #add_3d_extractions_in_SolverO
         EoRnode = zone.setParameters(
             Extraction['Container'], 
             ContainerType='FlowSolution', 
-            # GridLocation=Extraction['GridLocation']
             )
+        if add_GridLocation:
+            cgns.Node(Parent=EoRnode, Name='GridLocation', Type='GridLocation', Value=Extraction['GridLocation'])
 
     elsa_var_list = translate_to_elsa(Extraction['Fields'], type='var')     
     
@@ -163,37 +152,6 @@ def add_3d_extraction_to_zone(zone, Extraction):  #add_3d_extractions_in_SolverO
     else:
         update_existing_solver_output(SolverOutput_node, output_keys)
                 
-
-def create_new_container_for_3d_extraction(zone, Fields2Extract, container_name, GridLocation, frame, OtherOptions):
-    EoRnode = zone.setParameters(container_name, 
-                                ContainerType='FlowSolution', 
-                                **dict((field, None) for field in Fields2Extract)
-                                )
-    cgns.Node(Parent=EoRnode, Name='GridLocation', Type='GridLocation', Value=GridLocation)
-    EoRnode.setParameters('.Solver#Output',
-                            period=1,
-                            writingmode=2,
-                            writingframe=frame,
-                            **OtherOptions)
-    
-def add_3d_extraction_to_existing_container(Container, Fields2Extract, GridLocation, frame):
-    try:
-        # Check compatibility
-        ExistingGridLocation = Container.get(Type='GridLocation', Depth=1)
-        assert GridLocation == ExistingGridLocation.value(), f'conflict between GriLocation values {GridLocation} and {ExistingGridLocation.value()}'
-
-        writingframe = Container.get(Name='writingframe')
-        assert frame == writingframe.value(), f'conflict between writingframe values {frame} and {writingframe.value()}'
-
-        # Add variables that are not already in this FlowSolution
-        for field in Fields2Extract:
-            if not Container.get(Name=field, Type='DataArray', Depth=1):
-                cgns.Node(Parent=Container, Name=field, Type='DataArray')
-
-    except AssertionError as err:
-        raise MolaException('several 3D extractions are incompatible together: ' + str(err))
-
-
 def process_extractions_of_type_bc_and_integral(workflow):
 
     familiesBC = get_familiesBC_nodes(workflow.tree)

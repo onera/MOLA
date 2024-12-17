@@ -149,8 +149,12 @@ def get_empty_FlowSolution_nodes(tree, remove=False):
 
     empty_FlowSolution_nodes = []
     for FS in tree.group(Type='FlowSolution'):
-        if any([n.value() is None for n in FS.group(Type='DataArray')]):
+        no_DataArray_nodes = len(FS.group(Type='DataArray', Depth=1)) == 0
+        empty_DataArray_nodes = any([n.value() is None for n in FS.group(Type='DataArray', Depth=1)])
+        if no_DataArray_nodes or empty_DataArray_nodes:
             if Cmpi.rank == 0:
+                if no_DataArray_nodes:
+                    FS.findAndRemoveNode(Type='GridLocation')
                 empty_FlowSolution_nodes.append(copy.deepcopy(FS))
             if remove:
                 FS.remove()
