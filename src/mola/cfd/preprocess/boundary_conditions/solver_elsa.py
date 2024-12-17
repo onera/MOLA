@@ -799,8 +799,8 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, Family, LinkedFamily)
@@ -831,8 +831,8 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageRedFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
@@ -857,8 +857,8 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageMxPlHybFromFamily(workflow.tree, Family, LinkedFamily)
@@ -872,7 +872,7 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3):
         radius.compute(workflow.tree, nbband=nbband, c=c)
         radius.write()
     for stg in stage.up:
-        filename = "state_radius_{}_{}.plt".format(FamilyName, nbband)
+        filename = "state_radius_{}_{}.plt".format(Family, nbband)
         radius = stg.repartition(mxpl_dirtype='axial',
                                  filename=filename, fileformat="bin_tp")
         radius.compute(workflow.tree, nbband=nbband, c=c)
@@ -899,8 +899,8 @@ def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageRedHybFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
@@ -985,8 +985,8 @@ def stage_choro(workflow, Family, LinkedFamily):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageChoroFromFamily(workflow.tree, Family, LinkedFamily)

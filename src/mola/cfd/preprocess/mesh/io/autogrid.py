@@ -92,7 +92,7 @@ def reader(w, component):
     if not mesh.get(Type='Periodic'):
         # There is no periodic GC in the mesh --> add them automatically
         # update_Connection_from_mesh(mesh, w.Solver, component, w.ApplicationContext.get('ShaftAxis'))
-        if w.solver == 'sonics':
+        if w.Solver == 'sonics':
             raise MolaException('Periodic BCs must be already defined in the input mesh for sonics.')
         periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], w.ApplicationContext.get('ShaftAxis'))
         component['Connection'] += periodic_connections
