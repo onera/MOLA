@@ -20,16 +20,3 @@ from mola.logging import MolaException
 
 def apply_to_solver(workflow):
     pass
-    # See evolution of issue https://gitlab.onera.net/numerics/mesh/maia/-/issues/164
-    # check_FlowSolutionEoR(workflow.tree, list(workflow.Flow['ReferenceState']))
-
-def check_FlowSolutionEoR(tree: cgns.Tree, conservatives: list):
-    for zone in tree.zones():
-        fs_EoR = zone.get(Name='FlowSolution#EndOfRun', Type='FlowSolution')
-        if not fs_EoR:
-            raise MolaException(f'FlowSolution#EndOfRun is missing in zone {zone.name()}')
-        
-        for name in conservatives:
-            node = fs_EoR.get(Name=name, Type='DataArray')
-            if not node or node.value() is not None:
-                raise MolaException(f'FlowSolution#EndOfRun/{node.name()} is missing in zone {zone.name()}')
