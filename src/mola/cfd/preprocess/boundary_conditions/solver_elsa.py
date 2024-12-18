@@ -939,7 +939,7 @@ def stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod):
 
     return SectorPassagePeriod
 
-def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20., NumberOfHarmonicsForLinkedFamily=20.):
+def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20., NumberOfHarmonicsForLinkedFamily=20., hybrid=True):
     '''
     Compute the parameters to run a chorochronic computation.
     
@@ -960,9 +960,14 @@ def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20.,
 
         NumberOfHarmonicsForLinkedFamily : float
             Number of harmonics of the second row.
+        
+        hybrid : bool
+            If True, use the `stage_choro_hyb` condition, else use `stage_choro`.
     '''   
-
-    stage_choro(workflow, Family, LinkedFamily)
+    if hybrid:
+        stage_choro_hyb(workflow, Family, LinkedFamily)
+    else:
+        stage_choro(workflow, Family, LinkedFamily)
     convert_periodic_to_chorochrono(workflow.tree)
     row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
     row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
@@ -990,6 +995,44 @@ def stage_choro(workflow, Family, LinkedFamily):
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageChoroFromFamily(workflow.tree, Family, LinkedFamily)
+
+    stage.jtype = 'nomatch_rad_line'
+    stage.stage_choro_type = 'characteristic'
+    stage.harm_freq_comp = 1
+    stage.choro_file_up = 'None'
+    stage.file_up = None
+    stage.choro_file_down = 'None'
+    stage.file_down = None
+    stage.nomatch_special = 'None'
+    stage.format = 'CGNS'
+
+    stage.create()
+
+    workflow.tree = cgns.castNode(workflow.tree)
+    set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
+    # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
+    I._correctPyTree(workflow.tree, level=4)
+
+@mute_stdout
+def stage_choro_hyb(workflow, Family, LinkedFamily):
+    '''
+    Set a hybrid chorochronic interface condition between families **Family** and **LinkedFamily**.
+
+    .. important : This function has a dependency to the ETC module.
+    '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "stage_choro" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+
+    import etc.transform as trf
+
+    # HACK: must change the type of all FamilyName to array
+    # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
+    # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
+
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
+    workflow.tree, stage = trf.newStageChoroHybFromFamily(workflow.tree, Family, LinkedFamily)
 
     stage.jtype = 'nomatch_rad_line'
     stage.stage_choro_type = 'characteristic'

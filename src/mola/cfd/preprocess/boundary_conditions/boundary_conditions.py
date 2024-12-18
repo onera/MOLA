@@ -23,16 +23,21 @@ from mola.logging import mola_logger, MolaException, MolaUserError
 
 # TODO for elsa, add injrot, wallisoth and Giles conditions
 BoundaryConditionsNames = dict(
+    # Fluid boudaries
     Farfield                     = dict(elsa='nref',
                                         sonics='BCFarfield',
                                         fast='BCFarfield'),
-    InflowStagnation             = dict(elsa='inj1', sonics='BCInflowSubsonicPressure'),
-    InflowMassFlow               = dict(elsa='injmfr1', sonics='BCInflowSubsonicMassFlow'),
-    OutflowPressure              = dict(elsa='outpres', sonics='BCOutflowSubsonic'),
+    InflowStagnation             = dict(elsa='inj1', 
+                                        sonics='BCInflowSubsonicPressure'),
+    InflowMassFlow               = dict(elsa='injmfr1', 
+                                        sonics='BCInflowSubsonicMassFlow'),
+    OutflowPressure              = dict(elsa='outpres', 
+                                        sonics='BCOutflowSubsonic'),
     OutflowSupersonic            = dict(elsa='outsup'),
     OutflowMassFlow              = dict(elsa='outmfr2'),
-    OutflowRadialEquilibrium     = dict(elsa='outradeq', sonics='BCOutflowRadialEquilibrium'),
-    
+    OutflowRadialEquilibrium     = dict(elsa='outradeqhyb', 
+                                        sonics='BCOutflowRadialEquilibrium'),
+    # Wall boudaries + symmetry
     WallViscous                  = dict(elsa='walladia',
                                         sonics='BCWallViscous',
                                         fast='BCWall'),
@@ -43,9 +48,9 @@ BoundaryConditionsNames = dict(
     SymmetryPlane                = dict(elsa='sym',
                                         sonics='BCSymmetryPlane',
                                         fast='BCSymmetryPlane'),
-
-    MixingPlane                  = dict(elsa='stage_mxpl'),  # use hybrid version by default ? 
-    UnsteadyRotorStatorInterface = dict(elsa='stage_red'),  # use hybrid version by default ? 
+    # Rotor/stator interfaces
+    MixingPlane                  = dict(elsa='stage_mxpl_hyb'), 
+    UnsteadyRotorStatorInterface = dict(elsa='stage_red_hyb'), 
     ChorochronicInterface        = dict(elsa='chorochronic'),
 )
 
