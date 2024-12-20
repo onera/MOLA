@@ -270,7 +270,7 @@ elif [ "$MAC" = "topaze" ]; then
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
-    exit 0
+    return 1
 fi
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
