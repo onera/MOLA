@@ -22,6 +22,7 @@ from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
 
 def apply(workflow):
     check_empty_bc(workflow)
+    check_no_overlap_between_bcs(workflow.tree)
     apply_to_solver(workflow)
 
 def check_empty_bc(workflow):
@@ -65,3 +66,41 @@ def check_empty_bc(workflow):
             mola_logger.error('UNDEFINED BC IN TREE')
         else:
             mola_logger.info(f'{GREEN}No undefined BC found in tree{ENDC}')
+
+def check_no_overlap_between_bcs(tree):
+    for zone in tree.zones():
+        PointRanges = []
+        names = []
+        for bc in zone.group(Type='BC_t') + zone.group(Type='GridConnectivity1to1') + zone.group(Type='GridConnectivity'):
+            PointRange = bc.get(Name='PointRange', Depth=1).value()
+
+            for pt, name in zip(PointRanges, names):
+                if is_included_in_range(PointRange, pt):
+                    raise Exception(f"In {zone.name()}, {bc.name()} is included in {name}")
+                elif is_included_in_range(pt, PointRange):
+                    raise Exception(f"In {zone.name()}, {name} is included in {bc.name()}")
+
+            PointRanges.append(PointRange)
+            names.append(bc.name())
+
+def is_included_in_range(PointRange1, PointRange2):
+
+    def _build_indices_from_PointRange(PointRange):
+        # return [np.arange(*range_i) for range_i in PointRange]
+        indices = []
+        for range_i in PointRange:
+            if range_i[0] == range_i[1]:
+                indices.append(np.array([range_i[0]]))
+            elif range_i[0] < range_i[1]:
+                indices.append(np.arange(range_i[0], range_i[1]))
+            else:
+                indices.append(np.arange(range_i[1], range_i[0]))
+        return indices
+
+    assert PointRange1.shape == PointRange2.shape
+    indices1 = _build_indices_from_PointRange(PointRange1)
+    indices2 = _build_indices_from_PointRange(PointRange2)
+    for range1, range2 in zip(indices1, indices2):
+        if not np.all(np.isin(range1, range2)):
+            return False
+    return True
