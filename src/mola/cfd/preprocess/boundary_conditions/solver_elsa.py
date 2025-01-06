@@ -687,8 +687,7 @@ def outradeq(workflow, Family, **kwargs):
         if params['valve_type'] == 0:
             bc.prespiv = params['valve_ref_pres']
         else:
-            valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
-                              3: 'QLinear', 4: 'QHyperbolic'}
+            valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
             bc.valve_law(valve_law_dict[params['valve_type']], params['valve_ref_pres'],
                          params['valve_ref_mflow'], valve_relax=params['valve_relax'], valve_file=f'prespiv_{Family}.log')
         globborder = bc.glob_border(current=Family)
@@ -770,11 +769,13 @@ def outradeqhyb(workflow, Family, **kwargs):
     bc = trf.BCOutRadEqHyb(t, t.get(Name=Family, Type='Family'))
     bc.glob_border()
     bc.indpiv = params['indpiv']
-    valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
-                      3: 'QLinear', 4: 'QHyperbolic'}
-    bc.valve_law(valve_law_dict[params['valve_type']], params['valve_ref_pres'],
-                 params['valve_ref_mflow'], valve_relax=params['valve_relax'], 
-                 valve_file=f'prespiv_{Family}.log')
+    if params['valve_type'] == 0:
+        bc.prespiv = params['valve_ref_pres']
+    else:
+        valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
+        bc.valve_law(valve_law_dict[params['valve_type']], params['valve_ref_pres'],
+                    params['valve_ref_mflow'], valve_relax=params['valve_relax'], 
+                    valve_file=f'prespiv_{Family}.log')
     bc.dirorder = params['dirorder']
     radius_filename = f"state_radius_{Family}.plt"
     radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")

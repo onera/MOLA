@@ -54,13 +54,6 @@ BoundaryConditionsNames = dict(
     ChorochronicInterface        = dict(elsa='chorochronic'),
 )
 
-# Shortcuts for already defined boundary conditions
-BoundaryConditionsNames.update(
-    dict(
-        Wall = BoundaryConditionsNames['WallViscous'],
-    )
-)
-
 permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'OutflowPressure', 'OutflowMassFlow', 'OutflowRadialEquilibrium']
 turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface']
 
@@ -86,6 +79,12 @@ def apply(workflow, selected_boundaries_conditions=None):
         If not given, the attribute `BoundaryConditions` of the **workflow** is used.
         Otherwise, it is possible to give a filtered list.
     '''
+    # Shortcut for Wall BC towards WallViscous or WallInviscid depending on Euler simulation or not
+    if workflow.Turbulence['Model'] == 'Euler':
+        BoundaryConditionsNames['Wall'] = BoundaryConditionsNames['WallInviscid']
+    else:
+        BoundaryConditionsNames['Wall'] = BoundaryConditionsNames['WallViscous']
+
     if selected_boundaries_conditions is None:
         selected_boundaries_conditions = workflow.BoundaryConditions
 
@@ -138,7 +137,7 @@ def _check_family_exists(tree, family_name):
 
 def _adapt_bc_to_euler(workflow):
     for bc in workflow.BoundaryConditions:
-        if bc['Type'] in ['Wall', 'WallViscous']:
+        if bc['Type'] in ['WallViscous']:
             mola_logger.warning(
                 f"Inconsistency between BC {bc['Family']} of type {bc['Type']} and the Euler model.\n"
                 "-> Type is automatically changed into WallInviscid."
