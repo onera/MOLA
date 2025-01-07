@@ -114,11 +114,17 @@ def to_partitioned(tree : cgns.Tree):
     if is_part:
         return tree
     elif is_dist:
-        ravel_FlowSolution(tree)  # else AssertionError in maia.factory.partition_dist_tree
+        # Ravel data, because this is the maia convention for dist_tree
+        # else AssertionError in maia.factory.partition_dist_tree
+        ravel_FlowSolution(tree)  
+        ravel_BCDataSet(tree) 
         return to_partitioned_if_distributed(tree)
     else: 
-        # full tree
-        ravel_FlowSolution(tree)  # else AssertionError in maia.factory.partition_dist_tree
+        # The tree is a full tree.
+        # Ravel data, because this is the maia convention for dist_tree
+        # else AssertionError in maia.factory.partition_dist_tree
+        ravel_FlowSolution(tree)  
+        ravel_BCDataSet(tree)
         tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
         tree = cgns.castNode(tree)
         return to_partitioned_if_distributed(tree)
@@ -185,7 +191,7 @@ def ravel_BCDataSet(t):
 
 def ravel_FlowSolution(t):
     for fs in t.group(Type='FlowSolution'):
-        for da in fs.group(Type='DataArray'):
+        for da in fs.group(Type='DataArray', Depth=1):
             value = da.value()
             if value is not None:
                 da.setValue(value.ravel(order='K'))
