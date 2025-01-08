@@ -19,7 +19,7 @@ import copy
 import numpy as np
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, MolaException, MolaUserError
+from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null
 
 # TODO for elsa, add injrot, wallisoth and Giles conditions
 BoundaryConditionsNames = dict(
@@ -130,6 +130,8 @@ def apply(workflow, selected_boundaries_conditions=None):
             raise MolaException(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
         else:
             solverSpecificFunction(workflow, **bc)
+
+    add_missing_PointRange_in_BCDataSet(workflow)
 
 def _check_family_exists(tree, family_name):
     if not tree.get(Name=family_name, Type='Family', Depth=2):
@@ -333,3 +335,11 @@ def get_turbulent_primitives_from_conservatives(Turbulence, Density, **kwargs):
         # If the 'primitive' value is given in kwargs
         turbDict[name] = kwargs.get(name, value)
     return turbDict
+
+def add_missing_PointRange_in_BCDataSet(workflow):
+    from maia.io.fix_tree import add_missing_pr_in_bcdataset
+    with redirect_streams_to_null(): 
+        # no stdout to prevent the "Error" message, because the function is used 
+        # here to add PointRange nodes and not to check if they are present
+        add_missing_pr_in_bcdataset(workflow.tree)
+    workflow.tree = cgns.castNode(workflow.tree)

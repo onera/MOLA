@@ -15,9 +15,12 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import pytest
 import numpy as np
 from mola.cfd.preprocess.check import check
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_is_included_in_range():
     x = np.array([[1, 10], [1, 10]])
     y = np.array([[2, 7], [1, 10]])

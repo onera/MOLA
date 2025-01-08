@@ -17,7 +17,7 @@
 
 import pytest
 from treelab import cgns
-from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract
+from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract, replace_shortcuts
 from mola.workflow.test.test_workflow import get_workflow2
 from mola.cfd.preprocess.mesh.io import read
 
@@ -57,3 +57,15 @@ def test_get_bc_families_names_to_extract():
     fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
     assert fam_names == []
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_replace_shortcuts():
+    class FakeWorkflow:
+        def __init__(self):
+            self.Extractions = [dict(Fields=['var1', 'Conservatives', 'var2']), dict(), dict(Fields=['var0'])]
+            self.Flow = dict(Conservatives = ['cons1', 'cons2'])
+    
+    workflow = FakeWorkflow()
+    replace_shortcuts(workflow)
+
+    assert workflow.Extractions == [dict(Fields=['var1', 'var2', 'cons1', 'cons2']), dict(), dict(Fields=['var0'])]

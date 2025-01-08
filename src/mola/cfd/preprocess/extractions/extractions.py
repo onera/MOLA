@@ -20,6 +20,7 @@ from mola.cfd import apply_to_solver
 
 def apply(workflow):
 
+    replace_shortcuts(workflow)
     add_residuals_extraction(workflow)
     process_extractions_2d(workflow)
     apply_to_solver(workflow)
@@ -36,6 +37,19 @@ def process_extractions_2d(workflow):
                 # NOTE Despite the check of the interface, Fields may be a str
                 # when workflow.cgns is read directly, in the context of WorkflowManager
                 Extraction['Fields'] = [Extraction['Fields']]
+
+def replace_shortcuts(workflow):
+    shortcuts = dict(
+        Conservatives = workflow.Flow['Conservatives'],
+    )
+    
+    for extraction in workflow.Extractions:
+        if 'Fields' not in extraction: 
+            continue
+        for shortcut, variables in shortcuts.items():
+            if shortcut in extraction['Fields']:
+                extraction['Fields'].remove(shortcut)
+                extraction['Fields'].extend(variables)
 
 def get_familiesBC_nodes(tree):
 

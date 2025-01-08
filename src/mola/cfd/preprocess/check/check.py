@@ -69,6 +69,10 @@ def check_empty_bc(workflow):
 
 def check_no_overlap_between_bcs(tree):
     for zone in tree.zones():
+        if zone.isUnstructured():
+            # TODO develop the function for unstructured zones
+            continue
+
         PointRanges = []
         names = []
         for bc in zone.group(Type='BC_t') + zone.group(Type='GridConnectivity1to1') + zone.group(Type='GridConnectivity'):
