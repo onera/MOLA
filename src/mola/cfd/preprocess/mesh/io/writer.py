@@ -18,6 +18,7 @@
 import os
 import glob
 from .utils import get_io_tool
+from ..tools import to_full_tree_at_rank_0
 from treelab import cgns
 import mola.naming_conventions as names
 
@@ -42,6 +43,7 @@ def write_with_treelab(w, tree, dst):
     t = tree.copy()
     t.findAndRemoveNodes(Name=':CGNS#Distribution')
     t.findAndRemoveNodes(Name=':CGNS#GlobalNumbering')
+    # t = to_full_tree_at_rank_0(t)
     cgns.save(t, dst)
 
 def write_with_cassiopee(w, tree, dst):

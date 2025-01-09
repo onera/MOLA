@@ -10,9 +10,7 @@ __pycache__
 *.plt
 *.pdf
 *.png
-!MOLA/GUIs/**/*.png
 *.svg
-!MOLA/GUIs/**/*.svg
 *.ppt
 *.doc
 *.odt
@@ -21,9 +19,4 @@ __pycache__
 *elsA_MPI_Pid*
 dist
 EXAMPLES*
-ExternalPythonPackages
-ext
-DOCUMENTATION/html
-DOCUMENTATION/PRESENTATIONS
-DOCUMENTATION/src_sphinx/_*
-DOCUMENTATION/src_sphinx/*.conf
+doc

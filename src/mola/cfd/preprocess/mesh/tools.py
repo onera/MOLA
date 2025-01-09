@@ -147,12 +147,19 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
     return t
 
 def to_full_tree_at_rank_0(tree : cgns.Tree):
-    is_dist = bool(tree.get(':CGNS#Distribution'))
-    if not is_dist: raise MolaException('expected distributed tree')
-
     from mpi4py import MPI
     import maia
     MPI.COMM_WORLD.barrier()
+    
+    is_dist = bool(tree.get(':CGNS#Distribution'))
+    is_part = bool(tree.get(':CGNS#GlobalNumbering'))
+                   
+    if not is_dist and not is_part:
+        return tree
+    
+    if is_part:
+        tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
+
     t = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
     if t is not None:
         t = cgns.castNode(t)
