@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from pathlib import Path
 import numpy as np
 
 import Converter.PyTree as C
@@ -27,6 +28,7 @@ from mola.cfd.preprocess.motion import motion
 from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa
 from mola.cfd.preprocess.boundary_conditions import boundary_conditions
 from mola.cfd.preprocess.mesh.families import get_zone_family_from_bc_or_gc_family
+import mola.server as SV
 
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
@@ -777,12 +779,23 @@ def outradeqhyb(workflow, Family, **kwargs):
                     params['valve_ref_mflow'], valve_relax=params['valve_relax'], 
                     valve_file=f'prespiv_{Family}.log')
     bc.dirorder = params['dirorder']
-    radius_filename = f"state_radius_{Family}.plt"
+    radius_filename = f'radius_{Family}.plt'
     radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
     radius.compute(t, nbband=params['nbband'], c=params['c'])
     radius.write()
     bc.create()
     workflow.tree = cgns.castNode(t)
+
+    # Move radius files to the RunDirectory
+    # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
+    # see https://elsa-e.onera.fr/issues/10541
+    if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
+        SV.copy_remote(
+            source_path=radius_filename, 
+            destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(radius_filename), 
+            destination_machine=workflow.RunManagement['Machine'],
+            )
+        SV.remove_path(radius_filename, machine='localhost')
 
 @mute_stdout
 def stage_mxpl(workflow, Family, LinkedFamily):
@@ -866,19 +879,32 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3):
 
     stage.jtype = 'nomatch_rad_line'
     stage.hray_tolerance = 1e-16
+
+    filename_left = f'radius_{LinkedFamily}.plt'
     for stg in stage.down:
-        filename = "state_radius_{}_{}.plt".format(LinkedFamily, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial',
-                                 filename=filename, fileformat="bin_tp")
-        radius.compute(workflow.tree, nbband=nbband, c=c)
-        radius.write()
+        radius = stg.repartition(mxpl_dirtype='axial', filename=filename_left, fileformat="bin_tp")
+    radius.compute(workflow.tree, nbband=nbband, c=c)
+    radius.write()
+
+    filename_right = f'radius_{Family}.plt'
     for stg in stage.up:
-        filename = "state_radius_{}_{}.plt".format(Family, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial',
-                                 filename=filename, fileformat="bin_tp")
-        radius.compute(workflow.tree, nbband=nbband, c=c)
-        radius.write()
+        radius = stg.repartition(mxpl_dirtype='axial', filename=filename_right, fileformat="bin_tp")
+    radius.compute(workflow.tree, nbband=nbband, c=c)
+    radius.write()
+
     stage.create()
+
+    # Move radius files to the RunDirectory
+    # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
+    # see https://elsa-e.onera.fr/issues/10541
+    if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
+        for filename in [filename_left, filename_right]:
+            SV.copy_remote(
+                source_path=filename, 
+                destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(filename), 
+                destination_machine=workflow.RunManagement['Machine'],
+                )
+            SV.remove_path(filename, machine='localhost')
 
     workflow.tree = cgns.castNode(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
