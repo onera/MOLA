@@ -64,6 +64,7 @@ def test_RotorStatorInterface(tmp_path, interface_type):
 
     workflow = turbomachinery.Workflow(**params)
 
+    workflow.prepare_job()
     workflow.assemble()
     workflow.positioning()
     workflow.define_families() 
