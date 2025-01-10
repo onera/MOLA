@@ -219,7 +219,7 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
                 VarDictToImpose[variable_name] = function_to_apply(**kwargs)
 
             # Get BC path in the main tree
-            zname, wname = bc[0].split(os.sep)
+            zname, wname = bc[0].split('\\')
             bc_path = f'CGNSTree/{base[0]}/{zname}/ZoneBC/{wname}'
 
             bc_dict[bc_path] = VarDictToImpose
