@@ -107,8 +107,8 @@ class WorkflowRotatingComponent(Workflow):
     def set_boundary_conditions(self):
 
         self.set_shroud_boundary_conditions()
-        self.set_blade_boundary_conditions()
         self.set_hub_boundary_conditions()
+        self.set_blade_boundary_conditions()
 
         super().set_boundary_conditions()  
 

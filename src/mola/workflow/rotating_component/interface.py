@@ -43,7 +43,7 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
         
         self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
         self.apply_ShaftRotationSpeedUnit(default_ShaftRotationSpeedUnit=kwargs["ShaftRotationSpeedUnit"])
-        if hasattr(self.ApplicationContext, 'HubRotationIntervals'):
+        if 'HubRotationIntervals' in self.ApplicationContext:
             self.set_HubRotationIntervals()
         
     def apply_ShaftRotationSpeedUnit(self, default_ShaftRotationSpeedUnit):
