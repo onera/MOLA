@@ -54,6 +54,11 @@ BoundaryConditionsNames = dict(
     ChorochronicInterface        = dict(elsa='chorochronic'),
 )
 
+# Plug conditions with no "MOLA" name, but available with their "solver" name
+other_available_boundaries = dict(
+    elsa = ['stage_mxpl', 'stage_red', 'outradeq'],
+) 
+
 permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'OutflowPressure', 'OutflowMassFlow', 'OutflowRadialEquilibrium']
 turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface']
 
@@ -92,7 +97,12 @@ def apply(workflow, selected_boundaries_conditions=None):
         mola_logger.info(f'Set boundary conditions:', rank=0)
 
     available_bc_names = [name for name, solvers in BoundaryConditionsNames.items() if workflow.Solver.lower() in solvers]
-    alternative_available_bc_names = [solvers[workflow.Solver.lower()] for solvers in BoundaryConditionsNames.values() if workflow.Solver.lower() in solvers]
+    other_available_bc_names = [solvers[workflow.Solver.lower()] for solvers in BoundaryConditionsNames.values() if workflow.Solver.lower() in solvers]
+    try:
+        other_available_bc_names += other_available_boundaries[workflow.Solver.lower()]
+    except KeyError:
+        # no other available boundary defined for the current solver
+        pass
 
     if workflow.Turbulence['Model'] == 'Euler':
         _adapt_bc_to_euler(workflow)
@@ -111,7 +121,7 @@ def apply(workflow, selected_boundaries_conditions=None):
         
         if bc_type in available_bc_names:
             solverSpecificFunctionName = BoundaryConditionsNames[bc_type][workflow.Solver]
-        elif bc_type in alternative_available_bc_names:
+        elif bc_type in other_available_bc_names:
             # Defined only in the specific solver module
             solverSpecificFunctionName = bc_type
         else:

@@ -23,7 +23,7 @@ def get_path_back_in_traceback(step=3):
     import traceback
     stack = traceback.extract_stack()
     previous_filename = stack[-step].filename
-    previous_path = '/'.join(previous_filename.split('/')[:-1])
+    previous_path = os.sep.join(previous_filename.split(os.sep)[:-1])
     return previous_path
 
 
