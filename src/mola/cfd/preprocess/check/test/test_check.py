@@ -17,6 +17,9 @@
 
 import pytest
 import numpy as np
+from treelab import cgns
+import maia.pytree as PT
+from mola.logging import MolaException
 from mola.cfd.preprocess.check import check
 
 @pytest.mark.unit
@@ -43,3 +46,29 @@ def test_is_included_in_range():
     assert not check.is_included_in_range(b, c)
     assert not check.is_included_in_range(c, b)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_check_no_empty_Family_of_BC():
+    tree = PT.yaml.parse_yaml_cgns.to_cgns_tree('''
+Base CGNSBase_t:
+    Shroud Family_t:
+        FamilyBC FamilyBC_t "BCWall": 
+    Blade Family_t:
+        FamilyBC FamilyBC_t "BCWall":                               
+    Hub Family_t:                                          
+    Zone Zone_t:
+        FamilyName FamilyName_t "Rotor":
+        ZoneBC ZoneBC_t:
+            blade BC_t "FamilyDefined":
+                FamilyName FamilyName_t "Blade":  
+            hub BC_t "FamilyDefined":
+                FamilyName FamilyName_t "Hub":  
+            shroud BC_t "FamilyDefined":
+                FamilyName FamilyName_t "Shroud":                                                                                               
+''')
+    tree = cgns.castNode(tree)
+    with pytest.raises(MolaException):
+        check.check_no_empty_Family_of_BC(tree)
+
+    tree.findAndRemoveNode(Type='BC', Name='hub')
+    check.check_no_empty_Family_of_BC(tree)
