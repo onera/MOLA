@@ -189,9 +189,18 @@ def restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes):
                     child.saveThisNodeOnly(dst) 
 
 def _remove_PyPart_suffix(path):
+    import re
+
+    # regular expression to find a pattern ".P*.N*", with * a number with 1 to 5 figures
+    pattern = r'\.P(\d{1,5})\.N(\d{1,5})'
+
     path_split = path.split('/')
     zone_name = path_split[-2]
-    if '.P0.N' in zone_name:
-        new_zone_name = zone_name.split('.P0.N')[0]
+
+    match = re.search(pattern, zone_name)
+    if match:
+        pattern_found = match.group(0) 
+        new_zone_name = zone_name.split(pattern_found)[0]
         path = path.replace(zone_name, new_zone_name)
+
     return path
