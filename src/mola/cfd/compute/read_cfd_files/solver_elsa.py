@@ -135,7 +135,7 @@ def read_workflow_with_maia(workflow):
         raise MolaAssertionError('The splitting strategy is not taken into account.')
     
     part_tree = cgns.castNode(part_tree)
-    add_FlowSolution_EoR(part_tree)  # HACK https://gitlab.onera.net/numerics/mesh/maia/-/issues/164
+    add_FlowSolution_EoR(part_tree)  # HACK https://gitlab.onera.net/numerics/mesh/maia/-/issues/164 TODO solved for maia>1.5
     for zone in part_tree.zones():
         SolverParam = zone.get(Name='.Solver#Param')
         if not SolverParam:

@@ -161,16 +161,21 @@ def postprocess_turbomachinery(w, surfaces, stages=[],
         I.__FlowSolutionNodes__ = container_at_vertex
         for zone in I.getZones(surfaces):
             fs_container = I.getNodeFromName1(zone, container_at_vertex)
-            if not fs_container: continue
-            # channel_height = I.getNodeFromName2(zone, 'ChannelHeight')
-            # if not channel_height: continue
-            # fs_container[2] += [ channel_height ]
+            if not fs_container: 
+                continue
             fs_container[0] = turbo_required_vertex_container
+
+            channel_height = I.getNodeFromName2(zone, 'ChannelHeight')
+            if not channel_height: 
+                continue
+            fs_container[2] += [ channel_height ]
 
         #______________________________________________________________________________
         # Variables
         #______________________________________________________________________________
         allVariables = TUS.getFields(config=config)
+        if not channel_height and 'ChannelHeight' in allVariables:
+            allVariables.remove('ChannelHeight')
         if not var4comp_repart:
             var4comp_repart = ['StagnationEnthalpyDelta',
                             'StagnationPressureRatio', 'StagnationTemperatureRatio',

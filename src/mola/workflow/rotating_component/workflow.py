@@ -107,8 +107,8 @@ class WorkflowRotatingComponent(Workflow):
     def set_boundary_conditions(self):
 
         self.set_shroud_boundary_conditions()
-        self.set_blade_boundary_conditions()
         self.set_hub_boundary_conditions()
+        self.set_blade_boundary_conditions()
 
         super().set_boundary_conditions()  
 
@@ -177,6 +177,11 @@ class WorkflowRotatingComponent(Workflow):
     def _get_row_from_BC_Family(tree, FamilyBoundary):
         # Get one bc attached to this family
         one_bc_FamilyName = tree.get(Type='FamilyName', Value=FamilyBoundary)
+        if not one_bc_FamilyName:
+            raise MolaException(
+                f'No FamilyName found with value {FamilyBoundary}. '
+                'Check Families in the MOLA attribute "BoundaryConditions".'
+                )
         zone = one_bc_FamilyName.getParent(Type='Zone_t')
         row_family = zone.get(Type='FamilyName', Depth=1).value()
         return row_family

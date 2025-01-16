@@ -28,11 +28,11 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
                             tuple,
                             np.ndarray] = [1,0,0],
             ShaftRotationSpeedUnit : str = 'rad/s', 
-            HubRotationIntervals : list = [],
+            HubRotationIntervals : list = None,
             Surface : float = None,
             NormalizationCoefficient : dict = None,
             *,
-            ShaftRotationSpeed : float = None,
+            ShaftRotationSpeed : Union[float, int] = None,
             Rows : dict = dict(),
             ):
         kwargs = self.get_default_values_from_local_signature()
@@ -43,7 +43,8 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
         
         self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
         self.apply_ShaftRotationSpeedUnit(default_ShaftRotationSpeedUnit=kwargs["ShaftRotationSpeedUnit"])
-        self.set_HubRotationIntervals()
+        if 'HubRotationIntervals' in self.ApplicationContext:
+            self.set_HubRotationIntervals()
         
     def apply_ShaftRotationSpeedUnit(self, default_ShaftRotationSpeedUnit):
         if not self.ApplicationContext['ShaftRotationSpeedUnit'].lower() in ['rpm', 'rad/s']:
@@ -51,6 +52,7 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
         if self.ApplicationContext['ShaftRotationSpeedUnit'].lower() == 'rpm':
             self.ApplicationContext['ShaftRotationSpeed'] *= np.pi / 30.
             self.ApplicationContext['ShaftRotationSpeedUnit'] = 'rad/s'
+        self.ApplicationContext['ShaftRotationSpeed'] = float(self.ApplicationContext['ShaftRotationSpeed'])
 
     def set_HubRotationIntervals(self):
         if callable(self.ApplicationContext['HubRotationIntervals']):

@@ -18,6 +18,7 @@
 import os
 import glob
 from .utils import get_io_tool
+from ..tools import to_full_tree_at_rank_0
 from treelab import cgns
 import mola.naming_conventions as names
 
@@ -42,6 +43,7 @@ def write_with_treelab(w, tree, dst):
     t = tree.copy()
     t.findAndRemoveNodes(Name=':CGNS#Distribution')
     t.findAndRemoveNodes(Name=':CGNS#GlobalNumbering')
+    # t = to_full_tree_at_rank_0(t)
     cgns.save(t, dst)
 
 def write_with_cassiopee(w, tree, dst):
@@ -115,6 +117,16 @@ def write_with_pypart(w, tree, dst):
             zone = t_merged.getAtPath(zone_path)
             zone.addChild(FS)
 
+        # HACK add GridLocation and PointRange or PointList nodes in each BCDataSet
+        # It is needed for compatibility with maia, otherwise maia cannot read the mesh from file.
+        for BCDataSet in t_merged.group(Type='BCDataSet'):
+            GridLocation = BCDataSet.get(Type='GridLocation')
+            if GridLocation is None:
+                cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=BCDataSet)
+        from maia.io.fix_tree import add_missing_pr_in_bcdataset
+        add_missing_pr_in_bcdataset(t_merged)
+        t_merged = cgns.castNode(t_merged)
+
         t_merged.save(dst)
         for fn in glob.glob(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_*.hdf')):
             try:
@@ -152,13 +164,17 @@ def get_empty_FlowSolution_nodes(tree, remove=False):
         no_DataArray_nodes = len(FS.group(Type='DataArray', Depth=1)) == 0
         empty_DataArray_nodes = any([n.value() is None for n in FS.group(Type='DataArray', Depth=1)])
         if no_DataArray_nodes or empty_DataArray_nodes:
-            if Cmpi.rank == 0:
-                if no_DataArray_nodes:
-                    FS.findAndRemoveNode(Type='GridLocation')
-                empty_FlowSolution_nodes.append(copy.deepcopy(FS))
+            if no_DataArray_nodes:
+                # The node GridLocation has been added by PyPart during the splitting, we need to remove it.
+                FS.findAndRemoveNode(Type='GridLocation')
+            empty_FlowSolution_nodes.append(copy.deepcopy(FS))
             if remove:
                 FS.remove()
- 
+
+    empty_FlowSolution_nodes = Cmpi.gather(empty_FlowSolution_nodes, root=0)
+    if Cmpi.rank == 0:
+        empty_FlowSolution_nodes = [FS for listFS in empty_FlowSolution_nodes for FS in listFS]
+
     return empty_FlowSolution_nodes
 
 def restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes):

@@ -239,6 +239,7 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
         By default False.
     '''
     def normalize_path_by_removing_current_dir_at_beginning(path):
+        path = str(path)  # if path is a pathlib.Path
         cwd = f'.{os.path.sep}'
         if path.startswith(cwd): 
             path = path[len(cwd):]

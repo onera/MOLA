@@ -19,20 +19,25 @@ import copy
 import numpy as np
 from treelab import cgns
 from mola import misc
-from mola.logging import mola_logger, MolaException, MolaUserError
+from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null
 
 # TODO for elsa, add injrot, wallisoth and Giles conditions
 BoundaryConditionsNames = dict(
+    # Fluid boudaries
     Farfield                     = dict(elsa='nref',
                                         sonics='BCFarfield',
                                         fast='BCFarfield'),
-    InflowStagnation             = dict(elsa='inj1', sonics='BCInflowSubsonicPressure'),
-    InflowMassFlow               = dict(elsa='injmfr1', sonics='BCInflowSubsonicMassFlow'),
-    OutflowPressure              = dict(elsa='outpres', sonics='BCOutflowSubsonic'),
+    InflowStagnation             = dict(elsa='inj1', 
+                                        sonics='BCInflowSubsonicPressure'),
+    InflowMassFlow               = dict(elsa='injmfr1', 
+                                        sonics='BCInflowSubsonicMassFlow'),
+    OutflowPressure              = dict(elsa='outpres', 
+                                        sonics='BCOutflowSubsonic'),
     OutflowSupersonic            = dict(elsa='outsup'),
     OutflowMassFlow              = dict(elsa='outmfr2'),
-    OutflowRadialEquilibrium     = dict(elsa='outradeq', sonics='BCOutflowRadialEquilibrium'),
-    
+    OutflowRadialEquilibrium     = dict(elsa='outradeqhyb', 
+                                        sonics='BCOutflowRadialEquilibrium'),
+    # Wall boudaries + symmetry
     WallViscous                  = dict(elsa='walladia',
                                         sonics='BCWallViscous',
                                         fast='BCWall'),
@@ -43,18 +48,16 @@ BoundaryConditionsNames = dict(
     SymmetryPlane                = dict(elsa='sym',
                                         sonics='BCSymmetryPlane',
                                         fast='BCSymmetryPlane'),
-
-    MixingPlane                  = dict(elsa='stage_mxpl'),  # use hybrid version by default ? 
-    UnsteadyRotorStatorInterface = dict(elsa='stage_red'),  # use hybrid version by default ? 
+    # Rotor/stator interfaces
+    MixingPlane                  = dict(elsa='stage_mxpl_hyb'), 
+    UnsteadyRotorStatorInterface = dict(elsa='stage_red_hyb'), 
     ChorochronicInterface        = dict(elsa='chorochronic'),
 )
 
-# Shortcuts for already defined boundary conditions
-BoundaryConditionsNames.update(
-    dict(
-        Wall = BoundaryConditionsNames['WallViscous'],
-    )
-)
+# Plug conditions with no "MOLA" name, but available with their "solver" name
+other_available_boundaries = dict(
+    elsa = ['stage_mxpl', 'stage_red', 'outradeq'],
+) 
 
 permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'OutflowPressure', 'OutflowMassFlow', 'OutflowRadialEquilibrium']
 turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface']
@@ -81,6 +84,12 @@ def apply(workflow, selected_boundaries_conditions=None):
         If not given, the attribute `BoundaryConditions` of the **workflow** is used.
         Otherwise, it is possible to give a filtered list.
     '''
+    # Shortcut for Wall BC towards WallViscous or WallInviscid depending on Euler simulation or not
+    if workflow.Turbulence['Model'] == 'Euler':
+        BoundaryConditionsNames['Wall'] = BoundaryConditionsNames['WallInviscid']
+    else:
+        BoundaryConditionsNames['Wall'] = BoundaryConditionsNames['WallViscous']
+
     if selected_boundaries_conditions is None:
         selected_boundaries_conditions = workflow.BoundaryConditions
 
@@ -88,7 +97,12 @@ def apply(workflow, selected_boundaries_conditions=None):
         mola_logger.info(f'Set boundary conditions:', rank=0)
 
     available_bc_names = [name for name, solvers in BoundaryConditionsNames.items() if workflow.Solver.lower() in solvers]
-    alternative_available_bc_names = [solvers[workflow.Solver.lower()] for solvers in BoundaryConditionsNames.values() if workflow.Solver.lower() in solvers]
+    other_available_bc_names = [solvers[workflow.Solver.lower()] for solvers in BoundaryConditionsNames.values() if workflow.Solver.lower() in solvers]
+    try:
+        other_available_bc_names += other_available_boundaries[workflow.Solver.lower()]
+    except KeyError:
+        # no other available boundary defined for the current solver
+        pass
 
     if workflow.Turbulence['Model'] == 'Euler':
         _adapt_bc_to_euler(workflow)
@@ -107,7 +121,7 @@ def apply(workflow, selected_boundaries_conditions=None):
         
         if bc_type in available_bc_names:
             solverSpecificFunctionName = BoundaryConditionsNames[bc_type][workflow.Solver]
-        elif bc_type in alternative_available_bc_names:
+        elif bc_type in other_available_bc_names:
             # Defined only in the specific solver module
             solverSpecificFunctionName = bc_type
         else:
@@ -127,13 +141,15 @@ def apply(workflow, selected_boundaries_conditions=None):
         else:
             solverSpecificFunction(workflow, **bc)
 
+    add_missing_PointRange_in_BCDataSet(workflow)
+
 def _check_family_exists(tree, family_name):
     if not tree.get(Name=family_name, Type='Family', Depth=2):
         raise MolaException(f'Cannot apply a boundary condition on family {family_name}: This family does not exist in the mesh.')
 
 def _adapt_bc_to_euler(workflow):
     for bc in workflow.BoundaryConditions:
-        if bc['Type'] in ['Wall', 'WallViscous']:
+        if bc['Type'] in ['WallViscous']:
             mola_logger.warning(
                 f"Inconsistency between BC {bc['Family']} of type {bc['Type']} and the Euler model.\n"
                 "-> Type is automatically changed into WallInviscid."
@@ -203,7 +219,7 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
                 VarDictToImpose[variable_name] = function_to_apply(**kwargs)
 
             # Get BC path in the main tree
-            zname, wname = bc[0].split(os.sep)
+            zname, wname = bc[0].split('\\')
             bc_path = f'CGNSTree/{base[0]}/{zname}/ZoneBC/{wname}'
 
             bc_dict[bc_path] = VarDictToImpose
@@ -329,3 +345,11 @@ def get_turbulent_primitives_from_conservatives(Turbulence, Density, **kwargs):
         # If the 'primitive' value is given in kwargs
         turbDict[name] = kwargs.get(name, value)
     return turbDict
+
+def add_missing_PointRange_in_BCDataSet(workflow):
+    from maia.io.fix_tree import add_missing_pr_in_bcdataset
+    with redirect_streams_to_null(): 
+        # no stdout to prevent the "Error" message, because the function is used 
+        # here to add PointRange nodes and not to check if they are present
+        add_missing_pr_in_bcdataset(workflow.tree)
+    workflow.tree = cgns.castNode(workflow.tree)

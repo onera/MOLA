@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from pathlib import Path
 import numpy as np
 
 import Converter.PyTree as C
@@ -27,6 +28,7 @@ from mola.cfd.preprocess.motion import motion
 from mola.cfd.preprocess.motion.solver_elsa import assert_rotation_axis_is_correct, translate_motion_to_elsa
 from mola.cfd.preprocess.boundary_conditions import boundary_conditions
 from mola.cfd.preprocess.mesh.families import get_zone_family_from_bc_or_gc_family
+import mola.server as SV
 
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
@@ -687,8 +689,7 @@ def outradeq(workflow, Family, **kwargs):
         if params['valve_type'] == 0:
             bc.prespiv = params['valve_ref_pres']
         else:
-            valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
-                              3: 'QLinear', 4: 'QHyperbolic'}
+            valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
             bc.valve_law(valve_law_dict[params['valve_type']], params['valve_ref_pres'],
                          params['valve_ref_mflow'], valve_relax=params['valve_relax'], valve_file=f'prespiv_{Family}.log')
         globborder = bc.glob_border(current=Family)
@@ -770,18 +771,31 @@ def outradeqhyb(workflow, Family, **kwargs):
     bc = trf.BCOutRadEqHyb(t, t.get(Name=Family, Type='Family'))
     bc.glob_border()
     bc.indpiv = params['indpiv']
-    valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget',
-                      3: 'QLinear', 4: 'QHyperbolic'}
-    bc.valve_law(valve_law_dict[params['valve_type']], params['valve_ref_pres'],
-                 params['valve_ref_mflow'], valve_relax=params['valve_relax'], 
-                 valve_file=f'prespiv_{Family}.log')
+    if params['valve_type'] == 0:
+        bc.prespiv = params['valve_ref_pres']
+    else:
+        valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
+        bc.valve_law(valve_law_dict[params['valve_type']], params['valve_ref_pres'],
+                    params['valve_ref_mflow'], valve_relax=params['valve_relax'], 
+                    valve_file=f'prespiv_{Family}.log')
     bc.dirorder = params['dirorder']
-    radius_filename = f"state_radius_{Family}.plt"
+    radius_filename = f'radius_{Family}.plt'
     radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
     radius.compute(t, nbband=params['nbband'], c=params['c'])
     radius.write()
     bc.create()
     workflow.tree = cgns.castNode(t)
+
+    # Move radius files to the RunDirectory
+    # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
+    # see https://elsa-e.onera.fr/issues/10541
+    if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
+        SV.copy_remote(
+            source_path=radius_filename, 
+            destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(radius_filename), 
+            destination_machine=workflow.RunManagement['Machine'],
+            )
+        SV.remove_path(radius_filename, machine='localhost')
 
 @mute_stdout
 def stage_mxpl(workflow, Family, LinkedFamily):
@@ -799,8 +813,8 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, Family, LinkedFamily)
@@ -831,8 +845,8 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageRedFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
@@ -857,27 +871,40 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageMxPlHybFromFamily(workflow.tree, Family, LinkedFamily)
 
     stage.jtype = 'nomatch_rad_line'
     stage.hray_tolerance = 1e-16
+
+    filename_left = f'radius_{LinkedFamily}.plt'
     for stg in stage.down:
-        filename = "state_radius_{}_{}.plt".format(LinkedFamily, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial',
-                                 filename=filename, fileformat="bin_tp")
-        radius.compute(workflow.tree, nbband=nbband, c=c)
-        radius.write()
+        radius = stg.repartition(mxpl_dirtype='axial', filename=filename_left, fileformat="bin_tp")
+    radius.compute(workflow.tree, nbband=nbband, c=c)
+    radius.write()
+
+    filename_right = f'radius_{Family}.plt'
     for stg in stage.up:
-        filename = "state_radius_{}_{}.plt".format(FamilyName, nbband)
-        radius = stg.repartition(mxpl_dirtype='axial',
-                                 filename=filename, fileformat="bin_tp")
-        radius.compute(workflow.tree, nbband=nbband, c=c)
-        radius.write()
+        radius = stg.repartition(mxpl_dirtype='axial', filename=filename_right, fileformat="bin_tp")
+    radius.compute(workflow.tree, nbband=nbband, c=c)
+    radius.write()
+
     stage.create()
+
+    # Move radius files to the RunDirectory
+    # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
+    # see https://elsa-e.onera.fr/issues/10541
+    if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
+        for filename in [filename_left, filename_right]:
+            SV.copy_remote(
+                source_path=filename, 
+                destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(filename), 
+                destination_machine=workflow.RunManagement['Machine'],
+                )
+            SV.remove_path(filename, machine='localhost')
 
     workflow.tree = cgns.castNode(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
@@ -899,8 +926,8 @@ def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageRedHybFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
@@ -939,7 +966,7 @@ def stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod):
 
     return SectorPassagePeriod
 
-def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20., NumberOfHarmonicsForLinkedFamily=20.):
+def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20., NumberOfHarmonicsForLinkedFamily=20., hybrid=True):
     '''
     Compute the parameters to run a chorochronic computation.
     
@@ -960,9 +987,14 @@ def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20.,
 
         NumberOfHarmonicsForLinkedFamily : float
             Number of harmonics of the second row.
+        
+        hybrid : bool
+            If True, use the `stage_choro_hyb` condition, else use `stage_choro`.
     '''   
-
-    stage_choro(workflow, Family, LinkedFamily)
+    if hybrid:
+        stage_choro_hyb(workflow, Family, LinkedFamily)
+    else:
+        stage_choro(workflow, Family, LinkedFamily)
     convert_periodic_to_chorochrono(workflow.tree)
     row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
     row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
@@ -985,11 +1017,49 @@ def stage_choro(workflow, Family, LinkedFamily):
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName in workflow.tree.group(Type='FamilyName'):
-        FamilyName.setValue(FamilyName.value())
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
 
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageChoroFromFamily(workflow.tree, Family, LinkedFamily)
+
+    stage.jtype = 'nomatch_rad_line'
+    stage.stage_choro_type = 'characteristic'
+    stage.harm_freq_comp = 1
+    stage.choro_file_up = 'None'
+    stage.file_up = None
+    stage.choro_file_down = 'None'
+    stage.file_down = None
+    stage.nomatch_special = 'None'
+    stage.format = 'CGNS'
+
+    stage.create()
+
+    workflow.tree = cgns.castNode(workflow.tree)
+    set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
+    # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
+    I._correctPyTree(workflow.tree, level=4)
+
+@mute_stdout
+def stage_choro_hyb(workflow, Family, LinkedFamily):
+    '''
+    Set a hybrid chorochronic interface condition between families **Family** and **LinkedFamily**.
+
+    .. important : This function has a dependency to the ETC module.
+    '''
+    if not workflow.tree.isStructured():
+        raise MolaUserError(f'The boundary condition "stage_choro" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+
+    import etc.transform as trf
+
+    # HACK: must change the type of all FamilyName to array
+    # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
+    # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
+    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+        FamilyName_node.setValue(FamilyName_node.value())
+
+    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
+    workflow.tree, stage = trf.newStageChoroHybFromFamily(workflow.tree, Family, LinkedFamily)
 
     stage.jtype = 'nomatch_rad_line'
     stage.stage_choro_type = 'characteristic'
