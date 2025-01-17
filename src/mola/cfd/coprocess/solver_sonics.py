@@ -249,11 +249,11 @@ def deduce_container_for_slicing(IsoSurfaceField):
     
 def move_log_files(w):
     if rank == 0:
-        filename = 'taskflow-residual-explicit-rank0-sync.dot'
-        try:
-            shutil.move(filename, os.path.join(names.DIRECTORY_LOG, filename))
-        except FileNotFoundError:
-            pass
+        for filename in ['taskflow-residual-explicit-rank0-sync.dot', 'graph-post-rank0.dot']:
+            try:
+                shutil.move(filename, os.path.join(names.DIRECTORY_LOG, filename))
+            except FileNotFoundError:
+                pass
     comm.barrier()
 
 def get_iteration(workflow):

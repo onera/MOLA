@@ -45,7 +45,6 @@ def process_extractions_2d(workflow):
             fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction, familiesBC)
             for fam_name in fam_names:
                 ext = copy.deepcopy(Extraction)
-                ext['Name'] = fam_name
                 ext['Source'] = fam_name
                 Extractions.append(ext)
         

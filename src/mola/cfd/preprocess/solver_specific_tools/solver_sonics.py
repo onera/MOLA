@@ -19,10 +19,10 @@ from treelab import cgns
 from mola.logging import mola_logger
 
 SonicsCGNS2MOLA = {
-    'conv_flux(Momentum)#0': 'ForceX',
-    'conv_flux(Momentum)#1': 'ForceY',
-    'conv_flux(Momentum)#2': 'ForceZ',
-    'conv_flux(Density)#0': 'MassFlow',
+    'conv_flux(Momentum)X': 'ForceX',
+    'conv_flux(Momentum)Y': 'ForceY',
+    'conv_flux(Momentum)Z': 'ForceZ',
+    'conv_flux(Density)': 'MassFlow',
 }
 
 def translate_extraction_variables_to_sonics(Variables, solver):

@@ -58,17 +58,6 @@ def add_reference_state(workflow):
     for var in ['Mach','Pressure','Temperature']:
         ReferenceState[var] = workflow.Flow[var]
 
-    namesForCassiopee = dict(
-        cv                    = 'Cv',
-        Gamma                 = 'Gamma',
-        SutherlandViscosity   = 'Mus',
-        SutherlandConstant    = 'Cs',
-        SutherlandTemperature = 'Ts',
-        Prandtl               = 'Pr',
-    )
-    for var in ['cv','Gamma','SutherlandViscosity','SutherlandConstant','SutherlandTemperature','Prandtl']:
-        ReferenceState[namesForCassiopee[var]] = workflow.Fluid[var]
-
     for base in workflow.tree.bases():
         base.setParameters('ReferenceState', ContainerType='ReferenceState', **ReferenceState)
 
