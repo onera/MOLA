@@ -58,6 +58,19 @@ def add_reference_state(workflow):
     for var in ['Mach','Pressure','Temperature']:
         ReferenceState[var] = workflow.Flow[var]
 
+
+    namesForCassiopee = dict(
+        cv                    = 'Cv',
+        Gamma                 = 'Gamma',
+        SutherlandViscosity   = 'Mus',
+        SutherlandConstant    = 'Cs',
+        SutherlandTemperature = 'Ts',
+        Prandtl               = 'Pr',
+    )
+    # Needed by Fast, but not other solvers 
+    for key, value in namesForCassiopee.items():
+        ReferenceState[value] = workflow.Fluid[key]
+
     for base in workflow.tree.bases():
         base.setParameters('ReferenceState', ContainerType='ReferenceState', **ReferenceState)
 
