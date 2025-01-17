@@ -34,7 +34,7 @@ default:
 
 stages:
   - test-unit
-  # - test-integration
+  - test-integration
   - code-quality
   - doc
 
@@ -50,98 +50,91 @@ test_unit_elsa:
       - .coverage_test_unit_elsa
     expire_in: 1 day
   
-# test_integration_elsa:  
-#   stage: test-integration
-#   needs: ["test_unit_elsa"]
-#   variables:
-#     SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
-#   before_script:
-#     - source $MOLA_ENV_ELSA
-#   script:
-#     - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not _remote_sator"
-#   artifacts:
-#     paths:
-#       - .coverage_test_integration_elsa
-#     expire_in: 1 day
+test_integration_elsa:  
+  stage: test-integration
+  needs: ["test_unit_elsa"]
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+  before_script:
+    - source $MOLA_ENV_ELSA
+  script:
+    - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration -k "not _remote_sator"
+  artifacts:
+    paths:
+      - .coverage_test_integration_elsa
+    expire_in: 1 day
 
-# test_unit_fast: 
-#   stage: test-unit 
-#   before_script:
-#     - source $MOLA_ENV_FAST
-#   script:
-#     - coverage run --data-file=.coverage_test_unit_fast -m pytest -m unit 
-#   artifacts:
-#     paths:
-#       - .coverage_test_unit_fast
-#     expire_in: 1 day
+test_unit_fast: 
+  stage: test-unit 
+  before_script:
+    - source $MOLA_ENV_FAST
+  script:
+    - coverage run --data-file=.coverage_test_unit_fast -m pytest -m unit 
+  artifacts:
+    paths:
+      - .coverage_test_unit_fast
+    expire_in: 1 day
   
-# test_integration_fast:  
-#   stage: test-integration
-#   needs: ["test_unit_fast"]
-#   variables:
-#     SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
-#   before_script:
-#     - source $MOLA_ENV_FAST
-#   script:
-#     - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration -k "not _remote_sator"
-#   artifacts:
-#     paths:
-#       - .coverage_test_integration_fast
-#     expire_in: 1 day
+test_integration_fast:  
+  stage: test-integration
+  needs: ["test_unit_fast"]
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+  before_script:
+    - source $MOLA_ENV_FAST
+  script:
+    - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration -k "not _remote_sator"
+  artifacts:
+    paths:
+      - .coverage_test_integration_fast
+    expire_in: 1 day
 
-# test_unit_sonics: 
-#   stage: test-unit 
-#   before_script:
-#     - source $MOLA_ENV_SONICS
-#   script:
-#     - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
-#   artifacts:
-#     paths:
-#       - .coverage_test_unit_sonics
-#     expire_in: 1 day
+test_unit_sonics: 
+  stage: test-unit 
+  before_script:
+    - source $MOLA_ENV_SONICS
+  script:
+    - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit 
+  artifacts:
+    paths:
+      - .coverage_test_unit_sonics
+    expire_in: 1 day
 
-# test_integration_sonics:  
-#   stage: test-integration
-#   needs: ["test_unit_sonics"]
-#   variables:
-#     SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
-#   before_script:
-#     - source $MOLA_ENV_SONICS
-#   script:
-#     - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration -k "not _remote_sator"
-#   artifacts:
-#     paths:
-#       - .coverage_test_integration_sonics
-#     expire_in: 1 day
+test_integration_sonics:  
+  stage: test-integration
+  needs: ["test_unit_sonics"]
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+  before_script:
+    - source $MOLA_ENV_SONICS
+  script:
+    - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration -k "not _remote_sator"
+  artifacts:
+    paths:
+      - .coverage_test_integration_sonics
+    expire_in: 1 day
 
 coverage_report:
   stage: code-quality
   dependencies:
     - test_unit_elsa
-    # - test_unit_sonics
-    # - test_unit_fast
-    # - test_integration_elsa
-    # - test_integration_sonics
-    # - test_integration_fast
+    - test_unit_sonics
+    - test_unit_fast
+    - test_integration_elsa
+    - test_integration_sonics
+    - test_integration_fast
   before_script:
     - source $MOLA_ENV_DEFAULT
   script:
-    - coverage combine .coverage_test_unit_elsa #.coverage_test_unit_sonics .coverage_test_integration_elsa .coverage_test_unit_fast .coverage_test_integration_fast .coverage_test_integration_sonics
-    - coverage report
+    - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics .coverage_test_integration_elsa .coverage_test_unit_fast .coverage_test_integration_fast .coverage_test_integration_sonics
     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
     - tar -czf htmlcov.tar.gz htmlcov
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     paths:
-      - reports/*
       - htmlcov.tar.gz
-    when: always
-    # Next allows to display a test tab in the pipeline with report but requires a feature flag to be enabled,
-    # see https://docs.gitlab.com/ee/ci/unit_test_reports.html#viewing-unit-test-reports-on-gitlab
-    # Use it in combination with --junitxml=reports/pytest-junit.xml in the pytest launcher (TestCreate.cmake)
     reports:
-      junit: reports/*_test.xml
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
