@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 from fnmatch import fnmatch
 from mola.cfd import apply_to_solver
 
@@ -30,13 +31,28 @@ def add_residuals_extraction(workflow):
         workflow._interface.add_to_Extractions_Residuals()
 
 def process_extractions_2d(workflow):
+    familiesBC = get_familiesBC_nodes(workflow.tree)
+
+    Extractions = []
     for Extraction in workflow.Extractions:
-        if Extraction['Type'] == 'BC':
+        if Extraction['Type'] in ['BC', 'Integral']:
             Extraction.setdefault('Fields', [])
             if isinstance(Extraction['Fields'], str):
                 # NOTE Despite the check of the interface, Fields may be a str
                 # when workflow.cgns is read directly, in the context of WorkflowManager
                 Extraction['Fields'] = [Extraction['Fields']]
+            
+            fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction, familiesBC)
+            for fam_name in fam_names:
+                ext = copy.deepcopy(Extraction)
+                ext['Name'] = fam_name
+                ext['Source'] = fam_name
+                Extractions.append(ext)
+        
+        else:
+            Extractions.append(Extraction)
+
+    workflow.Extractions = Extractions
 
 def replace_shortcuts(workflow):
     shortcuts = dict(

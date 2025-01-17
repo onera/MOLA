@@ -171,6 +171,19 @@ class CoprocessManager():
 
     def perform_extractions(self):
         call_solver_specific_function(self.workflow, 'perform_extractions', 3, self)
+        self.normalize_data_from_extractions()
+    
+    def normalize_data_from_extractions(self):
+        for extraction in self.Extractions:
+            if not extraction['IsToExtract']:
+                continue
+            
+            if extraction['Type'] in ['BC', 'Integral']:
+                try:
+                    # Do that only if the workflow has a method normalize_data_from_extraction
+                    self.workflow.normalize_data_from_extraction(extraction['Source'], extraction['Data'])
+                except AttributeError:
+                    pass
 
     def save_data(self):
 
@@ -259,7 +272,7 @@ class CoprocessManager():
             os.makedirs(output_dir, exist_ok=True)
             os.makedirs(log_dir, exist_ok=True)
 
-        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path)
+        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path, level='DEBUG')
 
     @property
     def status(self):
