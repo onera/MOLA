@@ -33,9 +33,9 @@ AvailableTurbulenceModels = K_OMEGA_MODELS + ['smith', 'SA']
 
 class ExternalFlowGenerator(object):
 
-    def __init__(self, workflow):
+    name = 'External_rho_T_V'
 
-        self.name = 'External_rho_T_V'
+    def __init__(self, workflow):
 
         # Set attributes
         self.Fluid = workflow.Fluid if workflow.Fluid is not None else dict()

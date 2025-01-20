@@ -26,9 +26,10 @@ from mola.logging import mola_logger, MolaException
 
 class InternalFlowGenerator(ExternalFlowGenerator):
 
+    name = 'Internal'
+
     def __init__(self, workflow):
         super().__init__(workflow)
-        self.name = 'Internal'
 
         try:
             self.Surface = workflow.ApplicationContext['Surface']
