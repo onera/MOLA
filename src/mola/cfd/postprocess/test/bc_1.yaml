@@ -1,0 +1,19 @@
+CGNSTree CGNSTree_t:
+  CGNSLibraryVersion CGNSLibraryVersion_t 3.1:
+  Ground CGNSBase_t I4 [2, 3]:
+    ReferenceState ReferenceState_t:
+      Density DataArray_t 1.225:
+      MomentumX DataArray_t 122.5:
+      MomentumY DataArray_t 0.0:
+      MomentumZ DataArray_t 0.0:
+      EnergyStagnationDensity DataArray_t 259437.61:
+      TurbulentSANuTildeDensity DataArray_t 4.4169123e-05:
+      Mach DataArray_t 0.29386348:
+      Pressure DataArray_t 101325.05:
+      Temperature DataArray_t 288.15:
+      Cv DataArray_t 717.6325:
+      Gamma DataArray_t 1.4:
+      Mus DataArray_t 1.78938e-05:
+      Cs DataArray_t 110.4:
+      Ts DataArray_t 288.15:
+      Pr DataArray_t 0.72:
