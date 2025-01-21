@@ -213,30 +213,38 @@ def extract_residuals(output_tree, extraction):
 
 
 def extract_integral(output_tree, extraction) -> None:
+
+    def get_family_and_suffix(IntegralDataNode):
+        # The name of IntergralData_t node is <Family>-<SUFFIX>: with <SUFFIX> is given from .Solver#Output<SUFFIX>
+        full_name_parts = IntegralDataNode.name().split('-#')
+        family = full_name_parts[0]
+        suffix = full_name_parts[1][:-1]  # name of IntegralData ends with ":"
+        return family, suffix
     
-    t = cgns.Tree()
-    base = cgns.Base(Name='Integral', Parent=t)
+    IntegralDataTree = cgns.Tree()
+    base = cgns.Base(Name='Integral', Parent=IntegralDataTree)
+
     for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):
-        full_name_parts = IntegralDataNode.name().split('-')
+        family, suffix = get_family_and_suffix(IntegralDataNode)
+        if family == extraction['Source']: 
+            IntegralDataNode.dettach()
+            IntegralDataNode.setName('FlowSolution')
+            IntegralDataNode.setType('FlowSolution_t')
+            for n in IntegralDataNode.children(): 
+                n.setType('DataArray_t')
+            translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
+            zone = cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
 
-        if len(full_name_parts) > 1 and full_name_parts[1].startswith('#'):
-            IntegralName = full_name_parts[1][1:-1]
+            # multiply integrated data by the FluxCoef
+            for node in zone.group(Type='DataArray'):
+                if node.name() != 'IterationNumber':
+                    node.setValue(node.value() * extraction['FluxCoef'])
+            break
 
-        else:
-            IntegralName = full_name_parts[0]
+    current_iteration_signals = mpi_allgather_and_merge_trees(IntegralDataTree)
 
-        if IntegralName != extraction['Name']: continue
-
-        IntegralDataNode.dettach()
-        IntegralDataNode.setName('FlowSolution')
-        IntegralDataNode.setType('FlowSolution_t')
-        for n in IntegralDataNode.children(): 
-            n.setType('DataArray_t')
-        translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
-        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
-        break
-
-    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+    if extraction['Name'] != 'ByFamily':
+        POST.merge_bases_and_rename_unique_base(current_iteration_signals, extraction['Name'])
 
     if 'Data' in extraction and extraction['Data'] is not None:
         previous_signals_to_be_updated = extraction['Data']

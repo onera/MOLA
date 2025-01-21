@@ -301,8 +301,8 @@ class WorkflowRotatingComponent(Workflow):
 
         for bc in self.BoundaryConditions:
 
-            if bc['Type'] not in permeable_boundaries+turbomachinery_interfaces:
-                continue
+            # if bc['Type'] not in permeable_boundaries+turbomachinery_interfaces:
+            #     continue
             
             Families = [value for key, value in bc.items() if key in ['Family', 'LinkedFamily']]
             for Family in Families:
@@ -399,26 +399,26 @@ class WorkflowRotatingComponent(Workflow):
         
         self.tree = cgns.castNode(self.tree)
 
-    def normalize_data_from_extraction(self, Family, data_tree):
-        data_to_normalize = dict(
-            MassFlow = dict(Name='MassFlowTotal', Coef='FluxCoef'),
-            CL = dict(Name='CL', Coef='FluxCoef'),
-            CD = dict(Name='CD', Coef='FluxCoef'),
-            CY = dict(Name='CY', Coef='FluxCoef'),
-            Cn = dict(Name='Cn', Coef='TorqueCoef'),
-            Cl = dict(Name='Cl', Coef='TorqueCoef'),
-            Cm = dict(Name='Cm', Coef='TorqueCoef'),
-        )
-        for name, params in data_to_normalize.items():
-            new_name = params['Name']
-            try:
-                coef = self.ApplicationContext['NormalizationCoefficient'][Family][params['Coef']]
-            except:
-                continue
-            for node in data_tree.group(Name=name, Type='DataArray'):
-                # node.setName(new_name)
-                # node.setValue(node.value()*coef)
-                node.Parent.findAndRemoveNode(Name=new_name, Depth=1)
-                cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=node.Parent)
+    # def normalize_data_from_extraction(self, Family, data_tree):
+    #     data_to_normalize = dict(
+    #         MassFlow = dict(Name='MassFlowTotal', Coef='FluxCoef'),
+    #         CL = dict(Name='CL', Coef='FluxCoef'),
+    #         CD = dict(Name='CD', Coef='FluxCoef'),
+    #         CY = dict(Name='CY', Coef='FluxCoef'),
+    #         Cn = dict(Name='Cn', Coef='TorqueCoef'),
+    #         Cl = dict(Name='Cl', Coef='TorqueCoef'),
+    #         Cm = dict(Name='Cm', Coef='TorqueCoef'),
+    #     )
+    #     for name, params in data_to_normalize.items():
+    #         new_name = params['Name']
+    #         try:
+    #             coef = self.ApplicationContext['NormalizationCoefficient'][Family][params['Coef']]
+    #         except:
+    #             continue
+    #         for node in data_tree.group(Name=name, Type='DataArray'):
+    #             # node.setName(new_name)
+    #             # node.setValue(node.value()*coef)
+    #             node.Parent.findAndRemoveNode(Name=new_name, Depth=1)
+    #             cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=node.Parent)
             
 

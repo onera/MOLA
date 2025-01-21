@@ -23,14 +23,14 @@ def apply(workflow):
 
     replace_shortcuts(workflow)
     add_residuals_extraction(workflow)
-    process_extractions_2d(workflow)
+    split_bc_and_integral_extractions_by_family(workflow)
     apply_to_solver(workflow)
     
 def add_residuals_extraction(workflow):
     if not any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
         workflow._interface.add_to_Extractions_Residuals()
 
-def process_extractions_2d(workflow):
+def split_bc_and_integral_extractions_by_family(workflow):
     familiesBC = get_familiesBC_nodes(workflow.tree)
 
     Extractions = []
@@ -46,6 +46,10 @@ def process_extractions_2d(workflow):
             for fam_name in fam_names:
                 ext = copy.deepcopy(Extraction)
                 ext['Source'] = fam_name
+                try:
+                    ext['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][fam_name]['FluxCoef']
+                except:
+                    ext['FluxCoef'] = 1.
                 Extractions.append(ext)
         
         else:
