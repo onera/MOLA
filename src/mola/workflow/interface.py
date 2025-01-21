@@ -206,7 +206,7 @@ class WorkflowInterface(object):
 
 
     def set_Flow(self,
-            Generator : str = 'External_rho_V_T',
+            Generator : str = 'External_rho_T_V',
             # NOTE kwargs are here not to raise an error due to specific arguments for the Generator
             # This function has a specific behavior to raise appropriated errors.
             # The interface is delegated to the method set_defaults of the Generator class 
