@@ -66,13 +66,8 @@ def write_with_cassiopee_mpi(w, tree, dst):
 def write_with_maia(w, tree, dst):
     from mpi4py import MPI
     import maia
-    
-    MPI.COMM_WORLD.barrier()
-    if maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
-        maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD)
 
-    elif maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
-
+    def get_links_for_maia(tree):
         links = tree.getLinks()
         for l in links:
             l[0] = '.' # HACK treelab 0.1.1
@@ -82,14 +77,20 @@ def write_with_maia(w, tree, dst):
         for zone in tree.zones():
             if is_empty(zone):  # TODO transform this function into a Zone method in Treelab: zone.isEmpty()
                 zone.remove()
-        MPI.COMM_WORLD.barrier()
-        # TODO this function does not save UserDefinedData_t nodes under bases
-        # see https://gitlab.onera.net/numerics/mesh/maia/-/issues/112
-        maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links, single_file=True)
+        return links
+    
+    MPI.COMM_WORLD.barrier()
+    if maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
+        tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+        tree = cgns.castNode(tree)
 
+    links = get_links_for_maia(tree)
+
+    if maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
+        maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
     else:
         dist_tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-        maia.io.dist_tree_to_file(dist_tree, dst, MPI.COMM_WORLD)
+        maia.io.dist_tree_to_file(dist_tree, dst, MPI.COMM_WORLD, links=links)
     MPI.COMM_WORLD.barrier()
 
 def write_with_pypart(w, tree, dst):

@@ -68,7 +68,7 @@ def compute_workflow(run_directory):
                 )
         ],
 
-        SplittingAndDistribution=dict(Strategy='AtComputation', Splitter='PyPart'),
+        SplittingAndDistribution=dict(Strategy='AtComputation', Splitter='maia'),
 
         Flow=dict(Velocity = 100.),
 
@@ -146,6 +146,11 @@ def test_iso_surface_elsa(splitter, comm):
     predicate = lambda n: PT.get_label(n) not in ['CGNSLibraryVersion_t', 'ReferenceState_t', 'Ordinal_t']
     PT.rm_nodes_from_predicate(isosurface, predicate)
     PT.rm_nodes_from_predicate(iso_ref, predicate)
+
+    condition_to_rm = lambda n: PT.get_label(n) in ['CGNSLibraryVersion_t', 'ReferenceState_t', 'FlowEquationSet_t', 'Ordinal_t'] \
+                            or PT.get_name(n) in [':CGNS#Ppart', ':CGNS#GlobalNumbering', 'ELSA_TRIGGER', '.Solver#ownData', '.Solver#Param'] 
+    PT.rm_nodes_from_predicate(isosurface, predicate=condition_to_rm)
+    PT.rm_nodes_from_predicate(iso_ref, predicate=condition_to_rm)
         
     assert PT.is_same_tree(isosurface, iso_ref)
 
@@ -182,9 +187,14 @@ def test_extract_bc_elsa(splitter, comm):
         yaml_tree = open_file.read()
     bc_ref = cgns.castNode(PT.yaml.to_node(yaml_tree))
 
-    predicate = lambda n: PT.get_label(n) not in ['CGNSLibraryVersion_t', 'ReferenceState_t', 'Ordinal_t'] \
-                            or PT.get_name(n) not in [':CGNS#Ppart'] 
-    PT.rm_nodes_from_predicate(bc, predicate)
-    PT.rm_nodes_from_predicate(bc_ref, predicate)
+    condition_to_rm = lambda n: PT.get_label(n) in ['CGNSLibraryVersion_t', 'ReferenceState_t', 'FlowEquationSet_t', 'Ordinal_t'] \
+                            or PT.get_name(n) in [':CGNS#Ppart', ':CGNS#GlobalNumbering', 'ELSA_TRIGGER', '.Solver#ownData', '.Solver#Param'] 
+    PT.rm_nodes_from_predicate(bc, predicate=condition_to_rm)
+    PT.rm_nodes_from_predicate(bc_ref, predicate=condition_to_rm)
         
     assert PT.is_same_tree(bc, bc_ref)
+
+if __name__ == '__main__':
+    # compute_workflow('test')
+    from mpi4py import MPI
+    test_extract_bc_elsa('maia', MPI.COMM_WORLD)

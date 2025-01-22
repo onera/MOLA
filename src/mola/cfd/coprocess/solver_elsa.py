@@ -38,7 +38,7 @@ from mola.cfd.coprocess.manager import (
     write_extraction_log
 )
 import mola.cfd.postprocess as POST
-from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
+from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, ravel_FlowSolution, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_elsa_CGNS_field_names_to_MOLA
 
@@ -105,6 +105,7 @@ def get_elsa_output_tree(skeleton):
     t = cgns.castNode(t)
     t.merge(skeleton)
     ravel_BCDataSet(t) # HACK https://elsa.onera.fr/issues/11219
+    ravel_FlowSolution(t)
     remove_empty_BCDataSet(t)
     # force_FamilyBC_as_FamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
     t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
@@ -165,7 +166,7 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
 
     for family in families_to_extract:
     
-        data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
+        data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family, tool='cassiopee')
         data_tree = cgns.castNode(data_tree)
 
         SurfacesTree.merge(data_tree)
@@ -233,7 +234,7 @@ def extract_integral(output_tree, extraction) -> None:
             for n in IntegralDataNode.children(): 
                 n.setType('DataArray_t')
             translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
-            zone = cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
+            zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
 
             # multiply integrated data by the FluxCoef
             for node in zone.group(Type='DataArray'):
@@ -242,9 +243,6 @@ def extract_integral(output_tree, extraction) -> None:
             break
 
     current_iteration_signals = mpi_allgather_and_merge_trees(IntegralDataTree)
-
-    if extraction['Name'] != 'ByFamily':
-        POST.merge_bases_and_rename_unique_base(current_iteration_signals, extraction['Name'])
 
     if 'Data' in extraction and extraction['Data'] is not None:
         previous_signals_to_be_updated = extraction['Data']
