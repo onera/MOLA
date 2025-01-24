@@ -91,7 +91,6 @@ def test_check_max_iteration(tmp_path):
     
     coprocess.status = 'RUNNING_BEFORE_ITERATION'
     stopping_criteria.check_max_iteration(coprocess)
-    os.unlink(os.path.join(tmp_path,'COMPLETED'))
     coprocess.status = 'COMPLETED'
 
 

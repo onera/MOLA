@@ -27,6 +27,7 @@ from treelab import cgns
 from mola.logging import (MolaException, MolaAssertionError, MolaUserError,
                           MolaLogger, CYAN, ENDC, GREEN)
 import mola.naming_conventions as names
+import mola.server as SV
 from mola.cfd import call_solver_specific_function
 from mola.cfd.preprocess.mesh.io.writer import write
 
@@ -90,10 +91,12 @@ class CoprocessManager():
 
     def run_iteration(self):
         self.update_iteration()
-        check_timeout(self)
-        self.apply_operations()
-        check_max_iteration(self)
-        check_convergence_criteria(self)
+        has_reached_max_iteration = check_max_iteration(self)
+        if not has_reached_max_iteration:
+            has_reached_timeout = check_timeout(self)
+            if not has_reached_timeout:
+                self.apply_operations()
+                check_convergence_criteria(self)
 
         if self.status == 'TO_STOP':
             self.end_simulation()
@@ -227,7 +230,8 @@ class CoprocessManager():
             pass
         
         check_stderr()
-        write_tagfile(names.FILE_JOB_COMPLETED, self)
+        if not SV.is_file(names.FILE_NEWJOB_REQUIRED):
+            write_tagfile(names.FILE_JOB_COMPLETED, self)
 
     def _update_workflow_parameters_for_restart(self):
         self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
