@@ -59,14 +59,14 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
     elif tool == 'maia':
         from .extractions_with_maia import extract_bc_from_family
         zones = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
-        extraction = get_renamed_tree(zones, BaseName, CellDimension=CellDimension)
+        extraction = get_renamed_tree_maia(zones, BaseName, CellDimension=CellDimension)
         extraction = cgns.castNode(extraction)
         restore_families(extraction, t)
     
     elif tool == 'maia_zsr':
         from .extractions_with_maia import extract_bc_from_zsr
         zones = extract_bc_from_zsr(t, Family=Family, comm=MPI.COMM_WORLD)
-        extraction = get_renamed_tree(zones, BaseName, CellDimension=CellDimension)
+        extraction = get_renamed_tree_maia(zones, BaseName, CellDimension=CellDimension)
         extraction = cgns.castNode(extraction)
         for zsr in extraction.group(Type='ZoneSubRegion'):
             zsr.setType('FlowSolution')
@@ -99,6 +99,37 @@ def get_renamed_tree(zones, basename, CellDimension=3, PhysicalDimension=3):
         base.addChild(zone)
 
     return tree
+
+def get_renamed_tree_maia(zones, basename, CellDimension=3, PhysicalDimension=3):
+    tree = cgns.Tree()
+    base = cgns.Base(Parent=tree, Name=basename)
+    base.setCellDimension(CellDimension-1)
+    base.setPhysicalDimension(PhysicalDimension)
+
+    if zones is None: 
+        return tree
+        
+    for i, zone in enumerate(zones):
+        zone = cgns.castNode(zone)
+        # The name of the parent zone is kept in a temporary node .parentZone, 
+        # that will be removed before saving
+        # There might be a \ in zone name if it is a result of C.ExtractBCOfType
+        zoneName = zone.name()
+        suffix = get_maia_suffix(zoneName)
+        cgns.Node(Name='.parentZone', Type='UserDefinedData_t', Value=zoneName, Parent=zone)
+        # Rename zones like the base
+        zone.setName(f'{basename}{suffix}')
+        base.addChild(zone)
+
+    return tree
+
+def get_maia_suffix(name):
+    import re
+    # regular expression to find a pattern ".P*.N*", with * a number with 1 to 5 figures
+    maia_pattern = r'\.P(\d{1,5})\.N(\d{1,5})'
+    match = re.search(maia_pattern, name)
+    pattern_found = match.group(0) 
+    return pattern_found
 
 def restore_families(surfaces, skeleton):
     '''
