@@ -1252,7 +1252,7 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
         distribution : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
 
             Dimensionless span position for which the pressure coefficent
-            profile is computed. This must be :math:`\in [0,1]`.
+            profiles are computed. This must be :math:`\in [0,1]`.
 
             .. hint:: for example 
 
@@ -1348,7 +1348,6 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
 
             * reference_mach : :py:class:`float`
 
-
             * rotation_speed : :py:class:`float`
                
                 Value of the rotation speed of the surface in rad/s. 0 if it is
@@ -1361,10 +1360,9 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
 
         BladeSlices : zone 
             Zone containing a FlowSolution node with the following variables:
-            ``-Cp``, ``CoordinateX``, ``CoordinateY``,``CoordinateZ``
+            ``-Cp``, ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``,
             ``ChannelHeight``, ``Span``, ``Abscissa`` and ``SectionalSpan``,
-            ``Distance2Axis``,
-
+            ``Distance2Axis``.
     '''
 
     def Abscissa(d): return (d-dmin)/(dmax-dmin)
@@ -1372,7 +1370,10 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
         return -(Pressure-Pinf)/((1/2)*Roinf*(Minf*c)**2)
     def KpRot(Pressure,Radius):
         return -(Pressure-Pinf)/((1/2)*Roinf*((Radius*omega)**2+(Minf*c)**2))
-    
+
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
     Pinf = reference_state['reference_pressure']
     Roinf = reference_state['reference_density']
     Minf = reference_state['reference_mach']
@@ -1382,12 +1383,12 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
     c = np.sqrt(Gamma*R*Tinf)
     omega = reference_state['rotation_speed']
 
-    # if I.getValue(I.getNodeFromName(surface,'omega')):
-    #     RotatingSpeed = I.getValue(I.getNodeFromName(surface,'omega'))
-
     surface = mergeContainers(surface, FlowSolutionVertexName='FlowSolution',
     FlowSolutionCellCenterName='FlowSolution#Centers',
     BCDataSetFaceCenterName='BCDataSet')
+
+    I.__FlowSolutionNodes__ = 'FlowSolution'
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
 
 
     containersNames_n = I.getNodeFromName(surface,'containers_names')
@@ -1448,7 +1449,8 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
 
                 dmin = C.getMinValue(surface, slicing_var+customVarContainerTag)
                 dmax = C.getMaxValue(surface, slicing_var+customVarContainerTag)
-
+    
+    surface = T.merge(surface)
     BladeSlices = I.newCGNSBase('Slices', cellDim=1, physDim=3, parent=None)
     for d in distribution:
         if slicing_options['slicing_method'] == 'SpanBased':
@@ -1482,12 +1484,15 @@ def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method
             'ChannelHeight',slicing_var,'Span', 'Abscissa','Distance2Axis']
         C._extractVars(slice, var2keepOnCpProfiles)
         I._addChild(BladeSlices, slice,pos=-1)
+    
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
 
     return BladeSlices
-    
+
 
 def computeCpOnSurface(surface ,
-    reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None)):
+    reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None), flow_container = 'FlowSolution#Init'):
     '''
     Compute the pressure coefficient on a surface.
     
@@ -1496,7 +1501,7 @@ def computeCpOnSurface(surface ,
     
         surface : PyTree, Base, Zone
 
-            surface from which sectional loads are to be computed
+            surface on which the pressure coefficient is computed
 
             .. note::
 
@@ -1504,7 +1509,6 @@ def computeCpOnSurface(surface ,
                 centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``,
                 ``SkinFrictionZ``. It must also contain normals ``nx``, ``ny``,
                 ``nz``. 
-
 
         reference_state : :py:class:`dict`
             dictionary providing the reference state. 
@@ -1519,12 +1523,35 @@ def computeCpOnSurface(surface ,
                 In kg.m^-3
 
             * reference_mach : float
+            
+        flow_container : :py:class:`str` 
 
+            Name of the FlowSolution node containing the variable ``Pressure``           
+
+    Returns
+    -------
+
+        surface : zone 
+            Original surface with the variable ``-Cp`` added to the considered
+            FlowSolution container.
     '''
 
     def Cp(Pressure):
         return -(Pressure-Pinf)/((1/2)*Roinf*(Minf*c)**2)
     
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+    FS_container_node = I.getNodeFromName(surface,flow_container)
+    FS_container_loc_node = I.getNodeFromName(FS_container_node,'GridLocation')
+    FS_container_loc = I.getValue(FS_container_loc_node)
+    
+    if FS_container_loc == 'Vertex':
+        I.__FlowSolutionNodes__ = flow_container
+        prefix = 'nodes:'
+    elif FS_container_loc == 'CellCenter':
+        I.__FlowSolutionCenters__ = flow_container
+        prefix = 'centers:'
+
     Pinf = reference_state['reference_pressure']
     Roinf = reference_state['reference_density']
     Minf = reference_state['reference_mach']
@@ -1532,24 +1559,27 @@ def computeCpOnSurface(surface ,
     R = 287.052874
     Tinf = Pinf/(Roinf*R)
     c = np.sqrt(Gamma*R*Tinf)
-     
-    surface = T.join(surface)
 
-    surface = C.initVars(surface,'nodes:-Cp', Cp, ['Pressure'])
+    surface = C.initVars(surface, prefix + '-Cp', Cp, [prefix+'Pressure'])
+
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
+
+    return surface
 
 
 def computeKpRotOnSurface(surface ,
     reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None,rotation_speed = 0.),
-    axis_parameters=dict(point=[0.,0.,0.],axis_direction=[1.,0.,0.])):
+    axis_parameters=dict(point=[0.,0.,0.],axis_direction=[1.,0.,0.]), flow_container = 'FlowSolution#Init'):
     '''
-    Compute the pressure coefficient on a surface along a specified direction.
+    Compute the pressure coefficient on a surface accounting for surface rotation aound an axis.
     
     Parameters
     ----------
     
         surface : PyTree, Base, Zone
 
-            surface from which sectional loads are to be computed
+            surface on which the pressure coefficient is computed
 
             .. note::
 
@@ -1576,7 +1606,6 @@ def computeKpRotOnSurface(surface ,
                 :math:`(x,y,z)` direction of the reference axis along which
                 sectional loads are to be computed.
 
-
         reference_state : :py:class:`dict`
             dictionary providing the reference state. 
             Pairs of keywords and associated values can be:
@@ -1591,18 +1620,46 @@ def computeKpRotOnSurface(surface ,
 
             * reference_mach : float
 
-
             * rotation_speed: float
                 
                 Value of the rotation speed of the surface in rad/s.
                 0 if it is not rotating. This velocity is combined with the 
                 freestream velocity to compute the pressure coefficient.
 
+        flow_container : :py:class:`str` 
+
+            Name of the FlowSolution node containing the variable ``Pressure``                  
+
+    Returns
+    -------
+
+        surface : zone 
+            Original surface with the variable ``-KpRot`` added to the considered
+            FlowSolution container.
     '''
 
     def KpRot(Pressure,Radius):
         return -(Pressure-Pinf)/((1/2)*Roinf*((Radius*omega)**2+(Minf*c)**2))
     
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
+    FS_container_node = I.getNodeFromName(surface,flow_container)
+    FS_container_loc_node = I.getNodeFromName(FS_container_node,'GridLocation')
+    FS_container_loc = I.getValue(FS_container_loc_node)
+    
+    W.addDistanceRespectToLine(surface, np.array(axis_parameters['point']), np.array(axis_parameters['axis_direction']),
+                                FieldNameToAdd='Distance2Axis')
+
+    if FS_container_loc == 'Vertex':
+        I.__FlowSolutionNodes__ = flow_container
+        prefix = 'nodes:'
+    elif FS_container_loc == 'CellCenter':
+        print('In cellcenter')
+        I.__FlowSolutionCenters__ = flow_container
+        prefix = 'centers:'
+        surface = C.node2Center(surface, 'nodes:Distance2Axis')
+
     Pinf = reference_state['reference_pressure']
     Roinf = reference_state['reference_density']
     Minf = reference_state['reference_mach']
@@ -1611,14 +1668,13 @@ def computeKpRotOnSurface(surface ,
     Tinf = Pinf/(Roinf*R)
     c = np.sqrt(Gamma*R*Tinf)
     omega = reference_state['rotation_speed']
-     
-    surface = T.join(surface)
+    
+    surface = C.initVars(surface, prefix + '-KpRot', KpRot, [prefix+'Pressure', prefix+'Distance2Axis'])
 
-    W.addDistanceRespectToLine(surface, np.array(axis_parameters['point']), np.array(axis_parameters['axis_direction']),
-                                FieldNameToAdd='Distance2Axis')  
-    surface = C.initVars(surface,'nodes:-KpRot', KpRot, ['Pressure','Distance2Axis'])
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
 
-
+    return surface
 
 def _addNormalsIfAbsent(t):
     for z in I.getZones(t):

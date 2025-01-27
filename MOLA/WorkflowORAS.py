@@ -514,10 +514,7 @@ def computeRowSectionalLoads(surface, row, torque_center= None):
         distribution=distribution, slicing_options=dict(slicing_method='AbscissaBased',custom_variable=None), 
         geometrical_parameters=dict(start_point=[0.,0.,0.],end_point=None,axis_direction=[1.,0.,0.]),
         torque_center=torque_center, reference_pressure=reference_pressure)
-    # sectionalLoads = computeSectionalLoadInAnnularConfiguration_NEW(blade_surf, 
-    #     distribution=distribution, slicing_options=dict(slicing_method='Custom',custom_variable='ChannelHeight'), 
-    #     geometrical_parameters=dict(start_point=[0.,0.,0.],end_point=None,axis_direction=[1.,0.,0.]),
-    #     torque_center=torque_center, reference_pressure=reference_pressure)
+
     sectionalLoads = I.renameNode(sectionalLoads, 'SectionalLoads', f'{row}_SectionalLoads')
     I.addChild(surface, sectionalLoads)
 
@@ -532,7 +529,7 @@ def computeSectionalLoadsInAnnularConfiguration(surface, distribution,
     torque_center=[0,0,0], reference_pressure=0.):
     '''
     Compute the sectional loads (spanwise distributions) along a direction from
-    a set of surfaces
+    a set of surfaces.
 
     Parameters
     ----------
@@ -593,7 +590,6 @@ def computeSectionalLoadsInAnnularConfiguration(surface, distribution,
 
                 .. warning:: variable must be unique 
 
-
         geometrical_parameters : :py:class:`dict`
 
             dictionary providing the geometrical parameters required to compute
@@ -635,12 +631,13 @@ def computeSectionalLoadsInAnnularConfiguration(surface, distribution,
 
                 .. warning:: Must be provided for all slicing type.
 
-        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or
-        :py:class:`numpy`
-            center for computation the torque contributions
+        torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+            
+            center for the computation of the torque contributions
 
         reference_pressure : float
-            Reference pressure. Put ambiant pressure as a reference for
+
+            reference pressure. Put ambiant pressure as a reference for
             integration over a surface that is not closed (such as blades).
 
     Returns
@@ -652,8 +649,6 @@ def computeSectionalLoadsInAnnularConfiguration(surface, distribution,
             ``SectionalForceZ``, ``SectionalForceTheta``, ``SectionalForceR``
             ``SectionalTorqueX``, ``SectionalTorqueY``, ``SectionalTorqueZ``,
             ``SectionalTorqueTheta``, ``SectionalTorqueR`` and ``SectionalSpan``.
-
-
     '''
     import MOLA.Wireframe as W
     
@@ -846,9 +841,74 @@ def computeSectionalLoadsInAnnularConfiguration(surface, distribution,
 
     return sectionalLoads
 
-def computeRowPressureCoefficent(surface,row, hlist=all, 
+def computeRowPressureCoefficentProfiles(surface,row, 
     distribution=np.array([0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.98]), 
-    slicing_options=dict(slicing_method='SpanBased',custom_variable=None)):
+    slicing_options=dict(slicing_method='AbscissaBased',custom_variable=None)):
+    '''
+    Compute the pressure coefficient profiles at different radial positions on
+    the blade surface of the specified row. The computation of the pressure
+    coefficient takes the rotation speed into account. The
+    variable is called ``KpRot``, not ``Cp``. 
+
+    Parameters
+    ----------
+    
+        surface : PyTree, Base, Zone or :py:class:`list` of Zone
+            Surfaces from which sectional loads are to be computed
+
+            .. note::
+                surfaces contained in **t** must contain the following fields 
+                (preferrably at centers): ``Pressure``, ``SkinFrictionX``, 
+                ``SkinFrictionY``, ``SkinFrictionZ``. It may also contain 
+                normals ``nx``, ``ny``, ``nz``. Otherwise they are computed.
+
+        distribution : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
+            dimensionless coordinate used for discretizing the sectional span.
+            This must be :math:`\in [0,1]`.
+
+            .. hint:: for example 
+                
+                >>> distribution = np.linspace(0,1,101)
+
+            .. note:: 
+                for slicing_method = ``Custom``, this function automatically
+                recomputes the span :math:`\in [0,1]` to perform the slices. The
+                span is based on the 'custom_variable' and is computed as
+                follows : :math:`(var-min(var))/(max(var)-min(var))`
+
+        slicing_options : :py:class:`dict`
+
+            dictionary providing the parameters to perform the slicing along the 
+            blade span. Two pairs of keywords and associated values can be provided:
+            
+            * slicing_method : str
+
+                Acceptable values are:
+
+                * SpanBased: Computes the span based on 2 points (see below)
+                  provided by the user. Each section corresponds to an
+                  isoSurface of the ``Span`` variable.
+
+                * AbscissaBased: computes the abscissa based on the distance d
+                  to the axis provided by the user. Each section corresponds to
+                  an isoSurface of the Abscissa variable. :math:`Abscissa =
+                  (d-dmin)/(dmax-dmin)`. The ``Distance2Axis`` and ``Distance2AxisOverMax``
+                  variables are also provided in the resulting trees.
+
+                * Custom: uses the ``custom_variable`` parameter provided by the
+                  user as the reference variable to perform the isoSurface for
+                  each section.
+            
+            * custom_variable : str 
+
+                Name of the variable used to perform slices.
+
+                .. hint:: Examples: ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``, ``Radius``.
+
+                .. important:: Must be provided for Custom slicing.
+
+                .. warning:: variable must be unique 
+    '''
 
     def searchBladeInTree(row):
         famnames = ['*BLADE*'.format(row), '*Blade*'.format(row),
@@ -882,32 +942,32 @@ def computeRowPressureCoefficent(surface,row, hlist=all,
     return blade_slices
 
 
-
-    return surface
-
 def extractWakeProfilesOnIsoX(surface, radial_location):
     '''
-    Extract wake profiles on .
+    Extract wake profiles on the CoordinateX iso-surfaces provided in ``surface``.
     
     Parameters
     ----------
     
         surface : PyTree, Base, Zone
 
-            surface from which sectional loads are to be computed
-
-            .. note::
-
-                **surface** must contain the following fields (preferrably at
-                centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``,
-                ``SkinFrictionZ``. It must also contain normals ``nx``, ``ny``,
-                ``nz``. 
+            Set of CoordinateX iso-surfaces previously generated using
+            ``Postprocess.isoSurface()``
 
         radial_location : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
             
             ``ChannelHeight`` values for which the wake profiles are extracted.
+    
+    Returns
+    -------
 
-    '''
+        WakeProfiles : Base 
+
+            Base containing one zone for each wake profile. Each zone contains a
+            FlowSolution node with the same variables as those provided in
+            ``surface``.
+    '''    
+
 
     def Radius (y,z): return np.sqrt(y**2+z**2)
     def Theta (y, z): return np.arctan2(z,y)
@@ -916,6 +976,7 @@ def extractWakeProfilesOnIsoX(surface, radial_location):
     WakeProfiles = I.newCGNSBase('WakeProfiles', cellDim=1, physDim=3, parent=surface)
  
     surfacesIsoX = PostTurbo.getSurfacesFromInfo(surface, type='IsoSurface', field='CoordinateX')
+    I.printTree(surfacesIsoX)
     if not surfacesIsoX: 
         raise ValueError('No isoX found in surface tree. Please provide a surface tree with isoX surfaces.')
     else:
@@ -925,7 +986,8 @@ def extractWakeProfilesOnIsoX(surface, radial_location):
 
             if I.getNodesFromName(surface,'FlowSolution#Height') == []:
                 print(f'No Channel Height found on {n_name}, computing...')
-                surface = WO.setRadiusAsChannelHeight(surface)
+                surface = setRadiusAsChannelHeight(surface)
+                
 
             for h in radial_location:
                 line = Post.isoSurface(surface, fieldname = 'ChannelHeight', value = h, container = 'FlowSolution#Height')

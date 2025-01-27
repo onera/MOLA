@@ -449,7 +449,7 @@ def comparePerfoPlane2Plane(surfaces, var4comp_perf, stages=[]):
         I.addChild(OutletPlane, fsBudget)
 
 
-def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY',NumberOfRadialPoints=121):
+def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY',NumberOfRadialPoints=121, tipRadius=None):
     '''
     Compute radial profiles for all iso-X surfaces
 
@@ -471,6 +471,17 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
 
         nbband : int
             Number of radial crowns used to compute radial profile
+        
+        tipRadius: :py:class:`dict`
+            Dictionary providing the value of the blade tip radius (in meters)
+            for each row of the considered Open-fan.
+            
+            .. note::
+                Only relevant when using WorkflowORAS.
+
+            .. hint:: for example 
+                
+                >>>  tipRadius = dict(Rotor = 2.1, Stator = 1.9)
     '''
     RadialProfiles = I.getNodeFromName1(surfaces,'RadialProfiles')
     if not RadialProfiles:
@@ -485,7 +496,11 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
         if setup.Workflow == 'ORAS':
             radial_extend = 1.5
             radial_point = 31#int(NumberOfRadialPoints*(1-1/radial_extend))
-            radial_dist = TR.defineRadialDistribution4USF(NumberOfRadialPoints, slice4auto=tmp_surface, tip_radius='auto', radial_extend=radial_extend, radial_point=radial_point)
+            if tipRadius == None:
+                radial_dist = TR.defineRadialDistribution4USF(NumberOfRadialPoints, slice4auto=tmp_surface, tip_radius='auto', radial_extend=radial_extend, radial_point=radial_point)
+            else:
+                row = I.getValue(I.getNodeFromName(surface,'FamilyName'))
+                radial_dist = TR.defineRadialDistribution4USF(NumberOfRadialPoints, slice4auto=tmp_surface, tip_radius= tipRadius[row], radial_extend=radial_extend, radial_point=radial_point)
             radial_dist_arr = I.getValue(I.getNodeFromName(radial_dist, 'Radius'))
         else:
             radial_dist_arr = None
