@@ -3806,9 +3806,6 @@ def addOversetMotion(t, OversetMotion):
     OversetMotion.update(NewOversetMotion)
 
     for base in bases:
-        print('Base:')
-        I.printTree(base)
-
         motion_keys = dict( motion=1, omega=0.0, transl_speed=0.0,
                             axis_ang_1=1, axis_ang_2=1 )
 
@@ -3931,7 +3928,7 @@ def _getMotionDataFromMeshInfo(base):
     RotationCenter = np.array(MotionData['RotationCenter'],dtype=float)
     RotationAxis = np.array(MotionData['RotationAxis'],dtype=float)
 
-    try: TranslationDirection = MotionData['RequestedFrame']['TranslationDirection']
+    try: TranslationDirection = MotionData['TranslationDirection']
     except KeyError: TranslationDirection = defaultTranslationDirection
 
     return RotationCenter, RotationAxis, TranslationDirection

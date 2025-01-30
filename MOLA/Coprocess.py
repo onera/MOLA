@@ -500,22 +500,6 @@ def deduceContainerForSlicing(Extraction):
     else:
         return 'FlowSolution#Init'
 
-def deduceContainerForClipping(ClippingDict):
-    if 'field_container' in ClippingDict:
-        return ClippingDict['field_container']
-
-    elif ClippingDict['field'] in ['CoordinateX', 'CoordinateY', 'CoordinateZ']:
-        return 'GridCoordinates'
-
-    elif ClippingDict['field'] in ['Radius', 'radius', 'CoordinateR', 'Slice']:
-        return 'FlowSolution'
-
-    elif ClippingDict['field'] == 'ChannelHeight':
-        return 'FlowSolution#Height'
-    
-    else:
-        return 'FlowSolution#Init'
-
 
 def extractIntegralData(to, arrays, Extractions=[],
                         RequestedStatistics=['std-CL', 'std-CD']):
@@ -2394,7 +2378,7 @@ def adaptEndOfRun(to):
     I._renameNode(to, 'cellnf', 'cellN')
     I._renameNode(to, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
     I._rmNodesByName(to, 'FlowSolution#Init-1')
-    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration-1:04d}', 'FlowSolution#Init-1')
+    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration:04d}', 'FlowSolution#Init-1')
 
 
 def moveCoordsFromEndOfRunToGridCoords(to):

@@ -988,11 +988,8 @@ def duplicate(tree, rowFamily, nBlades, nDupli=None, merge=False, keepSeparateBl
                                 if bladeName in I.getValue(familyNameNode).lower():
                                     familyName = I.getValue(familyNameNode)
                                     I.setValue(familyNameNode, "{}_{}".format(familyName, n+2))
-                                    I.printTree(familyNameNode)
                                     bladeFamilyNodeCopy = I.copyNode(I.getNodeFromName(base,familyName)) 
-                                    I.printTree(bladeFamilyNodeCopy)
                                     I.setName(bladeFamilyNodeCopy, "{}_{}".format(familyName, n+2))
-                                    I.printTree(bladeFamilyNodeCopy)
                                     I._addChild(base, bladeFamilyNodeCopy)          
                     I._addChild(base, rot)
                     zones2merge.append(rot)
@@ -1705,7 +1702,6 @@ def setBCFamilyParamForPeriodicDistance(t, ReferenceValues,
             famName = I.getName(famNode)
             famBC = I.getNodeFromType1(famNode,'FamilyBC_t')
             if 'BCWall' in I.getValue(famBC) or 'UserDefined' in I.getValue(famBC):
-                # I.printTree(famNode)
                 solver_bc_data = I.getNodeFromName(famNode,'.Solver#BC')
                 if not solver_bc_data: # does not exists
                     solver_bc_data = I.newUserDefinedData(name='.Solver#BC', value=None, parent=famNode)
@@ -5364,7 +5360,6 @@ def add_choro_data(t,rowName,freq,omega,Nharm,relax,axis_ang_1,axis_ang_2):
     motion_node = I.getNodeFromName(fam_node,'.Solver#Motion')
 
     for z in zones:
-        # I.printTree(z)
         sp = I.getNodeFromName1(z,'.Solver#Param')
         if not isinstance(sp,list): sp = I.createChild(z,'.Solver#Param','UserDefinedData_t')
         I.newDataArray('f_freq', value=float(freq), parent=sp)

@@ -272,7 +272,6 @@ def cleanSurfaces(surfaces, var2keep=[]):
     surfacesIso = getSurfacesFromInfo(surfaces, type='IsoSurface')
     for surface in surfacesIso:
         name = I.getName(surface)
-        print(name)
         for zone in I.getZones(surface):
             I._rmNodesByName1(zone, I.__FlowSolutionCenters__)
             C._extractVars(zone, coordinates+conservatives+var2keep)
