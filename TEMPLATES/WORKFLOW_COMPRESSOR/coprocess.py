@@ -62,8 +62,7 @@ FirstIterForFieldsStats  = CO.getOption('FirstIterationForFieldsAveraging', defa
 
 if FirstIterForFieldsStats is None: FirstIterForFieldsStats = 1e12
 
-# BEWARE! state 16 => triggers *before* iteration, which means
-# that variable "it" represents actually the *next* iteration
+# BEWARE! state 16 => triggers *before* iteration
 it = elsAxdt.iteration() - 1
 CO.CurrentIteration = it
 CO.printCo('iteration %d'%it, proc=0)
@@ -86,7 +85,7 @@ if not SAVE_BODYFORCE:
                           it > inititer])
 
 if BodyForceInputData and not COMPUTE_BODYFORCE:
-    if it >= BodyForceInitialIteration:
+    if it >= BodyForceInitialIteration - 1:
         COMPUTE_BODYFORCE = any([it%BodyForceComputeFrequency == 0,
                                  not BODYFORCE_INITIATED])
 
