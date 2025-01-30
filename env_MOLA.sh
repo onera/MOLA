@@ -12,12 +12,12 @@ export MOLA=/stck/lbernard/MOLA/$MOLAVER
 export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
 export MOLAJUNO=/tmp_user/juno/lbernard/MOLA/$MOLAVER
 export VPMVERSION=v0.5
-export TURBOVERSION=v1.3
+export TURBOVERSION=v1.3.1
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
-export MAIAVERSION=1.2
-export TREELABVERSION=v0.2.0
+export MAIAVERSION=1.5
+export TREELABVERSION=v0.3.0
 ###############################################################################
 
 
@@ -91,13 +91,13 @@ else
 fi
 
 if [ "$MAC" = "sator" ]; then
-    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new21/.env_elsA &>/dev/null
+    source /tmp_user/sator/elsa/Public/$ELSAVERSION/Dist/bin/sator_new22/.env_elsA &>/dev/null
     unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLASATOR
 
-    # # maia
-    # module use --append /tmp_user/sator/sonics/usr/modules/
-    # module load maia/$MAIAVERSION-dsi-cfd5_idx32
+    # maia
+    module use --append /tmp_user/sator/sonics/usr/modules/
+    module load maia/$MAIAVERSION-dsi-cfd6
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator_elsA/$ARCH
@@ -108,22 +108,18 @@ if [ "$MAC" = "sator" ]; then
     export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
 
     # turbo
-    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+    export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new22/lib/python3.8/site-packages/:$PYTHONPATH
 
-    # ErstaZ
-    export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
-    export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-    export PYTHONPATH=$MOLASATORext/sator/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLASATORext/sator/bin:$PATH
-    export LD_LIBRARY_PATH=$MOLASATORext/sator/lib/python3.7/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
-    export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
+    # # ErstaZ
+    # export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
+    # export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
     # NOTE installation hint:
     # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+    export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/treelab/lib:$LD_LIBRARY_PATH
     export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
     export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-    export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
 elif [ "$MAC" = "spiro" ]; then
     if [ ! "$EL8" ]; then
@@ -131,6 +127,10 @@ elif [ "$MAC" = "spiro" ]; then
         exit 0
     fi
     source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA &>/dev/null
+
+    # # maia 
+    # module use --append /scratchm/sonics/usr/modules/
+    # module load maia/$MAIAVERSION-dsi-cfd6
 
     # to avoid message:
     # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
@@ -155,10 +155,6 @@ elif [ "$MAC" = "spiro" ]; then
     # ErstaZ
     export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
     export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-    # # maia 
-    # module use --append /scratchm/sonics/usr/modules/
-    # module load maia/$MAIAVERSION-dsi-cfd5
 
     # NOTE installation hint:
     # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
@@ -241,8 +237,7 @@ elif [ "$MAC" = "juno" ]; then
 
     # maia
     module use --append /tmp_user/juno/sonics/usr/modules/
-    module load maia/1.2-dsi-cfd6
-
+    module load maia/$MAIAVERSION-dsi-cfd6
 
     # VPM
     export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
@@ -252,8 +247,8 @@ elif [ "$MAC" = "juno" ]; then
     export PYTHONPATH=$VPMPATH:$PYTHONPATH
     export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
 
-    # # turbo
-    # export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/sator_new21/lib/python3.7/site-packages/:$PYTHONPATH
+    # turbo
+    export PYTHONPATH=/tmp_user/juno/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/juno_mpi/lib/python3.8/site-packages/:$PYTHONPATH
 
     # # ErstaZ
     # export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
@@ -270,7 +265,7 @@ elif [ "$MAC" = "topaze" ]; then
 
 else
     echo -e "\033[91mERROR: MACHINE $KC NOT INCLUDED IN MOLA ENVIRONMENT\033[0m"
-    exit 0
+    return 1
 fi
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
