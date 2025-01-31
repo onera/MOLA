@@ -92,6 +92,8 @@ def apply(workflow, selected_boundaries_conditions=None):
 
     if selected_boundaries_conditions is None:
         selected_boundaries_conditions = workflow.BoundaryConditions
+    # Deep copy to prevent modification on the Workflow attribute BoundaryConditions
+    selected_boundaries_conditions = copy.deepcopy(selected_boundaries_conditions)
 
     if len(selected_boundaries_conditions) != 0:
         mola_logger.info(f'Set boundary conditions:', rank=0)

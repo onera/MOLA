@@ -40,7 +40,7 @@ def test_guess_machine_from_path(path_machine):
 @pytest.mark.cost_level_0
 def test_guess_machine_from_path_error():
     try:
-        remote.guess_machine_from_path('.') 
+        remote.guess_machine_from_path('/this/path/does/not/exist/') 
         assert False
     except MolaException:
         return
