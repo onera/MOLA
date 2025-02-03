@@ -685,7 +685,7 @@ class WorkflowInterface(object):
         # It allows to replace a solver parameter by a user defined value, without checking.
         self.SolverParameters = kwargs
             
-    def __str__(self, maxlevel=1000):
+    def __str__(self, keep_args=None, maxlevel=1000):
         
         def get_interface_text(cls, indent="    ", skip_args=['self','tree','workflow'], maxlevel=maxlevel):
 
@@ -769,6 +769,7 @@ class WorkflowInterface(object):
             for param in signature.parameters.values():
                 param_name = param.name
                 if param_name in skip_args: continue
+                if keep_args is not None and param_name not in keep_args: continue
 
                 txt += f'Attribute \033[4m\033[1m{param_name}\033[0m is set using:\n'
 
@@ -789,8 +790,12 @@ class WorkflowInterface(object):
 
             return txt
 
-        txt = f'User interface of {BOLD}{self.Name}{ENDC}:\n'
-        txt += f'{BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n\n'
+        banner = '='*(18+len(self.Name)) + '\n'
+        txt = banner
+        txt += f'User interface of {BOLD}{self.Name}{ENDC}\n'
+        txt += banner
+        txt += 'Parameters documentation is given with the following template:\n'
+        txt += f'   {BOLD}name{ENDC} ({CYAN}allowed types{ENDC}) : {PINK}default value{ENDC}\n\n'
 
         return txt + get_interface_text(type(self))
 

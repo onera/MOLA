@@ -606,12 +606,12 @@ class WorkflowSender():
     Paths in the workflow parameters are then automatically updated to be consistent with
     the new localization of theses files.
 
-    .. info:: 
+    .. note:: 
 
         The most direct application of this class is its wrapping in the method ``write_tree_remote`` of
         the class :py:class:``Workflow``. 
 
-    .. info:: 
+    .. note:: 
 
         If you need to change the patterns used to found files to copy;
         the argument ``patterns_to_copy_files`` may be pass to :py:meth:`WorkflowSender.__init__`

@@ -33,9 +33,9 @@ from .interface import WorkflowRotatingComponentInterface
 class WorkflowRotatingComponent(Workflow):
 
     '''
-    Base workflow, that inheritates from Workflow and add methods for every applications with 
+    Base workflow, that inherits from Workflow and add methods for every applications with 
     rotating components. If possible, it should not impose different default values that Workflow.
-    Other applicative workflows with rotating components inherites from WorkflowRotatingComponent, 
+    Other applicative workflows with rotating components inherits from WorkflowRotatingComponent, 
     for instance WorkflowTurbomachinery and WorkflowPropeller.
 
     Examples
