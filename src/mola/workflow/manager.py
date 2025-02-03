@@ -608,8 +608,9 @@ class WorkflowSender():
 
     .. note:: 
 
-        The most direct application of this class is its wrapping in the method ``write_tree_remote`` of
-        the class :py:class:``Workflow``. 
+        The most direct application of this class is its wrapping in the method 
+        :meth:`~mola.workflow.Workflow.write_tree_remote` of
+        the class :py:class:`~mola.workflow.Workflow`. 
 
     .. note:: 
 
