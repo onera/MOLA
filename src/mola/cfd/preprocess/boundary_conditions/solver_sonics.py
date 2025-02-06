@@ -24,85 +24,49 @@ from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
 BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
 
 
-import maia.pytree as PT
-
-class BCOutflowRadialEquilibrium_adhoc():
-
-    # HACK Before a solution is implemented in Miles and SoNICS
-
-    def __init__(self, tree, family_list, Pressure=None, PivotPercenthH=0.):
-        # Input parameters, shared between all BCs
-        self.tree = tree
-        self.family_list = [family_list] if isinstance(family_list, str) else family_list
-        # Private attributes
-        self.related_bcs = None
-        self.turbulent_variable_names = None
-        self._find_family_nodes()
-
-        self.Pressure = Pressure
-        self.PivotPercenthH = PivotPercenthH
-
-    def _find_family_nodes(self):
-        not_matched = []
-        self.family_nodes = []
-        for fam_pattern in self.family_list:
-            nodes = PT.get_nodes_from_name_and_label(self.tree,fam_pattern,"Family_t")
-            self.family_nodes.extend(nodes)
-            if not len(nodes): not_matched.append(fam_pattern)
-        self.family_names = list(map(PT.get_name,self.family_nodes))
-        if len(not_matched):
-            all_fam = set(map(PT.get_name,PT.get_nodes_from_label(self.tree,"Family_t")))
-            not_matched = [f"'{pat}'" for pat in not_matched]
-            raise KeyError((f"Family name(s) {', '.join(not_matched)} not "
-                "found or matched in provided tree. Available families in the "
-                f"tree: {', '.join(all_fam)}"))
-
-    def apply(self):
-        for family in self.family_nodes:
-            PT.update_child(family, 'FamilyBC', 'FamilyBC_t',value="BCOutflowSubsonic")
-            solver_bc = PT.update_child(family, '.Solver#BC', 'UserDefinedData_t')
-            PT.update_child(solver_bc, 'type', 'DataArray_t', value="outradeq")
-            bcds = PT.update_child(family, 'BCDataSet', 'FamilyBCDataSet_t')
-            bcdata = PT.update_child(bcds, 'NeumannData', 'BCData_t')
-            PT.new_DataArray('PressureStagnation', [self.Pressure], dtype='R8', parent=bcdata)
-            PT.new_DataArray('PivotPercenthH', [self.PivotPercenthH], dtype='R8', parent=bcdata)
-
-def outradeq(tree, family_list, Pressure, PivotPercenthH):
-    bc = BCOutflowRadialEquilibrium_adhoc(tree, family_list, Pressure=Pressure, PivotPercenthH=PivotPercenthH)
-    bc.apply()
-
-
 # For each boundary condition, this generic function does the job
-def function_generator(name):
+def function_generator(bc_type):
     def set_bc(workflow, **kwargs):
         import miles
 
         Family = kwargs.pop('Family')
-        kwargs = translate_motion(kwargs)
-        
-        interface = None
-        try:
-            # use the dedicated interface if it exists to prepared kwargs (parameters)
-            interface = globals()[f'{name}_interface']  # interface is a function in this file named "<SonicsBCName>_interface"
-        except:
-            # no interface exists for this BC
-            mola_logger.debug(f"  No interface function for BC {name}_interface")
-            pass
-
-        if interface is not None:
-            kwargs = interface(workflow, Family=Family, **kwargs)
-
-        if name == 'BCOutflowRadialEquilibrium':
-            # TODO This function is TEMPORARY, it will be put in Miles
-            outradeq(workflow.tree, Family, **kwargs)
-        else:
-            miles.bcfactory(workflow.tree, name, Family, **kwargs)
+        kwargs = mola_to_miles(workflow, Family, bc_type, kwargs)
+        miles.set_bc(workflow.tree, bc_type, Family, **kwargs)
         workflow.tree = cgns.castNode(workflow.tree)
+
+        if bc_type == 'BCOutflowRadialEquilibrium':
+            # HACK see https://gitlab.onera.net/numerics/solver/sonics/-/issues/94
+            _fix_outradeq(workflow.tree, Family)
+
     return set_bc
 
 # Define functions with the write name to be called from .boundary_conditions
 for fun_name in BoundaryConditionsNamesInSONICS:
     locals()[fun_name] = function_generator(fun_name)
+
+
+
+def _fix_outradeq(tree, Family):
+    fam_node = tree.get(Name=Family, Type='Family', Depth=2)
+    FamilyBCDataSet_node = fam_node.get(Type='FamilyBCDataSet')
+    FamilyBCDataSet_node.setName('FamilyBCDataSet')
+
+def mola_to_miles(workflow, Family, bc_type, kwargs):
+    kwargs = translate_motion(kwargs)
+    
+    interface = None
+    try:
+        # use the dedicated interface if it exists to prepared kwargs (parameters)
+        interface = globals()[f'{bc_type}_interface']  # interface is a function in this file named "<SonicsBCName>_interface"
+    except:
+        # no interface exists for this BC
+        mola_logger.debug(f"  No interface function for BC {bc_type}_interface")
+        pass
+
+    if interface is not None:
+        kwargs = interface(workflow, Family=Family, **kwargs)
+    
+    return kwargs
 
 def translate_motion(kwargs):
     from mola.cfd.preprocess.motion.motion import update_motion_with_defaults

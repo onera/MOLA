@@ -123,7 +123,7 @@ for model in ['SST-2003', 'SST-V2003']:
 def apply_to_solver(workflow):
 
     my_config = get_sonics_config(workflow)
-    my_config.apply(workflow.tree)
+    my_config.to_cgns_base(workflow.tree)
 
     workflow.tree = cgns.castNode(workflow.tree)
 
@@ -136,7 +136,7 @@ def get_sonics_config(workflow):
     flux_features, flux_parameters = get_spatial_fluxes_template(workflow.Numerics)
     time_features, time_parameters = get_time_marching_template(workflow.Numerics)
 
-    my_config = miles.solver.config.Configuration(pure_cgns_mode=True)
+    my_config = miles.Configuration(pure_cgns_mode=True)
     my_config.update(
         "motion/mobile",
         *fluid_features,
