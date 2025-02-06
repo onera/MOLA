@@ -92,28 +92,30 @@ class WorkflowTurbomachineryManager(WorkflowManager):
                 initialize_from_previous = initialize_from_previous
                 )
         
-        def _get_family_and_throttle_key(self):
-            outflow_bc = mesh_tools.get_bc_from_bc_type(self.base_workflow, 'Outflow*')
-            THROTTLE_KEY = dict(
-                OutflowPressure = 'Pressure', 
-                OutflowMassFlow = 'MassFlow',
-            )
-            self._update_throttle_key_for_elsa_and_sonics(THROTTLE_KEY, outflow_bc)
-            outflow_family = outflow_bc["Family"]
-            throttle_key = THROTTLE_KEY[outflow_bc["Type"]]
-            return outflow_family, throttle_key
-        
-        @staticmethod
-        def _update_throttle_key_for_elsa_and_sonics(THROTTLE_KEY, outflow_bc):
-            # The following lines are specific to elsA and Sonics
-            if outflow_bc['valve_type'] == 0:
-                if 'prespiv' in outflow_bc: 
-                    THROTTLE_KEY['OutflowRadialEquilibrium'] = 'prespiv'
-                elif 'valve_ref_pres' in outflow_bc: 
-                    THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_pres'
-            elif outflow_bc['valve_type'] in [1, 5]:
-                THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_pres' 
-            elif outflow_bc['valve_type'] == 2:
-                THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_mflow'
-            elif outflow_bc['valve_type'] in [3, 4]:
-                THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_relax' 
+    def _get_family_and_throttle_key(self):
+        outflow_bc = mesh_tools.get_bc_from_bc_type(self.base_workflow, 'Outflow*')
+        THROTTLE_KEY = dict(
+            OutflowPressure = 'Pressure', 
+            OutflowMassFlow = 'MassFlow',
+        )
+        self._update_throttle_key_for_elsa_and_sonics(THROTTLE_KEY, outflow_bc)
+        outflow_family = outflow_bc["Family"]
+        throttle_key = THROTTLE_KEY[outflow_bc["Type"]]
+        return outflow_family, throttle_key
+    
+    @staticmethod
+    def _update_throttle_key_for_elsa_and_sonics(THROTTLE_KEY, outflow_bc):
+        # The following lines are specific to elsA and Sonics
+        outflow_bc.setdefault('valve_type', 0)
+        if outflow_bc['valve_type'] == 0:
+            if 'prespiv' in outflow_bc: 
+                THROTTLE_KEY['OutflowRadialEquilibrium'] = 'prespiv'
+            elif 'valve_ref_pres' in outflow_bc: 
+                THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_pres'
+        elif outflow_bc['valve_type'] in [1, 5]:
+            THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_pres' 
+        elif outflow_bc['valve_type'] == 2:
+            THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_mflow'
+        elif outflow_bc['valve_type'] in [3, 4]:
+            THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_relax' 
+    

@@ -86,7 +86,7 @@ def apply_unit_operations(parent, var_name, var_value, unit_operations, window_s
 def _build_operation_tree(var: str, operations: list) -> list:
     '''
     from possible compound variable name and compound operations, return the 
-    ordered list of unit operations to perform from the root variable.
+    graph of unit operations to perform from the root variable.
 
     Parameters
     ----------
@@ -95,11 +95,17 @@ def _build_operation_tree(var: str, operations: list) -> list:
 
     Example
     -------
-    .. code-block::
+    .. graphviz::
+        :align: center
+        :caption: operation_tree given by `_build_operation_tree('std-MassFlow', ['rsd-avg', 'std'])`
 
-        >>> op = _decompose_into_unit_operations('std-MassFlow', ['rsd-avg', 'std'])
-        >>> print(op)
-        [('MassFlow', ['std']), ('std-MassFlow', ['avg', 'std']), ('avg-std-MassFlow', ['rsd'])]
+        digraph Sphinx {
+            MassFlow -> std;
+            std -> avg;
+            std -> std2;
+            std2 [label="std"];
+            avg -> rsd;
+        }
     '''
     if operations is None:
         operations = []

@@ -235,5 +235,5 @@ def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
     if merge_zones:
         maia.algo.dist.merge_connected_zones(dist_tree, comm)    
 
-    return dist_tree
+    return cgns.castNode(dist_tree)
 
