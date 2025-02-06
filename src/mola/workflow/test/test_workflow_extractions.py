@@ -191,6 +191,8 @@ def test_bc_one_run(tmp_path, niter=10):
     w.simulation_status()
     
 @pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.cost_level_2
 def test_integral_with_postprocess(tmp_path, niter=10):
     

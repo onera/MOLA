@@ -106,13 +106,13 @@ def get_iterators(workflow, config, hardware_target='cpu'):
         pytriggers.append(fields_and_bc_extraction_trigger)
 
     if any([ext['Type'] == 'Integral' for ext in workflow.Extractions]):
-        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']  # FIXME
+        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']
         integral_extraction_trigger = triggers.MonitoringIntegralData( 
             config, 
             add_integral_extractions(workflow), 
             workflow.Numerics['NumberOfIterations'], 
             hardware_target, 
-            period=10 #np.gcd.reduce(periods)
+            period=np.gcd.reduce(periods)
             ) 
         pytriggers.append(integral_extraction_trigger)
 

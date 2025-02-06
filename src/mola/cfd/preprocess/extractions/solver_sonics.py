@@ -30,9 +30,13 @@ def apply_to_solver(workflow):
 
 def adapt_extractions(Extractions):
     for ext in Extractions:
-        if ext['Type'] in  ['BC', 'Residuals', 'Integral']:
+        if ext['Type'] in  ['BC', 'Residuals']:
             ext['ExtractionPeriod'] = 1000000000 # Only done at the end of the simulation
             ext['SavePeriod'] = 1000000000 # Only done at the end of the simulation
+            ext['ExtractAtEndOfRun'] = True
+        elif ext['Type'] in  ['Integral']:
+            ext['ExtractionPeriod'] = 10
+            ext['SavePeriod'] = 100
             ext['ExtractAtEndOfRun'] = True
         elif ext['Type'] == '3D':
             mola_logger.warning('output container for extraction 3D is changed to FSolution#Vertex#EndOfRun')
