@@ -110,10 +110,16 @@ def compute_workflow(run_directory):
 @pytest.mark.elsa
 @pytest.mark.mpi
 @pytest.mark.parametrize('splitter', ['cassiopee', 'pypart'])
-def test_iso_surface_elsa(splitter, comm):
+def test_iso_surface_elsa(splitter):
 
     import maia.pytree as PT
+
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
+    size = comm.Get_size()
+    if size == 1:
+        return
 
     # Read tree from yaml files (2 procs)
     script_path = Path(__file__).resolve().parent / 'snippets'
@@ -156,10 +162,16 @@ def test_iso_surface_elsa(splitter, comm):
 @pytest.mark.elsa
 @pytest.mark.mpi
 @pytest.mark.parametrize('splitter', ['cassiopee', 'pypart'])
-def test_extract_bc_elsa(splitter, comm):
+def test_extract_bc_elsa(splitter):
 
     import maia.pytree as PT
+
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
+    size = comm.Get_size()
+    if size == 1:
+        return
 
     # Read tree from yaml files (2 procs)
     script_path = Path(__file__).resolve().parent / 'snippets'
