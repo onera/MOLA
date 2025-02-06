@@ -16,10 +16,6 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
-try:
-    import pytest_parallel 
-except:
-    pytest.skip(reason="skipping tests because pytest_parallel cannot be imported", allow_module_level=True)
 
 import numpy as np
 from pathlib import Path
@@ -112,7 +108,7 @@ def compute_workflow(run_directory):
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 @pytest.mark.elsa
-@pytest_parallel.mark.parallel(2)
+@pytest.mark.mpi
 @pytest.mark.parametrize('splitter', ['cassiopee', 'pypart'])
 def test_iso_surface_elsa(splitter, comm):
 
@@ -120,7 +116,7 @@ def test_iso_surface_elsa(splitter, comm):
     rank = comm.Get_rank()
 
     # Read tree from yaml files (2 procs)
-    script_path = Path(__file__).resolve().parent
+    script_path = Path(__file__).resolve().parent / 'snippets'
     with open(script_path / f'elsa_{splitter}_output_tree_{rank}.yaml', 'r') as open_file:
         yaml_tree = open_file.read()
     output_tree = cgns.castNode(PT.yaml.to_node(yaml_tree))
@@ -158,7 +154,7 @@ def test_iso_surface_elsa(splitter, comm):
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 @pytest.mark.elsa
-@pytest_parallel.mark.parallel(2)
+@pytest.mark.mpi
 @pytest.mark.parametrize('splitter', ['cassiopee', 'pypart'])
 def test_extract_bc_elsa(splitter, comm):
 
@@ -166,7 +162,7 @@ def test_extract_bc_elsa(splitter, comm):
     rank = comm.Get_rank()
 
     # Read tree from yaml files (2 procs)
-    script_path = Path(__file__).resolve().parent
+    script_path = Path(__file__).resolve().parent / 'snippets'
     with open(script_path / f'elsa_{splitter}_output_tree_{rank}.yaml', 'r') as open_file:
         yaml_tree = open_file.read()
     output_tree = cgns.castNode(PT.yaml.to_node(yaml_tree))

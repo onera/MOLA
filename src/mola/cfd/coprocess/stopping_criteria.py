@@ -79,12 +79,13 @@ def check_convergence_criteria(coprocess_manager):
 
     has_reached_convergence_criteria = False
 
-    it  = coprocess_manager.iteration
+    it  = coprocess_manager.iteration + 1  # we are after the time advance of the solver
     itinit = coprocess_manager.workflow.Numerics['IterationAtInitialState']
     itmin = coprocess_manager.workflow.Numerics['MinimumNumberOfIterations']
 
-    has_done_enough_iterations = (it - itinit) > itmin 
+    has_done_enough_iterations = (it - itinit) >= itmin 
     if has_done_enough_iterations and coprocess_manager.status.startswith('RUNNING'):
+        coprocess_manager.mola_logger.warning('check convergence...', rank=0)
         if is_converged(coprocess_manager):
             coprocess_manager.status = 'TO_STOP'
             has_reached_convergence_criteria = True
@@ -95,11 +96,11 @@ def check_convergence_criteria(coprocess_manager):
 def is_converged(coprocess_manager):
 
     ConvergenceCriteria = coprocess_manager.workflow.ConvergenceCriteria
-    if not ConvergenceCriteria: return False
+    if not ConvergenceCriteria: 
+        return False
 
-    CONVERGED = False
-    all_necessary_criteria_are_verified = True
-    a_sufficient_criterion_is_verified = False
+    all_necessary_criteria_are_verified = any([criterion['Necessary'] for criterion in ConvergenceCriteria])
+    any_sufficient_criterion_is_verified = False
     if rank == 0:
        
         for criterion in ConvergenceCriteria:
@@ -110,16 +111,14 @@ def is_converged(coprocess_manager):
                 break
 
             if criterion_is_verified and criterion['Sufficient']:
-                a_sufficient_criterion_is_verified = True
+                any_sufficient_criterion_is_verified = True
                 break
 
-        if a_sufficient_criterion_is_verified or all_necessary_criteria_are_verified:
-            CONVERGED = True
-        else:
-            return False
-        
-        txt = get_convergence_message(ConvergenceCriteria, coprocess_manager.iteration)
-        coprocess_manager.mola_logger.info(txt, rank=0)
+        CONVERGED = any_sufficient_criterion_is_verified or all_necessary_criteria_are_verified
+
+        if CONVERGED:
+            txt = get_convergence_message(ConvergenceCriteria, coprocess_manager.iteration)
+            coprocess_manager.mola_logger.info(txt, rank=0)
 
     comm.barrier()
     CONVERGED = comm.bcast(CONVERGED, root=0)

@@ -35,6 +35,7 @@ def test_stop_and_go_for_timeout(tmp_path, niter=500):
     w.RunManagement['Scheduler'] = 'local'
 
     w.prepare()
+    # TimeOutInSeconds is modified to force several runs
     w.RunManagement['TimeOutInSeconds'] = 5  # after prepare() method to hack this value
     w.write_cfd_files()
     w.submit()

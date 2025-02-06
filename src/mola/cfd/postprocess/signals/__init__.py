@@ -15,5 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .extractions import extract_bc, iso_surface, merge_bases_and_rename_unique_base
-from .signals import *
+from .tree_manipulation import AVAILABLE_OPERATIONS_ON_SIGNALS, apply_operations_on_signal
+from .operations import slidding_average, slidding_std, slidding_rsd
+    

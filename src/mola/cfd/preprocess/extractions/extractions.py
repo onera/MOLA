@@ -18,12 +18,14 @@
 import copy
 from fnmatch import fnmatch
 from mola.cfd import apply_to_solver
+from mola.cfd.postprocess.signals import AVAILABLE_OPERATIONS_ON_SIGNALS
 
 def apply(workflow):
 
     replace_shortcuts(workflow)
     add_residuals_extraction(workflow)
     split_bc_and_integral_extractions_by_family(workflow)
+    update_extractions_from_convergence_criteria(workflow)
     apply_to_solver(workflow)
     
 def add_residuals_extraction(workflow):
@@ -46,6 +48,8 @@ def split_bc_and_integral_extractions_by_family(workflow):
             for fam_name in fam_names:
                 ext = copy.deepcopy(Extraction)
                 ext['Source'] = fam_name
+                if ext['Name'] == 'ByFamily':
+                    ext['Name'] = fam_name
                 try:
                     ext['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][fam_name]['FluxCoef']
                 except:
@@ -104,3 +108,72 @@ def get_bc_families_names_to_extract(tree, Extraction, familiesBC=None):
     bc_families_to_extract = get_bc_families_to_extract(tree, Extraction, familiesBC=familiesBC)
     fam_names = [fam.name() for fam in bc_families_to_extract]
     return fam_names
+
+def update_extractions_from_convergence_criteria(workflow):
+    # TODO PostprocessOperations has to be handle with 
+    # workflow._interface.add_PostprocessOperations
+    for criterion in workflow.ConvergenceCriteria:
+        operation, var = _split_operations_on_variable(criterion['Variable'])
+        PostprocessOperation = dict(Type=operation, Variable=var, AtEndOfRunOnly=False)
+        
+        extraction_ok = False
+        for Extraction in workflow.Extractions:
+            if Extraction['Type'] not in ['BC', 'Integral']: 
+                continue
+
+            if criterion['ExtractionName'] == Extraction['Source']:
+                extraction_ok = True
+                if var.endswith('X') or var.endswith('Y') or var.endswith('Z'):
+                    # var is a vector component
+                    vector_name = var[:-1]
+                if var not in Extraction['Fields'] and vector_name not in Extraction['Fields']:
+                    Extraction['Fields'].append(var)
+                if len(operation) > 0:
+                    if not 'PostprocessOperations' in Extraction:
+                        Extraction['PostprocessOperations'] = [PostprocessOperation]
+                    else:
+                        Extraction['PostprocessOperations'].append(PostprocessOperation)
+        
+        if not extraction_ok:
+            workflow._interface.add_to_Extractions_Integral(
+                Name=criterion['ExtractionName'],
+                Source=criterion['ExtractionName'],
+                Fields=[var],
+                PostprocessOperations=[PostprocessOperation]
+            )
+            try:
+                workflow.Extractions[-1]['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][criterion['ExtractionName']]['FluxCoef']
+            except:
+                workflow.Extractions[-1]['FluxCoef'] = 1.
+
+def _split_operations_on_variable(var: str, prefixes=None) -> tuple:
+    '''
+    Parameters
+    ----------
+    var : str
+        input variable name, for instance 'std-avg-MassFlow'
+    prefixes : str, optional
+        accumulator used by the recursive function. User must not use it. By default None
+
+    Returns
+    -------
+    tuple
+
+    Example
+    -------
+    _split_operations_on_variable('std-avg-MassFlow') returns ('std-avg', 'MassFlow')
+    '''
+    if prefixes is None: 
+        prefixes = ''
+
+    for op in AVAILABLE_OPERATIONS_ON_SIGNALS:
+        prefix = op + '-'
+        if var.startswith(prefix):
+            prefixes += prefix
+            var = var[len(prefix):]
+            prefixes, var = _split_operations_on_variable(var, prefixes)
+
+    # Remove final '-' if prefixes is not empty
+    if prefixes[-1] == '-':
+        prefixes = prefixes[:-1]
+    return prefixes, var

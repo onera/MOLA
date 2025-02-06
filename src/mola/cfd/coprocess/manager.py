@@ -129,6 +129,7 @@ class CoprocessManager():
         if any([extraction['IsToExtract'] for extraction in self.Extractions]):
             self.mola_logger.debug(f'Performing extractions..', rank=0)
             self.perform_extractions()
+            self.postprocess_extractions()
 
             if any([extraction['Type'] == 'Restart' and extraction['IsToExtract']  for extraction in self.Extractions]):
                 self._update_workflow_parameters_for_restart()
@@ -215,6 +216,7 @@ class CoprocessManager():
          
     def finalize(self):
         self.mola_logger.info(f'>> finalize', rank=0)
+        self.status = 'TO_FINALIZE'
         for extraction in self.Extractions:
             if extraction['ExtractAtEndOfRun']:
                 extraction['IsToExtract'] = True
@@ -279,6 +281,25 @@ class CoprocessManager():
     def __del__(self):
         if self.status != 'COMPLETED':
             self.mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
+
+    def postprocess_extractions(self):
+        from mola.cfd.postprocess.signals import apply_operations_on_signal, AVAILABLE_OPERATIONS_ON_SIGNALS
+
+        for extraction in self.Extractions:
+            PostprocessOperations = extraction.get('PostprocessOperations', [])
+
+            for operation in PostprocessOperations:
+                AtEndOfRunOnly = operation.get('AtEndOfRunOnly', True)
+                is_to_postprocess = self.status=='TO_FINALIZE' or not AtEndOfRunOnly
+                if not is_to_postprocess:
+                    continue
+
+                if operation['Type'] in AVAILABLE_OPERATIONS_ON_SIGNALS:
+                    # ex: PostprocessOperations = [dict(Type='avg', Variable='MassFlow')]
+                    self.mola_logger.debug(f"  compute {operation['Type']}-{operation['Variable']} on {extraction['Name']}", rank=0)
+                    apply_operations_on_signal(extraction['Data'], operation['Variable'], 
+                                               extraction['TimeAveragingIterations'], 
+                                               operations=[operation['Type']])
 
 
 def move_log_files():

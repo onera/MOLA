@@ -576,7 +576,7 @@ def get_workflow_cart_monoproc(RunDirectory):
     w = Workflow(
         RawMeshComponents=[
             dict(
-                Name='sphere',
+                Name='cart',
                 Source=mesh,
                 Families=[
                     dict(Name='Ground',

@@ -101,7 +101,7 @@ def test_check_convergence_criteria_when_empty(tmp_path):
     workflow = FakeWorkflow(tmp_path)
     coprocess = CoprocessManager(workflow)
 
-    workflow.ConvergenceCriteria = [] # note this is empty TODO non-empty
+    workflow.ConvergenceCriteria = [] # note this is empty
     coprocess.iteration = 3 # able to evaluate convergence
     
     coprocess.status = 'RUNNING_BEFORE_ITERATION'
@@ -122,7 +122,6 @@ def test_check_convergence_criteria_verified(tmp_path):
             Necessary=True,
             Sufficient=True),
         ]
-
 
     coprocess = CoprocessManager(workflow)
     coprocess.iteration = 3 # able to evaluate convergence
