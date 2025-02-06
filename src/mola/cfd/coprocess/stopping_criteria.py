@@ -106,12 +106,12 @@ def is_converged(coprocess_manager):
         for criterion in ConvergenceCriteria:
             criterion_is_verified = is_criterion_flux_lower_than_threshold(criterion, coprocess_manager.Extractions)
 
-            if not criterion_is_verified and criterion['Necessary']:
-                all_necessary_criteria_are_verified = False
+            if criterion['Sufficient'] and criterion_is_verified:
+                any_sufficient_criterion_is_verified = True
                 break
 
-            if criterion_is_verified and criterion['Sufficient']:
-                any_sufficient_criterion_is_verified = True
+            if criterion['Necessary'] and not criterion_is_verified:
+                all_necessary_criteria_are_verified = False
                 break
 
         CONVERGED = any_sufficient_criterion_is_verified or all_necessary_criteria_are_verified

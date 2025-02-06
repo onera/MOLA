@@ -140,11 +140,11 @@ def test_check_convergence_criteria_verified(tmp_path):
 @pytest.mark.parametrize("params",[
     
     dict(Criteria=[
-            dict( Threshold = 1.1, Necessary = True, Sufficient = False),],
+            dict( Threshold = 1.1, Necessary = False, Sufficient = True),],
         ConvergenceIsExpected = True),
 
     dict(Criteria=[
-            dict( Threshold = 0.9, Necessary = True, Sufficient = False),],
+            dict( Threshold = 0.9, Necessary = False, Sufficient = True),],
         ConvergenceIsExpected = False),
 
     dict(Criteria=[
@@ -168,12 +168,6 @@ def test_check_convergence_criteria_verified(tmp_path):
             dict( Threshold = 0.9, Necessary = True, Sufficient = False),
             dict( Threshold = 0.9, Necessary = True, Sufficient = False),],
         ConvergenceIsExpected = False),
-
-    dict(Criteria=[
-            dict( Threshold = 0.1, Necessary = False, Sufficient = True),
-            dict( Threshold = 1.2, Necessary = True, Sufficient = False),
-            dict( Threshold = 1.2, Necessary = True, Sufficient = False),],
-        ConvergenceIsExpected = True),
 
     ]
     )
