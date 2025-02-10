@@ -608,7 +608,7 @@ def save(t, filename, tagWithIteration=False):
             to the saved filename (creates a copy)
     '''
     if PyPartBase and filename.endswith(FILE_FIELDS):
-        saveWithPyPart(t, filename, tagWithIteration=tagWithIteration)
+        saveWithPyPart_NEW(t, filename, tagWithIteration=tagWithIteration)
         return
 
     t = I.copyRef(t) if I.isTopTree(t) else C.newPyTree(['Base', J.getZones(t)])
@@ -755,6 +755,10 @@ def saveWithPyPart_NEW(t, filename, tagWithIteration=False):
     PyPartBase.mergeAndSave(t, 'PyPart_fields')
     Cmpi.barrier()
     # Read PyPart files in parallel 
+    # import maia
+    # dist_tree = maia.io.file_to_dist_tree('PyPart_fields_all.hdf', comm)
+    # maia.io.dist_tree_to_file(dist_tree, os.path.join(DIRECTORY_OUTPUT, FILE_FIELDS), comm)
+    
     t = Cmpi.convertFile2SkeletonTree('PyPart_fields_all.hdf')
     t, stats = D2.distribute(t, NumberOfProcessors, useCom=0, algorithm='fast')
     t = Cmpi.readZones(t, 'PyPart_fields_all.hdf', rank=rank)
@@ -764,9 +768,12 @@ def saveWithPyPart_NEW(t, filename, tagWithIteration=False):
         try: os.remove(fn)
         except: pass
     # Write a unique file
+
     Cmpi._convert2PartialTree(t)
     Cmpi.barrier()
     Cmpi.convertPyTree2File(t, os.path.join(DIRECTORY_OUTPUT, FILE_FIELDS))
+    # maia.io.dist_tree_to_file(dist_tree, os.path.join(DIRECTORY_OUTPUT, FILE_FIELDS), comm)
+    # Cmpi.barrier()
     printCo('... saved %s'%filename,0, color=J.CYAN)
     Cmpi.barrier()
     if tagWithIteration and rank == 0: copyOutputFiles(filename)
@@ -2378,7 +2385,7 @@ def adaptEndOfRun(to):
     I._renameNode(to, 'cellnf', 'cellN')
     I._renameNode(to, 'FlowSolution#EndOfRun', 'FlowSolution#Init')
     I._rmNodesByName(to, 'FlowSolution#Init-1')
-    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration:04d}', 'FlowSolution#Init-1')
+    I._renameNode(to, f'FlowSolution#EndOfRun{CurrentIteration-1:04d}', 'FlowSolution#Init-1')
 
 
 def moveCoordsFromEndOfRunToGridCoords(to):
