@@ -88,5 +88,31 @@ def test_path_accounting_for_exec_location(tmp_path):
 
     coprocess.status = 'COMPLETED'
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_save_extractions_from_types():
+    Extractions = [
+        dict(Type='BC', Name='extraction1'), 
+        dict(Type='3D', Name='extraction2'),
+        dict(Type='BC', Name='extraction3'), 
+    ]
+    user_interface.save_extractions_from_types(Extractions, ['BC'])
+    assert Extractions[0] == dict(Type='BC', Name='extraction1', IsToExtract=True, IsToSave=True)
+    assert Extractions[1] == dict(Type='3D', Name='extraction2')
+    assert Extractions[2] == dict(Type='BC', Name='extraction3', IsToExtract=True, IsToSave=True)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_save_extractions_from_filename():
+    Extractions = [
+        dict(Type='BC', Name='extraction1', File='file1.cgns'), 
+        dict(Type='3D', Name='extraction2', File='file2.cgns'), 
+        dict(Type='BC', Name='extraction3', File='toto.cgns'), 
+    ]
+    user_interface.save_extractions_from_filename(Extractions, 'file*', )
+    assert Extractions[0] == dict(Type='BC', Name='extraction1', File='file1.cgns', IsToExtract=True, IsToSave=True)
+    assert Extractions[1] == dict(Type='3D', Name='extraction2', File='file2.cgns', IsToExtract=True, IsToSave=True)
+    assert Extractions[2] == dict(Type='BC', Name='extraction3', File='toto.cgns')
+
 if __name__ == '__main__':
     test_write_tagfile(".")

@@ -33,7 +33,7 @@ from mola.cfd.preprocess.mesh.io.writer import write
 
 from . import rank, comm
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
-from .user_interface import get_user_signal, write_tagfile
+from .user_interface import check_and_execute_user_signal, write_tagfile
 
 
 AVAILABLE_SIMULATION_STATUS = [
@@ -44,20 +44,6 @@ AVAILABLE_SIMULATION_STATUS = [
     'TO_FINALIZE',
     'COMPLETED', 
 ]
-
-# Control Flags for interactive control using command 'touch <flag>'
-AVAILABLE_SIGNALS = [
-    'CONVERGED',
-    'SAVE_ALL',
-    'COMPUTE_BODYFORCE',
-    'SAVE_BODYFORCE',
-    'SAVE_RESTART',
-    'SAVE_FIELDS',
-    'SAVE_EXTRACTIONS'
-    'SAVE_SIGNALS',
-    'QUIT',
-]
-
 
 
 class CoprocessManager():
@@ -95,6 +81,7 @@ class CoprocessManager():
         if not has_reached_max_iteration:
             has_reached_timeout = check_timeout(self)
             if not has_reached_timeout:
+                check_and_execute_user_signal(self)
                 self.apply_operations()
                 check_convergence_criteria(self)
 
