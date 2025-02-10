@@ -75,6 +75,9 @@ def set_numerics(workflow):
 
     deep_update( workflow.SolverParameters, get_spatial_fluxes(workflow.Numerics) )
     deep_update( workflow.SolverParameters, get_time_marching_setup(workflow.Numerics) )
+    # deep_update( workflow.SolverParameters, get_motion(workflow.Motion) )
+    for key, local_params in get_motion(workflow.Motion)['Num2Zones'].items():
+        workflow.SolverParameters['Num2Zones'][key] = local_params
 
 
 def get_fluid_setup( Fluid : dict ) -> dict:
@@ -172,6 +175,20 @@ def get_time_marching_setup(Numerics):
 
     return Parameters
 
+def get_motion(Motion):
+    from mola.cfd.preprocess.motion.motion import is_mobile
+    from mola.cfd.preprocess.motion.solver_fast import get_rotation_parameter
+
+    Num2Zones = dict()
+    for family, MotionOnFamily in Motion.items():
+        if is_mobile(MotionOnFamily):
+            Num2Zones[f'Local@{family}'] = dict(
+                motion = 'rigid',
+                rotation = get_rotation_parameter(MotionOnFamily),
+            )
+    
+    Parameters = dict(Num2Zones=Num2Zones)
+    return Parameters
 
 def get_cfl_setup(cfl):
     if isinstance(cfl, dict):
