@@ -59,9 +59,8 @@ FirstIterForFieldsStats  = CO.getOption('FirstIterationForFieldsAveraging', defa
 
 if FirstIterForFieldsStats is None: FirstIterForFieldsStats = 1e12
 
-# BEWARE! state 16 => triggers *before* iteration, which means
-# that variable "it" represents actually the *next* iteration
-it = elsAxdt.iteration()
+# BEWARE! state 16 => triggers *before* iteration
+it = elsAxdt.iteration() - 1
 CO.CurrentIteration = it
 CO.printCo('iteration %d'%it, proc=0)
 
