@@ -37,8 +37,8 @@ def test_bc():
             dict(Family='imin', Type='BCWall'),
             dict(Family='imax', Type='BCFarfield'),
             dict(Family='jmin', Type='BCSymmetryPlane'),
-            dict(Family='jmax', Type='BCFarfield'),
-            dict(Family='kmin', Type='BCFarfield'),
+            dict(Family='jmax', Type='BCInj1'),
+            dict(Family='kmin', Type='BCOutpres'),
             dict(Family='kmax', Type='BCFarfield'),
         ]
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
