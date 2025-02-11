@@ -50,13 +50,27 @@ except:
     
 class RefState(object):
     def __init__(self, setup):
-      self.Gamma = setup.FluidProperties['Gamma']
-      self.Rgaz  = setup.FluidProperties['IdealGasConstant']
-      self.Pio   = setup.ReferenceValues['PressureStagnation']
-      self.Tio   = setup.ReferenceValues['TemperatureStagnation']
-      self.roio  = self.Pio / self.Tio / self.Rgaz
-      self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
-      self.Lref  = 1.
+      if setup.Workflow == 'Compressor':
+          self.Gamma = setup.FluidProperties['Gamma']
+          self.Rgaz  = setup.FluidProperties['IdealGasConstant']
+          self.Pio   = setup.ReferenceValues['PressureStagnation']
+          self.Tio   = setup.ReferenceValues['TemperatureStagnation']
+          self.roio  = self.Pio / self.Tio / self.Rgaz
+          self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
+          self.Lref  = 1.
+      if setup.Workflow == 'ORAS':
+          self.Gamma = setup.FluidProperties['Gamma']
+          self.Rgaz  = setup.FluidProperties['IdealGasConstant']
+          self.P     = setup.ReferenceValues['Pressure']
+          self.T     = setup.ReferenceValues['Temperature']
+          self.ro    = setup.ReferenceValues['Density']
+          self.a     = (self.Gamma * self.Rgaz * self.T)**0.5
+          self.Mach  = setup.ReferenceValues['Mach']
+          self.Pio   = self.P*(1.+0.5*(self.Gamma-1.)*self.Mach**2)**(self.Gamma/(self.Gamma-1.))
+          self.Tio   = self.T*(1.+0.5*(self.Gamma-1.)*self.Mach**2)
+          self.roio  = self.Pio / self.Tio / self.Rgaz
+          self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
+          self.Lref  = 1.
 
 def getExtractionInfo(surface):
     '''
@@ -246,12 +260,27 @@ def cleanSurfaces(surfaces, var2keep=[]):
         'Pressure', 'StagnationPressureRelDim', 'RefStagnationPressureRelDim',
         'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ'
         ]
+    
+    var2keepOnRadialProfiles_vertex = conservatives + var2keep + ['Radius']
+    var2keepOnRadialProfiles = []
+
+    for var in var2keepOnRadialProfiles_vertex:
+        var_center = 'centers:' + var
+        var2keepOnRadialProfiles.append(var_center)
+
 
     surfacesIso = getSurfacesFromInfo(surfaces, type='IsoSurface')
     for surface in surfacesIso:
+        name = I.getName(surface)
         for zone in I.getZones(surface):
             I._rmNodesByName1(zone, I.__FlowSolutionCenters__)
             C._extractVars(zone, coordinates+conservatives+var2keep)
+
+    
+    radProfiles = I.getNodesFromName(surfaces, 'RadialProfiles')  
+    if radProfiles:
+        C._extractVars(radProfiles, coordinates+var2keepOnRadialProfiles)
+
 
     surfacesBC = getSurfacesFromInfo(surfaces, type='BC', BCType='BCWallViscous')
     for surface in surfacesBC:
@@ -262,6 +291,8 @@ def cleanSurfaces(surfaces, var2keep=[]):
                 varname = I.getName(node)
                 if varname not in var2keepOnBlade:
                     I._rmNode(FSnodes, node)
+    
+
 
 # @J.mute_stdout
 def computeVariablesOnIsosurface(surfaces, variables, config='annular', lin_axis='XZ'):
@@ -417,7 +448,7 @@ def comparePerfoPlane2Plane(surfaces, var4comp_perf, stages=[]):
         I.addChild(OutletPlane, fsBudget)
 
 
-def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY'):
+def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY',NumberOfRadialPoints=121, tipRadius=None):
     '''
     Compute radial profiles for all iso-X surfaces
 
@@ -437,6 +468,19 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
             For ‘linear’ configuration, streamwise and spanwise directions. 
             ‘XZ’ means: streamwise = X-axis, spanwise = Z-axis
 
+        nbband : int
+            Number of radial crowns used to compute radial profile
+        
+        tipRadius: :py:class:`dict`
+            Dictionary providing the value of the blade tip radius (in meters)
+            for each row of the considered Open-fan.
+            
+            .. note::
+                Only relevant when using WorkflowORAS.
+
+            .. hint:: for example 
+                
+                >>>  tipRadius = dict(Rotor = 2.1, Stator = 1.9)
     '''
     RadialProfiles = I.getNodeFromName1(surfaces,'RadialProfiles')
     if not RadialProfiles:
@@ -448,10 +492,27 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
         surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
 
+        if setup.Workflow == 'ORAS':
+            radial_extend = 1.5
+            radial_point = 31#int(NumberOfRadialPoints*(1-1/radial_extend))
+            if tipRadius == None:
+                radial_dist = TR.defineRadialDistribution4USF(NumberOfRadialPoints, slice4auto=tmp_surface, tip_radius='auto', radial_extend=radial_extend, radial_point=radial_point)
+            else:
+                row = I.getValue(I.getNodeFromName(surface,'FamilyName'))
+                radial_dist = TR.defineRadialDistribution4USF(NumberOfRadialPoints, slice4auto=tmp_surface, tip_radius= tipRadius[row], radial_extend=radial_extend, radial_point=radial_point)
+            radial_dist_arr = I.getValue(I.getNodeFromName(radial_dist, 'Radius'))
+        else:
+            radial_dist_arr = None
+
+
         filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
+
+      
         radial_surf, radius_dist = TR.computeRadialProfile(
-            tmp_surface, surfaceName, filtered_variables, 'surface',
-            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, save_radius='return')
+        tmp_surface, surfaceName, filtered_variables, 'surface',
+        fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, save_radius='return', load_radius = radial_dist_arr)
+                        
+        
         
         filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
         radial_massflow = TR.computeRadialProfile(

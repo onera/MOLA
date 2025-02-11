@@ -744,7 +744,7 @@ def saveWithPyPart_NEW(t, filename, tagWithIteration=False):
             to the saved filename (creates a copy)
     '''
     import Distributor2.PyTree as D2
-    
+
     # Write PyPart files
     t = I.copyRef(t)
     Cmpi._convert2PartialTree(t)

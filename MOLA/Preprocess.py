@@ -3806,7 +3806,6 @@ def addOversetMotion(t, OversetMotion):
     OversetMotion.update(NewOversetMotion)
 
     for base in bases:
-
         motion_keys = dict( motion=1, omega=0.0, transl_speed=0.0,
                             axis_ang_1=1, axis_ang_2=1 )
 
