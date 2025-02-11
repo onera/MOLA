@@ -797,6 +797,38 @@ def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.cost_level_3
+def test_workflow_sphere_struct_local_monoproc_pypart(tmp_path, remove_cfd_files=True):
+    w = get_workflow_sphere_struct(tmp_path)
+    w.RunManagement['Scheduler'] = 'local'
+    w.SplittingAndDistribution = dict(
+        Splitter = 'PyPart',
+        Strategy = 'AtComputation',
+    )
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+    if remove_cfd_files: w.remove_cfd_files()
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.cost_level_3
+def test_workflow_sphere_struct_local_monoproc_maia(tmp_path, remove_cfd_files=True):
+    w = get_workflow_sphere_struct(tmp_path)
+    w.RunManagement['Scheduler'] = 'local'
+    w.SplittingAndDistribution = dict(
+        Splitter = 'maia',
+        Strategy = 'AtComputation',
+    )
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+    if remove_cfd_files: w.remove_cfd_files()
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.cost_level_3
 def test_workflow_sphere_unstruct_local_euler(tmp_path, remove_cfd_files=True):
     w = get_workflow_sphere_unstruct(tmp_path)
     w.Turbulence['Model'] = 'Euler'

@@ -121,22 +121,6 @@ def to_partitioned(tree : cgns.Tree):
             tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
         tree = cgns.castNode(tree)
         return to_partitioned_if_distributed(tree)
-        
-    # elif is_dist:
-    #     # Ravel data, because this is the maia convention for dist_tree
-    #     # else AssertionError in maia.factory.partition_dist_tree
-    #     ravel_FlowSolution(tree)  
-    #     ravel_BCDataSet(tree) 
-    #     return to_partitioned_if_distributed(tree)
-    # else: 
-    #     # The tree is a full tree.
-    #     # Ravel data, because this is the maia convention for dist_tree
-    #     # else AssertionError in maia.factory.partition_dist_tree
-    #     ravel_FlowSolution(tree)  
-    #     ravel_BCDataSet(tree)
-    #     tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-    #     tree = cgns.castNode(tree)
-    #     return to_partitioned_if_distributed(tree)
 
 def to_partitioned_if_distributed(tree : cgns.Tree):
     is_dist = bool(tree.get(':CGNS#Distribution'))
@@ -173,17 +157,21 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
         tree = cgns.castNode(tree)
         _transfer_additionnal_nodes(tree, additionnal_nodes_to_transfer)
 
-    t = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
-    if t is not None:
-        t = cgns.castNode(t)
+    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, remove=True)
+    tree = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
+    tree = cgns.castNode(tree)
+    restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes)
+    
+    if tree is not None:
+        tree = cgns.castNode(tree)
 
-        for zone in t.zones():
+        for zone in tree.zones():
             if zone.isStructured(): 
                 reshape_DataArray(zone)
             
-        t = cgns.castNode(t)
+        tree = cgns.castNode(tree)
     MPI.COMM_WORLD.barrier()
-    return t
+    return tree
 
 def _get_additionnal_nodes_to_transfer(tree):
     # HACK see https://gitlab.onera.net/numerics/mesh/maia/-/issues/175
@@ -272,3 +260,61 @@ def fix_FaceCenter_in_BCDataSet(t):
                 if PT.Subset.GridLocation(node) == 'FaceCenter':
                     axis = PT.Subset.normal_axis(node)
                     PT.update_child(node, 'GridLocation', value='IJK'[axis] + 'FaceCenter')
+
+def get_empty_FlowSolution_nodes(tree, remove=False):
+    # NOTE Cmpi.convertPyTree2File does not write DataArray in FlowSolution
+    # if its value is None on all ranks, but this is a way for elsA to 
+    # ask extraction in a FlowSolution (for 3D fields)
+    # -> keep these nodes in a list
+
+    # NOTE With unstructured mesh, PyPart does not support empty FlowSolution 
+    # (with DataArray nodes that store None). We need to remove these nodes, 
+    # keep its path, and restore them later in the final file.
+
+    import Converter.Mpi as Cmpi
+    import copy
+
+    empty_FlowSolution_nodes = []
+    for FS in tree.group(Type='FlowSolution'):
+        no_DataArray_nodes = len(FS.group(Type='DataArray', Depth=1)) == 0
+        empty_DataArray_nodes = any([n.value() is None for n in FS.group(Type='DataArray', Depth=1)])
+        if no_DataArray_nodes or empty_DataArray_nodes:
+            if no_DataArray_nodes:
+                # The node GridLocation has been added by PyPart during the splitting, we need to remove it.
+                FS.findAndRemoveNode(Type='GridLocation')
+            empty_FlowSolution_nodes.append(copy.deepcopy(FS))
+            if remove:
+                FS.remove()
+
+    return empty_FlowSolution_nodes
+
+def restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes):
+    import Converter.Mpi as Cmpi
+
+    empty_FlowSolution_nodes = Cmpi.gather(empty_FlowSolution_nodes, root=0)
+
+    if Cmpi.rank == 0:
+        empty_FlowSolution_nodes = [FS for listFS in empty_FlowSolution_nodes for FS in listFS]
+        for FS in empty_FlowSolution_nodes:
+            saved_FS = cgns.readNode(dst, FS.path()) 
+            if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
+                FS.saveThisNodeOnly(dst) 
+                for child in FS.children():
+                    child.saveThisNodeOnly(dst) 
+
+def restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes):
+    for fs_node in empty_FlowSolution_nodes:
+        zone_path = fs_node.parent().path()
+        zone_path = _remove_PyPart_suffix(zone_path)
+        parent = tree.getAtPath(zone_path) 
+        parent.addChild(fs_node)
+
+def _remove_PyPart_suffix(path):
+    import re
+    # regular expression to find a pattern ".P*.N*", with * a number with 1 to 5 figures
+    pattern = r'\.P(\d{1,5})\.N(\d{1,5})'
+    try:
+        path = re.sub(pattern, '', path)
+    except:
+        pass
+    return path

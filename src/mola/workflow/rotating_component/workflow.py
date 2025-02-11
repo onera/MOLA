@@ -69,6 +69,10 @@ class WorkflowRotatingComponent(Workflow):
         # duplicate.duplicate_workflow_with_cassiopee(self)
         duplicate.duplicate_workflow_with_maia(self)
 
+    def initialize_flow(self):
+        self.parametrize_with_height()
+        super().initialize_flow()
+
     def set_default_parameters_for_rows(self):
 
         for row, rowParams in self.ApplicationContext['Rows'].items():
