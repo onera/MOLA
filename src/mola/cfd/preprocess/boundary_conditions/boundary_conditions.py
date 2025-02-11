@@ -46,7 +46,7 @@ BoundaryConditionsNames = dict(
     WallViscousIsothermal        = dict(sonics='BCWallViscousIsothermal'),
     WallInviscid                 = dict(elsa='wallslip',
                                         sonics='BCWallInviscid',
-                                        fast='BCWall'),
+                                        fast='BCWallInviscid'),
     SymmetryPlane                = dict(elsa='sym',
                                         sonics='BCSymmetryPlane',
                                         fast='BCSymmetryPlane'),

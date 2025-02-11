@@ -40,6 +40,27 @@ def BCWall(workflow, Family, Motion=None):
         mobile_coef = 1. if is_mobile(Motion) else 0.
         wall_family.setParameters('.Solver#Property', mobile_coef=mobile_coef)  
 
+def BCWallInviscid(workflow, Family, Motion=None):
+    '''
+    Set an inviscid wall boundary condition.
+
+    Parameters
+    ----------
+
+        workflow : Workflow object
+
+        Family : str
+            Name of the family on which the boundary condition will be imposed
+
+    '''
+    wall_family = workflow.tree.get(Name=Family, Type='Family', Depth=2)
+    wall_family.findAndRemoveNodes(Type='FamilyBC', Depth=1)
+    cgns.Node( Name='FamilyBC', Value='BCWallInviscid', Type='FamilyBC', Parent=wall_family)
+    # add motion
+    if Motion is not None:
+        mobile_coef = 1. if is_mobile(Motion) else 0.
+        wall_family.setParameters('.Solver#Property', mobile_coef=mobile_coef)  
+
 
 def BCFarfield(workflow, Family):
     '''

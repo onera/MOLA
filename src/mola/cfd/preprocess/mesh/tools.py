@@ -25,6 +25,8 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
     import maia.pytree as PT
     from maia.algo.part.wall_distance import compute_projection_to
 
+    mola_logger.info('Parametrize domain with channel height (add FlowSolution#Height)')
+
     tree = to_partitioned(tree) 
 
     hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
@@ -113,21 +115,28 @@ def to_partitioned(tree : cgns.Tree):
 
     if is_part:
         return tree
-    elif is_dist:
-        # Ravel data, because this is the maia convention for dist_tree
-        # else AssertionError in maia.factory.partition_dist_tree
-        ravel_FlowSolution(tree)  
-        ravel_BCDataSet(tree) 
-        return to_partitioned_if_distributed(tree)
-    else: 
-        # The tree is a full tree.
-        # Ravel data, because this is the maia convention for dist_tree
-        # else AssertionError in maia.factory.partition_dist_tree
-        ravel_FlowSolution(tree)  
-        ravel_BCDataSet(tree)
-        tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+    else:
+        _apply_all_maia_check(tree)
+        if not is_dist:
+            tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
         tree = cgns.castNode(tree)
         return to_partitioned_if_distributed(tree)
+        
+    # elif is_dist:
+    #     # Ravel data, because this is the maia convention for dist_tree
+    #     # else AssertionError in maia.factory.partition_dist_tree
+    #     ravel_FlowSolution(tree)  
+    #     ravel_BCDataSet(tree) 
+    #     return to_partitioned_if_distributed(tree)
+    # else: 
+    #     # The tree is a full tree.
+    #     # Ravel data, because this is the maia convention for dist_tree
+    #     # else AssertionError in maia.factory.partition_dist_tree
+    #     ravel_FlowSolution(tree)  
+    #     ravel_BCDataSet(tree)
+    #     tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+    #     tree = cgns.castNode(tree)
+    #     return to_partitioned_if_distributed(tree)
 
 def to_partitioned_if_distributed(tree : cgns.Tree):
     is_dist = bool(tree.get(':CGNS#Distribution'))
@@ -159,7 +168,10 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
         return tree
     
     if is_part:
+        additionnal_nodes_to_transfer = _get_additionnal_nodes_to_transfer(tree)
         tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+        tree = cgns.castNode(tree)
+        _transfer_additionnal_nodes(tree, additionnal_nodes_to_transfer)
 
     t = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
     if t is not None:
@@ -172,6 +184,34 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
         t = cgns.castNode(t)
     MPI.COMM_WORLD.barrier()
     return t
+
+def _get_additionnal_nodes_to_transfer(tree):
+    # HACK see https://gitlab.onera.net/numerics/mesh/maia/-/issues/175
+    types = ['ReferenceState_t', 'FlowEquationSet_t', 'Descriptor_t', 'ConvergenceHistory_t', 'IntegralData_t']
+    nodes = []
+    for node_type in types:
+        nodes.extend(tree.group(Type=node_type, Depth=2))  # workaround only for bases children, not zones children, just for safety
+    return nodes
+
+def _transfer_additionnal_nodes(tree, nodes):
+    # HACK see https://gitlab.onera.net/numerics/mesh/maia/-/issues/175
+    for node in nodes:
+        parent = tree.getAtPath(node.parent().path())
+        parent.addChild(node)
+
+def _apply_all_maia_check(tree):
+    # HACK check operations normally done in maia.io._hdf_io_h5py.load_size_tree
+    import maia
+    maia.io.fix_tree.check_namings(tree)
+    # maia.io.fix_tree.rm_legacy_nodes(tree)
+    maia.io.fix_tree.corr_index_range_names(tree)
+    # maia.io.fix_tree.check_datasize(tree)
+    maia.io.fix_tree.fix_point_ranges(tree)
+    maia.io.fix_tree.fix_structured_pr_shape(tree)
+    pred_1to1 = 'CGNSBase_t/Zone_t/ZoneGridConnectivity_t/GridConnectivity1to1_t'
+    if maia.pytree.get_node_from_predicates(tree, pred_1to1) is not None:
+        maia.io.fix_tree.ensure_symmetric_gc1to1(tree)
+    maia.io.fix_tree.add_missing_pr_in_bcdataset(tree)
 
 def reshape_DataArray(zone):
     vertex_shape = zone.value()[:,0]
