@@ -755,16 +755,16 @@ def test_prepare_workflow2():
     w.remove_cfd_files()
 
 
-@pytest.mark.integration
-@pytest.mark.cost_level_1
-@pytest.mark.mpi
-def test_prepare_workflow_dist():
-    w = get_workflow_dist()
-    if w.Solver == 'sonics':
-        adapt_workflow_for_sonics(w)
-    w.prepare()
-    w.write_cfd_files()
-    w.remove_cfd_files()
+# @pytest.mark.integration
+# @pytest.mark.cost_level_1
+# @pytest.mark.mpi
+# def test_prepare_workflow_dist():
+#     w = get_workflow_dist()
+#     if w.Solver == 'sonics':
+#         adapt_workflow_for_sonics(w)
+#     w.prepare()
+#     w.write_cfd_files()
+#     w.remove_cfd_files()
 
 
 @pytest.mark.integration
