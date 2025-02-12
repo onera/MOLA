@@ -304,10 +304,30 @@ def restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes):
 
 def restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes):
     for fs_node in empty_FlowSolution_nodes:
+        _add_grid_location(fs_node)
         zone_path = fs_node.parent().path()
         zone_path = _remove_PyPart_suffix(zone_path)
         parent = tree.getAtPath(zone_path) 
         parent.addChild(fs_node)
+
+def _add_grid_location(fs_node: cgns.Node):
+    # if not GridLocation in a FlowSolution, PyPart will raise a Warning/Error in stderr.log
+    if fs_node.get(Type='GridLocation'):
+        return
+    
+    GridLocation_Vertex = cgns.Node(Name='GridLocation', Type='GridLocation', Value='Vertex')
+    GridLocation_CellCenter = cgns.Node(Name='GridLocation', Type='GridLocation', Value='CellCenter')
+    try:
+        loc = fs_node.get(Name='loc', Type='DataArray').value()
+        if loc == 'cell':
+            fs_node.addChild(GridLocation_CellCenter, position=0)
+        elif loc == 'node':
+            fs_node.addChild(GridLocation_Vertex, position=0)
+        else:
+            raise MolaException(f'Unknown loc node value ={loc}. Must be cell or node')
+    except:
+        fs_node.addChild(GridLocation_Vertex, position=0)
+
 
 def _remove_PyPart_suffix(path):
     import re

@@ -70,7 +70,7 @@ def perform_extractions(workflow, coprocess_manager):
         coprocess_manager.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
         
         if extraction['Type'] == 'Restart':
-            extraction['Data'] = workflow.tree
+            extraction['Data'] = get_restart_tree(workflow)
         
         elif extraction['Type'] == '3D':
             extraction['Data'] = extract_fields(output_tree, extraction)
@@ -114,6 +114,13 @@ def get_output_tree(workflow, coprocess_manager):
 
     return output_tree
 
+def get_restart_tree(workflow):
+    t = workflow.tree.copy()
+    t.findAndRemoveNodes(Name='.Solver#define')
+    t.findAndRemoveNodes(Name='.Solver#ownData')
+    t.findAndRemoveNodes(Type='ConvergenceHistory')
+    remove_not_requested_containers(t, 'FlowSolution#Centers')
+    return t
 
 def extract_fields(output_tree, extraction) -> cgns.Tree:
 

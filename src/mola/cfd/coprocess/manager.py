@@ -106,7 +106,11 @@ class CoprocessManager():
 
     
     def update_extractions_to_perform(self):
-        for extraction in self.Extractions:
+        if self.iteration == 0:
+            # exception for Fast, because the is an iteration 0
+            return
+        
+        for extraction in self.Extractions:                
             if self.iteration % extraction['ExtractionPeriod'] == 0:
                 extraction['IsToExtract'] = True
             if self.iteration % extraction['SavePeriod'] == 0:
@@ -117,9 +121,7 @@ class CoprocessManager():
             self.mola_logger.debug(f'Performing extractions..', rank=0)
             self.perform_extractions()
             self.postprocess_extractions()
-
-            if any([extraction['Type'] == 'Restart' and extraction['IsToExtract']  for extraction in self.Extractions]):
-                self._update_workflow_parameters_for_restart()
+            self._update_workflow_parameters_for_restart_if_needed()
             
         comm.barrier()
 
@@ -222,14 +224,24 @@ class CoprocessManager():
         if not SV.is_file(names.FILE_NEWJOB_REQUIRED):
             write_tagfile(names.FILE_JOB_COMPLETED, self)
 
-    def _update_workflow_parameters_for_restart(self):
+    def _update_workflow_parameters_for_restart_if_needed(self):
+        found_restart_tree = False
+        for extraction in self.Extractions:
+            if extraction['Type'] == 'Restart' and extraction['IsToExtract']:
+                # restart tree is in extraction['Data']
+                assert 'Data' in extraction and extraction['Data'] is not None
+                found_restart_tree = True
+                break
+        if not found_restart_tree: 
+            return
+
         self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
-        self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1
+        self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1 
         if 'TimeStep' in self.workflow.Numerics:
             self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
 
         # Update only Numerics node in tree
-        WorkflowParameters = self.workflow.tree.get(Name=self.workflow._workflow_parameters_container_, Depth=1)
+        WorkflowParameters = extraction['Data'].get(Name=self.workflow._workflow_parameters_container_, Depth=1)
         if WorkflowParameters:
             WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
 

@@ -75,7 +75,6 @@ def set_numerics(workflow):
 
     deep_update( workflow.SolverParameters, get_spatial_fluxes(workflow.Numerics) )
     deep_update( workflow.SolverParameters, get_time_marching_setup(workflow.Numerics) )
-    # deep_update( workflow.SolverParameters, get_motion(workflow.Motion) )
     for key, local_params in get_motion(workflow.Motion)['Num2Zones'].items():
         workflow.SolverParameters['Num2Zones'][key] = local_params
 
