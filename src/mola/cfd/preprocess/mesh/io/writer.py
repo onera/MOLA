@@ -103,16 +103,19 @@ def write_with_maia(w, tree, dst):
     MPI.COMM_WORLD.barrier()
 
 def write_with_pypart(w, tree, dst):
-    import Converter.PyTree as C
     import Converter.Mpi as Cmpi
     import Distributor2.PyTree as D2
 
     # HACK mergeAndSave bugs with empty FlowSolution nodes for unstructured mesh
     empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, remove=True)
+    
+    # NOTE Careful: For structured mesh, FlowSolution data must not be ravelized!!
+    # Otherwise, data nodes will be full of zeros after mergeAndSave.
+    from mola.cfd.postprocess.extractions_with_cassiopee.tools import reshapeFieldsForStructuredGrid
+    reshapeFieldsForStructuredGrid(tree)
 
     # Write in parallel with PyPart
     Cmpi._convert2PartialTree(tree)
-    # I._rmNodesByName(t, '.Solver#Param')
     Cmpi.barrier()
     w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'))
     Cmpi.barrier()

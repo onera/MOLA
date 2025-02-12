@@ -106,9 +106,13 @@ class CoprocessManager():
 
     
     def update_extractions_to_perform(self):
-        if self.iteration == 0:
-            # exception for Fast, because the is an iteration 0
-            return
+        # FIXME Fast starts at iteration 0, so all extractions are extracted and saved
+        # at iteration 0 (because of modulo). 
+        # Change iteration number in MOLA (n in MOLA <--> n-1 in Fast) ?
+        # But residuals have iterations coming directly from Fast...
+        # if self.iteration == 0:
+        #     # exception for Fast, because the is an iteration 0
+        #     return
         
         for extraction in self.Extractions:                
             if self.iteration % extraction['ExtractionPeriod'] == 0:

@@ -36,10 +36,9 @@ def apply_to_solver(workflow):
 
     add_convergence_history(t, niter)
 
+    # The warmup function optimizes data storage in memory. 
+    # Zones may be moved. After warmup, all operations on the trees must be in-place
     t, tc, metrics = FastS.warmup(t, tc, graph, infos_ale=get_infos_ale(workflow))
-
-    t = cgns.castNode(t)
-    tc = cgns.castNode(tc)
 
     workflow.tree = t
     workflow._treeAtCenters = tc 
