@@ -171,13 +171,7 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans',
     workflow._fast_metrics = metrics
     workflow.tree = cgns.castNode(t)
     if create_convergence_nodes:
-        from mola.cfd.preprocess.extractions.solver_fast import _createConvergenceHistory
-        _createConvergenceHistory(workflow.tree, workflow.Numerics['IterationAtInitialState'],
-                                     workflow.Numerics['NumberOfIterations']+1)
-
-        # from mola.cfd.preprocess.extractions.solver_fast import _createConvergenceHistoryCass
-        # _createConvergenceHistoryCass(workflow.tree, workflow.Numerics['NumberOfIterations']+1)
-
+        FastS._createConvergenceHistory(workflow.tree, workflow.Numerics['NumberOfIterations']+1)
 
         workflow.tree = cgns.castNode(workflow.tree)
 
@@ -365,7 +359,7 @@ def test_extract_bc(tmp_path):
 @pytest.mark.parametrize("modeling", ['euler', 'rans'])
 def test_extract_residuals(tmp_path,modeling):
 
-    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, modeling, True)
+    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, modeling, create_convergence_nodes=True)
     workflow._coprocess_manager.Extractions = [dict(Type='Residuals')]
     workflow.Extractions = workflow._coprocess_manager.Extractions
 
