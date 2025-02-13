@@ -55,22 +55,12 @@ def apply(workflow):
             appendFamiliesToBase(base)
             append_default_family_to_zones(base)
 
-    check_base_name_for_sonics(workflow)
-
     if mpi_size > 1:
         MPI.COMM_WORLD.barrier()
         workflow.tree = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=0)
         workflow.tree = cgns.castNode(workflow.tree)
         MPI.COMM_WORLD.barrier()
 
-def check_base_name_for_sonics(workflow):
-    # HACK bug in sonics https://gitlab.onera.net/numerics/solver/sonics/-/issues/101
-    if workflow.Solver == 'sonics':
-        family_names = [node.name() for node in workflow.tree.group(Type='Family')]
-        base_name = workflow.tree.bases()[0].name() 
-        if base_name in family_names:
-            raise MolaUserError(f'Base name ({base_name}) cannot the same as one of Family names. Please change the Name of Component.')
-    
 def set_family_from_location(base, FamilyName, location):
     import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
 
