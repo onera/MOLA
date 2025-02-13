@@ -1,0 +1,352 @@
+User interface of [1mWorkflow[0m:
+[1mname[0m ([96mallowed types[0m) : [95mdefault value[0m
+
+Attribute [4m[1mSolver[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      [1msolver_name[0m ([96mstr[0m)
+    
+    
+Attribute [4m[1mRawMeshComponents[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      [1muser_list[0m ([96mlist[0m)
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mName[0m ([96mstr[0m)
+      [1mSource[0m ([96mstr[0m, [96mTree[0m, [96mBase[0m, [96mZone[0m)
+    Optional:
+      [1mMesher[0m ([96mstr[0m) : [95mNone[0m
+      [1mUnit[0m ([96mstr[0m) : [95mm[0m
+      [1mCleaningMacro[0m ([96mstr[0m) : [95mNone[0m
+      [1mFamilies[0m ([96mlist[0m) : [95mNone[0m
+      [1mPositioning[0m ([96mlist[0m) : [95mNone[0m
+      [1mConnection[0m ([96mlist[0m) : [95mNone[0m
+      [1mOversetOptions[0m ([96mdict[0m) : [95mNone[0m
+    
+    
+Attribute [4m[1mFluid[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mGamma[0m ([96mfloat[0m) : [95m1.4[0m
+      [1mIdealGasConstant[0m ([96mfloat[0m) : [95m287.053[0m
+      [1mPrandtl[0m ([96mfloat[0m) : [95m0.72[0m
+      [1mPrandtlTurbulent[0m ([96mfloat[0m) : [95m0.9[0m
+      [1mSutherlandConstant[0m ([96mfloat[0m) : [95m110.4[0m
+      [1mSutherlandViscosity[0m ([96mfloat[0m) : [95m1.78938e-05[0m
+      [1mSutherlandTemperature[0m ([96mfloat[0m) : [95m288.15[0m
+    
+    
+Attribute [4m[1mFlow[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mGenerator[0m ([96mstr[0m) : [95mExternal_rho_T_V[0m
+    
+    
+Attribute [4m[1mTurbulence[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mViscosity_EddyMolecularRatio[0m ([96mfloat[0m) : [95m0.1[0m
+      [1mLevel[0m ([96mfloat[0m) : [95m0.001[0m
+      [1mModel[0m ([96mstr[0m) : [95mWilcox2006-klim[0m
+      [1mTurbulenceCutOffRatio[0m ([96mfloat[0m) : [95m1e-08[0m
+      [1mTransitionMode[0m ([96mstr[0m) : [95mNone[0m
+    
+    
+Attribute [4m[1mBoundaryConditions[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      [1muser_list[0m ([96mlist[0m)
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mFamily[0m ([96mstr[0m)
+      [1mType[0m ([96mstr[0m)
+    
+    
+Attribute [4m[1mSplittingAndDistribution[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mStrategy[0m ([96mstr[0m) : [95mAtPreprocess[0m
+      [1mSplitter[0m ([96mstr[0m) : [95mCassiopee[0m
+      [1mDistributor[0m ([96mstr[0m) : [95mCassiopee[0m
+      [1mComponentsToSplit[0m ([96mstr[0m, [96mNoneType[0m, [96mlist[0m) : [95mall[0m
+      [1mNumberOfParts[0m ([96mint[0m) : [95mNone[0m
+      [1mCoresPerNode[0m ([96mint[0m) : [95m48[0m
+    
+    
+Attribute [4m[1mNumerics[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mScheme[0m ([96mstr[0m) : [95mJameson[0m
+      [1mTimeMarching[0m ([96mstr[0m) : [95mSteady[0m
+      [1mNumberOfIterations[0m ([96mint[0m) : [95m10000[0m
+      [1mMinimumNumberOfIterations[0m ([96mint[0m) : [95m1000[0m
+      [1mIterationAtInitialState[0m ([96mint[0m) : [95m1[0m
+      [1mTimeAtInitialState[0m ([96mfloat[0m) : [95m0.0[0m
+      [1mTimeMarchingOrder[0m ([96mint[0m) : [95m2[0m
+      [1mTimeStep[0m ([96mfloat[0m) : [95mNone[0m
+      [1mCFL[0m ([96mfloat[0m, [96mdict[0m) : [95m10.0[0m
+    
+    
+Attribute [4m[1mBodyForceModeling[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      [1muser_list[0m ([96mlist[0m)
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mToBeImplmented[0m ([96mstr[0m) : [95mNotYetImplemented[0m
+    
+    
+Attribute [4m[1mMotion[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mmotion_per_family_dict[0m ([96mdict[0m) : [95mNone[0m
+    
+    
+Attribute [4m[1mInitialization[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mMethod[0m ([96mstr[0m) : [95muniform[0m
+      [1mSource[0m ([96mstr[0m, [96mTree[0m, [96mBase[0m, [96mZone[0m) : [95mNone[0m
+      [1mSourceContainer[0m ([96mstr[0m) : [95mNone[0m
+      [1mComputeWallDistanceAtPreprocess[0m ([96mbool[0m) : [95mFalse[0m
+      [1mKeepWallDistance[0m ([96mbool[0m) : [95mFalse[0m
+    
+    
+Attribute [4m[1mExtractionsDefaults[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1muser_list[0m ([96mlist[0m) : [95mNone[0m
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mReferenceParameter[0m ([96mstr[0m)
+    Optional:
+      [1mType[0m ([96mstr[0m) : [95mNone[0m
+      [1mFile[0m ([96mstr[0m) : [95mNone[0m
+      [1mExtractionsPeriod[0m ([96mint[0m) : [95mNone[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95mNone[0m
+      [1mFrame[0m ([96mstr[0m) : [95mNone[0m
+      [1mOverride[0m ([96mbool[0m) : [95mNone[0m
+      [1mContainer[0m ([96mstr[0m) : [95mNone[0m
+      [1mGridLocation[0m ([96mstr[0m) : [95mNone[0m
+      [1mGhostCells[0m ([96mbool[0m) : [95mNone[0m
+      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95mNone[0m
+      [1mTimeAveraging[0m ([96mbool[0m) : [95mNone[0m
+    
+    
+Attribute [4m[1mExtractions[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      [1muser_list[0m ([96mlist[0m)
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+if [1mType[0m ([96mstr[0m) == [95m"3D"[0m
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mType[0m ([96mstr[0m)
+    Optional:
+      [1mFields[0m ([96mlist[0m) : [95mNone[0m
+      [1mFile[0m ([96mstr[0m) : [95mfields.cgns[0m
+      [1mName[0m ([96mstr[0m) : [95mNone[0m
+      [1mExtractionPeriod[0m ([96mint[0m) : [95m5000[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95m5000[0m
+      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
+      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
+      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
+      [1mContainer[0m ([96mstr[0m) : [95mFlowSolution#Output[0m
+      [1mGridLocation[0m ([96mstr[0m) : [95mVertex[0m
+      [1mGhostCells[0m ([96mbool[0m) : [95mFalse[0m
+      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
+      [1mTimeAveraging[0m ([96mbool[0m) : [95mFalse[0m
+      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
+      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+if [1mType[0m ([96mstr[0m) == [95m"BC"[0m
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mType[0m ([96mstr[0m)
+      [1mSource[0m ([96mstr[0m)
+    Optional:
+      [1mFields[0m ([96mlist[0m) : [95m[][0m
+      [1mFile[0m ([96mstr[0m) : [95mextractions.cgns[0m
+      [1mName[0m ([96mstr[0m) : [95mByFamily[0m
+      [1mExtractionPeriod[0m ([96mint[0m) : [95m100[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
+      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
+      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
+      [1mGridLocation[0m ([96mstr[0m) : [95mCellCenter[0m
+      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
+      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
+      [1mTimeAveragingIterations[0m ([96mint[0m) : [95m1000[0m
+      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
+      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+if [1mType[0m ([96mstr[0m) == [95m"Integral"[0m
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mType[0m ([96mstr[0m)
+      [1mSource[0m ([96mstr[0m)
+      [1mFields[0m ([96mlist[0m)
+    Optional:
+      [1mFile[0m ([96mstr[0m) : [95msignals.cgns[0m
+      [1mName[0m ([96mstr[0m) : [95mByFamily[0m
+      [1mExtractionPeriod[0m ([96mint[0m) : [95m1[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
+      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
+      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
+      [1mFrame[0m ([96mstr[0m) : [95mabsolute[0m
+      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
+      [1mTimeAveragingIterations[0m ([96mint[0m) : [95m1000[0m
+      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
+      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+if [1mType[0m ([96mstr[0m) == [95m"Interpolation"[0m
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mType[0m ([96mstr[0m)
+      [1mSource[0m ([96mstr[0m, [96mTree[0m, [96mBase[0m, [96mZone[0m)
+    Optional:
+      [1mFields[0m ([96mlist[0m) : [95mNone[0m
+      [1mFile[0m ([96mstr[0m) : [95mextractions.cgns[0m
+      [1mName[0m ([96mstr[0m) : [95mNone[0m
+      [1mExtractionPeriod[0m ([96mint[0m) : [95m100[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
+      [1mInterpolationOrder[0m ([96mint[0m) : [95m0[0m
+      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
+      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mFalse[0m
+      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
+      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+if [1mType[0m ([96mstr[0m) == [95m"IsoSurface"[0m
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mType[0m ([96mstr[0m)
+      [1mIsoSurfaceField[0m ([96mstr[0m)
+      [1mIsoSurfaceValue[0m ([96mfloat[0m)
+      [1mIsoSurfaceContainer[0m ([96mstr[0m)
+    Optional:
+      [1mFields[0m ([96mlist[0m) : [95mNone[0m
+      [1mFile[0m ([96mstr[0m) : [95mextractions.cgns[0m
+      [1mName[0m ([96mstr[0m) : [95mNone[0m
+      [1mExtractionPeriod[0m ([96mint[0m) : [95m100[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
+      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
+      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
+      [1mGridLocation[0m ([96mstr[0m) : [95mVertex[0m
+      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
+      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
+      [1mTimeAveragingIterations[0m ([96mint[0m) : [95m1000[0m
+      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
+      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+if [1mType[0m ([96mstr[0m) == [95m"Probe"[0m
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mType[0m ([96mstr[0m)
+      [1mPosition[0m ([96mlist[0m, [96mtuple[0m, [96mndarray[0m)
+    Optional:
+      [1mFields[0m ([96mlist[0m) : [95mNone[0m
+      [1mFile[0m ([96mstr[0m) : [95msignals.cgns[0m
+      [1mName[0m ([96mstr[0m) : [95mNone[0m
+      [1mExtractionPeriod[0m ([96mint[0m) : [95m1[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
+      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
+      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
+      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
+      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
+      [1mTimeAveragingIterations[0m ([96mint[0m) : [95m1000[0m
+      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
+      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+if [1mType[0m ([96mstr[0m) == [95m"Residuals"[0m
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mType[0m ([96mstr[0m)
+    Optional:
+      [1mFile[0m ([96mstr[0m) : [95msignals.cgns[0m
+      [1mExtractionPeriod[0m ([96mint[0m) : [95m1[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
+      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
+      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+if [1mType[0m ([96mstr[0m) == [95m"Restart"[0m
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mType[0m ([96mstr[0m)
+    Optional:
+      [1mFields[0m ([96mlist[0m) : [95mNone[0m
+      [1mFile[0m ([96mstr[0m) : [95mmain.cgns[0m
+      [1mExtractionPeriod[0m ([96mint[0m) : [95m1000000000[0m
+      [1mSavePeriod[0m ([96mint[0m) : [95m1000000000[0m
+      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
+      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
+      [1mContainer[0m ([96mstr[0m) : [95mNone[0m
+      [1mGridLocation[0m ([96mstr[0m) : [95mCellCenter[0m
+      [1mGhostCells[0m ([96mbool[0m) : [95mFalse[0m
+    
+    
+Attribute [4m[1mConvergenceCriteria[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      [1muser_list[0m ([96mlist[0m)
+    
+    
+where each item is a [96mdict[0m with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      [1mExtractionName[0m ([96mstr[0m)
+      [1mVariable[0m ([96mstr[0m)
+      [1mThreshold[0m ([96mfloat[0m)
+    Optional:
+      [1mNecessary[0m ([96mbool[0m) : [95mFalse[0m
+      [1mSufficient[0m ([96mbool[0m) : [95mTrue[0m
+    
+    
+Attribute [4m[1mRunManagement[0m is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      [1mJobName[0m ([96mstr[0m) : [95mNone[0m
+      [1mRunDirectory[0m ([96mstr[0m, [96mPosixPath[0m) : [95m.[0m
+      [1mNumberOfProcessors[0m ([96mint[0m) : [95m1[0m
+      [1mNumberOfThreads[0m ([96mint[0m) : [95mNone[0m
+      [1mMachine[0m ([96mstr[0m) : [95mNone[0m
+      [1mUser[0m ([96mstr[0m) : [95mNone[0m
+      [1mTimeLimit[0m ([96mstr[0m, [96mfloat[0m) : [95mNone[0m
+      [1mQuitMarginBeforeTimeOutInSeconds[0m ([96mint[0m) : [95m300[0m
+      [1mLauncherCommand[0m ([96mstr[0m) : [95mauto[0m
+      [1mFilesAndDirectories[0m ([96mlist[0m) : [95m[][0m
+      [1mmola_target_path[0m ([96mstr[0m) : [95mNone[0m
+      [1mScheduler[0m ([96mstr[0m) : [95mNone[0m
+      [1mAER[0m ([96mstr[0m) : [95mNone[0m
+    
+    
+Attribute [4m[1mApplicationContext[0m is set using:
+Attribute [4m[1mSolverParameters[0m is set using:
+
