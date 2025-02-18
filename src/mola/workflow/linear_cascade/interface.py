@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import Union
+from treelab import cgns
 from .. import WorkflowInterface
 
 
@@ -37,19 +39,33 @@ class WorkflowLinearCascadeInterface(WorkflowInterface):
         **kwargs):
         local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
-        return super().add_to_RawMeshComponents(**local_kwargs)
+        super().add_to_RawMeshComponents(**local_kwargs)
 
     def set_Flow(self,
                 Generator : str = 'Internal',
                 **kwargs):
         local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
-        return super().set_Flow(**local_kwargs)
+        super().set_Flow(**local_kwargs)
 
     def set_SplittingAndDistribution(self, 
             Strategy                         : str = 'AtComputation',
             Splitter                         : str = 'PyPart',
             Distributor                      : str = 'PyPart',
             **kwargs):
-        return super().set_SplittingAndDistribution(**self.get_default_values_from_local_signature())
+        super().set_SplittingAndDistribution(**self.get_default_values_from_local_signature())
+    
+    def set_Initialization(self,
+            Method    : str  = 'uniform',
+            Source    : Union[     str,
+                                  cgns.Tree,
+                                  cgns.Base,
+                                  cgns.Zone ]  = None,
+            SourceContainer : str = None,
+            ComputeWallDistanceAtPreprocess : bool = False,
+            KeepWallDistance : bool = False,
+            ParametrizeWithHeight : bool = False, # parameter specific to that workflow
+            ):
+        self.Initialization = self._get_comp(
+            self.set_Initialization, self.get_default_values_from_local_signature())
         

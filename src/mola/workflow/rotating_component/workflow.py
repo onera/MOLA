@@ -70,7 +70,8 @@ class WorkflowRotatingComponent(Workflow):
         duplicate.duplicate_workflow_with_maia(self)
 
     def initialize_flow(self):
-        self.parametrize_with_height()
+        if self.Initialization['ParametrizeWithHeight']:
+            self.parametrize_with_height()
         super().initialize_flow()
 
     def set_default_parameters_for_rows(self):
