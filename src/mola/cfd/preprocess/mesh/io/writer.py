@@ -141,8 +141,14 @@ def write_with_pypart(w, tree, dst):
     Cmpi._convert2PartialTree(t)
     Cmpi.barrier()
     Cmpi.convertPyTree2File(t, dst)
-
     Cmpi.barrier()
+
+    # Remove PyPart 
+    if Cmpi.rank == 0:
+        for fn in glob.glob(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_*.hdf')):
+            try: os.remove(fn)
+            except: pass
+
 
 def _add_GridLocation_and_PointRange_in_BCDataSet(tree):
     # HACK add GridLocation and PointRange or PointList nodes in each BCDataSet

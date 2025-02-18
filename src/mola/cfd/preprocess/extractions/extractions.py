@@ -123,10 +123,11 @@ def update_extractions_from_convergence_criteria(workflow):
 
             if criterion['ExtractionName'] == Extraction['Source']:
                 extraction_ok = True
+                vector_name = None
                 if var.endswith('X') or var.endswith('Y') or var.endswith('Z'):
                     # var is a vector component
                     vector_name = var[:-1]
-                if var not in Extraction['Fields'] and vector_name not in Extraction['Fields']:
+                if var not in Extraction['Fields'] and (vector_name and vector_name not in Extraction['Fields']):
                     Extraction['Fields'].append(var)
                 if len(operation) > 0:
                     if not 'PostprocessOperations' in Extraction:
