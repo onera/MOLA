@@ -426,4 +426,8 @@ class WorkflowRotatingComponent(Workflow):
     #             node.Parent.findAndRemoveNode(Name=new_name, Depth=1)
     #             cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=node.Parent)
             
-
+    def plot_radial_profiles(self, *args, **kwargs):
+        from mpi4py import MPI
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            from mola.visu import plot_radial_profiles
+            plot_radial_profiles(*args, **kwargs)
