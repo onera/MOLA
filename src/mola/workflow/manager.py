@@ -20,6 +20,7 @@ from typing import List
 import copy
 from fnmatch import fnmatch
 from pathlib import Path
+import numpy as np
 
 from treelab import cgns
 from mola import __MOLA_PATH__
@@ -154,6 +155,8 @@ class WorkflowManager():
         SV.makedirs_remote(self.root_directory, machine=self.machine)
         for sequence_of_workflows in self.sequential_managers:
             sequence_of_workflows.prepare()
+        
+        self.write()
 
     def submit(self):
         for sequence_of_workflows in self.sequential_managers:
@@ -279,8 +282,10 @@ class WorkflowManager():
         """
         if not filename:
             filename = os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D)
+        if not isinstance(queries, list):
+            queries = [queries]
 
-        def _extract(signals, queries):
+        def _extract(signals: cgns.Tree, queries: list) -> dict:
             # This extraction function must be developped
             # The query should be a path, a part of a path, or parameters to check metadata of extractions in names.CGNS_NODE_EXTRACTION_LOG
             results = dict()
@@ -306,6 +311,33 @@ class WorkflowManager():
             os.chdir(user_dir)
         
         return all_data
+
+    @staticmethod
+    def rearange_signals(signals):
+        ordered_signals = dict()
+        for path, data in signals.items():
+            path = Path(path)
+            dir_multi = path.parent.name
+            dir_case = path.name
+
+            if dir_multi not in ordered_signals:
+                ordered_signals[dir_multi] = dict((key, [value]) for key, value in data.items())
+                ordered_signals[dir_multi]['case'] = [dir_case]
+            else:
+                for key, value in data.items():
+                    ordered_signals[dir_multi][key].append(value)
+                ordered_signals[dir_multi]['case'].append(dir_case)
+
+        for dir_multi, perfo_on_iso in ordered_signals.items():
+            for key, a_list in perfo_on_iso.items():
+                if key == 'case': 
+                    # case list is a list of str
+                    continue
+                ordered_signals[dir_multi][key] = np.array(a_list)
+
+        # TODO need to sort cases ? 
+
+        return ordered_signals
 
 
 class WorkflowDispatcher():
