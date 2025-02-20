@@ -39,6 +39,13 @@ def apply(workflow):
         interpolate = initialize_flow_from_file_by_interpolation,
         from_previous = initialize_flow_from_previous,
     )
+    
+    is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
+    is_part = bool(workflow.tree.get(':CGNS#GlobalNumbering'))
+    if is_dist or is_part:
+        # 'copy' method is not available because splitting will be different
+        initialization_functions['copy'] = initialization_functions['interpolate']
+
     initialize_flow_with_given_method = initialization_functions[workflow.Initialization['Method']]
 
     initialize_flow_with_given_method(workflow, FlowSolution_name)
@@ -93,6 +100,7 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     if isinstance(workflow.Initialization['Source'], str):
         mola_logger.info(f"Initialize FlowSolution by interpolation from {workflow.Initialization['Source']}", rank=0)
         tree_source = maia.io.file_to_dist_tree(workflow.Initialization['Source'], MPI.COMM_WORLD)
+        tree_source = cgns.castNode(tree_source)
     else:
         mola_logger.info(f"Initialize FlowSolution by interpolation from the given tree", rank=0)
         tree_source = workflow.Initialization['Source']
@@ -129,10 +137,11 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
+    # FIXME Won't work if workflow.tree is a dist_tree or a part_tree (because zone names are modified)
     if isinstance(workflow.Initialization['Source'], str):
         mola_logger.info(f"Initialize FlowSolution by copy of {workflow.Initialization['Source']}", rank=0)
+        errtag = workflow.Initialization['Source']
         tree_source = cgns.load(workflow.Initialization['Source'])
-        errtag = 'tree_source'
     else:
         mola_logger.info(f"Initialize FlowSolution by copy of the given tree", rank=0)
         tree_source = workflow.Initialization['Source']
