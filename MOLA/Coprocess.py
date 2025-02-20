@@ -1563,7 +1563,6 @@ def _scatterArraysFromRootToLocal(arrays):
                         previous_iteration = int(RegisteredIterations[-1] + eps)
                         if np.max(IterationNumber) > previous_iteration:
                             UpdatePortion = IterationNumber > previous_iteration
-                            printCo(f' {lk=}, {IterationNumber=} ,{RegisteredIterations=}, {RegisteredIterations[-1]=}, {np.where(UpdatePortion)=}')
                             FirstIndex2Update = np.where(UpdatePortion)[0][0]
                         elif np.max(IterationNumber) == previous_iteration:
                             FirstIndex2Update = 0
