@@ -217,6 +217,8 @@ class CoprocessManager():
         self.update_extractions_to_perform()
         self.apply_operations()
 
+        self.after_compute()
+
         self.status = 'COMPLETED'
         move_log_files()
         try:
@@ -227,6 +229,18 @@ class CoprocessManager():
         check_stderr()
         if not SV.is_file(names.FILE_NEWJOB_REQUIRED):
             write_tagfile(names.FILE_JOB_COMPLETED, self)
+
+    def after_compute(self):
+        if hasattr(self.workflow, 'after_compute'):
+            self.mola_logger.info('try to postprocess...', rank=0)
+            try:
+                self.workflow.after_compute()
+                self.mola_logger.info(f'  {CYAN}> postprocess done.{ENDC}', rank=0)
+            except Exception as err:
+                if rank == 0:
+                    with open('stderr-post.log', 'w') as f:
+                        f.write(str(err)+'\n')
+                self.mola_logger.warning(f'  > postprocess failed. See stderr-post.log', rank=0)
 
     def _update_workflow_parameters_for_restart_if_needed(self):
         found_restart_tree = False
