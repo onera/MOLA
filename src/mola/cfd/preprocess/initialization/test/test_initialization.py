@@ -58,7 +58,8 @@ def test_initialization_copy_not_existing_file():
     
     try:
         initialization.apply(workflow)
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
+        # ValueError for maia.io.file_to_dist_tree if file does not exist
         return
     else:
         raise AssertionError('Should raise an exception when the source file for initialization does not exist.')
