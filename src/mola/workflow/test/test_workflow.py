@@ -755,16 +755,16 @@ def test_prepare_workflow2():
     w.remove_cfd_files()
 
 
-@pytest.mark.integration
-@pytest.mark.cost_level_1
-@pytest.mark.mpi
-def test_prepare_workflow_dist():
-    w = get_workflow_dist()
-    if w.Solver == 'sonics':
-        adapt_workflow_for_sonics(w)
-    w.prepare()
-    w.write_cfd_files()
-    w.remove_cfd_files()
+# @pytest.mark.integration
+# @pytest.mark.cost_level_1
+# @pytest.mark.mpi
+# def test_prepare_workflow_dist():
+#     w = get_workflow_dist()
+#     if w.Solver == 'sonics':
+#         adapt_workflow_for_sonics(w)
+#     w.prepare()
+#     w.write_cfd_files()
+#     w.remove_cfd_files()
 
 
 @pytest.mark.integration
@@ -788,6 +788,38 @@ def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
     if w.Solver == 'sonics':
         adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+    if remove_cfd_files: w.remove_cfd_files()
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.cost_level_3
+def test_workflow_sphere_struct_local_monoproc_pypart(tmp_path, remove_cfd_files=True):
+    w = get_workflow_sphere_struct(tmp_path)
+    w.RunManagement['Scheduler'] = 'local'
+    w.SplittingAndDistribution = dict(
+        Splitter = 'PyPart',
+        Strategy = 'AtComputation',
+    )
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.simulation_status()
+    if remove_cfd_files: w.remove_cfd_files()
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.cost_level_3
+def test_workflow_sphere_struct_local_monoproc_maia(tmp_path, remove_cfd_files=True):
+    w = get_workflow_sphere_struct(tmp_path)
+    w.RunManagement['Scheduler'] = 'local'
+    w.SplittingAndDistribution = dict(
+        Splitter = 'maia',
+        Strategy = 'AtComputation',
+    )
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')

@@ -20,8 +20,7 @@ Creation by recycling PostprocessTurbo.py of v1.18.1
 '''
 
 from treelab import cgns
-import mola.naming_conventions as names
-from mola.logging import mola_logger, redirect_streams_to_logger
+from mola.naming_conventions import CGNS_NODE_EXTRACTION_LOG
 
 # Cassiopee packages
 import Converter.PyTree   as C
@@ -37,8 +36,8 @@ import turbo.perfos   as TP
 import turbo.radial   as TR
 import turbo.machis   as TMis
 
-import maia.pytree as PT
-
+RADIAL_PROFILES_BASE = 'RadialProfiles'
+AVERAGES_0D_BASE = 'Averages0D'
 
 class RefState():
 
@@ -51,7 +50,7 @@ class RefState():
         self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
         self.Lref  = 1.
 
-def postprocess_turbomachinery(w, surfaces, stages=[], 
+def postprocess_turbomachinery(w, surfaces, signals, stages=[], 
                                 var4comp_repart=None, var4comp_perf=None, var2keep=None, 
                                 computeRadialProfiles=True, 
                                 heightListForIsentropicMach='all',
@@ -140,8 +139,9 @@ def postprocess_turbomachinery(w, surfaces, stages=[],
                 instantaneous and averaged flow fields
         
     '''
+    # NOTE BE CAREFUL!!! This function needs to be run on all ranks, 
+    # and MPI handling is done internally
 
-    # with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG', stderr_level='ERROR'):
     # prepare auxiliary surfaces tree, with flattened FlowSolution container
     # located at Vertex including ChannelHeight
     previous_vertex_container = I.__FlowSolutionNodes__
@@ -201,7 +201,7 @@ def postprocess_turbomachinery(w, surfaces, stages=[],
 
         variablesByAverage = sortVariablesByAverage(allVariables)
 
-        #______________________________________________________________________________#
+        # COMPUTE ON A SINGLE SURFACE _______________________________________________________________#
         computeVariablesOnIsosurface(w, surfaces, allVariables, config=config, lin_axis=lin_axis)
         compute0DPerformances(w, surfaces, variablesByAverage)
         if computeRadialProfiles: 
@@ -210,8 +210,9 @@ def postprocess_turbomachinery(w, surfaces, stages=[],
         # if config == 'annular' and heightListForIsentropicMach:
         #     # TODO compute Machis also for linear cascade. Is this available in turbo ? 
         #     computeVariablesOnBladeProfiles(w, surfaces, height_list=heightListForIsentropicMach)
-        #______________________________________________________________________________#
-
+        
+        # COMPUTE BY COMPARING TWO SURFACES _________________________________________________________#
+        move_0D_and_1D_data_to_rank_0(surfaces)
         if Cmpi.rank == 0:
             comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages)
             if computeRadialProfiles: 
@@ -219,6 +220,7 @@ def postprocess_turbomachinery(w, surfaces, stages=[],
                     compareRadialProfilesPlane2Plane(
                         w, surfaces, var4comp_repart, stages, config=RowType)
 
+        #____________________________________________________________________________________________#
         cleanSurfaces(w, surfaces, var2keep=var2keep)
 
         suffix = container_at_vertex.replace('FlowSolution','')
@@ -240,17 +242,41 @@ def postprocess_turbomachinery(w, surfaces, stages=[],
         I.__FlowSolutionNodes__ = previous_vertex_container
 
     surfaces = cgns.castNode(surfaces)
-    return surfaces
+
+    if Cmpi.rank == 0:
+        move_scalar_outputs_to_signals(surfaces, signals)
+
+    return surfaces, signals
+
+def move_scalar_outputs_to_signals(surfaces: cgns.Tree, signals: cgns.Tree) -> None:
+    # TODO Add IterationNumber in signals, and update bases to concatenate data for each iteration
+    base = surfaces.get(Name=AVERAGES_0D_BASE, Type='CGNSBase', Depth=1)
+    if base:
+        base.dettach()
+        base.attachTo(signals)
+
+def move_0D_and_1D_data_to_rank_0(surfaces):
+    Cmpi.barrier()
+    for base_name in [RADIAL_PROFILES_BASE, AVERAGES_0D_BASE]:
+        base = I.getNodeFromName1(surfaces, base_name)
+        bases = Cmpi.gather(base, root=0)
+        if Cmpi.rank == 0:
+            base_gathered = I.merge(bases)
+            I._rmNode(surfaces, base)
+            I._addChild(surfaces, base_gathered)
+        else:
+            I._rmNode(surfaces, base)
+    Cmpi.barrier()
 
 def getExtractionInfo(surface):
     '''
-    Get information into ``.ExtractionInfo`` of **surface**.
+    Get information into :mola_name:`CGNS_NODE_EXTRACTION_LOG` of **surface**.
 
     Parameters
     ----------
 
         surface : PyTree
-            Base corresponding to a surface, with a ``.ExtractionInfo`` node
+            Base corresponding to a surface, with a :mola_name:`CGNS_NODE_EXTRACTION_LOG` node
 
     Returns
     -------
@@ -263,13 +289,13 @@ def getExtractionInfo(surface):
     '''
     surface = cgns.castNode(surface)
     try:
-        return surface.getParameters(names.CGNS_NODE_EXTRACTION_LOG)
+        return surface.getParameters(CGNS_NODE_EXTRACTION_LOG)
     except ValueError:
         return dict()
 
 def getSurfacesFromInfo(surfaces, breakAtFirst=False, **kwargs):
     '''
-    Inside a top tree **surfaces**, search for the nodes with a ``.ExtractionInfo``
+    Inside a top tree **surfaces**, search for the nodes with a :mola_name:`CGNS_NODE_EXTRACTION_LOG`
     matching the requirements in **kwargs**
 
     Parameters
@@ -279,7 +305,7 @@ def getSurfacesFromInfo(surfaces, breakAtFirst=False, **kwargs):
             top tree or base
 
         kwargs : unwrapped :py:class:`dict`
-            parameters required in the ``.ExtractionInfo`` node of the searched
+            parameters required in the :mola_name:`CGNS_NODE_EXTRACTION_LOG` node of the searched
             zone
 
     Returns
@@ -317,7 +343,7 @@ def getSurfacesFromInfo(surfaces, breakAtFirst=False, **kwargs):
 
 def getSurfaceFromInfo(surfaces, **kwargs):
     '''
-    Inside a top tree **surfaces**, search for the node with a ``.ExtractionInfo``
+    Inside a top tree **surfaces**, search for the node with a :mola_name:`CGNS_NODE_EXTRACTION_LOG`
     matching the requirements in **kwargs**
 
     Parameters
@@ -327,7 +353,7 @@ def getSurfaceFromInfo(surfaces, **kwargs):
             top tree or base
 
         kwargs : unwrapped :py:class:`dict`
-            parameters required in the ``.ExtractionInfo`` node of the searched
+            parameters required in the :mola_name:`CGNS_NODE_EXTRACTION_LOG` node of the searched
             zone
 
     Returns
@@ -438,12 +464,18 @@ def cleanSurfaces(w, surfaces, var2keep=[]):
         'Pressure', 'StagnationPressureRelDim', 'RefStagnationPressureRelDim',
         'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ'
         ]
+    var2keepOnRadialProfiles = conservatives + var2keep + ['ChannelHeight', 'Radius']
+    var2keepOnRadialProfiles += [f'centers:{var}' for var in var2keepOnRadialProfiles]
 
     surfacesIso = getSurfacesFromInfo(surfaces, Type='IsoSurface')
     for surface in surfacesIso:
         for zone in I.getZones(surface):
             I._rmNodesByName1(zone, I.__FlowSolutionCenters__)
             C._extractVars(zone, coordinates+conservatives+var2keep)
+
+    radProfiles = I.getNodeFromName1(surfaces, RADIAL_PROFILES_BASE)  
+    if radProfiles:
+        C._extractVars(radProfiles, coordinates+var2keepOnRadialProfiles)
 
     surfacesBC = getSurfacesFromInfo(surfaces, Type='BC', BCType='BCWallViscous')
     for surface in surfacesBC:
@@ -505,6 +537,10 @@ def compute0DPerformances(w, surfaces, variablesByAverage):
             Lists of variables sorted by type of average (as produced by :py:func:`sortVariablesByAverage`)
 
     '''
+    Averages = I.getNodeFromName1(surfaces, AVERAGES_0D_BASE)
+    if not Averages: 
+        Averages = I.newCGNSBase(AVERAGES_0D_BASE, cellDim=0, physDim=3, parent=surfaces)
+
     surfacesToProcess = getSurfacesFromInfo(surfaces, Type='IsoSurface', IsoSurfaceField='CoordinateX')
     # Add eventual non axial InletPlanes or OutletPlanes for centrifugal configurations
     InletPlanes = getSurfacesFromInfo(surfaces, Type='IsoSurface', tag='InletPlane')
@@ -526,6 +562,31 @@ def compute0DPerformances(w, surfaces, variablesByAverage):
         elif len(RowFamilies) > 1:
             raise Exception(f'There are more than 1 zone family in {I.getName(surface)}')
         ReferenceRow = RowFamilies[0]
+
+        ## NOTE Commented below, a new way to get ReferenceRow from zones and not from Family_t nodes
+        ## with MPI, but still not working. 
+        # ReferenceRow = None
+        # for zone in I.getZones(surface):
+        #     try:
+        #         FamilyName = I.getValue(I.getNodeFromType1(zone, 'FamilyName_t'))
+        #         if ReferenceRow is None:
+        #             ReferenceRow = FamilyName
+        #         else:
+        #             assert FamilyName == ReferenceRow, f'There are at least 2 zone families in {I.getName(surface)}: {ReferenceRow} and {FamilyName}'
+        #     except TypeError:
+        #         continue
+
+        # # Some ranks may not have zones, and for them ReferenceRow=None
+        # ReferenceRows_gathered = set(Cmpi.allgather(ReferenceRow))
+        # ReferenceRows_gathered.discard(None)  # remove None element if present
+        # if len(ReferenceRows_gathered) == 0:
+        #     raise Exception(f'There is no zone family detected in {I.getName(surface)}')
+        # # check that all remaining values are the same
+        # elif len(ReferenceRows_gathered) > 1:
+        #     raise Exception(f'There are several zone families in {I.getName(surface)}: {ReferenceRows_gathered}')
+        # ReferenceRow = list(ReferenceRows_gathered)[0]
+        # Cmpi.barrier()
+
         try:
             nBlades = w.ApplicationContext['Rows'][ReferenceRow]['NumberOfBlades']
             nBladesSimu = w.ApplicationContext['Rows'][ReferenceRow]['NumberOfBladesSimulated']
@@ -534,9 +595,6 @@ def compute0DPerformances(w, surfaces, variablesByAverage):
             # Linear cascade with a periodicity by translation
             fluxcoeff = 1.
         return fluxcoeff
-
-    AveragesName = 'Averages0D'+I.__FlowSolutionNodes__.replace('FlowSolution','')
-    Averages = I.newCGNSBase(AveragesName, cellDim=0, physDim=3, parent=surfaces)
 
     for surface in surfacesToProcess:
         surfaceName = I.getName(surface)
@@ -559,7 +617,7 @@ def compute0DPerformances(w, surfaces, variablesByAverage):
                            **info
                            }
         perfos = cgns.castNode(perfos)
-        perfos.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)                   
+        perfos.setParameters(CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)                   
         I.addChild(Averages, perfos)
 
 
@@ -584,8 +642,7 @@ def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[]):
             For each tuple of rows, the inlet plane of row 1 is compared with the outlet plane of row 2.
 
     '''
-    avg_name = 'Averages0D'+I.__FlowSolutionNodes__.replace('FlowSolution','')
-    Averages0D = I.getNodeFromName1(surfaces, avg_name)
+    Averages0D = I.getNodeFromName1(surfaces, AVERAGES_0D_BASE)
 
     for row in w.ApplicationContext['Rows']:
         if (row, row) not in stages:
@@ -609,7 +666,7 @@ def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[]):
         I.addChild(OutletPlane, fsBudget)
 
 
-def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY'):
+def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY', NumberOfRadialPoints=121, tipRadius=None):
     '''
     Compute radial profiles for all iso-X surfaces
 
@@ -623,54 +680,75 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
             Lists of variables sorted by type of average (as produced by :py:func:`sortVariablesByAverage`)
 
         config : str
-            ‘annular’ or ‘linear’ configuration
+            ‘annular’ or ‘linear’ or 'oras' configuration
 
         lin_axis : str
             For ‘linear’ configuration, streamwise and spanwise directions. 
             ‘XZ’ means: streamwise = X-axis, spanwise = Z-axis
+        
+        NumberOfRadialPoints : int
+            Number of radial crowns used to compute radial profile
+        
+        tipRadius: :py:class:`dict`
+            Dictionary providing the value of the blade tip radius (in meters)
+            for each row of the considered Open-fan.
+            
+            .. note::
+                Only relevant when using WorkflowORAS.
+
+            .. hint:: for example 
+                
+                >>>  tipRadius = dict(Rotor = 2.1, Stator = 1.9)
 
     '''
-    RadialProfiles = I.getNodeFromName1(surfaces,'RadialProfiles')
+    RadialProfiles = I.getNodeFromName1(surfaces, RADIAL_PROFILES_BASE)
     if not RadialProfiles:
-        RadialProfiles = I.newCGNSBase('RadialProfiles', cellDim=1, physDim=3,
-                                        parent=surfaces)
+        RadialProfiles = I.newCGNSBase(RADIAL_PROFILES_BASE, cellDim=1, physDim=3, parent=surfaces)
     surfacesIsoX = getSurfacesFromInfo(surfaces, Type='IsoSurface', IsoSurfaceField='CoordinateX')
 
     for surface in surfacesIsoX:
         surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
 
+        if config == 'oras':
+            radial_extend = 1.5
+            radial_point = 31  #int(NumberOfRadialPoints*(1-1/radial_extend))
+            if tipRadius == None:
+                radial_dist = TR.defineRadialDistribution4USF(NumberOfRadialPoints, slice4auto=tmp_surface, tip_radius='auto', radial_extend=radial_extend, radial_point=radial_point)
+            else:
+                row = I.getValue(I.getNodeFromName(surface,'FamilyName'))
+                radial_dist = TR.defineRadialDistribution4USF(NumberOfRadialPoints, slice4auto=tmp_surface, tip_radius= tipRadius[row], radial_extend=radial_extend, radial_point=radial_point)
+            radial_dist_arr = I.getValue(I.getNodeFromName(radial_dist, 'Radius'))
+            # Change config value to pass it to turbo functions
+            config = 'axial'
+        else:
+            radial_dist_arr = None
+
         filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
         radial_surf, radius_dist = TR.computeRadialProfile(
             tmp_surface, surfaceName, filtered_variables, 'surface',
-            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, save_radius='return')
-        
+            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, 
+            save_radius='return', load_radius=radial_dist_arr)
+
         filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
         radial_massflow = TR.computeRadialProfile(
             tmp_surface, surfaceName, filtered_variables, 'massflow',
-            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, load_radius=radius_dist)
+            fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, 
+            load_radius=radius_dist)
         
         t_radial = I.merge([radial_surf, radial_massflow])
         z_radial = I.getNodeFromType2(t_radial, 'Zone_t')
         previous_z_radial = I.getNodeFromName1(RadialProfiles, surfaceName)
+        if previous_z_radial:
+            I._rmNode(RadialProfiles, previous_z_radial)
 
-        if not previous_z_radial:
-            PostprocessInfo = {'averageType': variablesByAverage, 
-                                'surfaceName': surfaceName,
-                                **getExtractionInfo(surface)
-                                }
-            z_radial = cgns.castNode(z_radial)
-            z_radial.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)   
-            I.addChild(RadialProfiles, z_radial)
-        else:
-            flowSolsToAdd = I.getNodesFromType1(z_radial, 'FlowSolution_t')
-            flowSolsToAddNames = [n[0] for n in flowSolsToAdd]
-            flowSolsPrev = I.getNodesFromType1(previous_z_radial, 'FlowSolution_t')
-            flowSolsPrevNames = [n[0] for n in flowSolsPrev]
-            for fs, fsn in zip(flowSolsToAdd, flowSolsToAddNames):
-                if fsn not in flowSolsPrevNames:
-                    previous_z_radial[2] += [fs]
-                
+        PostprocessInfo = {'averageType': variablesByAverage, 
+                            'surfaceName': surfaceName,
+                            **getExtractionInfo(surface)
+                            }
+        z_radial = cgns.castNode(z_radial)
+        z_radial.setParameters(CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)   
+        I.addChild(RadialProfiles, z_radial)
 
 
 def compareRadialProfilesPlane2Plane(w, surfaces, var4comp_repart, stages=[], config='compressor'):
@@ -696,7 +774,7 @@ def compareRadialProfilesPlane2Plane(w, surfaces, var4comp_repart, stages=[], co
         config : str
             Must be ‘compressor’ or ‘turbine’. Useful to compute efficency.
     '''
-    RadialProfiles = I.getNodeFromName1(surfaces, 'RadialProfiles')
+    RadialProfiles = I.getNodeFromName1(surfaces, RADIAL_PROFILES_BASE)
 
     for row in w.ApplicationContext['Rows']:
         if (row, row) not in stages:
@@ -754,11 +832,11 @@ def computeVariablesOnBladeProfiles(w, surfaces, height_list='all', kind='rotor'
         height_list = []
         surfacesIsoH = getSurfacesFromInfo(surfaces, Type='IsoSurface', IsoSurfaceField='ChannelHeight')
         for surface in surfacesIsoH:
-            ExtractionInfo = I.getNodeFromName(surface, '.ExtractionInfo')
+            ExtractionInfo = I.getNodeFromName(surface, CGNS_NODE_EXTRACTION_LOG)
             valueH = I.getValue(I.getNodeFromName(ExtractionInfo, 'value'))
             height_list.append(valueH)
         
-    RadialProfiles = I.getNodeByName1(surfaces, 'RadialProfiles')
+    RadialProfiles = I.getNodeByName1(surfaces, RADIAL_PROFILES_BASE)
 
     for row in w.ApplicationContext['Rows']:
 

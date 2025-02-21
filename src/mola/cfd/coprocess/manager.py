@@ -33,7 +33,7 @@ from mola.cfd.preprocess.mesh.io.writer import write
 
 from . import rank, comm
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
-from .user_interface import get_user_signal, write_tagfile
+from .user_interface import check_and_execute_user_signal, write_tagfile
 
 
 AVAILABLE_SIMULATION_STATUS = [
@@ -44,20 +44,6 @@ AVAILABLE_SIMULATION_STATUS = [
     'TO_FINALIZE',
     'COMPLETED', 
 ]
-
-# Control Flags for interactive control using command 'touch <flag>'
-AVAILABLE_SIGNALS = [
-    'CONVERGED',
-    'SAVE_ALL',
-    'COMPUTE_BODYFORCE',
-    'SAVE_BODYFORCE',
-    'SAVE_RESTART',
-    'SAVE_FIELDS',
-    'SAVE_EXTRACTIONS'
-    'SAVE_SIGNALS',
-    'QUIT',
-]
-
 
 
 class CoprocessManager():
@@ -95,6 +81,7 @@ class CoprocessManager():
         if not has_reached_max_iteration:
             has_reached_timeout = check_timeout(self)
             if not has_reached_timeout:
+                check_and_execute_user_signal(self)
                 self.apply_operations()
                 check_convergence_criteria(self)
 
@@ -119,7 +106,15 @@ class CoprocessManager():
 
     
     def update_extractions_to_perform(self):
-        for extraction in self.Extractions:
+        # FIXME Fast starts at iteration 0, so all extractions are extracted and saved
+        # at iteration 0 (because of modulo). 
+        # Change iteration number in MOLA (n in MOLA <--> n-1 in Fast) ?
+        # But residuals have iterations coming directly from Fast...
+        # if self.iteration == 0:
+        #     # exception for Fast, because the is an iteration 0
+        #     return
+        
+        for extraction in self.Extractions:                
             if self.iteration % extraction['ExtractionPeriod'] == 0:
                 extraction['IsToExtract'] = True
             if self.iteration % extraction['SavePeriod'] == 0:
@@ -130,9 +125,7 @@ class CoprocessManager():
             self.mola_logger.debug(f'Performing extractions..', rank=0)
             self.perform_extractions()
             self.postprocess_extractions()
-
-            if any([extraction['Type'] == 'Restart' and extraction['IsToExtract']  for extraction in self.Extractions]):
-                self._update_workflow_parameters_for_restart()
+            self._update_workflow_parameters_for_restart_if_needed()
             
         comm.barrier()
 
@@ -224,6 +217,8 @@ class CoprocessManager():
         self.update_extractions_to_perform()
         self.apply_operations()
 
+        self.after_compute()
+
         self.status = 'COMPLETED'
         move_log_files()
         try:
@@ -235,14 +230,36 @@ class CoprocessManager():
         if not SV.is_file(names.FILE_NEWJOB_REQUIRED):
             write_tagfile(names.FILE_JOB_COMPLETED, self)
 
-    def _update_workflow_parameters_for_restart(self):
+    def after_compute(self):
+        if hasattr(self.workflow, 'after_compute'):
+            self.mola_logger.info('try to postprocess...', rank=0)
+            try:
+                self.workflow.after_compute()
+                self.mola_logger.info(f'  {CYAN}> postprocess done.{ENDC}', rank=0)
+            except Exception as err:
+                if rank == 0:
+                    with open('stderr-post.log', 'w') as f:
+                        f.write(str(err)+'\n')
+                self.mola_logger.warning(f'  > postprocess failed. See stderr-post.log', rank=0)
+
+    def _update_workflow_parameters_for_restart_if_needed(self):
+        found_restart_tree = False
+        for extraction in self.Extractions:
+            if extraction['Type'] == 'Restart' and extraction['IsToExtract']:
+                # restart tree is in extraction['Data']
+                assert 'Data' in extraction and extraction['Data'] is not None
+                found_restart_tree = True
+                break
+        if not found_restart_tree: 
+            return
+
         self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
-        self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1
+        self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1 
         if 'TimeStep' in self.workflow.Numerics:
             self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
 
         # Update only Numerics node in tree
-        WorkflowParameters = self.workflow.tree.get(Name=self.workflow._workflow_parameters_container_, Depth=1)
+        WorkflowParameters = extraction['Data'].get(Name=self.workflow._workflow_parameters_container_, Depth=1)
         if WorkflowParameters:
             WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
 

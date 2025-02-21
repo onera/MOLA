@@ -18,6 +18,8 @@
 import numpy as np
 from typing import Union
 
+from treelab import cgns
+
 from mola.logging import mola_logger, MolaException, MolaUserError
 from .. import WorkflowInterface
 
@@ -104,3 +106,17 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
                 )
             )
         self.ApplicationContext['Rows'][_Key].pop('_Key')
+
+    def set_Initialization(self,
+            Method    : str  = 'uniform',
+            Source    : Union[     str,
+                                  cgns.Tree,
+                                  cgns.Base,
+                                  cgns.Zone ]  = None,
+            SourceContainer : str = None,
+            ComputeWallDistanceAtPreprocess : bool = False,
+            KeepWallDistance : bool = False,
+            ParametrizeWithHeight : bool = False, # parameter specific to that workflow
+            ):
+        self.Initialization = self._get_comp(
+            self.set_Initialization, self.get_default_values_from_local_signature())

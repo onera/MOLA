@@ -68,19 +68,21 @@ def set_default_machine(RunManagement):
 
 def get_scheduler_and_options(RunManagement):
 
+    default_scheduler = 'local'  # None
+
     # Get default options from the machine scheduler_defaults.py
     scheduler_defaults = SV.get_scheduler_defaults(RunManagement['Machine'],
                             mola_target_path=RunManagement['mola_target_path'])
     
     if scheduler_defaults is None:
-        scheduler = None
+        scheduler = default_scheduler
         scheduler_options = dict()
     
     else:
         try:
             scheduler = scheduler_defaults.JOB_SCHEDULER
         except AttributeError:
-            scheduler = None
+            scheduler = default_scheduler
             
         try:
             scheduler_options = scheduler_defaults.JOB_SCHEDULER_OPTIONS

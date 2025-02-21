@@ -113,6 +113,8 @@ def get_laminar_tree():
 
 def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans',
         create_convergence_nodes=False):
+    import FastS.PyTree as FastS
+    import Converter.Internal as I
 
     if type_of_tree == 'rans':
         t = get_rans_tree()
@@ -157,26 +159,19 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans',
             self._coprocess_manager = CoprocessManager(self)
 
     workflow = FakeWorkflow()
+    I._addGhostCells(t,t,2,adaptBCs=1,fillCorner=0)
     t = cgns.castNode(t)
     for FlowEq in t.group(Type='FlowEquationSet_t'):
         cgns.Node(Name='EquationDimension',
                   Type='EquationDimension_t',
                   Value=3, Parent=FlowEq)
 
-
-    import FastS.PyTree as FastS
     t, tc, metrics = FastS.warmup(t, None)
 
     workflow._fast_metrics = metrics
     workflow.tree = cgns.castNode(t)
     if create_convergence_nodes:
-        from mola.cfd.preprocess.extractions.solver_fast import _createConvergenceHistory
-        _createConvergenceHistory(workflow.tree, workflow.Numerics['IterationAtInitialState'],
-                                     workflow.Numerics['NumberOfIterations']+1)
-
-        # from mola.cfd.preprocess.extractions.solver_fast import _createConvergenceHistoryCass
-        # _createConvergenceHistoryCass(workflow.tree, workflow.Numerics['NumberOfIterations']+1)
-
+        FastS._createConvergenceHistory(workflow.tree, workflow.Numerics['NumberOfIterations']+1)
 
         workflow.tree = cgns.castNode(workflow.tree)
 
@@ -286,7 +281,7 @@ def test_extract_isosurface(tmp_path):
         dict(Fields=['Density','VelocityX'],
              IsoSurfaceField='CoordinateX',
              Name='MySlice',
-             IsoSurfaceContainer='FlowSolution#CentersV',
+             IsoSurfaceContainer='auto',
              IsoSurfaceValue=0.1,
              Type='IsoSurface')]
     workflow.Extractions = workflow._coprocess_manager.Extractions
@@ -297,7 +292,7 @@ def test_extract_isosurface(tmp_path):
         tRef = solver_fast.extract_isosurface(output_tree, extraction)
         
         computed_fields = solver_fast.get_field_names(tRef,
-                                    container=extraction['IsoSurfaceContainer'])
+                                    container='FlowSolution#CentersV')
         for expected_field_name in extraction['Fields']:
             if expected_field_name == 'Vorticity':
                 for c in 'XYZ':
@@ -364,7 +359,7 @@ def test_extract_bc(tmp_path):
 @pytest.mark.parametrize("modeling", ['euler', 'rans'])
 def test_extract_residuals(tmp_path,modeling):
 
-    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, modeling, True)
+    workflow = get_fake_workflow_with_coprocess_manager(tmp_path, modeling, create_convergence_nodes=True)
     workflow._coprocess_manager.Extractions = [dict(Type='Residuals')]
     workflow.Extractions = workflow._coprocess_manager.Extractions
 

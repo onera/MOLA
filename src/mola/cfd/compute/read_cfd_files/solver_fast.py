@@ -19,6 +19,8 @@ from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import MolaAssertionError
 from mola.cfd.preprocess.extractions.solver_fast import add_convergence_history
+from mola.cfd.preprocess.motion.solver_fast import is_any_family_mobile
+from mola.cfd.compute.solver_fast import get_theta_and_omega
 
 def apply_to_solver(workflow):
 
@@ -28,17 +30,15 @@ def apply_to_solver(workflow):
 
     inititer, niter = get_range_of_iterations(workflow)
 
-    t, tc, ts, graph = Fast.load(names.FILE_INPUT_SOLVER, 'tc.cgns',
-                                 restart=True if inititer>1 else False)
+    t, tc, ts, graph = Fast.load(names.FILE_INPUT_SOLVER, 'tc.cgns')
 
     set_numerics(workflow, t)
 
     add_convergence_history(t, niter)
 
-    t, tc, metrics = FastS.warmup(t, tc, graph)
-
-    t = cgns.castNode(t)
-    tc = cgns.castNode(tc)
+    # The warmup function optimizes data storage in memory. 
+    # Zones may be moved. After warmup, all operations on the trees must be in-place
+    t, tc, metrics = FastS.warmup(t, tc, graph, infos_ale=get_infos_ale(workflow))
 
     workflow.tree = t
     workflow._treeAtCenters = tc 
@@ -49,6 +49,37 @@ def apply_to_solver(workflow):
 def set_numerics(workflow, t):
 
     import Fast.PyTree as Fast
+    import Converter.PyTree as C
+    import Converter.Internal as I
 
-    Fast._setNum2Base( t, workflow.SolverParameters['Num2Base'])
-    Fast._setNum2Zones(t, workflow.SolverParameters['Num2Zones'])
+    global_parameters_on_bases, local_parameters_on_bases = _split_global_and_local_parameters(workflow.SolverParameters['Num2Base'])
+    Fast._setNum2Base(t, global_parameters_on_bases)
+    for base_name, base_parameters in local_parameters_on_bases.items():
+        base = I.getNodeFromNameAndType(t, base_name, 'CGNSBase')
+        Fast._setNum2Base(base, base_parameters)
+
+    global_parameters_on_zones, local_parameters_on_zones = _split_global_and_local_parameters(workflow.SolverParameters['Num2Zones'])
+    Fast._setNum2Zones(t, global_parameters_on_zones)
+    for family_name, zone_parameters in local_parameters_on_zones.items():
+        for zone in C.getFamilyZones(t, family_name):
+            Fast._setNum2Zones(zone, zone_parameters)
+
+def _split_global_and_local_parameters(parameters: dict, prefix_local: str = 'Local@') -> tuple:
+        global_parameters = dict()
+        local_parameters = dict()
+        for key, value in parameters.items():
+            if key.startswith(prefix_local):
+                base_name = key[len(prefix_local):]
+                local_parameters[base_name] = value  # value is a dict
+            else:
+                global_parameters[key] = value
+        return global_parameters, local_parameters
+
+def get_infos_ale(workflow):
+    infos_ale = None
+
+    if is_any_family_mobile(workflow):
+        theta, omega = get_theta_and_omega(workflow, workflow.Numerics['IterationAtInitialState'])
+        infos_ale = [theta, omega]
+
+    return infos_ale

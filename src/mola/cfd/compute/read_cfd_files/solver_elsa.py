@@ -141,6 +141,7 @@ def read_workflow_with_maia(workflow):
         if not SolverParam:
             zone.setParameters('.Solver#Param', proc=rank)
         else:
+            SolverParam.findAndRemoveNode(Name='proc', Depth=1)
             cgns.Node(Name='proc', Value=rank, Type='DataArray', Parent=SolverParam)
 
     maia4elsA.add_renumbering_data(part_tree)

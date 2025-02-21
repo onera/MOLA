@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import Union
 import numpy as np
 from mola.logging import mola_logger, MolaAssertionError
 from mola.cfd.preprocess.mesh import tools as mesh_tools
@@ -119,3 +120,120 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         elif outflow_bc['valve_type'] in [3, 4]:
             THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_relax' 
     
+    def gather_performance(self, stage:Union[tuple, str], filename:Union[str, None]=None) -> dict:
+        upstream_plane, downstream_plane = self._get_planes_names_for_perfo(stage)
+
+        queries = [
+            f'CGNSTree/Averages0D/{downstream_plane}/FlowSolution#EndOfRunV/Massflow',
+            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#EndOfRunV/StagnationPressureRatio',
+            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#EndOfRunV/IsentropicEfficiency',
+        ]
+        perfo_data = self.gather_signals(queries, filename=filename, keep_last_point=True)
+
+        VarsToRename = [
+            ('Massflow', 'MassFlow'), 
+            ('StagnationPressureRatio', 'PressureStagnationRatio'), 
+            ('IsentropicEfficiency', 'EfficiencyIsentropic')
+            ]
+        for (oldName, newName) in VarsToRename:
+            for path, data in perfo_data.items(): 
+                if oldName in data:
+                    perfo_data[path][newName] = perfo_data[path].pop(oldName)
+
+        perfo_data = self._rearange_performance(perfo_data)
+
+        return perfo_data
+    
+    def _get_planes_names_for_perfo(self, stage:Union[tuple, str]) -> tuple:
+        # Get upstream and downstream rows from stage
+        if isinstance(stage, (tuple, list)):
+            assert len(stage) == 2
+            row1, row2 = stage
+        elif isinstance(stage, str):
+            row1 = row2 = stage
+        else:
+            raise MolaAssertionError(f'stage must be either a str or a tuple, and the given type is {type(stage)}')
+        
+        # Check that rows are compatible with workflow
+        for row in (row1, row2):
+            if row not in self.base_workflow.ApplicationContext['Rows']:
+                raise MolaAssertionError(f'The given row "{row}" is not in ApplicationContext["Rows"]')
+
+        upstream_plane = None
+        downstream_plane = None
+        for extraction in self.base_workflow.Extractions:
+            if extraction['Type'] == 'IsoSurface':
+                try:
+                    if (extraction['OtherOptions']['ReferenceRow'] == row1
+                        and extraction['OtherOptions']['tag'] == 'InletPlane'):
+                        upstream_plane = extraction['Name']
+                except: 
+                    pass
+                try:
+                    if (extraction['OtherOptions']['ReferenceRow'] == row2
+                        and extraction['OtherOptions']['tag'] == 'OutletPlane'):
+                        downstream_plane = extraction['Name']
+                except: 
+                    pass
+
+        if not upstream_plane:
+            raise MolaAssertionError(f'Cannot find upstream plane on {row1}')
+        if not downstream_plane:
+            raise MolaAssertionError(f'Cannot find downstream plane on {row2}')
+
+        return upstream_plane, downstream_plane
+
+    def _rearange_performance(self, perfo):
+        ordered_perfo = dict()
+        for dir_iso, perfo_on_iso in self.rearange_signals(perfo).items():
+            rpm = float(dir_iso.replace('isospeed_', '').replace('rpm', ''))
+
+            ordered_perfo[rpm] = perfo_on_iso
+            cases = ordered_perfo[rpm].pop('case') 
+            throttle_list = [float(case.split('_')[-1]) for case in cases]
+            ordered_perfo[rpm]['throttle'] = np.array(throttle_list)
+        
+        return ordered_perfo
+
+    def plot_isospeed_lines(self, perfo, filename='isoSpeedLines.png'):
+        import matplotlib.pyplot as plt
+
+        linestyles = [dict(linestyle=ls, marker=mk) for mk in ['o', 's', 'd', 'h']
+                                                for ls in ['-', ':', '--', '-.']]
+        fig, ax1 = plt.subplots()
+
+        # Total pressure ratio
+        color = 'teal'
+        ax1.set_xlabel('MassFlow (kg/s)')
+        ax1.set_ylabel('Total pressure ratio (-)', color=color)
+        i = 0
+        for rpm, perfo_iso in perfo.items():
+            ax1.plot(perfo_iso['MassFlow'], perfo_iso['PressureStagnationRatio'],
+                    color=color, 
+                    label=f'{rpm} rpm', 
+                    **linestyles[i])
+            i += 1
+        ax1.tick_params(axis='y', labelcolor=color)
+
+        # Isentropic efficiency
+        color = 'firebrick'
+        ax2 = ax1.twinx()
+        ax2.set_ylabel('Isentropic efficiency (-)', color=color)
+        i = 0
+        for rpm, perfo_iso in perfo.items():
+            ax2.plot(perfo_iso['MassFlow'], perfo_iso['EfficiencyIsentropic'],
+                    color=color, 
+                    label=f'{rpm} rpm', 
+                    **linestyles[i])
+            # To display legend in black
+            ax2.plot([], [], color='k', label=f'{rpm} rpm', **linestyles[i])
+            i += 1
+        ax2.tick_params(axis='y', labelcolor=color)
+        ax2.set_ylim(top=1)
+
+        if len(perfo) > 1:
+            ax2.legend(loc='center left', bbox_to_anchor=(1.1, 0.5))
+
+        fig.tight_layout()
+        plt.savefig(filename, dpi=300)
+        plt.show()

@@ -69,6 +69,12 @@ class WorkflowRotatingComponent(Workflow):
         # duplicate.duplicate_workflow_with_cassiopee(self)
         duplicate.duplicate_workflow_with_maia(self)
 
+    def initialize_flow(self):
+        if (self.Initialization['ParametrizeWithHeight'] or 
+            any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions])):
+            self.parametrize_with_height()
+        super().initialize_flow()
+
     def set_default_parameters_for_rows(self):
 
         for row, rowParams in self.ApplicationContext['Rows'].items():
@@ -421,4 +427,8 @@ class WorkflowRotatingComponent(Workflow):
     #             node.Parent.findAndRemoveNode(Name=new_name, Depth=1)
     #             cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=node.Parent)
             
-
+    def plot_radial_profiles(self, *args, **kwargs):
+        from mpi4py import MPI
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            from mola.visu import plot_radial_profiles
+            plot_radial_profiles(*args, **kwargs)
