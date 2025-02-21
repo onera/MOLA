@@ -299,6 +299,11 @@ class CoprocessManager():
         if self.status != 'COMPLETED':
             self.mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
 
+    def elapsed_time(self):
+        '''Return the elapsed time from run starting in seconds'''
+        elapsed_time = timeit.default_timer() - self.launch_time
+        return elapsed_time
+
     def postprocess_extractions(self):
         from mola.cfd.postprocess.signals import apply_operations_on_signal, AVAILABLE_OPERATIONS_ON_SIGNALS
 
@@ -518,4 +523,31 @@ def write_extraction_log(extraction):
     elif extraction['Type'] in ['Residuals', 'Integral', 'Probe']:
         for zone in extraction['Data'].zones():
             zone.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **extraction_log)
+
+def extract_memory_usage(extraction, iteration):
+    import psutil
+
+    t = cgns.Tree()
+
+    SLURM_CPUS_ON_NODE = os.getenv('SLURM_CPUS_ON_NODE')
+    if SLURM_CPUS_ON_NODE is None:
+        extraction['Data'] = t
+        return 
+    else:
+        CoreNumberPerNode = int(SLURM_CPUS_ON_NODE)
     
+    if rank % CoreNumberPerNode == 0:
+        base = cgns.Base(Name='MemoryUsage', Parent=t)
+        zone = cgns.Zone(Name=f'MemoryUsageOfProc{rank}', Parent=base)
+        fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
+        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([iteration]))
+        cgns.Node(Name='UsedMemoryInPercent', Type='DataArray', Parent=fs, Value=np.array([psutil.virtual_memory().percent]))
+        cgns.Node(Name='UsedMemory', Type='DataArray', Parent=fs, Value=np.array([psutil.virtual_memory().used]))
+
+    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+
+    if 'Data' in extraction and extraction['Data'] is not None:
+        previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, previous_signals_to_be_updated)
+    else: 
+        extraction['Data'] = current_iteration_signals

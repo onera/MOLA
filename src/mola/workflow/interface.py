@@ -626,6 +626,36 @@ class WorkflowInterface(object):
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_Restart, self.get_default_values_from_local_signature()))
 
+    def add_to_Extractions_MemoryUsage(self,
+            File : str = names.FILE_OUTPUT_1D,
+            ExtractionPeriod : int = 100,
+            SavePeriod : int = 1000,
+            Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
+            *,
+            Type : str = 'MemoryUsage',
+            ):
+        '''
+        Extraction of memory usage
+        '''
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_MemoryUsage, self.get_default_values_from_local_signature()))
+        
+    def add_to_Extractions_TimeMonitoring(self,
+            File : str = names.FILE_OUTPUT_1D,
+            ExtractionPeriod : int = 1000000000, # Only done at the end of the simulation
+            SavePeriod : int = 1000000000, # Only done at the end of the simulation
+            Override : bool = True, # if False, will tag with iteration
+            ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
+            *,
+            Type : str = 'TimeMonitoring',
+            ):
+        '''
+        Extraction of time monitoring
+        '''
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_TimeMonitoring, self.get_default_values_from_local_signature()))
+        
     def set_ExtractionsDefaults(self, user_list : list = None):
         self._set_by_user_list(self._method_name(), user_list)
 

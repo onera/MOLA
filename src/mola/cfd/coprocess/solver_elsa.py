@@ -35,7 +35,8 @@ from mola.cfd.coprocess.manager import (
     mpi_allgather_and_merge_trees, 
     update_signals_using, 
     get_bc_families_in_extraction, 
-    write_extraction_log
+    write_extraction_log,
+    extract_memory_usage,
 )
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, ravel_FlowSolution, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
@@ -73,6 +74,12 @@ def perform_extractions(workflow, coprocess_manager):
 
         # elif extraction['Type'] == 'Probe':
         #     extraction['Data'] = extract_probe(output_tree)
+
+        elif extraction['Type'] == 'MemoryUsage':
+            extract_memory_usage(extraction, coprocess_manager.iteration) 
+
+        elif extraction['Type'] == 'TimeMonitoring':
+            extract_time_monitoring(extraction, coprocess_manager)
 
         else:
             coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
@@ -254,6 +261,42 @@ def extract_integral(output_tree, extraction) -> None:
 def extract_probe(output_tree):
     warnings.warning('skip extraction of type Probe (not implemented yet)')
     return cgns.Tree()
+
+def extract_time_monitoring(extraction, coprocess_manager):
+    # At the end of elsA_MPI* file, the following lines can be found: 
+    # ---------------------------------------------
+    # [ (CPU Time)/(Iteration*NbCell) ] (User) =      2.859961e+00 (µs/ite/nCel)
+    #                                   (Sys)  =      2.465483e-01 (µs/ite/nCel)
+    # [AdimCoef (Loc/Glob) ] =      4.930966e-06 / 4.930966e-06
+    # ---------------------------------------------
+    # and also the line:
+    # Task (proc : 0) took 3.4062766e+01 seconds  (resolution = 1.0000000e-09 s)
+
+    extraction['Data'] = cgns.Tree()
+
+    if rank == 0:
+
+        base = cgns.Base(Name='TimeMonitoring', Parent=extraction['Data'])
+        zone = cgns.Zone(Name='TimeMonitoring', Parent=base)
+        fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
+        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+        cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
+
+        try:
+            elsA_log_file = glob.glob('elsA_MPI*_N_0')[0]
+        except IndexError:
+            # Cannot find this elsA_MPI* file
+            return
+        
+        user_time_µs = None
+        with open(elsA_log_file, 'r') as file:
+            for line in file:
+                if '[ (CPU Time)/(Iteration*NbCell) ] (User) = ' in line:
+                    user_time_µs = float(line.split('=')[-1].split('(µs/ite/nCel)')[0])
+                    user_time = user_time_µs / 1e6
+                    break
+        if user_time:
+            cgns.Node(Name='TimePerCellPerIteration', Type='DataArray', Parent=fs, Value=np.array([user_time]))
 
 def update_elsa_input(new_tree):
     elsAxdt.xdt(elsAxdt.PYTHON,(elsAxdt.RUNTIME_TREE, new_tree, 1))

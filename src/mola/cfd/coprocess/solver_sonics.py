@@ -32,7 +32,13 @@ import mola.cfd.postprocess as POST
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction, write_extraction_log
+from mola.cfd.coprocess.manager import (
+    mpi_allgather_and_merge_trees, 
+    update_signals_using, 
+    get_bc_families_in_extraction, 
+    write_extraction_log,
+    extract_memory_usage,
+)
 from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_sonics_CGNS_field_names_to_MOLA
 
 
@@ -68,6 +74,12 @@ def perform_extractions(workflow, coprocess_manager):
                               coprocess_manager.workflow.Flow['Conservatives'],
                               coprocess_manager.workflow.Turbulence['Conservatives']
                               )
+        
+        elif extraction['Type'] == 'MemoryUsage':
+            extract_memory_usage(extraction, coprocess_manager.iteration) 
+
+        elif extraction['Type'] == 'TimeMonitoring':
+            extract_time_monitoring(extraction, coprocess_manager)
         
         else:
             coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for SoNICS", rank=0)
@@ -262,3 +274,26 @@ def get_iteration(workflow):
 
 def get_status(workflow):
     return 'RUNNING_BEFORE_ITERATION' # TODO: implement this (using elsaXdt?)
+
+def extract_time_monitoring(extraction, coprocess_manager):
+    # At the end of stdout.log, the following line can be found when HookPbSizeTrigger is used: 
+    #   + end computation[<iterations>]: time : (<execution_time>, <execution_time_for_all_ranks>, <time/cell/iteration>)
+
+    extraction['Data'] = cgns.Tree()
+    if rank == 0:
+        base = cgns.Base(Name='TimeMonitoring', Parent=extraction['Data'])
+        zone = cgns.Zone(Name='TimeMonitoring', Parent=base)
+        cgns.Node(Name='Unit', Type='Descriptor', Parent=fs, Value='µs/cell/iteration')
+        fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
+        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+        cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
+        
+        TimePerCellPerIteration = None
+        with open(names.FILE_STDOUT, 'r') as file:
+            for line in file:
+                if '+ end computation[' in line:
+                    times = line.split('(')[-1].split(')')[0].split(',')
+                    TimePerCellPerIteration = float(times[2])
+                    break
+        if TimePerCellPerIteration:
+            cgns.Node(Name='TimePerCellPerIteration', Type='DataArray', Parent=fs, Value=TimePerCellPerIteration)

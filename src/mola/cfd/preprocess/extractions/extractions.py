@@ -24,6 +24,8 @@ def apply(workflow):
 
     replace_shortcuts(workflow)
     add_residuals_extraction(workflow)
+    add_memory_usage_extraction(workflow)
+    add_time_monitoring_extraction(workflow)
     split_bc_and_integral_extractions_by_family(workflow)
     update_extractions_from_convergence_criteria(workflow)
     apply_to_solver(workflow)
@@ -31,6 +33,14 @@ def apply(workflow):
 def add_residuals_extraction(workflow):
     if not any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
         workflow._interface.add_to_Extractions_Residuals()
+
+def add_memory_usage_extraction(workflow):
+    if not any([ext['Type'] == 'MemoryUsage' for ext in workflow.Extractions]):
+        workflow._interface.add_to_Extractions_MemoryUsage()
+
+def add_time_monitoring_extraction(workflow):
+    if not any([ext['Type'] == 'TimeMonitoring' for ext in workflow.Extractions]):
+        workflow._interface.add_to_Extractions_TimeMonitoring()
 
 def split_bc_and_integral_extractions_by_family(workflow):
     familiesBC = get_familiesBC_nodes(workflow.tree)

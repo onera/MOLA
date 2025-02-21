@@ -51,7 +51,7 @@ def check_timeout(coprocess_manager):
 
     if coprocess_manager.status.startswith('RUNNING'):
             
-        if has_reached_timeout( launch_time, timeout):
+        if has_reached_timeout(coprocess_manager.elapsed_time(), timeout):
             date = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             msg = f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION'
             coprocess_manager.mola_logger.warning(msg, rank=0)
@@ -64,11 +64,10 @@ def check_timeout(coprocess_manager):
     
     return is_to_stop
 
-def has_reached_timeout(LaunchTime, TimeOutInSeconds):
+def has_reached_timeout(elapsed_time, TimeOutInSeconds):
     ReachedTimeOutMargin = False
     if rank == 0:
-        ElapsedTime = timeit.default_timer() - LaunchTime
-        ReachedTimeOutMargin = ElapsedTime >= TimeOutInSeconds
+        ReachedTimeOutMargin = elapsed_time >= TimeOutInSeconds
             
     comm.Barrier()
     ReachedTimeOutMargin = comm.bcast(ReachedTimeOutMargin,root=0)

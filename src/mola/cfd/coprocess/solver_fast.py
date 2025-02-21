@@ -29,7 +29,13 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import mpi_allgather_and_merge_trees, update_signals_using, get_bc_families_in_extraction, write_extraction_log
+from mola.cfd.coprocess.manager import (
+    mpi_allgather_and_merge_trees, 
+    update_signals_using, 
+    get_bc_families_in_extraction, 
+    write_extraction_log,
+    extract_memory_usage,
+)
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
@@ -90,6 +96,12 @@ def perform_extractions(workflow, coprocess_manager):
 
         elif extraction['Type'] == 'Probe': 
             extraction['Data'] = extract_probe(output_tree)
+
+        elif extraction['Type'] == 'MemoryUsage':
+            extract_memory_usage(extraction, coprocess_manager.iteration) 
+
+        elif extraction['Type'] == 'TimeMonitoring':
+            extract_time_monitoring(extraction, coprocess_manager)
 
         else:
             coprocess_manager.mola_logger.warning(f"Type of extraction {extraction['Type']} is not available for elsA", rank=0)
@@ -479,3 +491,15 @@ def get_status(workflow):
 
 def end_simulation(workflow):
     return True
+
+def extract_time_monitoring(extraction, coprocess_manager):
+    # TODO extract TimePerCellPerIteration 
+
+    extraction['Data'] = cgns.Tree()
+    if rank == 0:
+        base = cgns.Base(Name='TimeMonitoring', Parent=extraction['Data'])
+        zone = cgns.Zone(Name='TimeMonitoring', Parent=base)
+        cgns.Node(Name='Unit', Type='Descriptor', Parent=fs, Value='µs/cell/iteration')
+        fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
+        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+        cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
