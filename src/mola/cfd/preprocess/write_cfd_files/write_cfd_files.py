@@ -18,6 +18,7 @@
 import os
 from mola.cfd import apply_to_solver
 from mola import server as SV
+from mola import naming_conventions as names
 
 def apply(workflow):
 
@@ -55,3 +56,18 @@ def build_job_scheduler_header(Scheduler, scheduler_options):
             header += "\n"
     
     return header
+
+def get_lines_to_submit_job_again(RunManagement):
+    command = RunManagement['LauncherCommand'] 
+    if RunManagement['Scheduler'] == 'SLURM':
+        command += ' --dependency=singleton'
+
+    text = f"""
+if [ -f "{names.FILE_NEWJOB_REQUIRED}" ]; then
+    echo "LAUNCHING JOB AGAIN"
+    {command}
+    rm -f {names.FILE_NEWJOB_REQUIRED}
+    exit 0
+fi
+"""
+    return text

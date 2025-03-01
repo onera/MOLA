@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import glob
 import shutil
 from fnmatch import fnmatch
 import numpy as np
@@ -249,11 +250,11 @@ def deduce_container_for_slicing(IsoSurfaceField):
     
 def move_log_files(w):
     if rank == 0:
-        filename = 'taskflow-residual-explicit-rank0-sync.dot'
-        try:
-            shutil.move(filename, os.path.join(names.DIRECTORY_LOG, filename))
-        except FileNotFoundError:
-            pass
+        for filename in glob.glob('taskflow-residual-explicit-rank*-sync.dot') + glob.glob('graph-post-rank*.dot'):
+            try:
+                shutil.move(filename, os.path.join(names.DIRECTORY_LOG, filename))
+            except FileNotFoundError:
+                pass
     comm.barrier()
 
 def get_iteration(workflow):

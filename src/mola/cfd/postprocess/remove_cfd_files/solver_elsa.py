@@ -19,10 +19,7 @@ import os
 import shutil 
 import mola.naming_conventions as names
 
-solver_specific_files = [
-    names.FILE_JOB_COMPLETED,
-    names.FILE_JOB_FAILED,
-    names.FILE_NEWJOB_REQUIRED,
+solver_specific_files = names.STATUS_FILES + [
     names.FILE_COMPUTE,
     names.FILE_COPROCESS,
     names.FILE_JOB,

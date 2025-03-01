@@ -25,6 +25,8 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
     import maia.pytree as PT
     from maia.algo.part.wall_distance import compute_projection_to
 
+    mola_logger.info('Parametrize domain with channel height (add FlowSolution#Height)')
+
     tree = to_partitioned(tree) 
 
     hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
@@ -113,19 +115,10 @@ def to_partitioned(tree : cgns.Tree):
 
     if is_part:
         return tree
-    elif is_dist:
-        # Ravel data, because this is the maia convention for dist_tree
-        # else AssertionError in maia.factory.partition_dist_tree
-        ravel_FlowSolution(tree)  
-        ravel_BCDataSet(tree) 
-        return to_partitioned_if_distributed(tree)
-    else: 
-        # The tree is a full tree.
-        # Ravel data, because this is the maia convention for dist_tree
-        # else AssertionError in maia.factory.partition_dist_tree
-        ravel_FlowSolution(tree)  
-        ravel_BCDataSet(tree)
-        tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+    else:
+        _apply_all_maia_check(tree)
+        if not is_dist:
+            tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
         tree = cgns.castNode(tree)
         return to_partitioned_if_distributed(tree)
 
@@ -138,6 +131,7 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
 
     t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
 
+    # fix_FaceCenter_in_BCDataSet(t)
     t = cgns.castNode(t)
     for zone in t.zones():
         zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
@@ -158,19 +152,54 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
         return tree
     
     if is_part:
-        tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
+        additionnal_nodes_to_transfer = _get_additionnal_nodes_to_transfer(tree)
+        tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+        tree = cgns.castNode(tree)
+        _transfer_additionnal_nodes(tree, additionnal_nodes_to_transfer)
 
-    t = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
-    if t is not None:
-        t = cgns.castNode(t)
+    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, remove=True)
+    tree = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
+    tree = cgns.castNode(tree)
+    restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes)
+    
+    if tree is not None:
+        tree = cgns.castNode(tree)
 
-        for zone in t.zones():
+        for zone in tree.zones():
             if zone.isStructured(): 
                 reshape_DataArray(zone)
             
-        t = cgns.castNode(t)
+        tree = cgns.castNode(tree)
     MPI.COMM_WORLD.barrier()
-    return t
+    return tree
+
+def _get_additionnal_nodes_to_transfer(tree):
+    # HACK see https://gitlab.onera.net/numerics/mesh/maia/-/issues/175
+    types = ['ReferenceState_t', 'FlowEquationSet_t', 'Descriptor_t', 'ConvergenceHistory_t', 'IntegralData_t']
+    nodes = []
+    for node_type in types:
+        nodes.extend(tree.group(Type=node_type, Depth=2))  # workaround only for bases children, not zones children, just for safety
+    return nodes
+
+def _transfer_additionnal_nodes(tree, nodes):
+    # HACK see https://gitlab.onera.net/numerics/mesh/maia/-/issues/175
+    for node in nodes:
+        parent = tree.getAtPath(node.parent().path())
+        parent.addChild(node)
+
+def _apply_all_maia_check(tree):
+    # HACK check operations normally done in maia.io._hdf_io_h5py.load_size_tree
+    import maia
+    maia.io.fix_tree.check_namings(tree)
+    # maia.io.fix_tree.rm_legacy_nodes(tree)
+    maia.io.fix_tree.corr_index_range_names(tree)
+    # maia.io.fix_tree.check_datasize(tree)
+    maia.io.fix_tree.fix_point_ranges(tree)
+    maia.io.fix_tree.fix_structured_pr_shape(tree)
+    pred_1to1 = 'CGNSBase_t/Zone_t/ZoneGridConnectivity_t/GridConnectivity1to1_t'
+    if maia.pytree.get_node_from_predicates(tree, pred_1to1) is not None:
+        maia.io.fix_tree.ensure_symmetric_gc1to1(tree)
+    maia.io.fix_tree.add_missing_pr_in_bcdataset(tree)
 
 def reshape_DataArray(zone):
     vertex_shape = zone.value()[:,0]
@@ -221,3 +250,91 @@ def force_FamilyBC_as_FamilySpecified(t):
                         Family_node = cgns.Node(Name=family, Type='Family', Parent=base)
                         cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='UserDefined', Parent=Family_node)
                     continue
+
+def fix_FaceCenter_in_BCDataSet(t):
+    import maia.pytree as PT
+
+    for zone in PT.get_all_Zone_t(t):
+        if PT.get_value(PT.get_node_from_label(zone, 'ZoneType_t')) == 'Structured':
+            for node in PT.get_nodes_from_label(zone, 'BCDataSet_t'):
+                if PT.Subset.GridLocation(node) == 'FaceCenter':
+                    axis = PT.Subset.normal_axis(node)
+                    PT.update_child(node, 'GridLocation', value='IJK'[axis] + 'FaceCenter')
+
+def get_empty_FlowSolution_nodes(tree, remove=False):
+    # NOTE Cmpi.convertPyTree2File does not write DataArray in FlowSolution
+    # if its value is None on all ranks, but this is a way for elsA to 
+    # ask extraction in a FlowSolution (for 3D fields)
+    # -> keep these nodes in a list
+
+    # NOTE With unstructured mesh, PyPart does not support empty FlowSolution 
+    # (with DataArray nodes that store None). We need to remove these nodes, 
+    # keep its path, and restore them later in the final file.
+
+    import Converter.Mpi as Cmpi
+    import copy
+
+    empty_FlowSolution_nodes = []
+    for FS in tree.group(Type='FlowSolution'):
+        no_DataArray_nodes = len(FS.group(Type='DataArray', Depth=1)) == 0
+        empty_DataArray_nodes = any([n.value() is None for n in FS.group(Type='DataArray', Depth=1)])
+        if no_DataArray_nodes or empty_DataArray_nodes:
+            if no_DataArray_nodes:
+                # The node GridLocation has been added by PyPart during the splitting, we need to remove it.
+                FS.findAndRemoveNode(Type='GridLocation')
+            empty_FlowSolution_nodes.append(copy.deepcopy(FS))
+            if remove:
+                FS.remove()
+
+    return empty_FlowSolution_nodes
+
+def restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes):
+    import Converter.Mpi as Cmpi
+
+    empty_FlowSolution_nodes = Cmpi.gather(empty_FlowSolution_nodes, root=0)
+
+    if Cmpi.rank == 0:
+        empty_FlowSolution_nodes = [FS for listFS in empty_FlowSolution_nodes for FS in listFS]
+        for FS in empty_FlowSolution_nodes:
+            saved_FS = cgns.readNode(dst, FS.path()) 
+            if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
+                FS.saveThisNodeOnly(dst) 
+                for child in FS.children():
+                    child.saveThisNodeOnly(dst) 
+
+def restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes):
+    for fs_node in empty_FlowSolution_nodes:
+        _add_grid_location(fs_node)
+        zone_path = fs_node.parent().path()
+        zone_path = _remove_PyPart_suffix(zone_path)
+        parent = tree.getAtPath(zone_path) 
+        parent.addChild(fs_node)
+
+def _add_grid_location(fs_node: cgns.Node):
+    # if not GridLocation in a FlowSolution, PyPart will raise a Warning/Error in stderr.log
+    if fs_node.get(Type='GridLocation'):
+        return
+    
+    GridLocation_Vertex = cgns.Node(Name='GridLocation', Type='GridLocation', Value='Vertex')
+    GridLocation_CellCenter = cgns.Node(Name='GridLocation', Type='GridLocation', Value='CellCenter')
+    try:
+        loc = fs_node.get(Name='loc', Type='DataArray').value()
+        if loc == 'cell':
+            fs_node.addChild(GridLocation_CellCenter, position=0)
+        elif loc == 'node':
+            fs_node.addChild(GridLocation_Vertex, position=0)
+        else:
+            raise MolaException(f'Unknown loc node value ={loc}. Must be cell or node')
+    except:
+        fs_node.addChild(GridLocation_Vertex, position=0)
+
+
+def _remove_PyPart_suffix(path):
+    import re
+    # regular expression to find a pattern ".P*.N*", with * a number with 1 to 5 figures
+    pattern = r'\.P(\d{1,5})\.N(\d{1,5})'
+    try:
+        path = re.sub(pattern, '', path)
+    except:
+        pass
+    return path

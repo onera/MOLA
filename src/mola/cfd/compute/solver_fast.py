@@ -25,6 +25,7 @@ NumberOfProcessors = comm.Get_size()
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.cfd.compute.read_cfd_files import read_cfd_files
+from mola.cfd.preprocess.motion.solver_fast import is_any_family_mobile
 
 def apply_to_solver(workflow):
 
@@ -40,9 +41,12 @@ def apply_to_solver(workflow):
     # time-marching loop
     for it in range( inititer-1, inititer+niter ):
     
-        workflow._iteration = it
+        workflow._iteration = it  # + 1  # Numbering in MOLA starts at iteration 1, and starts at 0 for Fast
         workflow._status = 'RUNNING_BEFORE_ITERATION'
         workflow._coprocess_manager.run_iteration()
+
+        if is_any_family_mobile(workflow):
+            apply_motion(workflow)
 
         FastS._compute(workflow.tree,
                        workflow._fast_metrics,
@@ -70,4 +74,16 @@ def get_range_of_iterations(workflow):
 
     return inititer, niter
 
+def apply_motion(workflow):
+    import Fast.Internal as FastI
+    theta, omega = get_theta_and_omega(workflow, workflow._iteration)
+    FastI._motionlaw(workflow.tree, theta, omega)
 
+def get_theta_and_omega(workflow, iteration):
+    omega = workflow.Motion['ShaftRotationSpeed']
+    time = workflow.Numerics['TimeAtInitialState'] + (iteration - workflow.Numerics['IterationAtInitialState']) * workflow.Numerics['TimeStep']
+    # Motion is applied at iteration n + 1/2
+    time_ale = time + 0.5*workflow.Numerics['TimeStep']
+    theta = omega * time_ale
+
+    return theta, omega

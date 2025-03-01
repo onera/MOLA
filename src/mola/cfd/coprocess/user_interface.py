@@ -16,7 +16,36 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import glob
+from fnmatch import fnmatch
 from . import comm, rank
+from mola.logging import MolaException, CYAN, ENDC
+
+# Control Flags for interactive control using command 'touch <flag>'
+AVAILABLE_SIGNALS = [
+    'STOP',
+    'SAVE_*',
+    # 'COMPUTE_BODYFORCE',
+    'QUIT',
+]
+
+def check_and_execute_user_signal(coprocess_manager):
+    for signal_pattern in AVAILABLE_SIGNALS:
+        signal_received = get_user_signal(coprocess_manager, signal_pattern)
+        
+        if signal_received:
+            if signal_received == 'STOP':
+                coprocess_manager.status = 'TO_STOP'
+
+            elif signal_received.startswith('SAVE_'):
+                filename = signal_received[5:]
+                save_extractions(coprocess_manager.Extractions, filename, coprocess_manager.mola_logger)
+
+            elif signal_received == 'QUIT':
+                raise MolaException(f'Aborted simulation following QUIT signal.')
+            
+            else:
+                raise MolaException(f'Unknown user signal: {signal_received}')
 
 def get_user_signal(coprocess_manager, filename):
     '''
@@ -48,18 +77,18 @@ def get_user_signal(coprocess_manager, filename):
             :py:obj:`True` if the signal is received, otherwise :py:obj:`False`, to all
             processors
     '''
-    isOrder = False
+    signal = False
     if rank == 0:
         filepath = path_accounting_for_exec_location(filename, coprocess_manager)
         try:
-            os.remove(filepath)
-            isOrder = True
-            coprocess_manager.mola_logger.info(f'Received signal {filename}', rank=0)
+            signal = glob.glob(filepath)[0]
+            os.remove(signal)
+            coprocess_manager.mola_logger.info(f'{CYAN}Received signal {signal}{ENDC}', rank=0)
         except:
             pass
     comm.Barrier()
-    isOrder = comm.bcast(isOrder,root=0)
-    return isOrder
+    signal = comm.bcast(signal, root=0)
+    return signal
 
 
 def write_tagfile(tag : str, coprocess_manager):
@@ -78,4 +107,58 @@ def path_accounting_for_exec_location(requested_path : str, coprocess_manager) -
 
     else: 
         return os.path.join(run_dir,requested_path)
+
+def save_extractions(Extractions, arg, mola_logger):
+
+    SIGNALS = ['Residuals', 'Integral', 'Probe']
+    SURFACES = ['BC', 'IsoSurface']
+    FIELDS = ['Interpolation', '3D']
+    EXTRACTION_TYPES = SIGNALS + SURFACES + FIELDS
+
+    if arg in ['ALL', '*']:
+        # Extract and save all extractions
+        save_extractions_from_types(Extractions, EXTRACTION_TYPES)
+    
+    elif arg == 'SIGNALS':
+        save_extractions_from_types(Extractions, SIGNALS)
+
+    elif arg == 'SURFACES':
+        save_extractions_from_types(Extractions, SURFACES)
+
+    elif arg == 'FIELDS':
+        save_extractions_from_types(Extractions, FIELDS)
+
+    elif arg in EXTRACTION_TYPES:
+        # Extract and save all extractions with this type
+        save_extractions_from_types(Extractions, [arg])
+
+    else:
+        # Extract and save extractions with a filename foll
+        save_extractions_from_filename(Extractions, arg, mola_logger)
+
+def save_extractions_from_types(Extractions, types):
+    for extraction in Extractions:
+        if extraction['Type'] in types:
+            extraction['IsToExtract'] = True
+            extraction['IsToSave'] = True
+
+
+def save_extractions_from_filename(Extractions, filename, mola_logger=None):
+    founded = False
+    output_files = set()
+    for extraction in Extractions:
+        # a str must be added like that to a set, otherwise it 
+        # is the individual characters of the string that will be added
+        output_files.update([extraction['File']])  
+        if fnmatch(extraction['File'], filename):
+            extraction['IsToExtract'] = True
+            extraction['IsToSave'] = True
+            founded = True
+    
+    if not founded and mola_logger:
+        mola_logger.warning((
+            f'No extraction matches whith the filename {filename}. '
+            f'Output files for current simualtions are: {output_files}.'
+        ), rank=0)
+
 

@@ -344,8 +344,11 @@ class Workflow(object):
 
         return status
 
-    def print_interface(self, maxlevel : int = 1000):
-        print(self._interface.__str__(maxlevel=maxlevel))
+    def print_interface(self, keep=None, maxlevel : int = 1000):
+        if keep is not None:
+            if not isinstance(keep, (list, tuple)):
+                keep = [keep]
+        print(self._interface.__str__(keep_args=keep, maxlevel=maxlevel))
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):

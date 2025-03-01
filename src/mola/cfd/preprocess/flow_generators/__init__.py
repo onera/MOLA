@@ -18,10 +18,9 @@
 from .external_flow import ExternalFlowGenerator
 from .internal_flow import InternalFlowGenerator
 
-AvailableFlowGenerators = dict(
-    External_rho_V_T = ExternalFlowGenerator,
-    Internal         = InternalFlowGenerator,
-)
+AvailableFlowGenerators = dict()
+for gen in [ExternalFlowGenerator, InternalFlowGenerator]:
+    AvailableFlowGenerators[gen.name] = gen
 
 def get_flow_generator(fg):
     if isinstance(fg, str):

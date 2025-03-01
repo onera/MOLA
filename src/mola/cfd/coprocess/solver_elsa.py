@@ -38,7 +38,7 @@ from mola.cfd.coprocess.manager import (
     write_extraction_log
 )
 import mola.cfd.postprocess as POST
-from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
+from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, ravel_FlowSolution, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_elsa_CGNS_field_names_to_MOLA
 
@@ -105,9 +105,12 @@ def get_elsa_output_tree(skeleton):
     t = cgns.castNode(t)
     t.merge(skeleton)
     ravel_BCDataSet(t) # HACK https://elsa.onera.fr/issues/11219
+    ravel_FlowSolution(t)
     remove_empty_BCDataSet(t)
     # force_FamilyBC_as_FamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
     t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
+    # HACK Pypart puts WorkflowParameters under the base... need to remove it
+    t.findAndRemoveNodes(Name=names.CONTAINER_WORKLFOW_PARAMETERS, Type='UserDefinedData', Depth=2) 
     return t
 
 def update_restart_fields(workflow, output_tree):
@@ -134,8 +137,6 @@ def update_restart_fields(workflow, output_tree):
 def extract_fields(output_tree, extraction):
 
     t = output_tree.copy()
-    # HACK Pypart puts WorkflowParameters under the base... need to remove it
-    t.findAndRemoveNodes(Name=names.CONTAINER_WORKLFOW_PARAMETERS, Type='UserDefinedData', Depth=2) 
     t.findAndRemoveNodes(Name='GlobalConvergenceHistory', Depth=2)
     t.findAndRemoveNodes(Type='IntegralData', Depth=2)
     t.findAndRemoveNodes(Name='ELSA_TRIGGER')
@@ -165,13 +166,13 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
 
     for family in families_to_extract:
     
-        data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
+        data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family, tool='cassiopee')
         data_tree = cgns.castNode(data_tree)
 
         SurfacesTree.merge(data_tree)
     
-    if extraction['Name'] != 'ByFamily':
-        POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
+    # if extraction['Name'] != 'ByFamily':
+    #     POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
 
     return SurfacesTree
 
@@ -213,30 +214,35 @@ def extract_residuals(output_tree, extraction):
 
 
 def extract_integral(output_tree, extraction) -> None:
+
+    def get_family_and_suffix(IntegralDataNode):
+        # The name of IntergralData_t node is <Family>-<SUFFIX>: with <SUFFIX> is given from .Solver#Output<SUFFIX>
+        full_name_parts = IntegralDataNode.name().split('-#')
+        family = full_name_parts[0]
+        suffix = full_name_parts[1][:-1]  # name of IntegralData ends with ":"
+        return family, suffix
     
-    t = cgns.Tree()
-    base = cgns.Base(Name='Integral', Parent=t)
+    IntegralDataTree = cgns.Tree()
+    base = cgns.Base(Name='Integral', Parent=IntegralDataTree)
+
     for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):
-        full_name_parts = IntegralDataNode.name().split('-')
+        family, suffix = get_family_and_suffix(IntegralDataNode)
+        if family == extraction['Source']: 
+            IntegralDataNode.dettach()
+            IntegralDataNode.setName('FlowSolution')
+            IntegralDataNode.setType('FlowSolution_t')
+            for n in IntegralDataNode.children(): 
+                n.setType('DataArray_t')
+            translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
+            zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
 
-        if len(full_name_parts) > 1 and full_name_parts[1].startswith('#'):
-            IntegralName = full_name_parts[1][1:-1]
+            # multiply integrated data by the FluxCoef
+            for node in zone.group(Type='DataArray'):
+                if node.name() != 'IterationNumber':
+                    node.setValue(node.value() * extraction['FluxCoef'])
+            break
 
-        else:
-            IntegralName = full_name_parts[0]
-
-        if IntegralName != extraction['Name']: continue
-
-        IntegralDataNode.dettach()
-        IntegralDataNode.setName('FlowSolution')
-        IntegralDataNode.setType('FlowSolution_t')
-        for n in IntegralDataNode.children(): 
-            n.setType('DataArray_t')
-        translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
-        zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
-        break
-
-    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+    current_iteration_signals = mpi_allgather_and_merge_trees(IntegralDataTree)
 
     if 'Data' in extraction and extraction['Data'] is not None:
         previous_signals_to_be_updated = extraction['Data']

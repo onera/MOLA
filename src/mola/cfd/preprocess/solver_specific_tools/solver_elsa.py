@@ -132,9 +132,18 @@ CGNS2ElsaInVarNode.update(dict(
     BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue',
     NormalVector             = 'normalvector',
     Friction                 = 'frictionvector', 
+    FrictionX                = 'frictionvectorx',
+    FrictionY                = 'frictionvectory',
+    FrictionZ                = 'frictionvectorz',
     yPlus                    = 'yplusmeshsize',
     Force                    = 'flux_rou flux_rov flux_row',
+    ForceX                   = 'flux_rou',
+    ForceY                   = 'flux_rov',
+    ForceZ                   = 'flux_row',
     Torque                   = 'torque_rou torque_rov torque_row',
+    TorqueX                  = 'torque_rou',
+    TorqueY                  = 'torque_rov',
+    TorqueZ                  = 'torque_row',
     MassFlow                 = 'convflux_ro',
 ))
 

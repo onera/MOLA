@@ -28,11 +28,13 @@ BoundaryConditionsNames = dict(
                                         sonics='BCFarfield',
                                         fast='BCFarfield'),
     InflowStagnation             = dict(elsa='inj1', 
-                                        sonics='BCInflowSubsonicPressure'),
+                                        sonics='BCInflowSubsonicPressure',
+                                        fast='BCInj1'),
     InflowMassFlow               = dict(elsa='injmfr1', 
                                         sonics='BCInflowSubsonicMassFlow'),
     OutflowPressure              = dict(elsa='outpres', 
-                                        sonics='BCOutflowSubsonic'),
+                                        sonics='BCOutflowSubsonic',
+                                        fast='BCOutpres'),
     OutflowSupersonic            = dict(elsa='outsup'),
     OutflowMassFlow              = dict(elsa='outmfr2'),
     OutflowRadialEquilibrium     = dict(elsa='outradeqhyb', 
@@ -44,7 +46,7 @@ BoundaryConditionsNames = dict(
     WallViscousIsothermal        = dict(sonics='BCWallViscousIsothermal'),
     WallInviscid                 = dict(elsa='wallslip',
                                         sonics='BCWallInviscid',
-                                        fast='BCWall'),
+                                        fast='BCWallInviscid'),
     SymmetryPlane                = dict(elsa='sym',
                                         sonics='BCSymmetryPlane',
                                         fast='BCSymmetryPlane'),
@@ -92,6 +94,8 @@ def apply(workflow, selected_boundaries_conditions=None):
 
     if selected_boundaries_conditions is None:
         selected_boundaries_conditions = workflow.BoundaryConditions
+    # Deep copy to prevent modification on the Workflow attribute BoundaryConditions
+    selected_boundaries_conditions = copy.deepcopy(selected_boundaries_conditions)
 
     if len(selected_boundaries_conditions) != 0:
         mola_logger.info(f'Set boundary conditions:', rank=0)

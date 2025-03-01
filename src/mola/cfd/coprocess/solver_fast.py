@@ -70,7 +70,7 @@ def perform_extractions(workflow, coprocess_manager):
         coprocess_manager.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
         
         if extraction['Type'] == 'Restart':
-            extraction['Data'] = workflow.tree
+            extraction['Data'] = cgns.castNode(workflow.tree)
         
         elif extraction['Type'] == '3D':
             extraction['Data'] = extract_fields(output_tree, extraction)
@@ -106,14 +106,13 @@ def perform_extractions(workflow, coprocess_manager):
 
 def get_output_tree(workflow, coprocess_manager):
     
-    output_tree = workflow.tree.copy()
+    output_tree = cgns.castNode(workflow.tree)
     for extraction in coprocess_manager.Extractions:
         if extraction['Type'] == '3D':
             compute_missing_fields_at_cell_centers( workflow, output_tree, extraction['Fields'])
     output_tree = cgns.castNode(output_tree)
 
     return output_tree
-
 
 def extract_fields(output_tree, extraction) -> cgns.Tree:
 
@@ -134,15 +133,18 @@ def extract_bc(output_tree, extraction, families_to_bctype, metrics):
 
     families_to_extract = get_bc_families_in_extraction(extraction, families_to_bctype)
 
+    t = output_tree.copy()
+    remove_ghost_cells(t)
+
     for family in families_to_extract:
 
-        data_tree = POST.extract_bc(output_tree, Family=family, BaseName=family)
+        data_tree = POST.extract_bc(t, Family=family, BaseName=family)
         data_tree = cgns.castNode(data_tree)
 
-        stress_tree = FastS.createStressNodes(output_tree, [extraction['Source']])
+        stress_tree = FastS.createStressNodes(t, [extraction['Source']])
 
         # TODO optimize by providing stress to integral extractions Data
-        stress = FastS._computeStress(output_tree, stress_tree, metrics)
+        stress = FastS._computeStress(t, stress_tree, metrics)
         stress_tree = cgns.castNode(stress_tree)
 
         for base_data, base_stress in zip(data_tree.bases(), stress_tree.bases()):
@@ -168,8 +170,11 @@ def extract_isosurface(output_tree, extraction):
     if extraction['IsoSurfaceContainer'] == 'auto':
         extraction['IsoSurfaceContainer'] = deduce_container_for_slicing(extraction['IsoSurfaceField'])
 
+    t = output_tree.copy()
+    remove_ghost_cells(t)
+
     isosurface = POST.iso_surface(
-        output_tree, 
+        t, 
         IsoSurfaceField = extraction['IsoSurfaceField'], 
         IsoSurfaceValue = extraction['IsoSurfaceValue'], 
         IsoSurfaceContainer = extraction['IsoSurfaceContainer'],

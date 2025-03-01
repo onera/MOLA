@@ -127,17 +127,21 @@ coverage_report:
     - source $MOLA_ENV_DEFAULT
   script:
     - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics .coverage_test_integration_elsa .coverage_test_unit_fast .coverage_test_integration_fast .coverage_test_integration_sonics
+    - coverage report
     - coverage xml  # generate the report coverage.xml (the name can be changed with option -o)
     - coverage html # generate the report in directory htmlcov (the name can be changed with option -d)
     - tar -czf htmlcov.tar.gz htmlcov
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
+    paths:
+      - reports/*
+      - htmlcov.tar.gz
     reports:
+      junit: reports/*_test.xml
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
-    paths:
-      - coverage.xml
-      - htmlcov.tar.gz
+
 
 radon_complexity:
   stage: code-quality

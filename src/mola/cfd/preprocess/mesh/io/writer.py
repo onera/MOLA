@@ -18,7 +18,8 @@
 import os
 import glob
 from .utils import get_io_tool
-from ..tools import to_full_tree_at_rank_0
+from ..tools import (to_full_tree_at_rank_0, get_empty_FlowSolution_nodes, 
+                     restore_empty_FlowSolution_nodes_in_file, restore_empty_FlowSolution_nodes)
 from treelab import cgns
 import mola.naming_conventions as names
 
@@ -41,9 +42,7 @@ def write(w, tree, dst, io_tool=None):
 
 def write_with_treelab(w, tree, dst):
     t = tree.copy()
-    t.findAndRemoveNodes(Name=':CGNS#Distribution')
-    t.findAndRemoveNodes(Name=':CGNS#GlobalNumbering')
-    # t = to_full_tree_at_rank_0(t)
+    t = to_full_tree_at_rank_0(t)
     cgns.save(t, dst)
 
 def write_with_cassiopee(w, tree, dst):
@@ -60,19 +59,24 @@ def write_with_cassiopee_mpi(w, tree, dst):
     empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree)
     Cmpi.convertPyTree2File(tree,dst,links=links)
     Cmpi.barrier()
-    restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes)        
+    restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes)        
     Cmpi.barrier()
     
 def write_with_maia(w, tree, dst):
     from mpi4py import MPI
     import maia
-    
-    MPI.COMM_WORLD.barrier()
-    if maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
-        maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD)
 
-    elif maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
+    def is_empty(zone):
+        GridCoordinates = zone.get(Type='GridCoordinates', Depth=1)
+        if GridCoordinates is None:
+            return True
+        coord = GridCoordinates.get(Type='DataArray')
+        if coord is None or coord.value() is None:
+            return True
+        
+        return False
 
+    def get_links_for_maia(tree):
         links = tree.getLinks()
         for l in links:
             l[0] = '.' # HACK treelab 0.1.1
@@ -82,116 +86,77 @@ def write_with_maia(w, tree, dst):
         for zone in tree.zones():
             if is_empty(zone):  # TODO transform this function into a Zone method in Treelab: zone.isEmpty()
                 zone.remove()
-        MPI.COMM_WORLD.barrier()
-        # TODO this function does not save UserDefinedData_t nodes under bases
-        # see https://gitlab.onera.net/numerics/mesh/maia/-/issues/112
-        maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links, single_file=True)
+        return links
+    
+    MPI.COMM_WORLD.barrier()
+    if maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
+        tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+        tree = cgns.castNode(tree)
 
+    links = get_links_for_maia(tree)
+
+    if maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
+        maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
     else:
         dist_tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-        maia.io.dist_tree_to_file(dist_tree, dst, MPI.COMM_WORLD)
+        maia.io.dist_tree_to_file(dist_tree, dst, MPI.COMM_WORLD, links=links)
     MPI.COMM_WORLD.barrier()
 
 def write_with_pypart(w, tree, dst):
-    import Converter.PyTree as C
     import Converter.Mpi as Cmpi
+    import Distributor2.PyTree as D2
+
     # HACK mergeAndSave bugs with empty FlowSolution nodes for unstructured mesh
     empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, remove=True)
+    
+    # NOTE Careful: For structured mesh, FlowSolution data must not be ravelized!!
+    # Otherwise, data nodes will be full of zeros after mergeAndSave.
+    from mola.cfd.postprocess.extractions_with_cassiopee.tools import reshapeFieldsForStructuredGrid
+    reshapeFieldsForStructuredGrid(tree)
+
+    # Write in parallel with PyPart
+    Cmpi._convert2PartialTree(tree)
     Cmpi.barrier()
     w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'))
     Cmpi.barrier()
-    if Cmpi.rank == 0:
-        t_merged = C.convertFile2PyTree(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'))
-        t_merged = cgns.castNode(t_merged)
 
-        if dst.endswith(names.FILE_INPUT_SOLVER):
-            # Bug PyPart: mergeAndSave does not write WorkflowParameters, maybe because it is at the Base level
-            # TODO open an issue
-            t_merged.findAndRemoveNode(Name=w._workflow_parameters_container_, Depth=1)
-            params = w.convert_to_dict()
-            t_merged.setParameters(w._workflow_parameters_container_, **params)
-
-        for FS in empty_FlowSolution_nodes:
-            path = _remove_PyPart_suffix(FS.path())
-            zone_path = '/'.join(path.split('/')[:-1])
-            zone = t_merged.getAtPath(zone_path)
-            zone.addChild(FS)
-
-        # HACK add GridLocation and PointRange or PointList nodes in each BCDataSet
-        # It is needed for compatibility with maia, otherwise maia cannot read the mesh from file.
-        for BCDataSet in t_merged.group(Type='BCDataSet'):
-            GridLocation = BCDataSet.get(Type='GridLocation')
-            if GridLocation is None:
-                cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=BCDataSet)
-        from maia.io.fix_tree import add_missing_pr_in_bcdataset
-        add_missing_pr_in_bcdataset(t_merged)
-        t_merged = cgns.castNode(t_merged)
-
-        t_merged.save(dst)
-        for fn in glob.glob(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_*.hdf')):
-            try:
-                os.remove(fn)
-            except:
-                pass
-        
+    # Read PyPart files in parallel 
+    t = Cmpi.convertFile2SkeletonTree(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'))
+    t, stats = D2.distribute(t, w.RunManagement['NumberOfProcessors'], useCom=0, algorithm='fast')
+    t = Cmpi.readZones(t, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'), rank=Cmpi.rank)
+    t = cgns.castNode(t)
     Cmpi.barrier()
 
-def is_empty(zone):
-    GridCoordinates = zone.get(Type='GridCoordinates', Depth=1)
-    if GridCoordinates is None:
-        return True
-    coord = GridCoordinates.get(Type='DataArray')
-    if coord is None or coord.value() is None:
-        return True
-    
-    return False
+    if dst.endswith(names.FILE_INPUT_SOLVER):
+        # Bug PyPart: mergeAndSave does not write WorkflowParameters, maybe because it is at the Base level
+        # TODO open an issue
+        t.findAndRemoveNode(Name=w._workflow_parameters_container_, Depth=1)
+        params = w.convert_to_dict()
+        t.setParameters(w._workflow_parameters_container_, **params)
 
-def get_empty_FlowSolution_nodes(tree, remove=False):
-    # NOTE Cmpi.convertPyTree2File does not write DataArray in FlowSolution
-    # if its value is None on all ranks, but this is a way for elsA to 
-    # ask extraction in a FlowSolution (for 3D fields)
-    # -> keep these nodes in a list
+    restore_empty_FlowSolution_nodes(t, empty_FlowSolution_nodes)
+    t = _add_GridLocation_and_PointRange_in_BCDataSet(t)
 
-    # NOTE With unstructured mesh, PyPart does not support empty FlowSolution 
-    # (with DataArray nodes that store None). We need to remove these nodes, 
-    # keep its path, and restore them later in the final file.
+    # Write a unique file
+    Cmpi._convert2PartialTree(t)
+    Cmpi.barrier()
+    Cmpi.convertPyTree2File(t, dst)
+    Cmpi.barrier()
 
-    import Converter.Mpi as Cmpi
-    import copy
-
-    empty_FlowSolution_nodes = []
-    for FS in tree.group(Type='FlowSolution'):
-        no_DataArray_nodes = len(FS.group(Type='DataArray', Depth=1)) == 0
-        empty_DataArray_nodes = any([n.value() is None for n in FS.group(Type='DataArray', Depth=1)])
-        if no_DataArray_nodes or empty_DataArray_nodes:
-            if no_DataArray_nodes:
-                # The node GridLocation has been added by PyPart during the splitting, we need to remove it.
-                FS.findAndRemoveNode(Type='GridLocation')
-            empty_FlowSolution_nodes.append(copy.deepcopy(FS))
-            if remove:
-                FS.remove()
-
-    empty_FlowSolution_nodes = Cmpi.gather(empty_FlowSolution_nodes, root=0)
+    # Remove PyPart 
     if Cmpi.rank == 0:
-        empty_FlowSolution_nodes = [FS for listFS in empty_FlowSolution_nodes for FS in listFS]
+        for fn in glob.glob(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_*.hdf')):
+            try: os.remove(fn)
+            except: pass
 
-    return empty_FlowSolution_nodes
 
-def restore_empty_FlowSolution_nodes(dst, empty_FlowSolution_nodes):
-    import Converter.Mpi as Cmpi
-
-    if Cmpi.rank == 0:
-        for FS in empty_FlowSolution_nodes:
-            saved_FS = cgns.readNode(dst, FS.path()) 
-            if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
-                FS.saveThisNodeOnly(dst) 
-                for child in FS.children():
-                    child.saveThisNodeOnly(dst) 
-
-def _remove_PyPart_suffix(path):
-    path_split = path.split('/')
-    zone_name = path_split[-2]
-    if '.P0.N' in zone_name:
-        new_zone_name = zone_name.split('.P0.N')[0]
-        path = path.replace(zone_name, new_zone_name)
-    return path
+def _add_GridLocation_and_PointRange_in_BCDataSet(tree):
+    # HACK add GridLocation and PointRange or PointList nodes in each BCDataSet
+    # It is needed for compatibility with maia, otherwise maia cannot read the mesh from file.
+    for BCDataSet in tree.group(Type='BCDataSet'):
+        GridLocation = BCDataSet.get(Type='GridLocation')
+        if GridLocation is None:
+            cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=BCDataSet)
+    from maia.io.fix_tree import add_missing_pr_in_bcdataset
+    add_missing_pr_in_bcdataset(tree)
+    return cgns.castNode(tree)

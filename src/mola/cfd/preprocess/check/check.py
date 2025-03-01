@@ -65,7 +65,19 @@ def check_empty_bc(workflow):
         if hasEmpty:
             mola_logger.error('UNDEFINED BC IN TREE')
         else:
+            check_no_empty_Family_of_BC(workflow.tree)
             mola_logger.info(f'{GREEN}No undefined BC found in tree{ENDC}')
+
+def check_no_empty_Family_of_BC(tree):
+    for bc in tree.group(Type='BC', Value='FamilyDefined'):
+        try:
+            FamilyName = bc.get(Type='FamilyName').value()
+        except:
+            raise MolaException(f'No FamilyName in FamilyDefined BC {bc.path()}')
+        
+        Family = tree.get(Type='Family', Name=FamilyName, Depth=2)
+        if Family.get(Type='FamilyBC', Depth=1) is None:
+            raise MolaException(f'Undefined BC Family {Family.name()}: a FamilyBC node is missing.')
 
 def check_no_overlap_between_bcs(tree):
     for zone in tree.zones():

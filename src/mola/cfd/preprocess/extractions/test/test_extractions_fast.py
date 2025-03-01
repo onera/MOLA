@@ -46,6 +46,7 @@ def build_tree( nb_of_bases=2, nb_of_zones=2 ):
 @pytest.mark.cost_level_0
 def test_stress_example():
     import Converter.PyTree as C
+    import Converter.Internal as I
     import Generator.PyTree as G
     import Fast.PyTree as Fast
     import Initiator.PyTree as Init
@@ -63,6 +64,7 @@ def test_stress_example():
     C._tagWithFamily(t,'WALL')
     C._addFamily2Base(t, 'FARFIELD', bndType='BCFarfield')
     C._addFamily2Base(t, 'WALL', bndType='BCWall')
+    I._addGhostCells(t,t,2,adaptBCs=1,fillCorner=0)
 
     numb = { 'temporal_scheme': 'implicit', 'ss_iteration':3, 'modulo_verif':1}
     numz = { 'scheme':'roe', 'slope':'minmod',

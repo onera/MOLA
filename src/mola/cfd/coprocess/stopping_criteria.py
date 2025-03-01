@@ -24,77 +24,101 @@ from . import rank, comm
 from mola.cfd.coprocess.user_interface import write_tagfile
 import mola.naming_conventions as names
 
-def check_timeout(coprocess_manager):
-    
-    launch_time = coprocess_manager.launch_time
-    timeout = coprocess_manager.workflow.RunManagement['TimeOutInSeconds']
-    logger = coprocess_manager.mola_logger 
-
-    if coprocess_manager.status.startswith('RUNNING'):
-            
-        if has_reached_timeout( launch_time, timeout, logger):
-            write_tagfile(names.FILE_NEWJOB_REQUIRED, coprocess_manager)
-            coprocess_manager.status = 'TO_STOP'
-
-        comm.barrier()
-
-
-
 def check_max_iteration(coprocess_manager):
+
+    has_reached_max_iteration = False
 
     if coprocess_manager.status.startswith('RUNNING'):
         itinit = coprocess_manager.workflow.Numerics['IterationAtInitialState']
         itmax  = coprocess_manager.workflow.Numerics['NumberOfIterations']
 
         if coprocess_manager.iteration >= itinit + itmax:
-            coprocess_manager.mola_logger.info(f'{GREEN}REACHED itmax{ENDC}', rank=0)
-            write_tagfile(names.FILE_JOB_COMPLETED, coprocess_manager)
+            coprocess_manager.mola_logger.info(f'{GREEN}REACHED MAX ITERATION{ENDC}', rank=0)
 
             coprocess_manager.status = 'TO_STOP'
+            has_reached_max_iteration = True
 
         comm.barrier()
 
+    return has_reached_max_iteration
+
+def check_timeout(coprocess_manager):
+
+    is_to_stop = False
+    
+    launch_time = coprocess_manager.launch_time
+    timeout = coprocess_manager.workflow.RunManagement['TimeOutInSeconds']
+
+    if coprocess_manager.status.startswith('RUNNING'):
+            
+        if has_reached_timeout( launch_time, timeout):
+            date = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            msg = f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION'
+            coprocess_manager.mola_logger.warning(msg, rank=0)
+
+            write_tagfile(names.FILE_NEWJOB_REQUIRED, coprocess_manager)
+            coprocess_manager.status = 'TO_STOP'
+            is_to_stop = True
+
+        comm.barrier()
+    
+    return is_to_stop
+
+def has_reached_timeout(LaunchTime, TimeOutInSeconds):
+    ReachedTimeOutMargin = False
+    if rank == 0:
+        ElapsedTime = timeit.default_timer() - LaunchTime
+        ReachedTimeOutMargin = ElapsedTime >= TimeOutInSeconds
+            
+    comm.Barrier()
+    ReachedTimeOutMargin = comm.bcast(ReachedTimeOutMargin,root=0)
+
+    return ReachedTimeOutMargin
 
 def check_convergence_criteria(coprocess_manager):
 
-    it  = coprocess_manager.iteration
+    has_reached_convergence_criteria = False
+
+    it  = coprocess_manager.iteration + 1  # we are after the time advance of the solver
     itinit = coprocess_manager.workflow.Numerics['IterationAtInitialState']
     itmin = coprocess_manager.workflow.Numerics['MinimumNumberOfIterations']
 
-    has_done_enough_iterations = (it - itinit) > itmin 
+    has_done_enough_iterations = (it - itinit) >= itmin 
     if has_done_enough_iterations and coprocess_manager.status.startswith('RUNNING'):
+        coprocess_manager.mola_logger.warning('check convergence...', rank=0)
         if is_converged(coprocess_manager):
             coprocess_manager.status = 'TO_STOP'
+            has_reached_convergence_criteria = True
+    
+    return has_reached_convergence_criteria
 
 
 def is_converged(coprocess_manager):
 
     ConvergenceCriteria = coprocess_manager.workflow.ConvergenceCriteria
-    if not ConvergenceCriteria: return False
+    if not ConvergenceCriteria: 
+        return False
 
-    CONVERGED = False
-    all_necessary_criteria_are_verified = True
-    a_sufficient_criterion_is_verified = False
+    all_necessary_criteria_are_verified = any([criterion['Necessary'] for criterion in ConvergenceCriteria])
+    any_sufficient_criterion_is_verified = False
     if rank == 0:
        
         for criterion in ConvergenceCriteria:
             criterion_is_verified = is_criterion_flux_lower_than_threshold(criterion, coprocess_manager.Extractions)
 
-            if not criterion_is_verified and criterion['Necessary']:
+            if criterion['Sufficient'] and criterion_is_verified:
+                any_sufficient_criterion_is_verified = True
+                break
+
+            if criterion['Necessary'] and not criterion_is_verified:
                 all_necessary_criteria_are_verified = False
                 break
 
-            if criterion_is_verified and criterion['Sufficient']:
-                a_sufficient_criterion_is_verified = True
-                break
+        CONVERGED = any_sufficient_criterion_is_verified or all_necessary_criteria_are_verified
 
-        if a_sufficient_criterion_is_verified or all_necessary_criteria_are_verified:
-            CONVERGED = True
-        else:
-            return False
-        
-        txt = get_convergence_message(ConvergenceCriteria, coprocess_manager.iteration)
-        coprocess_manager.mola_logger.info(txt, rank=0)
+        if CONVERGED:
+            txt = get_convergence_message(ConvergenceCriteria, coprocess_manager.iteration)
+            coprocess_manager.mola_logger.info(txt, rank=0)
 
     comm.barrier()
     CONVERGED = comm.bcast(CONVERGED, root=0)
@@ -148,24 +172,5 @@ def get_convergence_message(ConvergenceCriteria, iteration) -> str:
     txt = f"{GREEN}{stars}\n{MSG}\n{stars}{ENDC}"
 
     return txt
-
-
-def has_reached_timeout(LaunchTime, TimeOutInSeconds, mola_logger=None):
-
-    ReachedTimeOutMargin = False
-    if rank == 0:
-        ElapsedTime = timeit.default_timer() - LaunchTime
-        ReachedTimeOutMargin = ElapsedTime >= TimeOutInSeconds
-        if ReachedTimeOutMargin:
-            date = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            msg = f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION'
-            if mola_logger:
-                mola_logger.warning(msg, rank=0)
-            else:
-                print(msg)
-    comm.Barrier()
-    ReachedTimeOutMargin = comm.bcast(ReachedTimeOutMargin,root=0)
-
-    return ReachedTimeOutMargin
 
 

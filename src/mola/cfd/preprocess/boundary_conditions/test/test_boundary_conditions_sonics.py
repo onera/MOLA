@@ -22,6 +22,9 @@ from mola.cfd.preprocess.boundary_conditions import solver_sonics
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
 from mola.cfd.preprocess.boundary_conditions.test.test_boundary_conditions import get_workflow_prepared_to_test_bcs
 
+from mola.workflow.rotating_component import turbomachinery
+from mola.workflow.rotating_component.turbomachinery.test.test_turbomachinery_workflow import get_compressor_example_parameters
+
 pytestmark = pytest.mark.sonics
 
 @pytest.mark.unit
@@ -43,4 +46,32 @@ def test_bc():
             dict(Family='kmax', Type='BCWallInviscid'),
         ]
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
+    workflow.set_boundary_conditions()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+# @pytest.mark.parametrize('interface_type', ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface'])
+def test_RotorStatorInterface(tmp_path): #, interface_type):
+
+    params = get_compressor_example_parameters(tmp_path)
+    params['BoundaryConditions'] = [
+        dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
+        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', Pressure=1e5),
+        dict(Family='HUB', Type='WallInviscid'),
+        dict(Family='SHROUD', Type='WallInviscid'),
+        # dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', Type=interface_type)
+    ]
+
+    workflow = turbomachinery.Workflow(**params)
+
+    workflow.prepare_job()
+    workflow.assemble()
+    workflow.positioning()
+    workflow.define_families() 
+    workflow.connect()
+    workflow.split_and_distribute() 
+    workflow.process_overset()
+    workflow.compute_flow_and_turbulence()
+    workflow.set_motion()
+
     workflow.set_boundary_conditions()

@@ -24,8 +24,6 @@ unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
 unset I_MPI_FABRICS_LIST
 
-
-
 # Treelab
 #     NOTE installation hint:
 #     python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
@@ -39,27 +37,8 @@ export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 module use --append /tmp_user/sator/sonics/usr/modules/
 module load maia/$MAIAVERSION-dsi-cfd6
 
-# # VPM
-# export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator/$ARCH
-# export PATH=$VPMPATH:$PATH
-# export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-# export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
-# export PYTHONPATH=$VPMPATH:$PYTHONPATH
-# export PYTHONPATH=$VPMPATH/lib/python${PYTHONVR}/site-packages:$PYTHONPATH
-
 # turbo
 export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/sator_new22/lib/python3.8/site-packages/:$PYTHONPATH
-
-# # ErstaZ
-# export EZPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/bin/sator
-# export PYTHONPATH=/tmp_user/sator/rbarrier/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-
-# export PYTHONPATH=$MOLAext/sator/lib/python3.8/site-packages/:$PYTHONPATH
-# export PATH=$MOLAext/sator/bin:$PATH
-# export LD_LIBRARY_PATH=$MOLAext/sator/lib/python3.8/site-packages/PyQt5/Qt5/lib:$LD_LIBRARY_PATH
-# export LD_LIBRARY_PATH=/tmp_user/sator/lbernard/lib:$LD_LIBRARY_PATH
-
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH

@@ -19,7 +19,7 @@ import numpy as np
 
 import treelab.cgns as cgns
 from mola.logging import mola_logger, MolaException, MolaAssertionError
-from mola.server import MaiaParallel
+from mola.cfd.preprocess.mesh.tools import to_distributed
 
 def apply(workflow):
     if not all([('Connection' in component) for component in workflow.RawMeshComponents]):
@@ -127,6 +127,8 @@ def apply_with_cassiopee(workflow):
     workflow.tree = cgns.castNode(workflow.tree)
 
 def apply_with_maia(workflow):
+    workflow.tree = to_distributed(workflow.tree)
+
     component = workflow.RawMeshComponents[0]
     for operation in component['Connection']:
         ConnectionType = operation['Type']
@@ -177,7 +179,6 @@ def _check_connections(connections):
                     raise MolaAssertionError("Type='Match' cannot be used after another type oc connection")
 
 
-@MaiaParallel
 def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, translation):
     # tolerance is relative with maia, to 0.01 by default
     # TODO Should be replace by a function from Miles

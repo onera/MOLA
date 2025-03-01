@@ -18,8 +18,8 @@
 import numpy as np
 
 from treelab import cgns
-from mola.server import MaiaParallel
 from mola.logging import mola_logger
+from mola.cfd.preprocess.mesh.tools import to_distributed
 
 def duplicate_workflow_with_cassiopee(workflow):
     '''
@@ -213,9 +213,9 @@ def duplicate_workflow_with_maia(workflow):
 
     if any([p['number_of_duplications']>0 for p in duplication_parameters.values()]):
         mola_logger.info('Duplication:')
+        workflow.tree = to_distributed(workflow.tree)
         workflow.tree = duplicate_with_maia(workflow.tree, duplication_parameters, merge_zones=workflow.tree.isUnstructured())
 
-@MaiaParallel
 def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
     import maia
     from mpi4py import MPI
@@ -235,5 +235,5 @@ def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
     if merge_zones:
         maia.algo.dist.merge_connected_zones(dist_tree, comm)    
 
-    return dist_tree
+    return cgns.castNode(dist_tree)
 

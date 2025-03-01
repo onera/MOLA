@@ -16,51 +16,9 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from scipy.ndimage.filters import uniform_filter1d
+from scipy.ndimage import uniform_filter1d
 
-def _extendArraysWithStatistics(node, VarName, Operations, AveragingIterations):
-
-    try:
-        IterationNumber = node.get(Name='IterationNumber')
-    except BaseException as e:
-        return # this is the case for GlobalConvergenceHistory at present
-    IterationWindow = len(IterationNumber[IterationNumber>(IterationNumber[-1]-AveragingIterations)])
-    if IterationWindow < 2: return
-
-    if isinstance(Operations, str): 
-        Operations = [Operations]
-
-    for StatType in Operations:
-
-        data_node = node.get(Name='VarName')
-        if not data_node:
-            continue
-
-        try:
-            InstantaneousArray = data_node.value()
-            InvalidValues = np.logical_not(np.isfinite(InstantaneousArray))
-            InstantaneousArray[InvalidValues] = 0.
-        except:
-            continue
-
-        if StatType.lower() == 'avg':
-            avg = slidding_average(InstantaneousArray, IterationWindow)
-            cgns.Node(Type='DataArray', Name=f'avg-{VarName}', Value=avg, Parent=node)
-
-        elif StatType.lower() == 'std':
-            avg = slidding_average(InstantaneousArray, IterationWindow)
-            StatisticArray = slidding_std(InstantaneousArray, IterationWindow, avg=avg)
-            
-
-        elif StatType.lower() == 'rsd':
-            avg = slidding_average(InstantaneousArray, IterationWindow)
-            arraysSubset['avg-'+VarName] = avg
-            std = slidding_std(InstantaneousArray, IterationWindow, avg=avg)
-            arraysSubset['std-'+VarName] = std
-            StatisticArray = slidding_std(InstantaneousArray, IterationWindow, avg=avg, std=std)
-
-
-def slidding_average(array, window):
+def slidding_average(array: np.ndarray, window: int) -> np.ndarray:
     '''
     Compute the slidding average of the signal
 
@@ -83,7 +41,7 @@ def slidding_average(array, window):
     average[InvalidValues] = 0.
     return average
 
-def slidding_std(array, window, avg=None):
+def slidding_std(array: np.ndarray, window: int, avg=None) -> np.ndarray: 
     '''
     Compute the slidding standard deviation of the signal
 
@@ -119,7 +77,7 @@ def slidding_std(array, window, avg=None):
 
     return std
 
-def slidding_rsd(array, window, avg=None, std=None):
+def slidding_rsd(array: np.ndarray, window: int, avg=None, std=None) -> np.ndarray:
     '''
     Compute the relative slidding standard deviation of the signal
 

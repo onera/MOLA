@@ -56,7 +56,7 @@ def test_RotorStatorInterface(tmp_path, interface_type):
     params = get_compressor_example_parameters(tmp_path)
     params['BoundaryConditions'] = [
         dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
-        dict(Family='Stator_OUTFLOW', Type='OutflowPressure', Pressure=1e5),
+        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', Pressure=1e5),
         dict(Family='HUB', Type='WallInviscid'),
         dict(Family='SHROUD', Type='WallInviscid'),
         dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', Type=interface_type)

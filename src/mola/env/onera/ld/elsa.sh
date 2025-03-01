@@ -46,6 +46,7 @@ module load maia/$MAIAVERSION-dsi-ompi405
 
 # turbo 
 export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
+export TURBO_COMPILER='gcc'
 
 # ErstaZ
 export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos

@@ -79,6 +79,68 @@ def get_compressor_example(RunDirectory):
     w = WorkflowTurbomachinery(**get_compressor_example_parameters(RunDirectory))
     return w
 
+def get_compressor_example_rotor_only_parameters(RunDirectory):
+    params = dict( 
+        RawMeshComponents=[
+        dict(
+            Name='Base',
+            Source='/stck/mola/data/mesh/compressor_example/compressor_example_rotor_only.cgns',
+            )
+    ],
+
+    ApplicationContext = dict(
+        ShaftRotationSpeed = 6000 * np.pi / 30., 
+        Rows = dict(
+            Rotor = dict(IsRotating=True, NumberOfBlades=30), 
+        )
+    ),
+
+    Flow = dict(
+        Mach                  = 0.3,  
+        TemperatureStagnation = 288.15,
+        PressureStagnation    = 101325.,
+    ),
+
+    Turbulence = dict(
+        Model='SA',
+    ),
+
+    Numerics = dict(
+        NumberOfIterations = 5,
+        CFL = dict(EndIteration=300, StartValue=1., EndValue=30.),
+    ),
+
+    BoundaryConditions = [
+        dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
+        dict(Family='Rotor_OUTFLOW', Type='OutflowPressure', Pressure=100e3), 
+        dict(Family='HUB', Type='WallInviscid'),
+        dict(Family='SHROUD', Type='WallInviscid'),
+    ],
+
+    Extractions = [
+        dict(Type='3D', 
+             Fields=['Mach', 'Pressure', 'PressureStagnation', 'Entropy'], 
+             ExtractionPeriod=500, SavePeriod=500),
+        dict(Type='BC', Source='Rotor_INFLOW', Fields=['PressureStagnation', 'TemperatureStagnation', 'VelocityX', 'VelocityY', 'VelocityZ']), 
+        dict(Type='BC', Source='Rotor_OUTFLOW', Fields=['Pressure']), 
+        dict(Type='BC', Source='Rotor_Blade', Fields=['VelocityX', 'VelocityY', 'VelocityZ']), 
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.015, OtherOptions=dict(tag='InletPlane', ReferenceRow='Rotor')),
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.06, OtherOptions=dict(tag='OutletPlane', ReferenceRow='Rotor')),
+        dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.5)
+    ],
+
+    RunManagement=dict(
+        JobName='rotor',
+        NumberOfProcessors=1,
+        RunDirectory=RunDirectory,
+        ),
+    )
+    return params
+
+def get_compressor_example_rotor_only(RunDirectory):
+    w = WorkflowTurbomachinery(**get_compressor_example_rotor_only_parameters(RunDirectory))
+    return w
+
 def get_workflow_rotor37(RunDirectory):
     w = WorkflowTurbomachinery( 
         RawMeshComponents=[
@@ -153,6 +215,21 @@ def test_compressor_example_local(tmp_path):
     w.simulation_status()
     w.remove_cfd_files()
 
+@pytest.mark.integration
+@pytest.mark.cost_level_4
+def test_compressor_example_local_rotor_only(tmp_path):
+    w = get_compressor_example_rotor_only(tmp_path)
+    w.RunManagement['Scheduler'] = "local" # otherwise we will have sync problem at simulation_status
+    if w.Solver == 'fast':
+        w.Numerics.update(dict(
+            TimeMarching = 'Unsteady',
+            TimeStep = 1e-6,
+        ))
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+    w.simulation_status()
+    w.remove_cfd_files()
 
 # @pytest.mark.network_onera
 # @pytest.mark.user_case

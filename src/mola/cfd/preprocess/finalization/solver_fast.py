@@ -18,10 +18,12 @@
 from treelab import cgns
 
 from mola.logging import mola_logger, MolaException, MolaUserError
+from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
 
 
 def apply_to_solver(workflow):
 
+    workflow.tree = to_full_tree_at_rank_0(workflow.tree)
     check_consistency(workflow) # TODO put in a more relevant place, such as at assembly
     add_reynolds_to_reference_state(workflow)
     add_Rok_to_reference_state(workflow) # CAVEAT, not even CGNS standard name

@@ -35,8 +35,9 @@ class FakeWorkflowMonoBlock():
         mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], xyz)
         mesh.attachTo(base)
         
-        self.SolverParameters = {}
+        self.SolverParameters = dict()
         self.ProblemDimension = 3
+        self.Motion = dict()
 
 
 @pytest.mark.unit
@@ -136,6 +137,21 @@ def test_get_turbulence_setup_SA():
     assert params['Num2Zones']['ransmodel'] == 'SA'
     assert params['Num2Zones']['ratiom']
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_motion():
+    Motion = dict(
+        Family = dict(
+            RotationSpeed = [100., 0., 0.],
+            RotationAxisOrigin = [0., 0., 0.],
+            TranslationSpeed = [0., 0., 0.],
+        )
+    )
+    params = solver_fast.get_motion(Motion)
+    assert params['Num2Zones']['Local@Family'] == dict(
+        motion = 'rigid',
+        rotation = [1.,0.,0.,0.,0.,0.,0.,0.],
+    )
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

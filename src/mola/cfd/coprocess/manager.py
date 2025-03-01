@@ -27,12 +27,13 @@ from treelab import cgns
 from mola.logging import (MolaException, MolaAssertionError, MolaUserError,
                           MolaLogger, CYAN, ENDC, GREEN)
 import mola.naming_conventions as names
+import mola.server as SV
 from mola.cfd import call_solver_specific_function
 from mola.cfd.preprocess.mesh.io.writer import write
 
 from . import rank, comm
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
-from .user_interface import get_user_signal, write_tagfile
+from .user_interface import check_and_execute_user_signal, write_tagfile
 
 
 AVAILABLE_SIMULATION_STATUS = [
@@ -43,20 +44,6 @@ AVAILABLE_SIMULATION_STATUS = [
     'TO_FINALIZE',
     'COMPLETED', 
 ]
-
-# Control Flags for interactive control using command 'touch <flag>'
-AVAILABLE_SIGNALS = [
-    'CONVERGED',
-    'SAVE_ALL',
-    'COMPUTE_BODYFORCE',
-    'SAVE_BODYFORCE',
-    'SAVE_RESTART',
-    'SAVE_FIELDS',
-    'SAVE_EXTRACTIONS'
-    'SAVE_SIGNALS',
-    'QUIT',
-]
-
 
 
 class CoprocessManager():
@@ -90,10 +77,13 @@ class CoprocessManager():
 
     def run_iteration(self):
         self.update_iteration()
-        check_timeout(self)
-        self.apply_operations()
-        check_max_iteration(self)
-        check_convergence_criteria(self)
+        has_reached_max_iteration = check_max_iteration(self)
+        if not has_reached_max_iteration:
+            has_reached_timeout = check_timeout(self)
+            if not has_reached_timeout:
+                check_and_execute_user_signal(self)
+                self.apply_operations()
+                check_convergence_criteria(self)
 
         if self.status == 'TO_STOP':
             self.end_simulation()
@@ -116,7 +106,15 @@ class CoprocessManager():
 
     
     def update_extractions_to_perform(self):
-        for extraction in self.Extractions:
+        # FIXME Fast starts at iteration 0, so all extractions are extracted and saved
+        # at iteration 0 (because of modulo). 
+        # Change iteration number in MOLA (n in MOLA <--> n-1 in Fast) ?
+        # But residuals have iterations coming directly from Fast...
+        # if self.iteration == 0:
+        #     # exception for Fast, because the is an iteration 0
+        #     return
+        
+        for extraction in self.Extractions:                
             if self.iteration % extraction['ExtractionPeriod'] == 0:
                 extraction['IsToExtract'] = True
             if self.iteration % extraction['SavePeriod'] == 0:
@@ -126,9 +124,8 @@ class CoprocessManager():
         if any([extraction['IsToExtract'] for extraction in self.Extractions]):
             self.mola_logger.debug(f'Performing extractions..', rank=0)
             self.perform_extractions()
-
-            if any([extraction['Type'] == 'Restart' and extraction['IsToExtract']  for extraction in self.Extractions]):
-                self._update_workflow_parameters_for_restart()
+            self.postprocess_extractions()
+            self._update_workflow_parameters_for_restart_if_needed()
             
         comm.barrier()
 
@@ -212,12 +209,15 @@ class CoprocessManager():
          
     def finalize(self):
         self.mola_logger.info(f'>> finalize', rank=0)
+        self.status = 'TO_FINALIZE'
         for extraction in self.Extractions:
             if extraction['ExtractAtEndOfRun']:
                 extraction['IsToExtract'] = True
                 extraction['IsToSave'] = True
         self.update_extractions_to_perform()
         self.apply_operations()
+
+        self.after_compute()
 
         self.status = 'COMPLETED'
         move_log_files()
@@ -227,16 +227,39 @@ class CoprocessManager():
             pass
         
         check_stderr()
-        write_tagfile(names.FILE_JOB_COMPLETED, self)
+        if not SV.is_file(names.FILE_NEWJOB_REQUIRED):
+            write_tagfile(names.FILE_JOB_COMPLETED, self)
 
-    def _update_workflow_parameters_for_restart(self):
+    def after_compute(self):
+        if hasattr(self.workflow, 'after_compute'):
+            self.mola_logger.info('try to postprocess...', rank=0)
+            try:
+                self.workflow.after_compute()
+                self.mola_logger.info(f'  {CYAN}> postprocess done.{ENDC}', rank=0)
+            except Exception as err:
+                if rank == 0:
+                    with open('stderr-post.log', 'w') as f:
+                        f.write(str(err)+'\n')
+                self.mola_logger.warning(f'  > postprocess failed. See stderr-post.log', rank=0)
+
+    def _update_workflow_parameters_for_restart_if_needed(self):
+        found_restart_tree = False
+        for extraction in self.Extractions:
+            if extraction['Type'] == 'Restart' and extraction['IsToExtract']:
+                # restart tree is in extraction['Data']
+                assert 'Data' in extraction and extraction['Data'] is not None
+                found_restart_tree = True
+                break
+        if not found_restart_tree: 
+            return
+
         self.workflow.Numerics['NumberOfIterations'] -= self.iteration - self.workflow.Numerics['IterationAtInitialState'] + 1
-        self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1
+        self.workflow.Numerics['IterationAtInitialState'] = self.iteration + 1 
         if 'TimeStep' in self.workflow.Numerics:
             self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
 
         # Update only Numerics node in tree
-        WorkflowParameters = self.workflow.tree.get(Name=self.workflow._workflow_parameters_container_, Depth=1)
+        WorkflowParameters = extraction['Data'].get(Name=self.workflow._workflow_parameters_container_, Depth=1)
         if WorkflowParameters:
             WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
 
@@ -259,7 +282,7 @@ class CoprocessManager():
             os.makedirs(output_dir, exist_ok=True)
             os.makedirs(log_dir, exist_ok=True)
 
-        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path)
+        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path, level='DEBUG')
 
     @property
     def status(self):
@@ -275,6 +298,25 @@ class CoprocessManager():
     def __del__(self):
         if self.status != 'COMPLETED':
             self.mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
+
+    def postprocess_extractions(self):
+        from mola.cfd.postprocess.signals import apply_operations_on_signal, AVAILABLE_OPERATIONS_ON_SIGNALS
+
+        for extraction in self.Extractions:
+            PostprocessOperations = extraction.get('PostprocessOperations', [])
+
+            for operation in PostprocessOperations:
+                AtEndOfRunOnly = operation.get('AtEndOfRunOnly', True)
+                is_to_postprocess = self.status=='TO_FINALIZE' or not AtEndOfRunOnly
+                if not is_to_postprocess:
+                    continue
+
+                if operation['Type'] in AVAILABLE_OPERATIONS_ON_SIGNALS:
+                    # ex: PostprocessOperations = [dict(Type='avg', Variable='MassFlow')]
+                    self.mola_logger.debug(f"  compute {operation['Type']}-{operation['Variable']} on {extraction['Name']}", rank=0)
+                    apply_operations_on_signal(extraction['Data'], operation['Variable'], 
+                                               extraction['TimeAveragingIterations'], 
+                                               operations=[operation['Type']])
 
 
 def move_log_files():

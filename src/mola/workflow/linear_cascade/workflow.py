@@ -54,6 +54,12 @@ class WorkflowLinearCascade(Workflow):
 
         super().compute_flow_and_turbulence()
 
+    def initialize_flow(self):
+        if (self.Initialization['ParametrizeWithHeight'] or 
+            any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions])):
+            self.parametrize_with_height()
+        super().initialize_flow()
+
     def get_periodic_direction(self):
         periodic_node = self.tree.get(Type='Periodic')  # Periodic node in a GridConnectivity
         translation = periodic_node.get(Name='Translation').value()

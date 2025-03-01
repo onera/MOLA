@@ -90,7 +90,7 @@ def get_workflow_spleen(tmp_path):
         ],
 
         Extractions = [
-            dict(Type='BC', Source='SPLEEN_BLADE', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
+            dict(Type='BC', Source='SPLEEN_BLADE', Fields=['Pressure'], ExtractAtEndOfRun=True),
             dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=0.001, ExtractAtEndOfRun=True), # midspan
             # dict(type='IsoSurface', field='CoordinateX', value=-0.05328, tag='Plan01'),
             # dict(type='IsoSurface', field='CoordinateX', value=0.071421, tag='Plan06')
