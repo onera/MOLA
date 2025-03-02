@@ -17,9 +17,13 @@
 
 from .external_flow import ExternalFlowGenerator
 from .internal_flow import InternalFlowGenerator
+from .external_flow_Mach_P_T import ExternalMPTFlowGenerator
 
 AvailableFlowGenerators = dict()
-for gen in [ExternalFlowGenerator, InternalFlowGenerator]:
+for gen in [ExternalFlowGenerator, 
+            InternalFlowGenerator,
+            ExternalMPTFlowGenerator]:
+    
     AvailableFlowGenerators[gen.name] = gen
 
 def get_flow_generator(fg):

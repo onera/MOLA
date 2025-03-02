@@ -90,7 +90,8 @@ class ExternalFlowGenerator(object):
        
         ViscosityMolecular = SutherlandLaw(self.Flow['Temperature'], self.Fluid['SutherlandViscosity'], self.Fluid['SutherlandTemperature'], self.Fluid['SutherlandConstant'])
 
-        Mach = self.Flow['VelocityForScalingAndTurbulence'] /np.sqrt( self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * self.Flow['Temperature'] )
+        SoundSpeed = np.sqrt( self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * self.Flow['Temperature'] )
+        Mach = self.Flow['VelocityForScalingAndTurbulence'] / SoundSpeed 
         Pressure = self.Flow['Density'] * self.Fluid['IdealGasConstant'] * self.Flow['Temperature']
         PressureDynamic = 0.5 * self.Flow['Density'] * self.Flow['VelocityForScalingAndTurbulence'] **2
         TemperatureStagnation = self.Flow['Temperature'] * (1 + (self.Fluid['Gamma']-1)/2. * Mach**2)
@@ -123,6 +124,7 @@ class ExternalFlowGenerator(object):
             MomentumY               = MomentumY,
             MomentumZ               = MomentumZ,
             EnergyStagnationDensity = EnergyStagnationDensity,
+            SoundSpeed              = SoundSpeed
         ))
 
     def set_turbulence_properties(self):
