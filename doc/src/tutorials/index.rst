@@ -6,10 +6,9 @@ Tutorials
 
 .. todo:: add tutorials
 
-.. The following tutorials are available:
+The following tutorials are available:
 
-.. .. toctree::
-..     :maxdepth: 2
+.. toctree::
+    :maxdepth: 1
 
-..     first_one/index
-..     second_one/index
+    rotor37/index

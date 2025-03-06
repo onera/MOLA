@@ -4,15 +4,6 @@ A general introduction to the concept of Workflow
 
 .. py:currentmodule::  mola.workflow.workflow
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    airfoil
-    linear_cascade
-    rotating_component
-    turbomachinery
-    manager
 
 ********************
 What is a Workflow ?
@@ -69,16 +60,16 @@ Currently, available applicative workflows are:
 .. grid:: 3
 
     .. grid-item-card::
-        :img-top: ../../examples/img/thumb_r37.png
-        :link: airfoil.html
+        :img-top: ../../examples/img/thumb_airfoil.png
+        :link: workflows_by_applications/airfoil.html
 
         **airfoil**
         ^^^
         for 2D airfoil simulation, useful to compute polars
 
     .. grid-item-card::
-        :img-top: ../../examples/img/thumb_r37.png
-        :link: linear_cascade.html
+        :img-top: ../../examples/img/flow_lmfa.png
+        :link: workflows_by_applications/linear_cascade.html
 
         **linear_cascade**
         ^^^
@@ -86,7 +77,7 @@ Currently, available applicative workflows are:
 
     .. grid-item-card::
         :img-top: ../../examples/img/thumb_r37.png
-        :link: turbomachinery.html
+        :link: workflows_by_applications/turbomachinery.html
 
         **turbomachinery**
         ^^^
@@ -109,24 +100,7 @@ What are the inputs of a Workflow ?
 
 Let's detail what arguments are into the parentheses `Workflow(...)`.
 
-List of attributes of Workflow:
-Solver,
-RawMeshComponents,
-Fluid,
-Flow,
-Turbulence,
-BoundaryConditions,
-SplittingAndDistribution,
-Numerics,
-BodyForceModeling, 
-Motion, 
-Initialization, 
-ExtractionsDefaults,
-Extractions, 
-ConvergenceCriteria, 
-RunManagement, 
-ApplicationContext, 
-SolverParameters 
+A complete description of possible parameters for the generic Workflow is available in :doc:`inputs`.
 
 The method `Workflow.print_interface()` allows printing what names and
 types of arguments are expected when the Workflow is instanciated.

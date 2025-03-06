@@ -18,7 +18,8 @@ while the higher-level API wraps these objects in a functional fashion.
    :maxdepth: 2
 
    environment
-   workflow/index
-   workflow/index_applications
+   workflow/introduction
+   workflow/workflows_by_application/index
+   workflow/inputs
    workflow/manager
    commands

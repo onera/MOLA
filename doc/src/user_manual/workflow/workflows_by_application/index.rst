@@ -3,8 +3,9 @@ Workflows by application
 ########################
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    airfoil
    linear_cascade
+   rotating_component
    turbomachinery

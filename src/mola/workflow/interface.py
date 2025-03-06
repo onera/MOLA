@@ -165,6 +165,34 @@ class WorkflowInterface(object):
         Name             : str,
         Source           : Union[ str, Tree, Base, Zone],
         ):
+        '''
+        Set workflow attribute **RawMeshComponents**
+
+        Parameters
+        ----------
+        Name : str
+            Name of the component, which defines also the name of the CGNS Base.
+        Source : Union[ str, Tree, Base, Zone]
+            Name of the mesh file. Source can also be directly a Tree, Base or Zone read by treelab.
+        Mesher : str, optional
+            Name of the tool used to generate the Mesh. Available values are: 
+                #. `None` or `'default'`: in that case, nothing is done.
+                #. `'autogrid'`: make standard operations to clean and rotate a mesh generated with Autogrid5.
+        Unit : str, optional
+            Unit for mesh coordinates, to convert to meters if needed. 
+            Available units are: 'm', 'dm', 'cm', 'mm', 'inches'.
+            By default 'm'.
+        CleaningMacro : str, optional
+            :fas:`person-digging;sd-text-warning`
+        Families : list, optional
+            _description_, by default None
+        Positioning : list, optional
+            _description_, by default None
+        Connection : list, optional
+            _description_, by default None
+        OversetOptions : dict, optional
+            :fas:`person-digging;sd-text-warning`
+        '''
         Positioning = self._add_scaling_according_to_unit(Positioning, Unit)    
         self.RawMeshComponents.append(self._get_comp(
             WorkflowInterface.add_to_RawMeshComponents, self.get_default_values_from_local_signature()))
@@ -202,6 +230,26 @@ class WorkflowInterface(object):
             SutherlandConstant         : float = 110.4,
             SutherlandViscosity        : float = 1.78938e-05,
             SutherlandTemperature      : float = 288.15):
+        '''
+        Set workflow attribute **Fluid**
+
+        Parameters
+        ----------
+        Gamma : float, optional
+            Specific heat ratio (or adiabatic index), by default 1.4
+        IdealGasConstant : float, optional
+            by default 287.053
+        Prandtl : float, optional
+            by default 0.72
+        PrandtlTurbulent : float, optional
+            by default 0.9
+        SutherlandConstant : float, optional
+            by default 110.4
+        SutherlandViscosity : float, optional
+            by default 1.78938e-05
+        SutherlandTemperature : float, optional
+            by default 288.15
+        '''
         self.Fluid = self._get_comp(WorkflowInterface.set_Fluid, self.get_default_values_from_local_signature())
 
 
@@ -238,7 +286,7 @@ class WorkflowInterface(object):
         TransitionMode               :   str = None,
                        ):
         r'''
-        Sets the turbulence modeling parameters
+        Set workflow attribute **Turbulence**, used for turbulence modeling parameters.
 
         Parameters
         ----------
@@ -312,6 +360,31 @@ class WorkflowInterface(object):
         self.Turbulence = self._get_comp(WorkflowInterface.set_Turbulence, self.get_default_values_from_local_signature())
 
     def set_BoundaryConditions(self, user_list : list):
+        '''
+        Set workflow attribute **BoundaryConditions** as a :class:`list`. 
+        Each element is a :class:`dict` and corresponds to the boundary condition imposed on one given Family.
+
+        For each :class:`dict`, the following keys are mandatory for all types of conditions:
+            * Family (:class:`str`): Name of the Family on which the boundary condition is applied.
+            * Type (:class:`str`): Type of condition. Available conditions are: 
+                * Farfield
+                * InflowStagnation
+                * InflowMassFlow 
+                * OutflowPressure 
+                * OutflowSupersonic  
+                * OutflowMassFlow 
+                * OutflowRadialEquilibrium  
+                * WallViscous  
+                * WallViscousIsothermal      
+                * WallInviscid        
+                * Wall: depending the context (Euler or Navier-Stokes), it redirects to WallInviscid or WallViscous 
+                * SymmetryPlane 
+                * MixingPlane     
+                * UnsteadyRotorStatorInterface 
+                * ChorochronicInterface    
+
+        Other arguments depends on the Type of boundary condition.
+        '''
         self._set_by_user_list(self._method_name(), user_list)
 
     def add_to_BoundaryConditions(self,
@@ -350,6 +423,42 @@ class WorkflowInterface(object):
         CFL                       : Union[ float,
                                             dict] = 10.0,
                        ):
+        '''
+        Set workflow attribute **Numerics**
+
+        Parameters
+        ----------
+        Scheme : str, optional
+            Spatial scheme. 
+            Available schemes are: 'Jameson', 'Roe'.
+            By default 'Jameson' (for the basic Workflow). 
+        TimeMarching : str, optional
+            Type of simulation, available choices are: 'Steady', 'Unsteady'.
+            By default 'Steady'
+        NumberOfIterations : int, optional
+            by default 10000
+        MinimumNumberOfIterations : int, optional
+            Number of iterations that will be done in all cases, 
+            even if convergence criteria have been already reached.
+            By default 1000
+        IterationAtInitialState : int, optional
+            by default 1
+        TimeAtInitialState : float, optional
+            by default 0.0
+        TimeMarchingOrder : int, optional
+            by default 2
+        TimeStep : float, optional
+            Useful only for unsteady simulation.
+        CFL : Union[ float, dict], optional
+            CFL number, by default 10.0.
+            It could be a scalar or a linear ramp given as a dict. For example:
+
+            >>> CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
+
+            defines a ramp with CFL=1 at iteration 1 (could be modified with `StartIteration`)
+            until CFL=30 at iteration 300.
+
+        '''
         self.Numerics = self._get_comp(
             WorkflowInterface.set_Numerics, self.get_default_values_from_local_signature())
         self.check_time_marching()
@@ -403,10 +512,41 @@ class WorkflowInterface(object):
             SourceContainer : str = None,
             ComputeWallDistanceAtPreprocess : bool = False,
             KeepWallDistance : bool  = False):
+        '''
+        Set workflow attribute **Initialization**
+
+        Parameters
+        ----------
+        Method : str, optional
+            Available methods are: 
+                * `'uniform'`: initialize flow with reference values as computed 
+                  from **Fluid**, **Flow** and **Turbulence** attributes.
+                * `'copy'`: initialize flow by copying the flow in the file given by **Source**.
+                  Both meshes must be exactly the same.
+                * `'interpolate'`: initialize flow by interpolating the flow from the file given by **Source**.
+            By default 'uniform'
+        Source : Union[     str, Tree, Base, Zone ], optional
+            Source mesh, given as a file name or as a treelab Tree.
+        SourceContainer : str, optional
+            Container to consider in the source mesh, by default 'FlowSolution#Init'
+        ComputeWallDistanceAtPreprocess : bool, optional
+            If True, compute distances to walls during preprocess.
+            By default False
+        KeepWallDistance : bool, optional
+            With `Method='copy'`, choose to copy variables `TurbulentDistance` and `TurbulentDistanceIndex` or not.
+            By default False
+        '''
         self.Initialization = self._get_comp(
             WorkflowInterface.set_Initialization, self.get_default_values_from_local_signature())
 
     def set_Extractions(self, user_list : list):
+        '''
+        Extractions are defined with the workflow attribute **Extractions** as a :class:`list`. 
+        Each element is a :class:`dict` and corresponds to an extraction.
+
+        For each extraction, at least one key is mandatory:
+            * Type (:class:`str`)
+        '''
         self._set_by_user_list(self._method_name(), user_list, several_add_tos=True,
             external_defaults=self.ExtractionsDefaults)
 
@@ -706,6 +846,53 @@ class WorkflowInterface(object):
         Scheduler : str = None, # None : chosed auto. "SLURM": will launch sbatch; "local" will launch ./job
         AER : str = None,
         ):
+        '''
+        Set workflow attribute **RunManagement** to handle job submission.
+
+        Parameters
+        ----------
+        JobName : str, optional
+            Name of the job (useful only for using a Scheduler), by default 'mola'
+        RunDirectory : Union[str, pathlib.PosixPath], optional
+            Path where the simulation will be done, 
+            by default '.' (simulation is prepared in the current directory).
+        NumberOfProcessors : int, optional
+            Number of processors used to run the simulation, by default MPI.COMM_WORLD.Get_size()
+        NumberOfThreads : int, optional
+            :fas:`person-digging;sd-text-warning`
+        Machine : str, optional
+            Name of the machine where the simulation will be run.
+            **RunDirectory** is relative to that machine. 
+            If not given, an attempt to guess the destination machine will be done
+            using **RunDirectory**, the current directory and environment setting. 
+            If the machine cannot be guessed, localhost is taken by default.
+        User : str, optional
+            Username on the destination **Machine**, by default the same user than currently on localhost.
+        TimeLimit : Union[str, float], optional
+            Time limit for the simulation, either in seconds (:class:`float`) or as a :class:`str`
+            like '00:30:00' (30min), '15:00' (15min), '1-10:00:00' (34h).
+            The default value depends on the **Machine** and environment parameters. 
+        QuitMarginBeforeTimeOutInSeconds : int, optional
+            Margin in seconds before quitting the simulation, by default 300.
+            When the simulation has run for **TimeLimit** - **QuitMarginBeforeTimeOutInSeconds**, 
+            it won't make new iterations and the simulation try ending safely performing final extractions.
+            It will be automatically submitted again.
+        LauncherCommand : str, optional
+            Command that will be executed after preprocess to run the simulation (on the destination **Machine**).
+            If not providing, the default value 'auto' corresponds to:
+                * with `Scheduler='bash'`:  cd <RunDirectory>; sbatch :mola_name:`FILE_JOB`
+                * with `Scheduler='SLURM'`: cd <RunDirectory>; sbatch :mola_name:`FILE_JOB`
+            It is possible to run a more sophisticated command if needed with this attribute **LauncherCommand**.            
+        FilesAndDirectories : list, optional
+            Files and directories to copy in **RunDirectory**, by default []
+        mola_target_path : str, optional
+            :fas:`person-digging;sd-text-warning`
+        Scheduler : str, optional
+            Job scheduler, like SLURM, to use to run the simulation. 
+            The default value depends on the **Machine** and environment parameters. 
+        AER : str, optional
+            AER number for simulation on sator
+        '''
         RunDirectory = str(RunDirectory)
         self.RunManagement = self._get_comp(
             WorkflowInterface.set_RunManagement, self.get_default_values_from_local_signature())
