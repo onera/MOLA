@@ -288,7 +288,10 @@ def outradeq_interface(workflow, Family, **kwargs):
 
     def _get_default_valve_ref_mflow():
         bcs = boundary_conditions.get_bc_nodes_from_family(workflow.tree, Family)
-        bc = bcs[0]
+        try:
+            bc = bcs[0]
+        except IndexError:
+            raise MolaException(f'Cannot find a BC associated to Family {Family}')
         zone = bc.getParent(Type='Zone_t')
         row = zone.get(Type='FamilyName').value()
         try:
@@ -794,6 +797,7 @@ def outradeqhyb(workflow, Family, **kwargs):
             source_path=radius_filename, 
             destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(radius_filename), 
             destination_machine=workflow.RunManagement['Machine'],
+            force_copy=True
             )
         SV.remove_path(radius_filename, machine='localhost')
 
@@ -903,6 +907,7 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3):
                 source_path=filename, 
                 destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(filename), 
                 destination_machine=workflow.RunManagement['Machine'],
+                force_copy=True
                 )
             SV.remove_path(filename, machine='localhost')
 

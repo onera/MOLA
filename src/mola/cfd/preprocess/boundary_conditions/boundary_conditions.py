@@ -234,7 +234,7 @@ def get_bc_nodes_from_family(t, Family):
     bcs = []
     all_bcs = t.group(Type='BC')
     for bc in all_bcs:
-        if bc.get('FamilyName') == Family:
+        if bc.get('FamilyName').value() == Family:
             bcs.append(bc)
     return bcs
 
