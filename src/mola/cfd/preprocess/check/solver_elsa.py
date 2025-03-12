@@ -19,4 +19,11 @@ from treelab import cgns
 from mola.logging import MolaException
 
 def apply_to_solver(workflow):
-    pass
+    check_empty_str(workflow.tree)
+
+def check_empty_str(tree):
+    nodes = tree.group(Value='')
+    if len(nodes) > 0:
+        txt = '\n'.join([n.path() for n in nodes])
+        raise MolaException(f'The value of following node(s) is an empty str, that is forbidden for elsA: \n{txt}')
+    

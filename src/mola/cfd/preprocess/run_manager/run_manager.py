@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, MolaUserError
 from mola import server as SV
 
 MolaToScheduler = dict(
@@ -48,6 +48,10 @@ def set_default(RunManagement):
     set_default_machine(RunManagement)
     
     RunManagement.setdefault('mola_target_path', SV.get_mola_installation_path(RunManagement['Machine']))
+
+    for key, value in RunManagement.items():
+        if isinstance(value, str) and len(value) == 0:
+            raise MolaUserError(f'The value of parameter RunManagement["{key}"] cannot be an empty string.')
         
     if not SV.run_on_localhost(RunManagement['Machine'], RunManagement['RunDirectory']):
         mola_logger.info(f"> Run on a remote machine ({RunManagement['Machine']}):\n"
