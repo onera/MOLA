@@ -97,6 +97,21 @@ def process_extractions_of_type_field(workflow):
                 extraction3D['OtherOptions'] = dict()
                 
                 add_3d_extraction_to_zone(zone, extraction3D, add_GridLocation)
+            
+            elif Extraction['Type'] == 'Probe' and is_zone_in_extraction_family(zone, Extraction):
+                Fields = Extraction.get('Fields')
+                if Fields is None or len(Fields) == 0:
+                    continue
+
+                import inspect                
+                signature = inspect.signature(workflow._interface.add_to_Extractions_Probe)
+                extraction3D = dict((name, param.default) for name, param in signature.parameters.items() if name != 'self')
+                extraction3D['Fields'] = Fields
+                extraction3D['GridLocation'] = 'CellCenter'
+                extraction3D['Container'] = 'FlowSolution#EndOfRun'
+                extraction3D['OtherOptions'] = dict()
+                
+                add_3d_extraction_to_zone(zone, extraction3D, add_GridLocation)
 
 def is_zone_in_extraction_family(zone, Extraction):
     try:
@@ -157,7 +172,8 @@ def process_extractions_of_type_bc_and_integral(workflow):
     familiesBC = get_familiesBC_nodes(workflow.tree)
 
     for Extraction in workflow.Extractions:
-        if Extraction['Type'] not in ['Integral', 'BC']: continue 
+        if Extraction['Type'] not in ['Integral', 'BC']: 
+            continue 
 
         families_to_extract = get_bc_families_to_extract(workflow.tree, Extraction, familiesBC)
 
@@ -174,7 +190,9 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
 
         elsa_var_list = translate_to_elsa(fields_to_extract, type='var')       
 
-        solver_output_name = '.Solver#Output#'+Extraction['Name'] # note that we may have several outputs (e.g. different requested frames)
+        # note that we may have several outputs (e.g. different requested frames)
+        # solver_output_name = '.Solver#Output#'+Extraction['Name'] 
+        solver_output_name = '.Solver#Output#'+Extraction['Frame']
 
         output_keys = get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list)
 

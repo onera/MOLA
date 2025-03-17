@@ -24,7 +24,8 @@ import numpy as np
 from treelab import cgns
 from mola.cfd.coprocess import comm, rank, NumberOfProcessors
 from mola.cfd.compute import apply as compute_apply
-from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names, update_signals_using, write_extraction_log
+from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names
+from mola.cfd.coprocess.tools import update_signals_using, write_extraction_log
 
 
 class FakeWorkflow():

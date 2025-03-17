@@ -334,7 +334,7 @@ def test_add_2d_extractions_in_SolverOutput_wall():
     
     solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow)
 
-    solver_output = FamilyNode.getParameters('.Solver#Output#'+Extraction["Name"],transform_numpy_scalars=True)
+    solver_output = FamilyNode.getParameters('.Solver#Output#absolute',transform_numpy_scalars=True)
     solver_output_ref = dict(
         period=Extraction["ExtractionPeriod"],
         writingmode=2,
@@ -386,7 +386,7 @@ def test_add_multiple_2d_extractions_in_SolverOutput_wall():
                       Frame="absolute")
     solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction2, workflow)
 
-    solver_output = FamilyNode.getParameters('.Solver#Output#'+Extraction["Name"],transform_numpy_scalars=True)
+    solver_output = FamilyNode.getParameters('.Solver#Output#absolute',transform_numpy_scalars=True)
     solver_output_ref = dict(
         period=Extraction["ExtractionPeriod"],
         writingmode=2,
@@ -432,7 +432,7 @@ def test_add_2d_extractions_in_SolverOutput_inflow(field_name):
     
     solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow)
 
-    solver_output = FamilyNode.getParameters('.Solver#Output#'+Extraction["Name"], transform_numpy_scalars=True)
+    solver_output = FamilyNode.getParameters('.Solver#Output#absolute', transform_numpy_scalars=True)
     solver_output_ref = dict(
         period=Extraction["ExtractionPeriod"],
         writingmode=2,
@@ -464,7 +464,7 @@ def test_add_integral_extractions_in_wall():
     
     solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow)
 
-    solver_output = FamilyNode.getParameters('.Solver#Output#'+Extraction["Name"],transform_numpy_scalars=True)
+    solver_output = FamilyNode.getParameters('.Solver#Output#absolute',transform_numpy_scalars=True)
     solver_output_ref = dict(
         period=Extraction["ExtractionPeriod"],
         writingmode=2,

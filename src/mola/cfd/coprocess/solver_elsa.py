@@ -31,13 +31,14 @@ import mola.naming_conventions as names
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import (
+from mola.cfd.coprocess.tools import (
     mpi_allgather_and_merge_trees, 
     update_signals_using, 
     get_bc_families_in_extraction, 
     write_extraction_log,
     extract_memory_usage,
 )
+from mola.cfd.coprocess.probes import extract_probe
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, ravel_FlowSolution, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
@@ -72,8 +73,8 @@ def perform_extractions(workflow, coprocess_manager):
         elif extraction['Type'] == 'Integral':
             extract_integral(output_tree, extraction)            
 
-        # elif extraction['Type'] == 'Probe':
-        #     extraction['Data'] = extract_probe(output_tree)
+        elif extraction['Type'] == 'Probe':
+            extract_probe(output_tree, extraction, coprocess_manager)
 
         elif extraction['Type'] == 'MemoryUsage':
             extract_memory_usage(extraction, coprocess_manager.iteration) 
@@ -257,11 +258,6 @@ def extract_integral(output_tree, extraction) -> None:
     else: 
         extraction['Data'] = current_iteration_signals
 
-
-def extract_probe(output_tree):
-    warnings.warning('skip extraction of type Probe (not implemented yet)')
-    return cgns.Tree()
-
 def extract_time_monitoring(extraction, coprocess_manager):
     # At the end of elsA_MPI* file, the following lines can be found: 
     # ---------------------------------------------
@@ -288,7 +284,7 @@ def extract_time_monitoring(extraction, coprocess_manager):
             # Cannot find this elsA_MPI* file
             return
         
-        user_time_µs = None
+        user_time = None
         with open(elsA_log_file, 'r') as file:
             for line in file:
                 if '[ (CPU Time)/(Iteration*NbCell) ] (User) = ' in line:

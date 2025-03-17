@@ -32,7 +32,7 @@ import mola.cfd.postprocess as POST
 # no relative imports possible for the following line because the current file is called by
 # call_solver_specific_function in manager.py
 from mola.cfd.coprocess import rank, comm
-from mola.cfd.coprocess.manager import (
+from mola.cfd.coprocess.tools import (
     mpi_allgather_and_merge_trees, 
     update_signals_using, 
     get_bc_families_in_extraction, 

@@ -113,8 +113,8 @@ def get_workflow_dist():
 
         Extractions=[
             dict(Type='Integral', Name='AeroCoefs', Fields=['CL', 'std-CL']),
-            dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
-            dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
+            # dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
+            # dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
             dict(Type='3D', Fields=['Mach', 'q_criterion']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['normalvector', 'frictionvector']),
             dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
@@ -198,8 +198,8 @@ def get_workflow2_parameters():
 
         Extractions=[
             dict(Type='Integral', Name='AeroCoefs', Fields=['CL', 'std-CL']),
-            dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
-            dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
+            # dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
+            # dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
             dict(Type='3D', Fields=['Mach', 'q_criterion']),
             dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['normalvector', 'frictionvector']),
             dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),

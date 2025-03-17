@@ -15,27 +15,25 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import Converter.PyTree as C
+import numpy as np
+from treelab import cgns
 
-def hasProbes():
-    for Extraction in setup.Extractions:
-        if Extraction['type'] == 'Probe':
-            return True
-    return False
+from .tools import (
+    mpi_allgather_and_merge_trees, 
+    update_signals_using, 
+)
 
-def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
-    
+def has_probes(workflow):
+    return any([ext['Type']=='Probe' for ext in workflow.Extractions])
+
+def search_zone_and_index_for_probes(coprocess_manager, comm, method='getNearestPointIndex', tol=1e-2):
     '''
-    Search for the nearest vertex from each probe in **setup.Extractions** in a PyTree.
+    Search for the nearest vertex from each probe in **Extractions** in a PyTree.
 
     Parameters
     ----------
-    t : PyTree
-        Input PyTree.
-
     method : str
         One of 'getNearestPointIndex' (from Cassiopee Geom module) or 'nearestNodes' (from Converter module).
-
     tol : float, optional
         The tolerance for minimum distance. Default is 1e-2.
 
@@ -44,27 +42,36 @@ def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
         - The function modifies the probe dictionaries by adding information about the zone, element, distance to the nearest vertex, and processor rank.
         - Probes that are too far from the nearest vertex are removed from the list.
     '''
+    from mpi4py import MPI
+    import Converter.PyTree as C
+    import Converter.Internal as I
+    import Geom.PyTree as D
+
+    rank = comm.Get_rank()
+
+    coprocess_manager.mola_logger.info('initialize probes', rank=0)
+
     # Put data at cell center, including coordinates
     # IMPORTANT: In this function, the mesh will be now the dual mesh, with nodes corresponding cell centers of the input mesh
-    t = C.node2Center(t)
+    t = C.node2Center(coprocess_manager.workflow.tree)
 
     probesToKeep = []
 
-    for Probe in setup.Extractions:
-        if Probe['type'] != 'Probe':
+    for Probe in coprocess_manager.Extractions:
+        if Probe['Type'] != 'Probe':
             continue
 
         # Search the nearest points in all zones
         nearestElement = None
         minDistance = 1e20
         for zone in I.getZones(t):
-            x = J.getx(zone)
-            if x is None:
+            xnode = I.getNodeFromName(zone, 'CoordinateX')
+            if xnode is None or I.getValue(xnode) is None:
                 # This zone is a skeleton zone, so the current processor is not in charge of this zone
                 continue
 
             if method == 'getNearestPointIndex':
-                element, squaredDistance = D.getNearestPointIndex(zone, Probe['location'])
+                element, squaredDistance = D.getNearestPointIndex(zone, tuple(Probe['Position']))
                 distance = np.sqrt(squaredDistance)
 
             elif method == 'nearestNodes':
@@ -72,7 +79,7 @@ def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
                 # Prefer this function C.nearestNodes to D.getNearestPointIndex for performance
                 # (see https://elsa.onera.fr/issues/8236)
                 hook = C.createGlobalHook(zone, function='nodes')
-                nodes, distances = C.nearestNodes(hook, D.point(Probe['location']))
+                nodes, distances = C.nearestNodes(hook, D.point(Probe['Position']))
                 element, distance = nodes[0], distances[0]
             
             else:
@@ -84,7 +91,7 @@ def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
                 probeZone = zone
         
         Probe['rank'] = -1
-        Cmpi.barrier()
+        comm.barrier()
         minDistanceForAllProcessors = comm.allreduce(minDistance, op=MPI.MIN)
         if minDistance == minDistanceForAllProcessors:
             # Probe on this proc
@@ -92,56 +99,59 @@ def searchZoneAndIndexForProbes(t, method='getNearestPointIndex', tol=1e-2):
             Probe['zone'] = I.getName(probeZone)
             Probe['element'] = nearestElement
             Probe['distanceToNearestCellCenter'] = minDistance     
-            x, y, z = J.getxyz(probeZone)
-            Probe['location'] = x.ravel(order='F')[nearestElement], y.ravel(order='F')[nearestElement], z.ravel(order='F')[nearestElement]
-            if 'name' not in Probe:
-                Probe['name'] = 'Probe_{:.3g}_{:.3g}_{:.3g}'.format(Probe['location'][0], Probe['location'][1], Probe['location'][2])
-        Cmpi.barrier()
+            x = I.getValue(I.getNodeFromName(probeZone, 'CoordinateX'))
+            y = I.getValue(I.getNodeFromName(probeZone, 'CoordinateY'))
+            z = I.getValue(I.getNodeFromName(probeZone, 'CoordinateZ'))
+            Probe['Position'] = x.ravel(order='F')[nearestElement], y.ravel(order='F')[nearestElement], z.ravel(order='F')[nearestElement]
+            if 'Name' not in Probe:
+                xp, yp, zp = Probe['Position'][0], Probe['Position'][1], Probe['Position'][2]
+                Probe['Name'] = f'Probe_{xp:.3g}_{yp:.3g}_{zp:.3g}'
+
+        comm.barrier()
         rankForComm = comm.allreduce(Probe['rank'], op=MPI.MAX)
-        Cmpi.barrier()
+        comm.barrier()
         UpdatedProbe = comm.bcast(Probe, root=rankForComm)
-        Cmpi.barrier()
+        comm.barrier()
         Probe.update(UpdatedProbe)
 
         if minDistanceForAllProcessors > tol:
-            printCo(f'The probe {Probe["name"]} is too far from the nearest vertex ({minDistanceForAllProcessors} m). It is removed.', 0, J.WARN)
+            coprocess_manager.mola_logger.warning(f'The probe {Probe["Name"]} is too far from the nearest vertex ({minDistanceForAllProcessors} m). It is removed.', rank=0)
         else:
             probesToKeep.append(Probe)
 
     # Overwrite extractions to keep only applicable probes
-    setup.Extractions = [extraction for extraction in setup.Extractions if extraction['type'] != 'Probe']  # all extractions except probes
-    setup.Extractions.extend(probesToKeep)  # add applicable probes
-  
+    coprocess_manager.Extractions = [extraction for extraction in coprocess_manager.Extractions if extraction['Type'] != 'Probe']  # all extractions except probes
+    coprocess_manager.Extractions.extend(probesToKeep)  # add applicable probes
 
-def appendProbes2Arrays(t, arrays):
-    '''
-    Append probes with picked data in **arrays**.
+def extract_probe(output_tree: cgns.Tree, extraction: dict, coprocess_manager):
 
-    Parameters
-    ----------
+    t = cgns.Tree()
+    base = cgns.Base(Name='Probes', Parent=t)
 
-        t : PyTree
+    zone = cgns.Zone(Name=extraction['Name'], Parent=base)
+    fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
 
-        arrays : dict
+    cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+    if coprocess_manager.workflow.Numerics['TimeMarching'] != 'Steady': 
+        time = coprocess_manager.iteration * coprocess_manager.workflow.Numerics['TimeStep']
+        cgns.Node(Name='Time', Type='DataArray', Parent=fs, Value=np.array([time]))
 
-    '''
-    for Probe in setup.Extractions:
-        if Probe['type'] != 'Probe':
-            continue
-        if Probe['rank'] != rank:
-            continue
-        ProbesDict = dict( IterationNumber = CurrentIteration-1 )
-        if setup.elsAkeysNumerics['time_algo'] != 'steady': 
-            ProbesDict['Time'] = ProbesDict['IterationNumber'] * setup.elsAkeysNumerics['timestep']
+    zone = output_tree.get(Name=extraction['zone'], Type='Zone')
+    variablesDict = zone.allFields(ravel=True)
 
-        variables = Probe['variables']
-        if isinstance(variables, str):
-            variables = [variables]
-        zone = I.getNodeFromName2(t, Probe['zone'])
-        variablesDict = J.getVars2Dict(zone, VariablesName=variables, Container='FlowSolution#Init')
-        for var, value in variablesDict.items():
-            ProbesDict[var] = value.ravel('F')[Probe['element']]
+    if isinstance(extraction['Fields'], str):
+        extraction['Fields'] = [extraction['Fields']]
+        
+    for var in extraction['Fields']:
+        vp = variablesDict[var][extraction['element']]
+        cgns.Node(Name=var, Type='DataArray', Parent=fs, Value=np.array([vp]))
 
-        appendDict2Arrays(arrays, ProbesDict, Probe['name'])
+    current_iteration_signals = mpi_allgather_and_merge_trees(t)
+
+    if 'Data' in extraction and extraction['Data'] is not None:
+        previous_signals_to_be_updated = extraction['Data']
+        update_signals_using(current_iteration_signals, previous_signals_to_be_updated)
+    else: 
+        extraction['Data'] = current_iteration_signals
 
   

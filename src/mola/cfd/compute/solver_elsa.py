@@ -30,14 +30,14 @@ def apply_to_solver(workflow):
     import elsAxdt
     elsAxdt.trace(0)
 
-    from mola.cfd.coprocess.manager import CoprocessManager
-    coprocess_manager = CoprocessManager(workflow)
-    workflow._coprocess_manager = coprocess_manager
-
     if not hasattr(workflow, '_FULL_CGNS_MODE'):  # FIXME Full CGNS mode cannot work well because niter et al. must be taken in workflow.Numerics
         set_parameters_in_elsa_objects(workflow.SolverParameters, workflow.Numerics)
 
     e = read_cfd_files.apply(workflow)
+
+    from mola.cfd.coprocess.manager import CoprocessManager
+    coprocess_manager = CoprocessManager(workflow)
+    workflow._coprocess_manager = coprocess_manager
 
     e.action = elsAxdt.COMPUTE
     e.mode = elsAxdt.READ_ALL
