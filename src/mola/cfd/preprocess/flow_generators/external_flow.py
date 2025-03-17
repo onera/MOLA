@@ -145,7 +145,9 @@ class ExternalFlowGenerator(object):
             def residualEddyViscosityRatioFromGivenNuTilde(NuTilde):
                 return Nut_Nu - computeEddyViscosityFromNuTilde(Nu, NuTilde) / Nu
 
-            sol = math_tools.secant(residualEddyViscosityRatioFromGivenNuTilde, x0=Nut_Nu*Nu, x1=1.5*Nut_Nu*Nu, ftol=Nut_Nu*0.001, bounds=(1e-14,1.e6))
+            sol = math_tools.secant(
+                residualEddyViscosityRatioFromGivenNuTilde, x0=Nut_Nu*Nu, x1=1.5*Nut_Nu*Nu, 
+                ftol=Nut_Nu*1e-5, bounds=(1e-14,1.e6), maxiter=1000)
             return float(sol['root'])
 
         TurbulentSANuTilde = computeTurbulentSANuTilde(

@@ -126,7 +126,7 @@ def test_initialization_uniform():
     assert np.allclose(FS.get(Name='MomentumY', Type='DataArray').value(), 0.)
     assert np.allclose(FS.get(Name='MomentumZ', Type='DataArray').value(), 0.)
     assert np.allclose(FS.get(Name='EnergyStagnationDensity', Type='DataArray').value(), 253373.86097188)
-    assert np.allclose(FS.get(Name='TurbulentSANuTildeDensity', Type='DataArray').value(), 4.41691234e-05)
+    assert np.allclose(FS.get(Name='TurbulentSANuTildeDensity', Type='DataArray').value(), 4.42211463e-05)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

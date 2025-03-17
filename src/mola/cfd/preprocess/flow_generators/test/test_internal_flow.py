@@ -171,7 +171,7 @@ def test_InternalFlowGenerator():
                     'TurbulentEnergyKineticDensity': 0.013351797602740648,
                     'TurbulentEnergyKineticPLSDensity': 3.691552321470374e-07,
                     'TurbulentLengthScaleDensity': 3.106138428002434e-05,
-                    'TurbulentSANuTilde': 4.0148671272018605e-05,
+                    'TurbulentSANuTilde': 4.019588539898499e-05,
                     'Viscosity_EddyMolecularRatio': 0.1}
 
     assert misc.allclose_dict(FlowGen.Fluid, RefFluid)

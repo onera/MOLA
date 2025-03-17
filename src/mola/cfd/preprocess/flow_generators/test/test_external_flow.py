@@ -122,7 +122,7 @@ def test_ExternalFlowGenerator():
         TurbulentEnergyKineticDensity = 0.00018375,
         TurbulentEnergyKineticPLSDensity = 4.061228067453527e-08,
         TurbulentLengthScaleDensity = 0.00027074853783023517,
-        TurbulentSANuTilde = 3.605642728246728e-05,
+        TurbulentSANuTilde = 3.609889496242613e-05,
         Viscosity_EddyMolecularRatio = 0.1
     )
 
