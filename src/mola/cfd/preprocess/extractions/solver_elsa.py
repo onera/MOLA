@@ -189,18 +189,21 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
     if fields_to_extract != []:
 
         elsa_var_list = translate_to_elsa(fields_to_extract, type='var')       
-
-        # note that we may have several outputs (e.g. different requested frames)
-        # solver_output_name = '.Solver#Output#'+Extraction['Name'] 
-        solver_output_name = '.Solver#Output#'+Extraction['Frame']
-
         output_keys = get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list)
 
+        solver_output_name = '.Solver#Output#1'
         SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
         if not SolverOutput_node:
             FamilyNode.setParameters(solver_output_name, **output_keys)
         else:
-            update_existing_solver_output(SolverOutput_node, output_keys)
+            n = 2
+            while SolverOutput_node is not None and n < 100:
+                solver_output_name = f'.Solver#Output#{n}'
+                SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
+                n += 1
+            FamilyNode.setParameters(solver_output_name, **output_keys)
+        # else:
+        #     update_existing_solver_output(SolverOutput_node, output_keys)
         
     else:
         mola_logger.warning(f'Caution: the list of fields to extract on family {FamilyNode.name()} is empty')

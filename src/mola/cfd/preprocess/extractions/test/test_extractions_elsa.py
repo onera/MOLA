@@ -334,7 +334,7 @@ def test_add_2d_extractions_in_SolverOutput_wall():
     
     solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow)
 
-    solver_output = FamilyNode.getParameters('.Solver#Output#absolute',transform_numpy_scalars=True)
+    solver_output = FamilyNode.getParameters('.Solver#Output#1',transform_numpy_scalars=True)
     solver_output_ref = dict(
         period=Extraction["ExtractionPeriod"],
         writingmode=2,
@@ -386,8 +386,24 @@ def test_add_multiple_2d_extractions_in_SolverOutput_wall():
                       Frame="absolute")
     solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction2, workflow)
 
-    solver_output = FamilyNode.getParameters('.Solver#Output#absolute',transform_numpy_scalars=True)
+    solver_output = FamilyNode.getParameters('.Solver#Output#1',transform_numpy_scalars=True)
     solver_output_ref = dict(
+        period=Extraction["ExtractionPeriod"],
+        writingmode=2,
+        loc = "interface",
+        fluxcoeff = 1.0,
+        writingframe=Extraction["Frame"], 
+        pinf=workflow.Flow['Pressure'],
+        torquecoeff=1.0,
+        xtorque=0.0,
+        ytorque=0.0,
+        ztorque=0.0,
+        var='psta'
+    )
+    assert solver_output == solver_output_ref
+
+    solver_output2 = FamilyNode.getParameters('.Solver#Output#2',transform_numpy_scalars=True)
+    solver_output_ref2 = dict(
         period=Extraction["ExtractionPeriod"],
         writingmode=2,
         loc = "interface",
@@ -404,10 +420,9 @@ def test_add_multiple_2d_extractions_in_SolverOutput_wall():
         pressratiolim=workflow.SolverParameters['model']['pressratiolim'],
         geomdepdom=2,
         delta_cell_max=300,
-        var=['psta', 'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+        var=['bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
     )
-
-    assert solver_output == solver_output_ref
+    assert solver_output2 == solver_output_ref2
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -432,7 +447,7 @@ def test_add_2d_extractions_in_SolverOutput_inflow(field_name):
     
     solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow)
 
-    solver_output = FamilyNode.getParameters('.Solver#Output#absolute', transform_numpy_scalars=True)
+    solver_output = FamilyNode.getParameters('.Solver#Output#1', transform_numpy_scalars=True)
     solver_output_ref = dict(
         period=Extraction["ExtractionPeriod"],
         writingmode=2,
@@ -464,7 +479,7 @@ def test_add_integral_extractions_in_wall():
     
     solver_elsa.add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow)
 
-    solver_output = FamilyNode.getParameters('.Solver#Output#absolute',transform_numpy_scalars=True)
+    solver_output = FamilyNode.getParameters('.Solver#Output#1',transform_numpy_scalars=True)
     solver_output_ref = dict(
         period=Extraction["ExtractionPeriod"],
         writingmode=2,
