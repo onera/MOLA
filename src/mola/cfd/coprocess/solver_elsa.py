@@ -22,8 +22,6 @@ from fnmatch import fnmatch
 import warnings
 import numpy as np
 
-import elsAxdt
-
 from treelab import cgns
 
 from mola.logging import MolaException
@@ -109,6 +107,7 @@ def get_elsa_output_tree(skeleton):
             Coupling adapted PyTree
 
     '''
+    import elsAxdt
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     t = cgns.castNode(t)
     t.merge(skeleton)
@@ -160,6 +159,12 @@ def extract_fields(output_tree, extraction):
             # --> remove this zone
             zone.remove()
             continue
+
+        # Remove nodes that are not required in Fields
+        FS = zone.get(Type='FlowSolution', Depth=1)
+        for node in FS.group(Type='DataArray', Depth=1):
+            if node.name() not in extraction['Fields']:
+                node.remove()
             
         # NOTE ZoneBC must be kept for to save tree with PyPart
         zone.findAndRemoveNodes(Type='BCDataSet')
@@ -196,6 +201,12 @@ def extract_isosurface(output_tree, extraction):
         Name = extraction['Name'],
         tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
         )
+    
+    # Remove nodes that are not required in Fields
+    for FS in isosurface.group(Type='FlowSolution'):
+        for node in FS.group(Type='DataArray', Depth=1):
+            if node.name() not in extraction['Fields']:
+                node.remove()
     
     return isosurface
 
@@ -295,9 +306,11 @@ def extract_time_monitoring(extraction, coprocess_manager):
             cgns.Node(Name='TimePerCellPerIteration', Type='DataArray', Parent=fs, Value=np.array([user_time]))
 
 def update_elsa_input(new_tree):
+    import elsAxdt
     elsAxdt.xdt(elsAxdt.PYTHON,(elsAxdt.RUNTIME_TREE, new_tree, 1))
 
 def end_simulation(workflow):
+    import elsAxdt
     elsAxdt.safeInterrupt()
 
 def deduce_container_for_slicing(IsoSurfaceField):
@@ -321,6 +334,7 @@ def move_log_files(w):
     comm.barrier()
 
 def get_iteration(workflow):
+    import elsAxdt
     return elsAxdt.iteration()
 
 def get_status(workflow):
