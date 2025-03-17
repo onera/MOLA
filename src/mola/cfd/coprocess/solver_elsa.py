@@ -205,8 +205,10 @@ def extract_isosurface(output_tree, extraction):
     # Remove nodes that are not required in Fields
     for FS in isosurface.group(Type='FlowSolution'):
         for node in FS.group(Type='DataArray', Depth=1):
-            if node.name() not in extraction['Fields']:
+            if 'Fields' not in extraction or node.name() not in extraction['Fields']:
                 node.remove()
+        if len(FS.group(Type='DataArray', Depth=1)) == 0:
+            FS.remove()
     
     return isosurface
 
