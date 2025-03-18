@@ -118,26 +118,31 @@ def search_zone_and_index_for_probes(coprocess_manager, comm):
 
 def extract_probe(output_tree: cgns.Tree, extraction: dict, coprocess_manager):
 
+    from mpi4py import MPI
+    rank = MPI.COMM_WORLD.Get_rank()
+
     t = cgns.Tree()
     base = cgns.Base(Name='Probes', Parent=t)
 
-    zone = cgns.Zone(Name=extraction['Name'], Parent=base)
-    fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
+    if extraction['rank'] == rank:
+    
+        zone = cgns.Zone(Name=extraction['Name'], Parent=base)
+        fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
 
-    cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
-    if coprocess_manager.workflow.Numerics['TimeMarching'] != 'Steady': 
-        time = coprocess_manager.iteration * coprocess_manager.workflow.Numerics['TimeStep']
-        cgns.Node(Name='Time', Type='DataArray', Parent=fs, Value=np.array([time]))
+        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+        if coprocess_manager.workflow.Numerics['TimeMarching'] != 'Steady': 
+            time = coprocess_manager.iteration * coprocess_manager.workflow.Numerics['TimeStep']
+            cgns.Node(Name='Time', Type='DataArray', Parent=fs, Value=np.array([time]))
 
-    zone = output_tree.get(Name=extraction['zone'], Type='Zone')
-    variablesDict = zone.allFields(ravel=True)
+        zone = output_tree.get(Name=extraction['zone'], Type='Zone')
+        variablesDict = zone.allFields(ravel=True)
 
-    if isinstance(extraction['Fields'], str):
-        extraction['Fields'] = [extraction['Fields']]
-        
-    for var in extraction['Fields']:
-        vp = variablesDict[var][extraction['element']]
-        cgns.Node(Name=var, Type='DataArray', Parent=fs, Value=np.array([vp]))
+        if isinstance(extraction['Fields'], str):
+            extraction['Fields'] = [extraction['Fields']]
+            
+        for var in extraction['Fields']:
+            vp = variablesDict[var][extraction['element']]
+            cgns.Node(Name=var, Type='DataArray', Parent=fs, Value=np.array([vp]))
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
