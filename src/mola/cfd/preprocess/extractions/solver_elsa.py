@@ -108,7 +108,7 @@ def process_extractions_of_type_field(workflow):
                 extraction3D = dict((name, param.default) for name, param in signature.parameters.items() if name != 'self')
                 extraction3D['Fields'] = Fields
                 extraction3D['GridLocation'] = 'CellCenter'
-                extraction3D['Container'] = 'FlowSolution#EndOfRun'
+                extraction3D['Container'] = 'FlowSolution#Probes'
                 extraction3D['OtherOptions'] = dict()
                 
                 add_3d_extraction_to_zone(zone, extraction3D, add_GridLocation)

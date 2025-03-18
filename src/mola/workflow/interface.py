@@ -618,6 +618,8 @@ class WorkflowInterface(object):
             WorkflowInterface.add_to_Extractions_Integral, self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_Probe(self,
+            Tolerance : float = 1e-2,
+            Method : str = 'getNearestPointIndex',
             Fields : list = None, # accepts prefix avg- or std-
             File : str = names.FILE_OUTPUT_1D,
             Name : str = None, # if None, will be based on Position
@@ -641,6 +643,8 @@ class WorkflowInterface(object):
         '''
         if not Name: 
             Name = f'Probe_{Position[0]:.4g}_{Position[1]:.4g}_{Position[2]:.4g}'
+        if not Method in ['getNearestPointIndex', 'nearestNodes']:
+            raise MolaUserError(f'The argument Method for Extraction of Type="Probe" must be either "getNearestPointIndex" or "nearestNodes"')
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_Probe, self.get_default_values_from_local_signature()))
 

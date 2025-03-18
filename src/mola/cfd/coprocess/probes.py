@@ -26,16 +26,9 @@ from .tools import (
 def has_probes(workflow):
     return any([ext['Type']=='Probe' for ext in workflow.Extractions])
 
-def search_zone_and_index_for_probes(coprocess_manager, comm, method='getNearestPointIndex', tol=1e-2):
+def search_zone_and_index_for_probes(coprocess_manager, comm):
     '''
     Search for the nearest vertex from each probe in **Extractions** in a PyTree.
-
-    Parameters
-    ----------
-    method : str
-        One of 'getNearestPointIndex' (from Cassiopee Geom module) or 'nearestNodes' (from Converter module).
-    tol : float, optional
-        The tolerance for minimum distance. Default is 1e-2.
 
     Notes
     -----
@@ -70,11 +63,11 @@ def search_zone_and_index_for_probes(coprocess_manager, comm, method='getNearest
                 # This zone is a skeleton zone, so the current processor is not in charge of this zone
                 continue
 
-            if method == 'getNearestPointIndex':
+            if Probe['Method'] == 'getNearestPointIndex':
                 element, squaredDistance = D.getNearestPointIndex(zone, tuple(Probe['Position']))
                 distance = np.sqrt(squaredDistance)
 
-            elif method == 'nearestNodes':
+            elif Probe['Method'] == 'nearestNodes':
                 # Get the nearest node of the dual mesh 
                 # Prefer this function C.nearestNodes to D.getNearestPointIndex for performance
                 # (see https://elsa.onera.fr/issues/8236)
@@ -83,7 +76,7 @@ def search_zone_and_index_for_probes(coprocess_manager, comm, method='getNearest
                 element, distance = nodes[0], distances[0]
             
             else:
-                raise Exception('method must be getNearestPointIndex or nearestNodes')
+                raise Exception('Method must be getNearestPointIndex or nearestNodes')
 
             if distance < minDistance:
                 minDistance = distance
@@ -114,7 +107,7 @@ def search_zone_and_index_for_probes(coprocess_manager, comm, method='getNearest
         comm.barrier()
         Probe.update(UpdatedProbe)
 
-        if minDistanceForAllProcessors > tol:
+        if minDistanceForAllProcessors > Probe['Tolerance']:
             coprocess_manager.mola_logger.warning(f'The probe {Probe["Name"]} is too far from the nearest vertex ({minDistanceForAllProcessors} m). It is removed.', rank=0)
         else:
             probesToKeep.append(Probe)
