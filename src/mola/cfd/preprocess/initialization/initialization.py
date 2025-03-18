@@ -31,7 +31,7 @@ def apply(workflow):
     '''
     FlowSolution_name = 'FlowSolution#Init'
 
-    add_reference_state(workflow)
+    add_reference_state(workflow) 
 
     initialization_functions = dict(
         uniform = initialize_flow_with_reference_state,
@@ -83,6 +83,7 @@ def add_reference_state(workflow):
 
 def initialize_flow_with_reference_state(workflow, FlowSolution_name):
     mola_logger.info('Initialize FlowSolution with uniform reference values',rank=0)
+    workflow.tree.findAndRemoveNodes(Name=FlowSolution_name)
     workflow.tree.newFields(workflow.Flow['ReferenceState'], Container=FlowSolution_name, GridLocation='CellCenter')
 
 def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
