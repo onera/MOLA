@@ -77,6 +77,7 @@ def test_ExternalFlowGenerator():
         Density = 1.225,
         Direction = [1.0, 0.0, 0.0],
         EnergyStagnationDensity = 253373.86097187505,
+        SoundSpeed = 340.2940650819523,
         Mach = 0.02938634853238396,
         MomentumX = 12.25,
         MomentumY = 0.0,
