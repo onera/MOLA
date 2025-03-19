@@ -33,23 +33,13 @@ def function_generator(bc_type):
         kwargs = mola_to_miles(workflow, Family, bc_type, kwargs)
         miles.set_bc(workflow.tree, bc_type, Family, **kwargs)
         workflow.tree = cgns.castNode(workflow.tree)
-
-        if bc_type == 'BCOutflowRadialEquilibrium':
-            # HACK see https://gitlab.onera.net/numerics/solver/sonics/-/issues/94
-            _fix_outradeq(workflow.tree, Family)
-
+        
     return set_bc
 
 # Define functions with the write name to be called from .boundary_conditions
 for fun_name in BoundaryConditionsNamesInSONICS:
     locals()[fun_name] = function_generator(fun_name)
 
-
-
-def _fix_outradeq(tree, Family):
-    fam_node = tree.get(Name=Family, Type='Family', Depth=2)
-    FamilyBCDataSet_node = fam_node.get(Type='FamilyBCDataSet')
-    FamilyBCDataSet_node.setName('FamilyBCDataSet')
 
 def mola_to_miles(workflow, Family, bc_type, kwargs):
     kwargs = translate_motion(kwargs)

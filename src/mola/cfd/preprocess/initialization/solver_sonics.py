@@ -17,7 +17,7 @@
 
 
 def apply_to_solver(workflow):
-    InitialSolutionContainer = 'FSolution#CellCenter#Init'
+    InitialSolutionContainer = 'Fields@Cell@Init'
     for node in workflow.tree.group(Name='FlowSolution#Init'):
         node.setName(InitialSolutionContainer)    
 

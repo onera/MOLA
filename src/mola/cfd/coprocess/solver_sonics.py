@@ -70,10 +70,7 @@ def perform_extractions(workflow, coprocess_manager):
             extract_integral(output_tree, extraction, families_to_bctype, NumberOfIterations=workflow.Numerics['NumberOfIterations'])  
 
         elif extraction['Type'] == 'Residuals':
-            extract_residuals(extraction, 
-                              coprocess_manager.workflow.Flow['Conservatives'],
-                              coprocess_manager.workflow.Turbulence['Conservatives']
-                              )
+            extract_residuals(extraction, output_tree)
         
         elif extraction['Type'] == 'MemoryUsage':
             extract_memory_usage(extraction, coprocess_manager.iteration) 
@@ -95,23 +92,23 @@ def get_output_tree(coprocess_manager):
     # partionning
     part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD)
     maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
-    maia.algo.part.centers_to_nodes(part_tree, comm, ['FSolution#CellCenter#EndOfRun'])
+    maia.algo.part.centers_to_nodes(part_tree, comm, ['Fields@Cell@End'])
     part_tree = cgns.castNode(part_tree)
     for zsr in part_tree.group(Type='ZoneSubRegion'):
         cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=zsr)
-    for fs in part_tree.group(Name='FSolution#CellCenter#EndOfRun#Vtx'):
+    for fs in part_tree.group(Name='Fields@Cell@End#Vtx'):
         fs.setName('FlowSolution#EndOfRunV')
     
     return part_tree
 
 def update_restart_fields(workflow, output_tree):
     for zone in output_tree.zones():
-        zone.findAndRemoveNode(Name='FSolution#CellCenter#Init')
-        FS = zone.get(Name='FSolution#CellCenter#EndOfRun')
+        zone.findAndRemoveNode(Name='Fields@Cell@Init')
+        FS = zone.get(Name='Fields@Cell@End')
         if FS is not None: 
-            FS.setName('FSolution#CellCenter#Init')
+            FS.setName('Fields@Cell@Init')
 
-    NodesToUpdate = output_tree.group(Name='FSolution#CellCenter#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
+    NodesToUpdate = output_tree.group(Name='Fields@Cell@Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
     # NodesToUpdate += output_tree.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
     # NodesToUpdate += output_tree.group(Name='BCDataSet#Average') 
 
@@ -162,6 +159,9 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
     if extraction['Name'] != 'ByFamily':
         POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
 
+    # HACK for now remove EdgeElements because otherwise Cassiopee Cmpi bugs when the file is saved
+    SurfacesTree.findAndRemoveNodes(Name='EdgeElements', Type='Elements_t')
+
     return SurfacesTree
 
 def extract_isosurface(output_tree, extraction):
@@ -209,35 +209,18 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
     else: 
         extraction['Data'] = current_iteration_signals
 
-def extract_residuals(extraction, Conservatives, TurbConservatives):
+def extract_residuals(extraction, output_tree):
 
     t = cgns.Tree()
 
-    if rank ==0:
-
-        conservatives_residuals_filename = os.path.join(names.DIRECTORY_LOG, 'residual-normalize(norm_l2(ExplicitIncrement(mean_flow))).npy')
-        turbulence_residuals_filename = os.path.join(names.DIRECTORY_LOG, 'residual-normalize(norm_l2(ExplicitIncrement(turbulence_closure))).npy')
-
-        residuals = dict()
-        if os.path.isfile(conservatives_residuals_filename):
-            with open(conservatives_residuals_filename, 'rb') as f:
-                residuals['IterationNumber'] = np.load(f, allow_pickle=True)
-                data = np.load(f, allow_pickle=True)
-                for i, name in enumerate(Conservatives):
-                    residuals[name] = np.array([d[i] for d in data])
-
-        if os.path.isfile(turbulence_residuals_filename):
-            with open(turbulence_residuals_filename, 'rb') as f:
-                residuals['IterationNumber'] = np.load(f, allow_pickle=True)
-                data = np.load(f, allow_pickle=True)
-                for i, name in enumerate(TurbConservatives):
-                    residuals[name] = np.array([d[i] for d in data])
-
-        if residuals: 
-            # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
-            base = cgns.Base(Name='Residuals', Parent=t)
-            zone = cgns.utils.newZoneFromDict(base.name(), residuals)
-            zone.attachTo(base)
+    residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
+    if residuals: 
+        base = cgns.Base(Name='Residuals', Parent=t)
+        # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
+        residuals.setType('FlowSolution_t')
+        residuals.setName('FlowSolution')
+        residuals.setValue(None)
+        cgns.Zone(Name=base.name(), Parent=base, Children=[residuals])
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
@@ -258,7 +241,7 @@ def deduce_container_for_slicing(IsoSurfaceField):
         return 'FlowSolution#Height'
     
     else:
-        return 'FSolution#CellCenter#EndOfRun'
+        return 'Fields@Cell@End'
     
 def move_log_files(w):
     if rank == 0:

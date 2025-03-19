@@ -39,8 +39,8 @@ def adapt_extractions(Extractions):
             ext['SavePeriod'] = 100
             ext['ExtractAtEndOfRun'] = True
         elif ext['Type'] == '3D':
-            mola_logger.warning('output container for extraction 3D is changed to FSolution#Vertex#EndOfRun')
-            ext['Container'] = 'FSolution#Vertex#EndOfRun'
+            mola_logger.warning('output container for extraction 3D is changed to Fields@Vertex@End')
+            ext['Container'] = 'Fields@Vertex@End'
             
 def add_AllZones_family(tree):
     # HACK The current implementation of residual extraction requires to tag zones we want to 

@@ -94,7 +94,7 @@ def test_force_grid_location_as_first_sibling():
 def get_correct_FlowSolution_name_from_solver():
     solver = os.getenv('MOLA_SOLVER')
     if solver == 'sonics':
-        fs_name = 'FSolution#CellCenter#Init'
+        fs_name = 'Fields@Cell@Init'
     elif solver == 'fast':
         fs_name = 'FlowSolution#Centers'
     elif solver == 'elsa':

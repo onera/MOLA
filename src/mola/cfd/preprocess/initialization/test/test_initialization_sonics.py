@@ -44,4 +44,4 @@ def test_apply_to_solver():
     solver_sonics.apply_to_solver(workflow)
 
     assert workflow.tree.get(Name='FlowSolution#Init') is None
-    assert len(workflow.tree.group(Name='FSolution#CellCenter#Init', Type='FlowSolution')) == 2
+    assert len(workflow.tree.group(Name='Fields@Cell@Init', Type='FlowSolution')) == 2

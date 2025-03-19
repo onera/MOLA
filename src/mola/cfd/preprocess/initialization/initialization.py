@@ -183,13 +183,6 @@ def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
 def compute_wall_distance_if_needed(workflow):
     if workflow.Turbulence['Model'] == 'Euler':
         workflow.Initialization['ComputeWallDistanceAtPreprocess'] = False
-    elif workflow.Initialization['ComputeWallDistanceAtPreprocess'] and workflow.Solver.lower() == 'sonics': 
-        # HACK, should not fail with SoNICS
-        mola_logger.warning(
-            'Currently, a bug in MOLA prevents computing wall distance '
-            'at preprocess for a simulation with SoNICS. '
-            )
-        workflow.Initialization['ComputeWallDistanceAtPreprocess'] = False
     elif not workflow.Initialization['ComputeWallDistanceAtPreprocess'] and workflow.Solver.lower() == 'fast':
         workflow.Initialization['ComputeWallDistanceAtPreprocess'] = True
 
