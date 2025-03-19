@@ -43,6 +43,8 @@ def extract_bc_from_zsr(tree, Family, comm):
     for zsr_name in shared_zsr_names:
         extracted_tree = maia.algo.part.extract_part_from_zsr(tree, zsr_name, comm, containers_name=[]) 
         extracted_tree = cgns.castNode(extracted_tree)
+        # HACK
+        extracted_tree.findAndRemoveNodes(Type='ZoneBC')
         zones.extend(extracted_tree.zones())
 
     return zones

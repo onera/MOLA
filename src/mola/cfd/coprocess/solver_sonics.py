@@ -160,7 +160,7 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
         POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
 
     # HACK for now remove EdgeElements because otherwise Cassiopee Cmpi bugs when the file is saved
-    SurfacesTree.findAndRemoveNodes(Name='EdgeElements', Type='Elements_t')
+    SurfacesTree.findAndRemoveNodes(Name='EdgeElements', Type='Elements')
 
     return SurfacesTree
 
