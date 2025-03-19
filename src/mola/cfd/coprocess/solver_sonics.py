@@ -292,7 +292,7 @@ def extract_time_monitoring(extraction, coprocess_manager):
             for line in file:
                 if '+ end computation[' in line:
                     times = line.split('(')[-1].split(')')[0].split(',')
-                    TimePerCellPerIteration = float(times[2])
+                    TimePerCellPerIteration = float(times[2].replace("'", ""))
                     break
         if TimePerCellPerIteration:
             cgns.Node(Name='TimePerCellPerIteration', Type='DataArray', Parent=fs, Value=TimePerCellPerIteration)
