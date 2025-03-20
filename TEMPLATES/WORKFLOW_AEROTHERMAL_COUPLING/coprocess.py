@@ -68,13 +68,13 @@ CO.printCo('iteration %d'%it, proc=0)
 # ENTER COUPLING CONDITIONS:
 
 if not SAVE_FIELDS:
-    SAVE_FIELDS = all([it%UpdateFieldsFrequency == 0, it>inititer])
+    SAVE_FIELDS = all([it%UpdateFieldsFrequency == 0, it>=inititer])
 
 if not SAVE_SURFACES:
-    SAVE_SURFACES = all([it%UpdateSurfacesFrequency == 0, it>inititer])
+    SAVE_SURFACES = all([it%UpdateSurfacesFrequency == 0, it>=inititer])
 
 if not SAVE_ARRAYS:
-    SAVE_ARRAYS = all([it%UpdateArraysFrequency == 0, it>inititer])
+    SAVE_ARRAYS = all([it%UpdateArraysFrequency == 0, it>=inititer])
 
 CWIPY_COUPLING = all([UpdateCWIPICouplingFrequency,
                       it%UpdateCWIPICouplingFrequency == 0,

@@ -857,7 +857,8 @@ def _fitFields(donor, receiver, fields_names_to_fit=[], tol=1e-6):
 
 def addSpan(t, start_point, end_point):
     '''
-    Computes the span of a surface based on 2 points and adds it as variable in the provided tree.
+    Computes the span of a surface based on 2 points and adds it as variable in
+    the provided tree.
 
     Parameters
     ----------
@@ -865,12 +866,15 @@ def addSpan(t, start_point, end_point):
         t : PyTree, Base, Zone or :py:class:`list` of zone. 
             .. note:: the input tree **t** is modified.
         
-        start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
-            :math:`(x,y,z)` coordinates of the starting point from which 
+        start_point : 3-float :py:class:`list` or :py:class:`tuple` or
+        :py:class:`numpy.ndarray`
+            :math:`(x,y,z)` coordinates of the starting point from which
             sectional loads are to be computed. 
 
-        end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
-            :math:`(x,y,z)` coordinates of the end point up to which the span must be computed
+        end_point : 3-float :py:class:`list` or :py:class:`tuple` or
+        :py:class:`numpy.ndarray`
+            :math:`(x,y,z)` coordinates of the end point up to which the span
+            must be computed
     '''
 
     start_point = np.array(start_point)
@@ -884,7 +888,7 @@ def addSpan(t, start_point, end_point):
 
 def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
     '''
-    Compute the total integral forces and torques of a set of surfaces with 
+    Compute the total integral forces and torques of a set of surfaces with
     Pressure and SkinFriction fields
 
     Parameters
@@ -903,18 +907,24 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
             center for the computation of the torque contributions
         
         reference_pressure : float
-            Reference pressure. Put ambiant pressure as a reference for integration over a surface that is not closed (such as blades).
+            reference pressure. Put ambiant pressure as a reference for
+            integration over a surface that is not closed (such as blades).
 
     Returns
     -------
 
-        loads : dict
+        loads : :py:class:`dict`
             dictionary including ``ForceX``, ``ForceY``, ``ForceZ``,
-            ``TorqueX``, ``TorqueY`` and ``TorqueZ`` keys with its associated 
+            ``TorqueX``, ``TorqueY`` and ``TorqueZ`` keys with its associated
             values (:py:class:`float`)
     '''
 
     tR = I.copyRef(t)
+
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
+    I.__FlowSolutionCenters__ = 'BCDataSet'
     _addNormalsIfAbsent(tR)
 
     # surfacic forces
@@ -939,13 +949,17 @@ def computeIntegralLoads(t, torque_center=[0,0,0],reference_pressure=0.):
     loads = dict(ForceX=ForceX,ForceY=ForceY,ForceZ=ForceZ,
                  TorqueX=TorqueX,TorqueY=TorqueY,TorqueZ=TorqueZ)
     
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
     return loads
 
-def computeSectionalLoads(surface, distribution = None, slicing_options=dict(slicing_method='SpanBased',custom_variable=None), geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None),
-        torque_center=[0,0,0], reference_pressure=0.):
+def computeSectionalLoads(surface, distribution = None, 
+    slicing_options=dict(slicing_method='SpanBased',custom_variable=None), 
+    geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None),
+    torque_center=[0,0,0], reference_pressure=0.):
     '''
-    Compute the sectional loads (spanwise distributions) along a direction 
-    from a surface.
+    Compute the sectional loads (spanwise distributions) along a direction from
+    a surface.
 
     Parameters
     ----------
@@ -956,63 +970,15 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
 
             .. note::
 
-                **surface** must contain the following fields (preferrably at centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``, ``SkinFrictionZ``. 
-                It must also contain normals ``nx``, ``ny``, ``nz``. 
-
-        slicing_options : dict
-
-            dictionary providing the parameters to perform the slicing along the blade span. Two pairs of keywords and associated values can be provided:
-            
-            * slicing_method : str
-
-                Acceptable values are:
-
-                * SpanBased: Computes the span based on 2 points (see below) provided by the user. Each section corresponds to an isoSurface of the ``Span`` variable.
-
-                * AbscissaBased: computes the abscissa based on the distance d to the axis provided by the user. Each section corresponds to an isoSurface of the Abscissa variable.
-                  :math:`Abscissa = (d-dmin)/(dmax-dmin)`
-
-                * Custom: uses the ``custom_variable`` parameter provided by the user as the reference variable to perform the isoSurface for each section.
-            
-            * custom_variable : str 
-
-                Name of the variable used to perform slices.
-
-                .. hint:: Examples: ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``, ``Radius``.
-
-                .. important:: Must be provided for Custom slicing.
-
-        geometrical_parameters : :py:class:`dict`
-
-            dictionary providing the geometrical parameters required to compute the blade span with the chosen ``slicing_method``. Pairs of keywords and associated values can be the following:
-            
-            * start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
-
-                :math:`(x,y,z)` coordinates of the starting point from which 
-                sectional loads are to be computed.
-
-                .. warning:: 
-                    Must be provided for SpanBased slicing and AbscissaBased slicing.
-
-            * end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
-
-                :math:`(x,y,z)` coordinates of the end point up to which 
-                sectional loads are to be computed. 
-
-                .. warning:: 
-                    Must be provided for SpanBased slicing.
-
-            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
-
-                :math:`(x,y,z)` direction of the reference axis along which 
-                sectional loads are to be computed.
-
-                .. warning:: Must be provided for AbscissaBased slicing.
+                **surface** must contain the following fields (preferrably at
+                centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``,
+                ``SkinFrictionZ``. It must also contain normals ``nx``, ``ny``,
+                ``nz``. 
         
         distribution : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
 
-            dimensionless coordinate (from *start_point* to *end_point*) used 
-            for discretizing the sectional loads. This must be :math:`\in [0,1]`.
+            dimensionless coordinate used for discretizing the sectional span. 
+            This must be :math:`\in [0,1]`.
 
             .. hint:: for example 
 
@@ -1020,38 +986,126 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
 
             .. note:: 
 
-                for slicing_method = ``Custom``, this function automatically recomputes the span :math:`\in [0,1]` 
-                to perform the slices. The span is based on the 'custom_variable' and is computed as follows : 
-                :math:`(var-min(var))/(max(var)-min(var))`
+                for ``slicing_method`` = ``Custom``, this function automatically
+                recomputes the span :math:`\in [0,1]` to perform the slices. The
+                span is based on the ``custom_variable`` and is computed as
+                follows : :math:`(var-min(var))/(max(var)-min(var))`
+
+        slicing_options : :py:class:`dict`
+
+            dictionary providing the parameters to perform the slicing along the
+            blade span. Two pairs of keywords and associated values can be
+            provided:
+            
+            * slicing_method : :py:class:`str`
+
+                Acceptable values are:
+
+                * ``SpanBased``: Computes the span based on 2 points (see below)
+                  provided by the user. Each section corresponds to an
+                  isoSurface of the ``Span`` variable.
+
+                * ``AbscissaBased``: computes the abscissa based on the distance d
+                  to the axis provided by the user. Each section corresponds to
+                  an isoSurface of the Abscissa variable. :math:`Abscissa =
+                  (d-dmin)/(dmax-dmin)`
+
+                * ``Custom``: uses the ``custom_variable`` parameter provided by the
+                  user as the reference variable to perform the isoSurface for
+                  each section.
+            
+            * custom_variable : :py:class:`str` 
+
+                Name of the variable used to perform slices.
+
+                .. hint:: Examples: ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``, ``Radius``.
+
+                .. important:: Must be provided for Custom slicing.
+
+                .. warning:: variable must be unique 
+
+        geometrical_parameters : :py:class:`dict`
+
+            dictionary providing the geometrical parameters required to compute
+            the blade span with the chosen ``slicing_method``. Pairs of keywords
+            and associated values can be the following:
+            
+            * start_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` coordinates of the starting point from which
+                sectional loads are to be computed.
+
+                .. warning:: 
+                    Must be provided for SpanBased slicing and AbscissaBased slicing.
+
+            * end_point : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` coordinates of the end point up to which
+                sectional loads are to be computed. 
+
+                .. warning:: 
+                    Must be provided for SpanBased slicing.
+
+            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` direction of the reference axis for AbscissaBased slicing.
+
+                .. warning:: Must be provided for AbscissaBased slicing.
 
         torque_center : 3-float :py:class:`list` or :py:class:`tuple` or :py:class:`numpy.ndarray`
-
+            
             center for the computation of the torque contributions
 
         reference_pressure : float
 
-            Reference pressure. Put ambiant pressure as a reference for integration over a surface that is not closed (such as blades).
+            reference pressure. Put ambiant pressure as a reference for
+            integration over a surface that is not closed (such as blades).
 
     Returns
     -------
 
         sectionalLoads : zone 
-            Zone containing a FlowSolution node with the following variables: 
+            Zone containing a FlowSolution node with the following variables:
             ``SectionalForceX``, ``SectionalForceY``, ``SectionalForceZ``,
-            ``SectionalTorqueX``, ``SectionalTorqueY``, ``SectionalTorqueZ``
-            and ``SectionalSpan``.
+            ``SectionalTorqueX``, ``SectionalTorqueY``, ``SectionalTorqueZ`` and
+            ``SectionalSpan``.
 
 
     '''
 
     def Abscissa(d): return (d-dmin)/(dmax-dmin)
-     
+    def LoadComponent(Pressure,SkinFrictionComponent,NormalComponent):
+        return -(Pressure-reference_pressure)*NormalComponent+SkinFrictionComponent
+    
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
     if distribution is None:
         distribution = np.linspace(0,1,101)
+
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
+    I.__FlowSolutionNodes__ = 'FlowSolution'
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
     
+    surface = mergeContainers(surface, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
+
+    surface = C.center2Node(surface,var=I.__FlowSolutionCenters__)
+    surface = I.rmNodesByName(surface, I.__FlowSolutionCenters__)
+
+    containersNames_n = I.getNodeFromName(surface,'containers_names')
+    fieldsNames_n = I.getNodeFromName(surface,'fields_names')
+
+    for child in I.getChildren(containersNames_n):
+        if 'BCDataSet' == I.getValue(child):
+            bcDataSetContainerTag = I.getName(child)
+
     if slicing_options['slicing_method'] == 'SpanBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
-            ERRMSG = 'Span based sectional load computation requires both start_point and end_point as input parameters'
+            ERRMSG = '''Span based sectional load computation requires both/ 
+                start_point and end_point as input parameters'''
             raise ValueError(ERRMSG)
         else:
             addSpan(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['end_point']))
@@ -1062,7 +1116,8 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
 
     elif slicing_options['slicing_method'] == 'AbscissaBased':
         if geometrical_parameters['start_point'] == None or geometrical_parameters['axis_direction']== None:
-            ERRMSG = 'Abscissa based sectional load computation requires both start_point and axis_direction as input parameters'
+            ERRMSG = '''Abscissa based sectional load computation requires both 
+                start_point and axis_direction as input parameters'''
             raise ValueError(ERRMSG)
         else:
             W.addDistanceRespectToLine(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['axis_direction']), FieldNameToAdd='Distance2Axis')
@@ -1070,38 +1125,60 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
             dmin = C.getMinValue(surface, 'Distance2Axis')
             dmax = C.getMaxValue(surface, 'Distance2Axis')
             surface = C.initVars(surface,'Abscissa', Abscissa, ['Distance2Axis']) 
-            slicing_var = 'Abscissa'
+            slicing_var = 'Abscissa'          
 
     
     elif slicing_options['slicing_method'] == 'Custom':
             if slicing_options['custom_variable'] == None:
-                ERRMSG = 'The user needs to provide a custom_variable value when performing custom variable based sectional load computation.'
+                ERRMSG = '''The user needs to provide a custom_variable value 
+                    when performing custom variable based sectional load computation.'''
                 raise ValueError(ERRMSG)
             else:
-            
-                dmin = C.getMinValue(surface, slicing_options['custom_variable'])
-                dmax = C.getMaxValue(surface, slicing_options['custom_variable'])
-                surface = C.initVars(surface,'Span', Abscissa, [slicing_options['custom_variable']]) 
-                slicing_var = 'Span'
-               
-        
-    SectionalForceX      = []
-    SectionalForceY      = []
-    SectionalForceZ      = []
-    SectionalTorqueX     = []
-    SectionalTorqueY     = []
-    SectionalTorqueZ     = []
-    SectionalSpan        = []
+                slicing_var = slicing_options['custom_variable']
+              
+                for child in I.getChildren(fieldsNames_n):
+                    if  slicing_var in I.getValue(child):
+                        customVarContainerTag = I.getName(child)
 
+                    if slicing_var in ['CoordinateX','CoordinateY','CoordinateZ']:
+                        customVarContainerTag = ''
+
+                dmin = C.getMinValue(surface, slicing_options['custom_variable']+customVarContainerTag)
+                dmax = C.getMaxValue(surface, slicing_options['custom_variable']+customVarContainerTag)              
+
+    SectionalForceX             = []
+    SectionalForceY             = []
+    SectionalForceZ             = []
+    SectionalTorqueX            = []
+    SectionalTorqueY            = []
+    SectionalTorqueZ            = []
+    SectionalSpan               = []
+    SectionalCustomVar          = []
+    SectionalCustomVarOverMax   = []
+    SectionalDistance2Axis          = []
+    SectionalDistance2AxisOverMax   = [] 
+
+    surface = T.merge(surface)
+    surface = C.newPyTree(['Base', surface])
     sectionalLoads = I.newCGNSBase('SectionalLoads', cellDim=1, physDim=3, parent=None)
+
     for d in distribution:
 
-        section = P.isoSurfMC(surface, slicing_var, d)
+        if slicing_options['slicing_method'] != 'Custom':
+            section = isoSurface(surface, fieldname=slicing_var, value=d, container=I.__FlowSolutionNodes__)
+            if slicing_options['slicing_method'] == 'AbscissaBased':
+                value = d*(dmax-dmin)+dmin
+        else:
+            value = d*(dmax-dmin)+dmin
+            section = isoSurface(surface, fieldname=slicing_var+customVarContainerTag, value=value, container=I.__FlowSolutionNodes__)
         
-        C._normalize(section,['nx','ny','nz'])
-        C._initVars(section, 'fx=-({Pressure}-%.12g)*{nx}+{SkinFrictionX}'%(reference_pressure))
-        C._initVars(section, 'fy=-({Pressure}-%.12g)*{ny}+{SkinFrictionY}'%(reference_pressure))
-        C._initVars(section, 'fz=-({Pressure}-%.12g)*{nz}+{SkinFrictionZ}'%(reference_pressure))
+        if not section: continue
+
+
+        C._normalize(section,['nx'+bcDataSetContainerTag,'ny'+bcDataSetContainerTag,'nz'+bcDataSetContainerTag])
+        C._initVars(section, 'fx', LoadComponent, ['Pressure'+bcDataSetContainerTag,'SkinFrictionX'+bcDataSetContainerTag,'nx'+bcDataSetContainerTag])
+        C._initVars(section, 'fy', LoadComponent, ['Pressure'+bcDataSetContainerTag,'SkinFrictionY'+bcDataSetContainerTag,'ny'+bcDataSetContainerTag])
+        C._initVars(section, 'fz', LoadComponent, ['Pressure'+bcDataSetContainerTag,'SkinFrictionZ'+bcDataSetContainerTag,'nz'+bcDataSetContainerTag])
 
         # computation of sectional forces
         SectionalForceX += [ -P.integ(section,'fx')[0] ]
@@ -1115,16 +1192,28 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
         SectionalTorqueX     += [ -STorqueX ]
         SectionalTorqueY     += [ -STorqueY ]
         SectionalTorqueZ     += [ -STorqueZ ]
-
-        # if slicing_options['slicing_method'] != 'Custom':
         SectionalSpan        += [ d ]
-        # else:
-        #     SectionalSpan        += [ value ]
-    
-    sloads = dict(SectionalForceX=np.array(SectionalForceX),SectionalForceY=np.array(SectionalForceY),SectionalForceZ=np.array(SectionalForceZ),
-                 SectionalTorqueX=np.array(SectionalTorqueX),SectionalTorqueY=np.array(SectionalTorqueY),SectionalTorqueZ=np.array(SectionalTorqueZ),SectionalSpan=np.array(SectionalSpan))
+
+        if slicing_options['slicing_method'] == 'AbscissaBased':
+            SectionalDistance2Axis         += [ value ]
+            SectionalDistance2AxisOverMax  += [ value/dmax ]
+
+        if slicing_options['slicing_method'] == 'Custom':
+            SectionalCustomVar          += [ value ]
+            SectionalCustomVarOverMax   += [ value/dmax ]  
+
+    sloads = dict(SectionalForceX=np.array(SectionalForceX), SectionalForceY=np.array(SectionalForceY),
+                SectionalForceZ=np.array(SectionalForceZ), SectionalTorqueX=np.array(SectionalTorqueX), 
+                SectionalTorqueY=np.array(SectionalTorqueY),SectionalTorqueZ=np.array(SectionalTorqueZ),
+                SectionalSpan=np.array(SectionalSpan))
      
- 
+    if slicing_options['slicing_method'] == 'AbscissaBased':
+            sloads['SectionalDistance2Axis'] = np.array(SectionalDistance2Axis)
+            sloads['SectionalDistance2AxisOverMax'] = np.array(SectionalDistance2AxisOverMax)   
+    if slicing_options['slicing_method'] == 'Custom':
+        sloads['Sectional'+slicing_var] = np.array(SectionalCustomVar)
+        sloads['Sectional'+slicing_var+'OverMax'] = np.array(SectionalCustomVarOverMax)
+
     varValues = []
     varNames = []
 
@@ -1133,9 +1222,459 @@ def computeSectionalLoads(surface, distribution = None, slicing_options=dict(sli
         varValues.append(sloads[key])
         
     sectionalLoads = J.createZone('SectionalLoads',Arrays=varValues,Vars=varNames) 
-
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
     return sectionalLoads
 
+
+def computeCpProfiles(surface, distribution, slicing_options=dict(slicing_method='SpanBased',custom_variable=None), 
+    geometrical_parameters=dict(start_point=None,end_point=None, axis_direction=None), 
+    reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None, rotation_speed = 0.)):
+    '''
+    Compute the pressure coefficient profiles at different positions on a surface along a prescribed direction.
+    The computation of the pressure coefficient can take a rotation speed into account. In that case,
+    the variable is called ``KpRot``, not ``Cp``.
+
+    Parameters
+    ----------
+    
+        surface : PyTree, Base, Zone
+
+            surface from which pressure coefficient profiles are to be computed
+
+            .. note::
+
+                **surface** must contain the following fields (preferrably at
+                centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``,
+                ``SkinFrictionZ``. It must also contain normals ``nx``, ``ny``,
+                ``nz``. 
+
+        distribution : 1D :py:class:`float` list or :py:class:`numpy.ndarray`
+
+            Dimensionless span position for which the pressure coefficent
+            profiles are computed. This must be :math:`\in [0,1]`.
+
+            .. hint:: for example 
+
+                >>> distribution = np.linspace(0,1,51)
+
+            .. note:: 
+
+                for ``slicing_method`` = ``Custom``, this function automatically
+                recomputes the span :math:`\in [0,1]` to perform the slices. The
+                span is based on the ``custom_variable`` and is computed as
+                follows : :math:`(var-min(var))/(max(var)-min(var))`
+
+        slicing_options : :py:class:`dict`
+
+            dictionary providing the parameters to perform the slicing along the
+            surface span. Two pairs of keywords and associated values can be
+            provided:
+            
+            * slicing_method : :py:class:`str`
+
+                Acceptable values are:
+
+                * SpanBased: Computes the span based on 2 points (see below)
+                  provided by the user. Each section corresponds to an
+                  isoSurface of the ``Span`` variable.
+
+                * AbscissaBased: computes the abscissa based on the distance d
+                  to the axis provided by the user. Each section corresponds to
+                  an isoSurface of the Abscissa variable. :math:`Abscissa =
+                  (d-dmin)/(dmax-dmin)`
+
+                * Custom: uses the ``custom_variable`` parameter provided by the
+                  user as the reference variable to perform the isoSurface for
+                  each section.
+            
+            * custom_variable : :py:class:`str` 
+
+                Name of the variable used to perform slices.
+
+                .. hint:: Examples: ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``, ``Radius``.
+
+                .. important:: Must be provided for Custom slicing.
+
+                .. warning:: variable must be unique 
+
+        geometrical_parameters : :py:class:`dict`
+
+            dictionary providing the geometrical parameters required to compute
+            the blade span with the chosen ``slicing_method``. Pairs of keywords
+            and associated values can be the following:
+            
+            * start_point : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` coordinates of the starting point from which the
+                pressure coefficent is to be computed.
+
+                .. warning:: 
+                    Must be provided for SpanBased slicing and AbscissaBased slicing.
+                .. warning:: 
+                    Must be on the axis of rotation if a `rotation_speed` is provided.
+
+            * end_point : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` coordinates of the end point up to which the
+                pressure coefficent are to be computed. 
+
+                .. warning:: 
+                    Must be provided for SpanBased slicing.
+
+            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` direction of the reference axis along which the
+                pressure coefficent are to be computed.
+
+                .. warning:: Must be provided for AbscissaBased slicing.
+                .. warning:: Must corresponds to the axis of rotation if a `rotation_speed` is provided.
+
+        reference_state : :py:class:`dict`
+
+            dictionary providing the reference state. Pairs of keywords and
+            associated values can be:
+
+            * reference_pressure : :py:class:`float` 
+                
+                In Pascals.
+
+            * reference_density : :py:class:`float` 
+
+                In :math:`kg.m^-3`
+
+            * reference_mach : :py:class:`float`
+
+            * rotation_speed : :py:class:`float`
+               
+                Value of the rotation speed of the surface in rad/s. 0 if it is
+                not rotating. This velocity is combined with the freestream
+                velocity to compute the pressure coefficient.
+
+                .. warning:: Not relevant for Spanbased slicing.
+    Returns
+    -------
+
+        BladeSlices : zone 
+            Zone containing a FlowSolution node with the following variables:
+            ``-Cp``, ``CoordinateX``, ``CoordinateY``, ``CoordinateZ``,
+            ``ChannelHeight``, ``Span``, ``Abscissa`` and ``SectionalSpan``,
+            ``Distance2Axis``.
+    '''
+
+    def Abscissa(d): return (d-dmin)/(dmax-dmin)
+    def Cp(Pressure):
+        return -(Pressure-Pinf)/((1/2)*Roinf*(Minf*c)**2)
+    def KpRot(Pressure,Radius):
+        return -(Pressure-Pinf)/((1/2)*Roinf*((Radius*omega)**2+(Minf*c)**2))
+
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
+    Pinf = reference_state['reference_pressure']
+    Roinf = reference_state['reference_density']
+    Minf = reference_state['reference_mach']
+    Gamma = 1.4
+    R = 287.052874
+    Tinf = Pinf/(Roinf*R)
+    c = np.sqrt(Gamma*R*Tinf)
+    omega = reference_state['rotation_speed']
+
+    surface = mergeContainers(surface, FlowSolutionVertexName='FlowSolution',
+    FlowSolutionCellCenterName='FlowSolution#Centers',
+    BCDataSetFaceCenterName='BCDataSet')
+
+    I.__FlowSolutionNodes__ = 'FlowSolution'
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+
+
+    containersNames_n = I.getNodeFromName(surface,'containers_names')
+    fieldsNames_n = I.getNodeFromName(surface,'fields_names')
+
+    for child in I.getChildren(containersNames_n):
+        if 'BCDataSet' == I.getValue(child):
+            bcDataSetContainerTag = I.getName(child)
+
+    for child in I.getChildren(containersNames_n):
+        if 'FlowSolution#Height' == I.getValue(child):
+            heightContainerTag = I.getName(child)
+
+    if slicing_options['slicing_method'] == 'SpanBased':
+        if geometrical_parameters['start_point'] == None or geometrical_parameters['end_point'] == None:
+            ERRMSG = '''Span based Cp computation requires both start_point 
+                and end_point as input parameters'''
+            raise ValueError(ERRMSG)
+        if omega != 0. :
+            ERRMSG = '''Span based Cp computation cannot take into account rotating motions. 
+                Please use AbscissaBased or CustomVariable slicing methods to account for 
+                the rotation of the surface.'''
+            raise ValueError(ERRMSG)
+        else:
+            addSpan(surface, np.array(geometrical_parameters['start_point']), np.array(geometrical_parameters['end_point']))
+            dmin = C.getMinValue(surface, 'Span')
+            dmax = C.getMaxValue(surface, 'Span')            
+            surface = C.initVars(surface,'Span2', Abscissa, ['Span'])
+            slicing_var = 'Span2'
+
+    elif slicing_options['slicing_method'] == 'AbscissaBased':
+        if geometrical_parameters['start_point'] == None or geometrical_parameters['axis_direction'] == None:
+            ERRMSG = '''Abscissa based Cp sectional load computation requires 
+                both start_point and axis_direction as input parameters'''
+            raise ValueError(ERRMSG)
+        else:
+            W.addDistanceRespectToLine(surface, np.array(geometrical_parameters['start_point']), 
+                np.array(geometrical_parameters['axis_direction']), FieldNameToAdd='Distance2Axis')
+            dmin = C.getMinValue(surface, 'Distance2Axis')
+            dmax = C.getMaxValue(surface, 'Distance2Axis')
+            surface = C.initVars(surface,'Abscissa', Abscissa, ['Distance2Axis']) 
+            slicing_var = 'Abscissa'
+
+    elif slicing_options['slicing_method'] == 'Custom':
+        if slicing_options['custom_variable'] == None:
+            ERRMSG = '''The user needs to provide a custom_variable value when 
+                performing custom variable based sectional load computation.'''
+            raise ValueError(ERRMSG)
+        else:
+
+                slicing_var = slicing_options['custom_variable']            
+              
+                for child in I.getChildren(fieldsNames_n):
+                    if  slicing_var in I.getValue(child):
+                        customVarContainerTag = I.getName(child)
+                    if slicing_var in ['CoordinateX','CoordinateY','CoordinateZ']:
+                        customVarContainerTag = ''
+
+                dmin = C.getMinValue(surface, slicing_var+customVarContainerTag)
+                dmax = C.getMaxValue(surface, slicing_var+customVarContainerTag)
+    
+    surface = T.merge(surface)
+    BladeSlices = I.newCGNSBase('Slices', cellDim=1, physDim=3, parent=None)
+    for d in distribution:
+        if slicing_options['slicing_method'] == 'SpanBased':
+            slice = T.join(P.isoSurfMC(surface, 'Span', d))
+            if not slice:continue
+            slice = C.initVars(slice,'nodes:-Cp', Cp, ['Pressure'+bcDataSetContainerTag])
+            slice = C.convertBAR2Struct(slice)
+            I.setName(slice, 'Iso{}_{}'.format(slicing_var,d))         
+        elif slicing_options['slicing_method'] == 'AbscissaBased':
+            slice = T.join(P.isoSurfMC(surface, slicing_var, d))
+            if not slice:continue   
+            slice = C.initVars(slice,'nodes:-KpRot', KpRot, ['Pressure'+bcDataSetContainerTag,'Distance2Axis'])
+            slice = C.convertBAR2Struct(slice)        
+            I.setName(slice, 'Iso{}_{}'.format(slicing_var,d)) 
+
+        elif slicing_options['slicing_method'] == 'Custom':
+            customVarValue = d*(dmax-dmin)+dmin
+            slice =  T.join(P.isoSurfMC(surface,slicing_var+customVarContainerTag, value=customVarValue))
+
+            if not slice: continue 
+            if omega != 0:
+                slice = C.initVars(slice,'nodes:-KpRot', KpRot, ['Pressure'+bcDataSetContainerTag, slicing_var+customVarContainerTag])
+            else:
+                slice = C.initVars(slice,'nodes:-Cp', KpRot, ['Pressure'+bcDataSetContainerTag, slicing_var+customVarContainerTag])
+            slice = C.convertBAR2Struct(slice)
+
+            I.setName(slice, 'Iso{}_{}'.format(slicing_var,customVarValue))
+
+        I._renameNode(slice, 'ChannelHeight'+heightContainerTag, 'ChannelHeight')
+        var2keepOnCpProfiles = ['CoordinateX', 'CoordinateY', 'CoordinateZ','-Cp','-KpRot',
+            'ChannelHeight',slicing_var,'Span', 'Abscissa','Distance2Axis']
+        C._extractVars(slice, var2keepOnCpProfiles)
+        I._addChild(BladeSlices, slice,pos=-1)
+    
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
+
+    return BladeSlices
+
+
+def computeCpOnSurface(surface ,
+    reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None), flow_container = 'FlowSolution#Init'):
+    '''
+    Compute the pressure coefficient on a surface.
+    
+    Parameters
+    ----------
+    
+        surface : PyTree, Base, Zone
+
+            surface on which the pressure coefficient is computed
+
+            .. note::
+
+                **surface** must contain the following fields (preferrably at
+                centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``,
+                ``SkinFrictionZ``. It must also contain normals ``nx``, ``ny``,
+                ``nz``. 
+
+        reference_state : :py:class:`dict`
+            dictionary providing the reference state. 
+            Pairs of keywords and associated values can be:
+
+            * reference_pressure : float 
+                
+                In Pascals.
+
+            * reference_density : float 
+
+                In kg.m^-3
+
+            * reference_mach : float
+            
+        flow_container : :py:class:`str` 
+
+            Name of the FlowSolution node containing the variable ``Pressure``           
+
+    Returns
+    -------
+
+        surface : zone 
+            Original surface with the variable ``-Cp`` added to the considered
+            FlowSolution container.
+    '''
+
+    def Cp(Pressure):
+        return -(Pressure-Pinf)/((1/2)*Roinf*(Minf*c)**2)
+    
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+    FS_container_node = I.getNodeFromName(surface,flow_container)
+    FS_container_loc_node = I.getNodeFromName(FS_container_node,'GridLocation')
+    FS_container_loc = I.getValue(FS_container_loc_node)
+    
+    if FS_container_loc == 'Vertex':
+        I.__FlowSolutionNodes__ = flow_container
+        prefix = 'nodes:'
+    elif FS_container_loc == 'CellCenter':
+        I.__FlowSolutionCenters__ = flow_container
+        prefix = 'centers:'
+
+    Pinf = reference_state['reference_pressure']
+    Roinf = reference_state['reference_density']
+    Minf = reference_state['reference_mach']
+    Gamma = 1.4
+    R = 287.052874
+    Tinf = Pinf/(Roinf*R)
+    c = np.sqrt(Gamma*R*Tinf)
+
+    surface = C.initVars(surface, prefix + '-Cp', Cp, [prefix+'Pressure'])
+
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
+
+    return surface
+
+
+def computeKpRotOnSurface(surface ,
+    reference_state = dict(reference_pressure=None, reference_density=None, reference_mach=None,rotation_speed = 0.),
+    axis_parameters=dict(point=[0.,0.,0.],axis_direction=[1.,0.,0.]), flow_container = 'FlowSolution#Init'):
+    '''
+    Compute the pressure coefficient on a surface accounting for surface rotation aound an axis.
+    
+    Parameters
+    ----------
+    
+        surface : PyTree, Base, Zone
+
+            surface on which the pressure coefficient is computed
+
+            .. note::
+
+                **surface** must contain the following fields (preferrably at
+                centers): ``Pressure``, ``SkinFrictionX``, ``SkinFrictionY``,
+                ``SkinFrictionZ``. It must also contain normals ``nx``, ``ny``,
+                ``nz``. 
+
+        axis_parameters : :py:class:`dict`
+
+            dictionary providing the axis parameters required to compute
+            the blade span with the chosen ``slicing_method``. Pairs of keywords
+            and associated values can be the following:
+            
+            * point : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` coordinates of the point from which
+                sectional loads are to be computed.
+
+            * axis_direction : 3-float :py:class:`list` or :py:class:`tuple` or
+              :py:class:`numpy.ndarray`
+
+                :math:`(x,y,z)` direction of the reference axis along which
+                sectional loads are to be computed.
+
+        reference_state : :py:class:`dict`
+            dictionary providing the reference state. 
+            Pairs of keywords and associated values can be:
+
+            * reference_pressure : float 
+                
+                In Pascals.
+
+            * reference_density : float 
+
+                In kg.m^-3
+
+            * reference_mach : float
+
+            * rotation_speed: float
+                
+                Value of the rotation speed of the surface in rad/s.
+                0 if it is not rotating. This velocity is combined with the 
+                freestream velocity to compute the pressure coefficient.
+
+        flow_container : :py:class:`str` 
+
+            Name of the FlowSolution node containing the variable ``Pressure``                  
+
+    Returns
+    -------
+
+        surface : zone 
+            Original surface with the variable ``-KpRot`` added to the considered
+            FlowSolution container.
+    '''
+
+    def KpRot(Pressure,Radius):
+        return -(Pressure-Pinf)/((1/2)*Roinf*((Radius*omega)**2+(Minf*c)**2))
+    
+    FlowSolutionNodesOld  = I.__FlowSolutionNodes__
+    FlowSolutionCentersOld = I.__FlowSolutionCenters__
+
+    FS_container_node = I.getNodeFromName(surface,flow_container)
+    FS_container_loc_node = I.getNodeFromName(FS_container_node,'GridLocation')
+    FS_container_loc = I.getValue(FS_container_loc_node)
+    
+    W.addDistanceRespectToLine(surface, np.array(axis_parameters['point']), np.array(axis_parameters['axis_direction']),
+                                FieldNameToAdd='Distance2Axis')
+
+    if FS_container_loc == 'Vertex':
+        I.__FlowSolutionNodes__ = flow_container
+        prefix = 'nodes:'
+    elif FS_container_loc == 'CellCenter':
+        print('In cellcenter')
+        I.__FlowSolutionCenters__ = flow_container
+        prefix = 'centers:'
+        surface = C.node2Center(surface, 'nodes:Distance2Axis')
+
+    Pinf = reference_state['reference_pressure']
+    Roinf = reference_state['reference_density']
+    Minf = reference_state['reference_mach']
+    Gamma = 1.4
+    R = 287.052874
+    Tinf = Pinf/(Roinf*R)
+    c = np.sqrt(Gamma*R*Tinf)
+    omega = reference_state['rotation_speed']
+    
+    surface = C.initVars(surface, prefix + '-KpRot', KpRot, [prefix+'Pressure', prefix+'Distance2Axis'])
+
+    I.__FlowSolutionNodes__ = FlowSolutionNodesOld
+    I.__FlowSolutionCenters__ = FlowSolutionCentersOld
+
+    return surface
 
 def _addNormalsIfAbsent(t):
     for z in I.getZones(t):
