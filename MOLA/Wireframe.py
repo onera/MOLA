@@ -1052,7 +1052,7 @@ def discretizeAirfoil(airfoil, Ntop, Nbot=None, CellSizeAtLE=None, CellSizeAtTE=
     
     # Join two sides to return a single curve
     new_airfoil = joinSequentially([BottomSide, TopSide])
-
+    new_airfoil[0] = airfoil[0]
     return new_airfoil
 
 def copyDistribution(curve):
@@ -3302,7 +3302,42 @@ def closeStructCurve(AirfoilCurve, tol=1e-10):
     return AirfoilCurve
 
 
+def findLeadingAndTrailingEdgeIndexes(AirfoilCurve):
+    '''
+    Given a curve of an airfoil **AirfoilCurve**, gets the index of the
+    Leading and Trailing edges based on curvature radius. The search
+    region is defined by **ChordwiseRegion** argument.
 
+    Parameters
+    ----------
+
+        AirfoilCurve : zone
+            PyTree 1D, curve of the airfoil
+
+        ChordwiseRegion : str
+            comparison criterion for establishing the
+            filtered region where search is performed
+
+
+    Returns
+    -------
+
+        PoitionTE : :py:class:`int`
+            Index of the Leading Edge position in AirfoilCurve
+
+        PoitionLE : :py:class:`int`
+            Index of the Trailing Edge position in AirfoilCurve
+    '''
+    TE = findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='< -0.',
+                                         ToleranceRelativeRadius=1e-6)[0]
+    LE = findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.',
+                                         ToleranceRelativeRadius=1e-6)[0]
+    x, y = J.getxy(AirfoilCurve)
+    xTE, yTE = J.getxy(TE)
+    xLE, yLE = J.getxy(LE)
+    iTE = np.argmin(np.linalg.norm(np.vstack([x - xTE, y - yTE]), axis = 0))
+    iLE = np.argmin(np.linalg.norm(np.vstack([x - xLE, y - yLE]), axis = 0))
+    return iLE, iTE
 
 def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.95,
         SecondEdgeSearchPortion = -0.95, RelativeRadiusTolerance = 1e-2,
@@ -3438,9 +3473,9 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.95,
     def getPreviousAbscissaIndex(Point):
         PointAbscissa, = J.getVars(Point, ['s'])
         if PointAbscissa > 0:
-            PreviousAbscissa = np.where(CurvilinearAbscissa < PointAbscissa)[0]
+            PreviousAbscissa = np.where(CurvilinearAbscissa <= PointAbscissa)[0]
         else:
-            PreviousAbscissa = np.where(CurvilinearAbscissa > PointAbscissa)[0]
+            PreviousAbscissa = np.where(CurvilinearAbscissa >= PointAbscissa)[0]
 
         try:
             PreviousAbscissaIndex = PreviousAbscissa[-1]
@@ -6045,7 +6080,3 @@ def removeMultiplePoints(curve, reltol=1e-5):
     newNCell = np.sum(boolean_mask_cells)
     curve[1][0][0] = newNCell+1
     curve[1][0][1] = newNCell
-
-
-        
-

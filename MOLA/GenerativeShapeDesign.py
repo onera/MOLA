@@ -3921,5 +3921,3 @@ def getSectionsForAutogrid(mesh, indexLE=None):
             Blades[bladeName]['pressure'].append(coordsPS)
     
     return Blades
-
-
