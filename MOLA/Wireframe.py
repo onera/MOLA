@@ -1052,7 +1052,7 @@ def discretizeAirfoil(airfoil, Ntop, Nbot=None, CellSizeAtLE=None, CellSizeAtTE=
     
     # Join two sides to return a single curve
     new_airfoil = joinSequentially([BottomSide, TopSide])
-
+    new_airfoil[0] = airfoil[0]
     return new_airfoil
 
 def copyDistribution(curve):
@@ -3302,7 +3302,42 @@ def closeStructCurve(AirfoilCurve, tol=1e-10):
     return AirfoilCurve
 
 
+def findLeadingAndTrailingEdgeIndexes(AirfoilCurve):
+    '''
+    Given a curve of an airfoil **AirfoilCurve**, gets the index of the
+    Leading and Trailing edges based on curvature radius. The search
+    region is defined by **ChordwiseRegion** argument.
 
+    Parameters
+    ----------
+
+        AirfoilCurve : zone
+            PyTree 1D, curve of the airfoil
+
+        ChordwiseRegion : str
+            comparison criterion for establishing the
+            filtered region where search is performed
+
+
+    Returns
+    -------
+
+        PoitionTE : :py:class:`int`
+            Index of the Leading Edge position in AirfoilCurve
+
+        PoitionLE : :py:class:`int`
+            Index of the Trailing Edge position in AirfoilCurve
+    '''
+    TE = findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='< -0.',
+                                         ToleranceRelativeRadius=1e-6)[0]
+    LE = findLeadingOrTrailingEdge(AirfoilCurve, ChordwiseRegion='> +0.',
+                                         ToleranceRelativeRadius=1e-6)[0]
+    x, y = J.getxy(AirfoilCurve)
+    xTE, yTE = J.getxy(TE)
+    xLE, yLE = J.getxy(LE)
+    iTE = np.argmin(np.linalg.norm(np.vstack([x - xTE, y - yTE]), axis = 0))
+    iLE = np.argmin(np.linalg.norm(np.vstack([x - xLE, y - yLE]), axis = 0))
+    return iLE, iTE
 
 def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.95,
         SecondEdgeSearchPortion = -0.95, RelativeRadiusTolerance = 1e-2,
@@ -3438,9 +3473,9 @@ def splitAirfoil(AirfoilCurve, FirstEdgeSearchPortion = 0.95,
     def getPreviousAbscissaIndex(Point):
         PointAbscissa, = J.getVars(Point, ['s'])
         if PointAbscissa > 0:
-            PreviousAbscissa = np.where(CurvilinearAbscissa < PointAbscissa)[0]
+            PreviousAbscissa = np.where(CurvilinearAbscissa <= PointAbscissa)[0]
         else:
-            PreviousAbscissa = np.where(CurvilinearAbscissa > PointAbscissa)[0]
+            PreviousAbscissa = np.where(CurvilinearAbscissa >= PointAbscissa)[0]
 
         try:
             PreviousAbscissaIndex = PreviousAbscissa[-1]
@@ -5850,7 +5885,6 @@ def getLength(curve):
     xyz = np.vstack( J.getxyz(curve) )
     return np.sum(np.linalg.norm(np.diff(xyz,axis=1),axis=0))
 
-
 def useEqualNumberOfPointsOrSameDiscretization(Airfoils, FoilDistribution=None):
     '''
     Given a list of curves (designed to be airfoils), force a rediscretization
@@ -5874,54 +5908,45 @@ def useEqualNumberOfPointsOrSameDiscretization(Airfoils, FoilDistribution=None):
                 :py:func:`Geom.PyTree.getDistribution` to an airfoil curve with
                 the desired distribution
     '''
-    
     foilsNPtsArray = np.array([C.getNPts(a) for a in Airfoils])
     NAirfoils = len(Airfoils)
     AllSameNPts = np.unique(foilsNPtsArray).size == 1
-
     # if not all airfoils have the same nb. of points or new foilwise
     # distribution is required, re-map:
-
     if not AllSameNPts or FoilDistribution:
-        RootFoil = Airfoils[0]
-        SmoothParts = T.splitCurvatureAngle(RootFoil, 30.)
-        indLongestEdge = np.argmax([D.getLength(c) for c in SmoothParts])
-        RootFoil = SmoothParts[indLongestEdge]
-
         if FoilDistribution is None:
-            Mapping = D.getDistribution(RootFoil)
+            Mappings = [D.getDistribution(Airfoil) for Airfoil in Airfoils]
 
         elif isinstance(FoilDistribution,dict):
-            NewRootFoil = discretize(RootFoil, N=FoilDistribution['N'],
-                                       Distribution=FoilDistribution)
-            Mapping = D.getDistribution(NewRootFoil)
+            NewFoils = [discretize(Airfoil, N = FoilDistribution['N'],
+                                    Distribution = FoilDistribution) for Airfoil in Airfoils]
+            Mappings = [D.getDistribution(NewFoil) for Airfoil in NewFoils]
 
         elif isinstance(FoilDistribution,list) and isinstance(FoilDistribution[0],dict):
-            NewRootFoil = polyDiscretize(RootFoil, FoilDistribution)
-            Mapping = D.getDistribution(NewRootFoil)
+            NewFoils = [polyDiscretize(Airfoil, FoilDistribution) for Airfoil in Airfoils]
+            Mappings = [D.getDistribution(NewFoil) for Airfoil in NewFoils]
 
         else:
             InputType = I.isStdNode(FoilDistribution)
             if InputType == -1:
-                Mapping = D.getDistribution(FoilDistribution)
+                Mappings = [D.getDistribution(FoilDistribution) for Airfoil in Airfoils]
             elif InputType == 0:
-                Mapping = D.getDistribution(FoilDistribution[0])
+                Mappings = [D.getDistribution(FoilDistribution[0]) for Airfoil in Airfoils]
             else:
                 raise ValueError('FoilDistribution not recognized')
 
-        newAirfoils = []
-        for ia in range(NAirfoils):
-            SmoothParts = T.splitCurvatureAngle(Airfoils[ia], 30.)
-            indLongestEdge = np.argmax([D.getLength(c) for c in SmoothParts])
-            LongestEdge = SmoothParts[indLongestEdge]
-            newFoil = G.map(LongestEdge,Mapping)
-            newAirfoils += [newFoil]
+        from scipy.interpolate import interp1d
+        Npt = np.max([len(J.getx(Map)) for Map in Mappings])
+        for Mapping in Mappings:
+            Mapping[1] = np.array([[Npt, Npt - 1, 0]])
+            x = I.getNodeFromName(Mapping, 'CoordinateX')
+            x[1] = interp1d(np.linspace(0., 1., len(x[1])), x[1])(np.linspace(0., 1., Npt))
+        
+        newAirfoils = [G.map(Airfoils[i], Mappings[i]) for i in range(len(Airfoils))]
         
         return newAirfoils
-    
     else:
         return Airfoils
-
 
 def interpolateAirfoils(Airfoils, Positions, RequestedPositions, order=1):
     '''
@@ -5980,35 +6005,34 @@ def interpolateAirfoils(Airfoils, Positions, RequestedPositions, order=1):
     if not all(ListOfNPts[0] == ListOfNPts):
         Airfoils = useEqualNumberOfPointsOrSameDiscretization(Airfoils)
 
-    RediscretizedAirfoils = [Airfoils[0]]
-    foil_Distri = D.getDistribution(RediscretizedAirfoils[0])
-    for foil in Airfoils[1:]: RediscretizedAirfoils += [G.map(foil, foil_Distri)]
+    RediscretizedAirfoils = [G.map(foil, D.getDistribution(foil)) for foil in Airfoils]
     NPts = C.getNPts(RediscretizedAirfoils[0])
-    
-    InterpolatedAirfoils = [D.line((0,0,0),(1,0,0),NPts) for _ in range(Ns)]
+    InterpolatedAirfoils = [D.line((0, 0, 0), (1, 0, 0), NPts) for _ in range(Ns)]
 
-    InterpXmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
-    InterpYmatrix = np.zeros((NinterFoils,NPts),dtype=np.float64,order='F')
+    InterpXmatrix = np.zeros((NinterFoils, NPts), dtype = np.float64, order = 'F')
+    InterpYmatrix = np.zeros((NinterFoils, NPts), dtype = np.float64, order = 'F')
     for j in range(NinterFoils):
-        InterpXmatrix[j,:] = J.getx(RediscretizedAirfoils[j])
-        InterpYmatrix[j,:] = J.gety(RediscretizedAirfoils[j])
+        InterpXmatrix[j, :] = J.getx(RediscretizedAirfoils[j])
+        InterpYmatrix[j, :] = J.gety(RediscretizedAirfoils[j])
 
-        u = gets(RediscretizedAirfoils[0])
+    InterpolatedX = np.zeros((Ns, NPts), dtype = np.float64, order = 'F')
+    InterpolatedY = np.zeros((Ns, NPts), dtype = np.float64, order = 'F')
+    for j in range(NinterFoils):
+        u = gets(RediscretizedAirfoils[j])
         v = Positions
-        interpX = scipy.interpolate.RectBivariateSpline(v,u,InterpXmatrix,
-                                                        kx=order, ky=order)
-        interpY = scipy.interpolate.RectBivariateSpline(v,u,InterpYmatrix,
-                                                        kx=order, ky=order)
+        interpX = scipy.interpolate.RectBivariateSpline(v,u,InterpXmatrix, kx = order, ky = order)
+        interpY = scipy.interpolate.RectBivariateSpline(v,u,InterpYmatrix, kx = order, ky = order)
+        InterpolatedX += interpX(RequestedPositions, u)
+        InterpolatedY += interpY(RequestedPositions, u)
 
-        InterpolatedX = interpX(RequestedPositions, u)
-        InterpolatedY = interpY(RequestedPositions, u)
-
-        for j in range(Ns):
-            Section = InterpolatedAirfoils[j]
-            Section[0] = 'foil_at_%g'%RequestedPositions[j]
-            SecX,SecY = J.getxy(Section)
-            SecX[:] = InterpolatedX[j,:]
-            SecY[:] = InterpolatedY[j,:]
+    InterpolatedX /= NinterFoils
+    InterpolatedY /= NinterFoils
+    for j in range(Ns):
+        Section = InterpolatedAirfoils[j]
+        Section[0] = 'foil_at_%g'%RequestedPositions[j]
+        SecX,SecY = J.getxy(Section)
+        SecX[:] = InterpolatedX[j,:]
+        SecY[:] = InterpolatedY[j,:]
 
     if len(InterpolatedAirfoils)==1:
         return InterpolatedAirfoils[0]
@@ -6056,7 +6080,3 @@ def removeMultiplePoints(curve, reltol=1e-5):
     newNCell = np.sum(boolean_mask_cells)
     curve[1][0][0] = newNCell+1
     curve[1][0][1] = newNCell
-
-
-        
-

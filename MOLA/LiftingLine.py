@@ -1012,8 +1012,8 @@ def getLocalFramePerpendicularToLiftingLine(line = [0., 1.], RightHandRuleRotati
     
     Span, s ,_ = J.getDistributionFromHeterogeneousInput__(line)
     NumberOfSections = len(Span)
-    if NumberOfSections%2 == 0:
-        raise AttributeError(J.FAIL + f'An even number of sections were given: {NumberOfSections}'+ J.ENDC)
+    # if NumberOfSections%2 == 0:
+    #     raise AttributeError(J.FAIL + f'An even number of sections were given: {NumberOfSections}'+ J.ENDC)
 
     s = Span/Span[-1]
     RelSpan = Span/Span.max()
