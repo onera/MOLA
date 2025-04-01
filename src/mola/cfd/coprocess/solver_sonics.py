@@ -265,7 +265,8 @@ def extract_time_monitoring(extraction, coprocess_manager):
     extraction['Data'] = cgns.Tree()
     if rank == 0:
         base = cgns.Base(Name='TimeMonitoring', Parent=extraction['Data'])
-        zone = cgns.Zone(Name='TimeMonitoring', Parent=base)
+        InitialIteration = coprocess_manager.workflow.Numerics['IterationAtInitialState']
+        zone = cgns.Zone(Name=f'From{InitialIteration}To{coprocess_manager.iteration}', Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
         cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
         cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
