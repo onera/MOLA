@@ -114,9 +114,12 @@ class CoprocessManager():
         # at iteration 0 (because of modulo). 
         # Change iteration number in MOLA (n in MOLA <--> n-1 in Fast) ?
         # But residuals have iterations coming directly from Fast...
-        # if self.iteration == 0:
-        #     # exception for Fast, because the is an iteration 0
-        #     return
+        if self.iteration == self.workflow.Numerics['IterationAtInitialState'] - 1:
+            # e.g. exclude the iteration 0 for a simulation with elsa
+            for extraction in self.Extractions:                
+                extraction['IsToExtract'] = False
+                extraction['IsToSave'] = False
+            return
         
         for extraction in self.Extractions:                
             if self.iteration % extraction['ExtractionPeriod'] == 0:
@@ -139,8 +142,12 @@ class CoprocessManager():
     
     def initialize_extraction_data_from_last_run(self):
 
+        # dictonary that indicates Base name for each extraction Type
+        type_to_base_name = dict((k,k) for k in ['Integral','Residuals', 'TimeMonitoring', 'MemoryUsage'])
+        type_to_base_name['Probe'] = 'Probes'
+
         for extraction in self.Extractions:
-            if extraction['Type'] not in ['Integral','Residuals','Probe']: continue
+            if extraction['Type'] not in list(type_to_base_name): continue
 
             if 'File' not in extraction: continue
 
@@ -150,10 +157,10 @@ class CoprocessManager():
                 continue
 
             for base in previous_tree.bases():
-                if base.name() != extraction["Type"]:
+                if base.name() != type_to_base_name[extraction['Type']]:
                     base.dettach()
                 
-                if extraction["Type"] == 'Integral':
+                if extraction["Type"] in ['Integral', 'Probe']:
                     for zone in base.zones():
                         if zone.name() != extraction["Name"]:
                             zone.dettach()
@@ -212,7 +219,8 @@ class CoprocessManager():
         self.mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
          
     def finalize(self):
-        self.mola_logger.info(f'>> finalize', rank=0)
+        self.iteration = call_solver_specific_function(self.workflow, 'get_iteration', 3)
+        self.mola_logger.info(f'>> finalize after iteration {self.iteration}', rank=0)
         self.status = 'TO_FINALIZE'
         for extraction in self.Extractions:
             if extraction['ExtractAtEndOfRun']:

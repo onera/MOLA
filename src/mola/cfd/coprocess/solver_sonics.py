@@ -262,9 +262,9 @@ def extract_time_monitoring(extraction, coprocess_manager):
     # At the end of stdout.log, the following line can be found when HookPbSizeTrigger is used: 
     #   + end computation[<iterations>]: time : (<execution_time>, <execution_time_for_all_ranks>, <time/cell/iteration>)
 
-    extraction['Data'] = cgns.Tree()
+    t = cgns.Tree()
     if rank == 0:
-        base = cgns.Base(Name='TimeMonitoring', Parent=extraction['Data'])
+        base = cgns.Base(Name='TimeMonitoring', Parent=t)
         InitialIteration = coprocess_manager.workflow.Numerics['IterationAtInitialState']
         zone = cgns.Zone(Name=f'From{InitialIteration}To{coprocess_manager.iteration}', Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
@@ -280,3 +280,10 @@ def extract_time_monitoring(extraction, coprocess_manager):
                     break
         if TimePerCellPerIteration:
             cgns.Node(Name='TimePerCellPerIteration', Type='DataArray', Parent=fs, Value=TimePerCellPerIteration)
+
+        if 'Data' in extraction and extraction['Data'] is not None:
+            extraction['Data'].merge(t)
+        else: 
+            extraction['Data'] = t
+    else:
+        extraction['Data'] = t

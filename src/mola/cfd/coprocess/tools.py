@@ -157,7 +157,7 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
 
     ε = 1e-12
     UpdatePortion = PreviousIterations > (CurrentIterations[0] - ε)
-    if all(np.logical_not(UpdatePortion)) and len(UpdatePortion) == 1:
+    if len(UpdatePortion) == 1 and not UpdatePortion[0]:
         FirstPreviousIndex2Update = len(PreviousIterations) - 1 
     else:
         try:
@@ -165,9 +165,9 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
         except IndexError:
             msg = "FATAL: add case to test_update_signals:\n"
             msg+= f'PreviousIterations:\n{PreviousIterations}\n'
-            msg+=f'CurrentIterations:\n{CurrentIterations}\n'
-            msg+=f'UpdatePortion={UpdatePortion}\n'
-            msg+=f'np.where(UpdatePortion)={np.where(UpdatePortion)}'
+            msg+= f'CurrentIterations:\n{CurrentIterations}\n'
+            msg+= f'UpdatePortion={UpdatePortion}\n'
+            msg+= f'np.where(UpdatePortion)={np.where(UpdatePortion)}'
             raise IndexError(msg)
 
     for current_data in current_flow_sol.children():
@@ -182,10 +182,7 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
             previous_value = previous_data.value()
         
         current_value = current_data.value()
-
-        updated_value = np.hstack((previous_value[:FirstPreviousIndex2Update],
-                                   current_value))
-
+        updated_value = np.hstack((previous_value[:FirstPreviousIndex2Update], current_value))
         previous_data.setValue(updated_value)
 
 def get_bc_families_in_extraction(extraction, DictBCNames2Type):
