@@ -17,7 +17,7 @@
 
 from pathlib import Path
 from mola.cfd import apply_to_solver
-from mola.cfd.coprocess.user_interface import write_tagfile
+from mola.cfd.coprocess.tools import write_tagfile
 import mola.naming_conventions as names
 
 def apply(workflow):

@@ -241,7 +241,7 @@ def test_convergence_on_criterion(tmp_path, niter=20):
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.simulation_status()
 
-    expected_number_of_items = 11 
+    expected_number_of_items = 12 
 
     assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "Ground",
             ['rsd-ForceX'], tmp_path, expected_number_of_items)

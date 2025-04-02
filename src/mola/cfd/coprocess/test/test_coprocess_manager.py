@@ -23,9 +23,8 @@ import numpy as np
 
 from treelab import cgns
 from mola.cfd.coprocess import comm, rank, NumberOfProcessors
-from mola.cfd.compute import apply as compute_apply
 from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names
-from mola.cfd.coprocess.tools import update_signals_using, write_extraction_log
+from mola.cfd.coprocess.tools import update_signals_using, write_extraction_log, write_tagfile
 
 
 class FakeWorkflow():
@@ -216,7 +215,15 @@ def test_write_extraction_log():
         if key == 'Data': continue 
         assert log[key] == value
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_write_tagfile(tmp_path):
+    workflow = FakeWorkflow(tmp_path)
+    coprocess = CoprocessManager(workflow)
 
+    write_tagfile('NEWJOB_REQUIRED', coprocess)
+    os.unlink(os.path.join(tmp_path,'NEWJOB_REQUIRED'))
+    coprocess.status = 'COMPLETED'
 
 if __name__ == '__main__':
     test_update_signals(dict(previous_it    = [1],

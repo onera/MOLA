@@ -32,9 +32,9 @@ from mola.cfd import call_solver_specific_function
 from mola.cfd.preprocess.mesh.io.writer import write
 
 from . import rank, comm
-from .tools import move_log_files, check_stderr
+from .tools import move_log_files, check_stderr, write_tagfile
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
-from .user_interface import check_and_execute_user_signal, write_tagfile
+from .user_interface import check_and_execute_user_signal
 from .probes import has_probes, search_zone_and_index_for_probes
 
 AVAILABLE_SIMULATION_STATUS = [
