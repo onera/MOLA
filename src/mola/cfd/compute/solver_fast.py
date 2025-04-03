@@ -30,11 +30,10 @@ from mola.cfd.preprocess.motion.solver_fast import is_any_family_mobile
 def apply_to_solver(workflow):
 
     import FastS.PyTree as FastS
-
     from mola.cfd.coprocess.manager import CoprocessManager
-    workflow._coprocess_manager = CoprocessManager(workflow)
 
     read_cfd_files.apply(workflow)
+    workflow._coprocess_manager = CoprocessManager(workflow)
 
     inititer, niter = get_range_of_iterations(workflow)
 
@@ -56,6 +55,8 @@ def apply_to_solver(workflow):
 
         FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store')
         FastS._calc_global_convergence(workflow.tree) # should work now: https://github.com/onera/Fast/issues/14
+
+        workflow._iteration = it + 1  # we are after the method Fast._compute
 
         # TODO : split run_iteration in two ?
         # workflow._iteration = it
