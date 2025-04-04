@@ -35,41 +35,22 @@ using `elsA <https://elsa.onera.fr>`_ solver.
 Major changes
 =============
 
-Major changes with respect to previous version (``v1.17``):
+Major changes with respect to previous version (``v1.18``):
 
 CFD
 ---
-* fixed bug impacting Menter-Langtry turbulence model limiters
-* included ``injrot`` elsA condition
-* allow using 2D map for ``OutflowPressure`` (``outpres``) and ``Farfield`` (``nref``) boundary conditions
-* fixed bug on turbulence cutoff in WorfkflowAirfoil
-* bug fixes on unsteady masking
-
-
-LIFTING-LINE
-------------
-* fixed minor bug on computation of lifting-line length
-
-VPM
----
-* use of VULCAINS v0.5
-* new documentation
-* new factorized user interface
-* new enstrophy-based stabilizing algorithm
-* new examples now available on Juno and Sator ONERA machines
-
+* Add dedicated postprocessing tools for Open Fan configurations
+* Fix bugs related to iteration numbering and second order restart
+* Fix a bug related to time averages on BC
 
 TreeLab
 -------
-* use of v0.2.0
-* allows for reading children of nodes with links
-* simultaneous modification of node value (or name) for multiple selected nodes
-* simultaneous modification of numpy values for multiple cells selected in table
-* new reimplmentation of merge function
+* update to v0.3.0
 
 More details
 ------------
-* See `here <https://gitlab.onera.net/numerics/mola/-/issues/?sort=created_date&state=closed&milestone_title=v1.18&first_page_size=100>`_ a full list of relevant actions related to v1.18 release
+
+* See `here <https://gitlab.onera.net/numerics/mola/-/milestones/8#tab-issues>`_ a full list of relevant actions related to v1.19 release
 
 
 Indices and tables

@@ -16,7 +16,7 @@ export TURBOVERSION=v1.3.1
 export ERSTAZVERSION=v1.6.3
 export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
 export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
-export MAIAVERSION=1.5
+export MAIAVERSION=1.2
 export TREELABVERSION=v0.3.0
 ###############################################################################
 
@@ -95,9 +95,9 @@ if [ "$MAC" = "sator" ]; then
     unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLASATOR
 
-    # maia
-    module use --append /tmp_user/sator/sonics/usr/modules/
-    module load maia/$MAIAVERSION-dsi-cfd6
+    # # maia
+    # module use --append /tmp_user/sator/sonics/usr/modules/
+    # module load maia/$MAIAVERSION-dsi-cfd6
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator_elsA/$ARCH
