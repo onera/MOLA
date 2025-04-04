@@ -30,13 +30,13 @@ You will see a message indicating the main available libraries:
 
 .. code-block:: text
 
-    MOLA version v1.17 at sator (avx512)
-    --> Python 3.7.4
+    MOLA version v1.19 at sator (avx512)
+    --> Python 3.8.14
     --> elsA v5.2.03
-    --> ETC v0.334a    
+    --> ETC v0.334a
     --> Cassiopee  3.7 
-    --> Vulcains (VPM) 0.4
-    --> treelab 0.1.0  
+    --> Vulcains (VPM) 0.5
+    --> treelab 0.3.0
     --> turbo 1.3      
     --> Ersatz UNAVAILABLE
     --> maia 1.2        (took 1.09247 s : too long)
