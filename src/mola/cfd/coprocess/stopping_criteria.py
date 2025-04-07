@@ -98,6 +98,7 @@ def is_converged(coprocess_manager):
 
     all_necessary_criteria_are_verified = any([criterion['Necessary'] for criterion in ConvergenceCriteria])
     any_sufficient_criterion_is_verified = False
+    CONVERGED = None
     if rank == 0:
        
         for criterion in ConvergenceCriteria:

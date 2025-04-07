@@ -131,6 +131,7 @@ class CoprocessManager():
         if any([extraction['IsToExtract'] for extraction in self.Extractions]):
             self.mola_logger.debug(f'Performing extractions..', rank=0)
             self.perform_extractions()
+            # FIXME postprocess is after the update of signals, so variables like avg-MomentumX are not updated
             self.postprocess_extractions()
             self._update_workflow_parameters_for_restart_if_needed()
             
