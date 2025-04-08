@@ -21,7 +21,7 @@ VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible 
 This module enables the coupling of the VPM with the Lifting Line module of MOLA.
 
 Version:
-0.5
+0.6
 
 Author:
 Johan VALENTIN

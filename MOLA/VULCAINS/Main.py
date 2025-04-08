@@ -22,7 +22,7 @@ This Vortex Particle Method solver can be used to simulate isolated vortex struc
 with the Lifting Line module of MOLA or the FAST CFD solver.
 
 Version:
-0.5
+0.6
 
 Author:
 Johan VALENTIN
