@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'MOLA'
 copyright = 'ONERA'
 author = 'Luis BERNARDOS'
-release = 'Dev' # sets the default doc version
+release = 'v1.19' # sets the default doc version
 
 
 # -- General configuration ---------------------------------------------------

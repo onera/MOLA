@@ -4,7 +4,7 @@ MOLA documentation
 Welcome to **MO**\ dular workf\ **L**\ ows for **A**\ erodynamics (MOLA)
 documentation website.
 
-Current documentation version is: ``Dev``.
+Current documentation version is: ``v1.19``.
 
 Please note the `GitLab page <https://gitlab.onera.net/numerics/mola>`_ of MOLA
 and its associated `Issues <https://gitlab.onera.net/numerics/mola/-/issues>`_ section where
@@ -49,7 +49,6 @@ TreeLab
 
 More details
 ------------
-
 * See `here <https://gitlab.onera.net/numerics/mola/-/milestones/8#tab-issues>`_ a full list of relevant actions related to v1.19 release
 
 
