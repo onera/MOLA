@@ -7,15 +7,15 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLAVER=Dev
-export MOLA=/stck/lbernard/MOLA/$MOLAVER
-export MOLASATOR=/tmp_user/sator/lbernard/MOLA/$MOLAVER
-export MOLAJUNO=/tmp_user/juno/lbernard/MOLA/$MOLAVER
-export VPMVERSION=v0.5
+export MOLAVER=v1.19
+export MOLA=/stck/mola/MOLA/$MOLAVER
+export MOLASATOR=/tmp_user/sator/mola/MOLA/$MOLAVER
+export MOLAJUNO=/tmp_user/juno/mola/MOLA/$MOLAVER
+export VPMVERSION=v0.6
 export TURBOVERSION=v1.3.1
 export ERSTAZVERSION=v1.6.3
-export MOLAext=/stck/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
-export MOLASATORext=/tmp_user/sator/lbernard/MOLA/$MOLAVER/ext # you should not modify this line
+export MOLAext=/stck/mola/$MOLAVER/ext # you should not modify this line
+export MOLASATORext=/tmp_user/sator/mola/$MOLAVER/ext # you should not modify this line
 export MAIAVERSION=1.2
 export TREELABVERSION=v0.3.0
 ###############################################################################
@@ -100,7 +100,7 @@ if [ "$MAC" = "sator" ]; then
     # module load maia/$MAIAVERSION-dsi-cfd6
 
     # VPM
-    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator_elsA/$ARCH
+    export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator_socle_6
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
@@ -120,53 +120,6 @@ if [ "$MAC" = "sator" ]; then
     export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
     export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
     export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
-
-elif [ "$MAC" = "spiro" ]; then
-    if [ ! "$EL8" ]; then
-        echo -e "\033[91mERROR: SPIRO CENTOS 7 NOT SUPPORTED ANYMORE\033[0m"
-        exit 0
-    fi
-    source /stck/elsa/Public/$ELSAVERSION/Dist/bin/spiro-el8_mpi/.env_elsA &>/dev/null
-
-    # # maia 
-    # module use --append /scratchm/sonics/usr/modules/
-    # module load maia/$MAIAVERSION-dsi-cfd6
-
-    # to avoid message:
-    # MPI startup(): Warning: I_MPI_PMI_LIBRARY will be ignored since the hydra process manager was found
-    # source : https://www.osc.edu/supercomputing/batch-processing-at-osc/slurm_migration/slurm_migration_issues
-    unset I_MPI_PMI_LIBRARY 
-
-    unset I_MPI_TCP_NETMASK
-    unset I_MPI_FABRICS_LIST
-
-    # VPM
-    export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro_elsA/$ARCH
-    export PATH=$VPMPATH:$PATH
-    export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/opencascade/lib:/opt/tools/hdf5-1.10.5-intel-19-impi-19/lib
-    export PYTHONPATH=$VPMPATH:$PYTHONPATH
-    export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
-
-    # turbo
-    export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_$ELSAVERSION/spiro-el8_mpi/lib/python3.7/site-packages/:$PYTHONPATH
-
-    # ErstaZ
-    export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/spiro
-    export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
-
-    # NOTE installation hint:
-    # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-    export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/spiro_elsA
-    export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-    export PYTHONPATH=$TREELABPATH/lib/python3.7/site-packages:$PYTHONPATH
-
-
-    # external python packages
-    export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/:$PYTHONPATH
-    export PATH=$MOLAext/spiro_el8/bin:$PATH
-    export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.7/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 elif [ "$MAC" = "ld" ]; then
 
@@ -240,7 +193,7 @@ elif [ "$MAC" = "juno" ]; then
     module load maia/$MAIAVERSION-dsi-cfd6
 
     # VPM
-    export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
+    export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/
     export PATH=$VPMPATH:$PATH
     export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
     export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
