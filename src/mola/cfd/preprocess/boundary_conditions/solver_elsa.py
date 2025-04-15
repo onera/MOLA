@@ -331,7 +331,9 @@ def outradeq_interface(workflow, Family, **kwargs):
 
 def outradeqhyb_interface(workflow, Family, **kwargs):
     parameters = outradeq_interface(workflow, Family, **kwargs)
-    parameters['nbband'] = kwargs.get('nbband', -1) # default value in etc, compute nbband based on mesh
+    # HACK about nbband: do not use the default value in etc (-1). 
+    # According the doc, "If -1, the value is automatically determined", but instead nbband is set to 3.
+    parameters['nbband'] = kwargs.get('nbband', 100)  
     parameters['c'] = kwargs.get('c', 0.3) # default value in etc is 0.1
     return parameters
 

@@ -69,7 +69,7 @@ def check_empty_bc(workflow):
             mola_logger.info(f'{GREEN}No undefined BC found in tree{ENDC}')
 
 def check_no_empty_Family_of_BC(tree):
-    for bc in tree.group(Type='BC', Value='FamilyDefined'):
+    for bc in tree.group(Type='BC', Value='FamilySpecified'):
         try:
             FamilyName = bc.get(Type='FamilyName').value()
         except:

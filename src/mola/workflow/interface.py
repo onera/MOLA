@@ -849,6 +849,7 @@ class WorkflowInterface(object):
         mola_target_path : str = None,
         Scheduler : str = None, # None : chosed auto. "SLURM": will launch sbatch; "local" will launch ./job
         AER : str = None,
+        RemovePreviousRunDirectory : bool = False,
         ):
         '''
         Set workflow attribute **RunManagement** to handle job submission.
@@ -896,6 +897,9 @@ class WorkflowInterface(object):
             The default value depends on the **Machine** and environment parameters. 
         AER : str, optional
             AER number for simulation on sator
+        RemovePreviousRunDirectory : bool, optional
+            Only used for a simulation on a remote machine. If True, remove the previous RunDirectory before 
+            preprocessing the case. Default value is False.
         '''
         RunDirectory = str(RunDirectory)
         self.RunManagement = self._get_comp(

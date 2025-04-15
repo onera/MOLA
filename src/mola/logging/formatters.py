@@ -20,15 +20,17 @@ This module defines Formatters (used by Loggers) and useful related functions.
 '''
 import logging
 
+BOLD = '\033[1m'
+UNDERLINE = '\033[4m'
 GREY = "\x1b[38;20m"
 RED  = '\033[91m'
 BOLD_RED = "\x1b[31;1m"
 GREEN = '\033[92m'
+BOLD_GREEN = '\033[92m;1m'
 YELLOW = '\033[93m'
 PINK  = '\033[95m'
 CYAN  = '\033[96m'
-BOLD = '\033[1m'
-UNDERLINE = '\033[4m'
+BOLD_CYAN = '\033[96m;1m'
 ENDC  = '\033[0m'
 
 class CustomFormatter(logging.Formatter):

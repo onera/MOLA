@@ -62,5 +62,3 @@ def add_governing_equations(workflow):
     workflow.tree.findAndRemoveNodes(Type='FlowEquationSet_t', Depth=3)
     for base in workflow.tree.bases():
         base.addChild(FlowEquationSet)
-        for zone in base.zones():
-            zone.addChild(FlowEquationSet)
