@@ -70,9 +70,14 @@ class WorkflowRotatingComponent(Workflow):
         duplicate.duplicate_workflow_with_maia(self)
 
     def initialize_flow(self):
-        if (self.Initialization['ParametrizeWithHeight'] or 
-            any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions])):
+        if any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
+            self.Initialization['ParametrizeWithHeight'] = 'turbo'
+
+        if self.Initialization['ParametrizeWithHeight'] == 'maia':
             self.parametrize_with_height()
+        elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
+            self.parametrize_with_height_with_turbo()
+            
         super().initialize_flow()
 
     def set_default_parameters_for_rows(self):
@@ -385,7 +390,7 @@ class WorkflowRotatingComponent(Workflow):
 
         with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG', stderr_level='ERROR'):
             
-            merid_lines_filename = os.path.join(self.RunManagement['RunDirectory'], 'shroud_hub_lines.plt')
+            merid_lines_filename = 'shroud_hub_lines.plt'  #os.path.join(self.RunManagement['RunDirectory'], 'shroud_hub_lines.plt')
             endlinesTree = TH.generateHLinesAxial(self.tree, filename=merid_lines_filename, method=method)
             try: 
                 plot_hub_and_shroud_lines(endlinesTree)
@@ -395,11 +400,11 @@ class WorkflowRotatingComponent(Workflow):
             # - Generation of the mask file
             m = TH.generateMaskWithChannelHeight(self.tree, merid_lines_filename)
             os.remove(merid_lines_filename)
+            # mask_filename = os.path.join(self.RunManagement['RunDirectory'], 'mask.cgns')
+            # os.remove(mask_filename) # remove this file for now, but it will be maybe necessary for other operations later
 
             # - Generation of the ChannelHeight field
-            mask_filename = os.path.join(self.RunManagement['RunDirectory'], 'mask.cgns')
-            TH._computeHeightFromMask(self.tree, m, writeMask=mask_filename)
-            os.remove(mask_filename) # remove this file for now, but it will be maybe necessary for other operations later
+            TH._computeHeightFromMask(self.tree, m)
         
         I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
         

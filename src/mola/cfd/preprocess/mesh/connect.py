@@ -115,14 +115,13 @@ def apply_with_cassiopee(workflow):
             
             base[2] = base_out[2]
             
-    try:
-        import maia
-        from maia.io.fix_tree import fix_point_ranges
-        if rank==0:print("\033[93m", end='')
-        fix_point_ranges(workflow.tree)
-        if rank==0:print("\033[0m", end='')
-    except ModuleNotFoundError:
-        mola_logger.warning("could not import maia, will not fix PointRange")
+    # try:
+    #     from maia.io.fix_tree import fix_point_ranges
+    #     if rank==0:print("\033[93m", end='')
+    #     fix_point_ranges(workflow.tree)
+    #     if rank==0:print("\033[0m", end='')
+    # except ModuleNotFoundError:
+    #     mola_logger.warning("could not import maia, will not fix PointRange")
 
     workflow.tree = cgns.castNode(workflow.tree)
 

@@ -19,7 +19,7 @@ import pytest
 import os
 from pathlib import Path
 
-from mola.workflow.rotating_component.turbomachinery import WorkflowManager
+from mola.workflow.rotating_component import turbomachinery
 from mola.workflow.rotating_component.turbomachinery.test.test_turbomachinery_workflow import get_compressor_example
 
 @pytest.mark.integration
@@ -28,7 +28,7 @@ def test_WorkflowManager_prepare(tmp_path):
 
     test_dir = str(tmp_path)
     w = get_compressor_example('not_used_directory')
-    manager = WorkflowManager(w, root_directory=test_dir)
+    manager = turbomachinery.WorkflowManager(w, root_directory=test_dir)
     manager.add_isospeed_line(throttles=[1e5, 1.1e5, 1.2e5])
     manager.prepare()
 
