@@ -277,10 +277,10 @@ class WorkflowRotatingComponent(Workflow):
             raise MolaAssertionError('For now, this function only handles axis=[1., 0., 0.]')
 
         # Extract zones in family
-        zonesInFamily = C.getFamilyZones(t, FamilyName)
+        zonesInFamily = [z for z in t.zones() if z.get(Type='FamilyName', Value=FamilyName)]
         # Slice in x direction at middle range
-        xmin = C.getMinValue(zonesInFamily, 'CoordinateX')
-        xmax = C.getMaxValue(zonesInFamily, 'CoordinateX')
+        xmin = np.amin([np.amin(zone.x()) for zone in zonesInFamily])
+        xmax = np.amax([np.amax(zone.x()) for zone in zonesInFamily])
         sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
         # Compute Radius
         C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
