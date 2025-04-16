@@ -143,6 +143,41 @@ def get_compressor_example_rotor_only(RunDirectory):
     w = turbomachinery.Workflow(**get_compressor_example_rotor_only_parameters(RunDirectory))
     return w
 
+# @pytest.mark.unit
+# @pytest.mark.elsa
+# @pytest.mark.cost_level_3
+# def test_initialize_with_turbo(tmp_path):
+#     w = get_compressor_example(tmp_path)
+#     w.Initialization['Method'] = 'turbo'
+#     w.ApplicationContext['Rows']['Rotor']['FlowAngleAtTipDeg'] = 30.
+#     w.ApplicationContext['Rows']['Rotor']['FlowAngleAtRootDeg'] = 30.
+
+#     w.prepare_job()
+#     w.assemble() 
+#     w.positioning()
+#     w.define_families() 
+#     w.connect()
+#     w.split_and_distribute() 
+#     w.process_overset()
+#     w.compute_flow_and_turbulence()
+#     w.set_motion()
+#     w.set_boundary_conditions()
+#     w.set_cfd_parameters()  
+    
+#     if w.Solver != 'elsa':
+#         with pytest.raises(MolaException):
+#             w.initialize_flow() 
+#     else:
+#         w.initialize_flow()
+
+#     w.write_cfd_files()
+
+#     # no other FlowSolution nodes than Init nodes at this stage
+#     expected_variables = list(w.Flow['Conservatives']) + list(w.Turbulence['Conservatives'])
+#     for zone in w.tree.zones():
+#         variables = zone.allFields(include_coordinates=False)
+#         assert all([v in variables for v in expected_variables])
+
 def get_workflow_rotor37(RunDirectory):
     w = turbomachinery.Workflow( 
         RawMeshComponents=[
