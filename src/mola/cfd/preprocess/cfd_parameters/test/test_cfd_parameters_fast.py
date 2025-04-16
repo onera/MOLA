@@ -34,11 +34,19 @@ class FakeWorkflowMonoBlock():
                            np.linspace(0,1,NPts), indexing='ij')
         mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], xyz)
         mesh.attachTo(base)
+        cgns.Node(Parent=base, Name='FlowEquationSet', Type='FlowEquationSet_t')
         
         self.SolverParameters = dict()
         self.ProblemDimension = 3
         self.Motion = dict()
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_add_governing_equations():
+    workflow = FakeWorkflowMonoBlock(5)
+    solver_fast.add_FlowEquationSet_in_zones(workflow.tree)
+    for zone in workflow.tree.zones():
+        assert zone.get('FlowEquationSet')
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

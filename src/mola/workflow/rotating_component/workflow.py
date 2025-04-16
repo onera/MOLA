@@ -70,6 +70,7 @@ class WorkflowRotatingComponent(Workflow):
         duplicate.duplicate_workflow_with_maia(self)
 
     def initialize_flow(self):
+        self.Initialization.setdefault('ParametrizeWithHeight', None)
         if any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
             self.Initialization['ParametrizeWithHeight'] = 'turbo'
 

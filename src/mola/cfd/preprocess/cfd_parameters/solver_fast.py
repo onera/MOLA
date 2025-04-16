@@ -61,13 +61,13 @@ def apply_to_solver(workflow):
     # https://fast.onera.fr/Fast.html#Fast.PyTree.setNum2Zones
 
     user_given_parameters = copy.copy(workflow.SolverParameters) 
-    add_FlowEquationSet_in_zones(workflow)
+    add_FlowEquationSet_in_zones(workflow.tree)
     set_model(workflow) 
     set_numerics(workflow)
     deep_update(workflow.SolverParameters, user_given_parameters) 
 
-def add_FlowEquationSet_in_zones(workflow):
-    for base in workflow.tree.bases():
+def add_FlowEquationSet_in_zones(tree):
+    for base in tree.bases():
         FlowEquationSet = base.get(Type='FlowEquationSet')
         for zone in base.zones():
             zone.addChild(FlowEquationSet)
