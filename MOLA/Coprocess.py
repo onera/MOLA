@@ -1559,16 +1559,13 @@ def _scatterArraysFromRootToLocal(arrays):
                         override_all = True
 
                     if not override_all:
-                        eps = 1e-12
-                        previous_iteration = int(RegisteredIterations[-1] + eps)
-                        if np.max(IterationNumber) > previous_iteration:
-                            UpdatePortion = IterationNumber > previous_iteration
-                            FirstIndex2Update = np.where(UpdatePortion)[0][0]
-                        elif np.max(IterationNumber) == previous_iteration:
-                            FirstIndex2Update = 0
+                        previous_iteration = int(np.round(RegisteredIterations[-1]))
+                        assert IterationNumber[-1] >= previous_iteration
+                        UpdatePortion = IterationNumber > previous_iteration
+                        FirstIndex2Update = np.where(UpdatePortion)[0][0]
+
+                        if IterationNumber[-1] == previous_iteration:
                             RemoveLastValue = True
-                        else:
-                            raise Exception
 
                 except:
                     printCo(traceback.format_exc(),color=J.FAIL)
@@ -1587,7 +1584,7 @@ def _scatterArraysFromRootToLocal(arrays):
                     if override_all:
                         arrays[lk][var] = np.array([value],ndmin=1).ravel(order='F')
                     elif RemoveLastValue:
-                        arrays[lk][var] = np.hstack((value[:-1], arrays[lk][var])).ravel(order='F')
+                        arrays[lk][var] = np.hstack((value[:-1], arrays[lk][var][FirstIndex2Update:])).ravel(order='F')
                     else:
                         arrays[lk][var] = np.hstack((value, arrays[lk][var][FirstIndex2Update:])).ravel(order='F')
                 else:
@@ -1625,32 +1622,33 @@ def _appendIntegralDataNode2Arrays(arrays, IntegralDataNode):
         arrays[IntegralDataName] = dict()
         arraysSubset = arrays[IntegralDataName]
 
-
     try: RegisteredIterations = arraysSubset['IterationNumber']
     except KeyError: RegisteredIterations = np.array([])
+
     if len(RegisteredIterations) > 0:
         PreviousRegisteredArrays = True
         RemoveLastValue = False
-        eps = 1e-12
-        previous_iteration = int(RegisteredIterations[-1] + eps)
-        if np.max(IterationNumber) > previous_iteration:
-            UpdatePortion = IterationNumber > previous_iteration
-            FirstIndex2Update = np.where(UpdatePortion)[0][0]
-        elif np.max(IterationNumber) == previous_iteration:
-            FirstIndex2Update = 0
+        previous_iteration = int(np.round(RegisteredIterations[-1]))
+
+        assert IterationNumber[-1] >= previous_iteration
+
+        UpdatePortion = IterationNumber > previous_iteration
+        
+        try: FirstIndex2Update = np.where(UpdatePortion)[0][0]
+        except IndexError: return
+
+        if IterationNumber[-1] == previous_iteration:
             RemoveLastValue = True
-        else:
-            raise Exception
     else:
         PreviousRegisteredArrays = False
 
     for integralKey in IntegralData:
         if PreviousRegisteredArrays:
             PreviousArray = arraysSubset[integralKey]
+            AppendArray = IntegralData[integralKey][FirstIndex2Update:]
             if RemoveLastValue:
-                arraysSubset[integralKey] = np.hstack((PreviousArray[:-1], IntegralData[integralKey]))
+                arraysSubset[integralKey] = np.hstack((PreviousArray[:-1], AppendArray))
             else:
-                AppendArray = IntegralData[integralKey][FirstIndex2Update:]
                 arraysSubset[integralKey] = np.hstack((PreviousArray, AppendArray))
         else:
             arraysSubset[integralKey] = np.array(IntegralData[integralKey],
