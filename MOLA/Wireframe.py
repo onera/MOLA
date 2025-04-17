@@ -5909,7 +5909,6 @@ def useEqualNumberOfPointsOrSameDiscretization(Airfoils, FoilDistribution=None):
                 the desired distribution
     '''
     foilsNPtsArray = np.array([C.getNPts(a) for a in Airfoils])
-    NAirfoils = len(Airfoils)
     AllSameNPts = np.unique(foilsNPtsArray).size == 1
     # if not all airfoils have the same nb. of points or new foilwise
     # distribution is required, re-map:
@@ -5920,11 +5919,11 @@ def useEqualNumberOfPointsOrSameDiscretization(Airfoils, FoilDistribution=None):
         elif isinstance(FoilDistribution,dict):
             NewFoils = [discretize(Airfoil, N = FoilDistribution['N'],
                                     Distribution = FoilDistribution) for Airfoil in Airfoils]
-            Mappings = [D.getDistribution(NewFoil) for Airfoil in NewFoils]
+            Mappings = [D.getDistribution(f) for f in NewFoils]
 
         elif isinstance(FoilDistribution,list) and isinstance(FoilDistribution[0],dict):
             NewFoils = [polyDiscretize(Airfoil, FoilDistribution) for Airfoil in Airfoils]
-            Mappings = [D.getDistribution(NewFoil) for Airfoil in NewFoils]
+            Mappings = [D.getDistribution(f) for f in NewFoils]
 
         else:
             InputType = I.isStdNode(FoilDistribution)
