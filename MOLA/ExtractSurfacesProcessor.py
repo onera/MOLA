@@ -22,6 +22,9 @@ ExtractSurfacesProcessor.py module
 
 import MOLA
 
+from . import GenerativeShapeDesign as GSD
+from . import InternalShortcuts as J
+
 if not MOLA.__ONLY_DOC__:
     import numpy as np
     from timeit import default_timer as tic
@@ -38,16 +41,16 @@ ijk2ind = {'i':0, 'j':1, 'k':2}
 
 
 def extractSurfacesByOffsetCellsFromBCFamilyName(t, BCFamilyName='MyBC',
-                                                                NCellsOffset=2):
+        NCellsOffset=2):
     OffsetSurfaces = []
     FamilyBCs = C.getFamilyBCs(t, BCFamilyName)
     BCNames = [fbc[0] for fbc in FamilyBCs]
     ZoneName2ZoneAndWindows = getZonesAndWindowsOfBCNames(t, BCNames)
     AllZonesForSubzoning, AllWindowsForSubzoning = [], []
+    ZoneNamesAlreadyPropagated = []
     for ZoneName in ZoneName2ZoneAndWindows:
         zone = ZoneName2ZoneAndWindows[ZoneName]['zone']
         for window in ZoneName2ZoneAndWindows[ZoneName]['windows']:
-            ZoneNamesAlreadyPropagated = []
             ZonesForSubzoning, WindowsForSubzoning = [], []
 
             addZonesAndWindowsForSubzoning(WindowsForSubzoning,
@@ -73,15 +76,15 @@ def extractSurfacesByOffsetCellsFromBCFamilyName(t, BCFamilyName='MyBC',
     [I._rmNodesByName(OffsetSurfaces, n) for n in Nodes2Remove]
 
     if NCellsOffset > 0:
-        BCsurfaces = extractSurfacesByOffsetCellsFromBCFamilyName(t,
-                                                                BCFamilyName, 0)
+        TrimmerSurfaces = extractSurfacesByOffsetCellsFromBCFamilyName(t,
+                                                    BCFamilyName, 0)
         for z in I.getZones(t): I._rmNodesByName1(z, '.MOLA#Offset')
-        if not BCsurfaces:
-            print('warning: no BCsurfaces for '+BCFamilyName)
+        if not TrimmerSurfaces:
+            print('warning: no TrimmerSurfaces for BCFamilyName: '+BCFamilyName)
             return []
-        OffsetSurfaces = trimExteriorFaces(OffsetSurfaces, BCsurfaces,
-                                           NCellsOffset)
 
+        OffsetSurfaces = trimExteriorFaces(OffsetSurfaces, TrimmerSurfaces,
+                                           NCellsOffset)
 
     _includeMedianCellHeight(t, OffsetSurfaces)
     migrateOffsetData(t, OffsetSurfaces)
