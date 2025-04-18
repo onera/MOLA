@@ -11,9 +11,7 @@ __pycache__
 *.pdf
 *.png
 !MOLA/backgrounds/**/*.png
-!MOLA/DOCUMENTATION/src_sphinx/**/*.png
 *.svg
-!MOLA/DOCUMENTATION/src_sphinx/**/*.svg
 *.ppt
 *.doc
 *.odt
@@ -28,3 +26,5 @@ DOCUMENTATION/html
 DOCUMENTATION/PRESENTATIONS
 DOCUMENTATION/src_sphinx/_*
 DOCUMENTATION/src_sphinx/*.conf
+!MOLA/DOCUMENTATION/src_sphinx/**/*.png
+!MOLA/DOCUMENTATION/src_sphinx/**/*.svg
