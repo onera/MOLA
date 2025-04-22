@@ -159,6 +159,7 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
 
     for container_at_vertex in containers_at_vertex:
         I.__FlowSolutionNodes__ = container_at_vertex
+        channel_height = None
         for zone in I.getZones(surfaces):
             fs_container = I.getNodeFromName1(zone, container_at_vertex)
             if not fs_container: 

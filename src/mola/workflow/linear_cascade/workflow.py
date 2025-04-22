@@ -55,9 +55,15 @@ class WorkflowLinearCascade(Workflow):
         super().compute_flow_and_turbulence()
 
     def initialize_flow(self):
-        if (self.Initialization['ParametrizeWithHeight'] or 
-            any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions])):
+        self.Initialization.setdefault('ParametrizeWithHeight', None)
+        if any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
+            self.Initialization['ParametrizeWithHeight'] = 'maia'
+
+        if self.Initialization['ParametrizeWithHeight'] == 'maia':
             self.parametrize_with_height()
+        elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
+            self.parametrize_with_height_with_turbo(self.lin_axis)
+
         super().initialize_flow()
 
     def get_periodic_direction(self):

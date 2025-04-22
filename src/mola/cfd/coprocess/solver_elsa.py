@@ -281,12 +281,12 @@ def extract_time_monitoring(extraction, coprocess_manager):
     # and also the line:
     # Task (proc : 0) took 3.4062766e+01 seconds  (resolution = 1.0000000e-09 s)
 
-    extraction['Data'] = cgns.Tree()
-
+    t = cgns.Tree()
     if rank == 0:
 
-        base = cgns.Base(Name='TimeMonitoring', Parent=extraction['Data'])
-        zone = cgns.Zone(Name='TimeMonitoring', Parent=base)
+        base = cgns.Base(Name='TimeMonitoring', Parent=t)
+        InitialIteration = coprocess_manager.workflow.Numerics['IterationAtInitialState']
+        zone = cgns.Zone(Name=f'From{InitialIteration}To{coprocess_manager.iteration}', Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
         cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
         cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
@@ -306,6 +306,13 @@ def extract_time_monitoring(extraction, coprocess_manager):
                     break
         if user_time:
             cgns.Node(Name='TimePerCellPerIteration', Type='DataArray', Parent=fs, Value=np.array([user_time]))
+    
+        if 'Data' in extraction and extraction['Data'] is not None:
+            extraction['Data'].merge(t)
+        else: 
+            extraction['Data'] = t
+    else:
+        extraction['Data'] = t
 
 def update_elsa_input(new_tree):
     import elsAxdt
@@ -337,7 +344,14 @@ def move_log_files(w):
 
 def get_iteration(workflow):
     import elsAxdt
-    return elsAxdt.iteration()
+    status = get_status(workflow)
+    if status == 'RUNNING_BEFORE_ITERATION':
+        return elsAxdt.iteration() - 1
+    elif status == 'RUNNING_AFTER_ITERATION':
+        return elsAxdt.iteration()
+    else: 
+        raise Exception(f'unknown status: {status}')
 
 def get_status(workflow):
+    # BEWARE! state 16 => triggers *before* iteration
     return 'RUNNING_BEFORE_ITERATION' # TODO: implement this (using elsaXdt?)

@@ -34,6 +34,24 @@ class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
         local_kwargs.update(kwargs)
         super().add_to_RawMeshComponents(**local_kwargs)
 
+    def add_Row_to_ApplicationContext(self,
+        IsRotating : bool = False,
+        NumberOfBladesSimulated : int = 1,
+        NumberOfBladesInInitialMesh : int = None, 
+        FlowAngleAtRootDeg : float = None,
+        FlowAngleAtTipDeg : float = None,
+        *,
+        _Key : str,  # auxilary parameter, removed at the end of this function
+        NumberOfBlades : int,
+        ):
+        self.ApplicationContext['Rows'][_Key].update(
+            self._get_comp(
+                WorkflowRotatingComponentInterface.add_Row_to_ApplicationContext, 
+                self.get_default_values_from_local_signature()
+                )
+            )
+        self.ApplicationContext['Rows'][_Key].pop('_Key')
+
     def set_Flow(self,
                 Generator : str = 'Internal',
                 **kwargs):

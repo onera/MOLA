@@ -64,7 +64,7 @@ class WorkflowLinearCascadeInterface(WorkflowInterface):
             SourceContainer : str = None,
             ComputeWallDistanceAtPreprocess : bool = False,
             KeepWallDistance : bool = False,
-            ParametrizeWithHeight : bool = False, # parameter specific to that workflow
+            ParametrizeWithHeight : str = None, # parameter specific to that workflow
             ):
         self.Initialization = self._get_comp(
             self.set_Initialization, self.get_default_values_from_local_signature())

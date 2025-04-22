@@ -19,7 +19,7 @@ from treelab import cgns
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.mesh.tools import to_partitioned
-
+from .initialization_with_turbo import initialize_flow_with_turbo
 
 def apply(workflow):
     '''
@@ -38,6 +38,7 @@ def apply(workflow):
         copy = initialize_flow_from_file_by_copy,
         interpolate = initialize_flow_from_file_by_interpolation,
         from_previous = initialize_flow_from_previous,
+        turbo = initialize_flow_with_turbo,
     )
     
     is_dist = bool(workflow.tree.get(':CGNS#Distribution'))

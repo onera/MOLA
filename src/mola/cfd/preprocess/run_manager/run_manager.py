@@ -54,10 +54,23 @@ def set_default(RunManagement):
             raise MolaUserError(f'The value of parameter RunManagement["{key}"] cannot be an empty string.')
         
     if not SV.run_on_localhost(RunManagement['Machine'], RunManagement['RunDirectory']):
-        mola_logger.info(f"> Run on a remote machine ({RunManagement['Machine']}):\n"
-                         f"    on path {RunManagement['RunDirectory']}\n"
-                         f"    sourcing {RunManagement['mola_target_path']}"
+        path = RunManagement['RunDirectory']
+        machine = RunManagement['Machine']
+        user = RunManagement.get('User')
+        mola_target_path = RunManagement['mola_target_path']
+        mola_logger.info(f"> Run on a remote machine ({machine}):\n"
+                         f"    on path {path}\n"
+                         f"    sourcing {mola_target_path}"
                          )
+        
+        if not SV.is_existing_path(mola_target_path, machine, user):
+            raise MolaException(f"Cannot access to {mola_target_path}")
+        
+        if RunManagement['RemovePreviousRunDirectory']:
+            mola_logger.warning('Remove previous run directory')
+            SV.remove_path(path, machine, user, file_only=False)
+        elif SV.is_existing_path(f'{path}/{names.FILE_INPUT_SOLVER}', machine, user):
+            raise MolaException(f"Run Directory {path} already exists")
     
     scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
     set_time_margin(RunManagement, scheduler_options)

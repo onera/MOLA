@@ -32,9 +32,9 @@ from mola.cfd import call_solver_specific_function
 from mola.cfd.preprocess.mesh.io.writer import write
 
 from . import rank, comm
-from .tools import move_log_files, check_stderr
+from .tools import move_log_files, check_stderr, write_tagfile
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
-from .user_interface import check_and_execute_user_signal, write_tagfile
+from .user_interface import check_and_execute_user_signal
 from .probes import has_probes, search_zone_and_index_for_probes
 
 AVAILABLE_SIMULATION_STATUS = [
@@ -114,9 +114,12 @@ class CoprocessManager():
         # at iteration 0 (because of modulo). 
         # Change iteration number in MOLA (n in MOLA <--> n-1 in Fast) ?
         # But residuals have iterations coming directly from Fast...
-        # if self.iteration == 0:
-        #     # exception for Fast, because the is an iteration 0
-        #     return
+        if self.iteration == self.workflow.Numerics['IterationAtInitialState'] - 1:
+            # e.g. exclude the iteration 0 for a simulation with elsa
+            for extraction in self.Extractions:                
+                extraction['IsToExtract'] = False
+                extraction['IsToSave'] = False
+            return
         
         for extraction in self.Extractions:                
             if self.iteration % extraction['ExtractionPeriod'] == 0:
@@ -128,6 +131,7 @@ class CoprocessManager():
         if any([extraction['IsToExtract'] for extraction in self.Extractions]):
             self.mola_logger.debug(f'Performing extractions..', rank=0)
             self.perform_extractions()
+            # FIXME postprocess is after the update of signals, so variables like avg-MomentumX are not updated
             self.postprocess_extractions()
             self._update_workflow_parameters_for_restart_if_needed()
             
@@ -139,8 +143,12 @@ class CoprocessManager():
     
     def initialize_extraction_data_from_last_run(self):
 
+        # dictonary that indicates Base name for each extraction Type
+        type_to_base_name = dict((k,k) for k in ['Integral','Residuals', 'TimeMonitoring', 'MemoryUsage'])
+        type_to_base_name['Probe'] = 'Probes'
+
         for extraction in self.Extractions:
-            if extraction['Type'] not in ['Integral','Residuals','Probe']: continue
+            if extraction['Type'] not in list(type_to_base_name): continue
 
             if 'File' not in extraction: continue
 
@@ -150,10 +158,10 @@ class CoprocessManager():
                 continue
 
             for base in previous_tree.bases():
-                if base.name() != extraction["Type"]:
+                if base.name() != type_to_base_name[extraction['Type']]:
                     base.dettach()
                 
-                if extraction["Type"] == 'Integral':
+                if extraction["Type"] in ['Integral', 'Probe']:
                     for zone in base.zones():
                         if zone.name() != extraction["Name"]:
                             zone.dettach()
@@ -212,7 +220,8 @@ class CoprocessManager():
         self.mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
          
     def finalize(self):
-        self.mola_logger.info(f'>> finalize', rank=0)
+        self.iteration = call_solver_specific_function(self.workflow, 'get_iteration', 3)
+        self.mola_logger.info(f'>> finalize after iteration {self.iteration}', rank=0)
         self.status = 'TO_FINALIZE'
         for extraction in self.Extractions:
             if extraction['ExtractAtEndOfRun']:

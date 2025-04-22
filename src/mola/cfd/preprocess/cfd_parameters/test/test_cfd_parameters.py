@@ -49,6 +49,6 @@ def test_add_governing_equations():
 
     cfd_parameters.add_governing_equations(workflow)
 
-    for zone in workflow.tree.zones():
-        assert zone.get('GoverningEquations')
-        assert zone.get('EquationDimension')
+    for base in workflow.tree.bases():
+        assert base.get('GoverningEquations')
+        assert base.get('EquationDimension')

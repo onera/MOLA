@@ -36,6 +36,7 @@ from mola.cfd.coprocess.tools import (
     write_extraction_log,
     extract_memory_usage,
 )
+from mola.cfd.coprocess.probes import extract_probe
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
@@ -95,7 +96,7 @@ def perform_extractions(workflow, coprocess_manager):
             extract_integral(output_tree, extraction, workflow)
 
         elif extraction['Type'] == 'Probe': 
-            extraction['Data'] = extract_probe(output_tree)
+            extract_probe(output_tree, extraction, coprocess_manager)
 
         elif extraction['Type'] == 'MemoryUsage':
             extract_memory_usage(extraction, coprocess_manager.iteration) 
@@ -261,9 +262,6 @@ def extract_integral(output_tree, extraction, workflow) -> None:
     else: 
         extraction['Data'] = current_iteration_signals
 
-
-def extract_probe(output_tree):
-    warnings.warn("extract_probe TODO -> to be implemented for fast")
 
 
 def deduce_container_for_slicing(IsoSurfaceField):
@@ -495,10 +493,18 @@ def end_simulation(workflow):
 def extract_time_monitoring(extraction, coprocess_manager):
     # TODO extract TimePerCellPerIteration 
 
-    extraction['Data'] = cgns.Tree()
+    t = cgns.Tree()
     if rank == 0:
-        base = cgns.Base(Name='TimeMonitoring', Parent=extraction['Data'])
-        zone = cgns.Zone(Name='TimeMonitoring', Parent=base)
+        base = cgns.Base(Name='TimeMonitoring', Parent=t)
+        InitialIteration = coprocess_manager.workflow.Numerics['IterationAtInitialState']
+        zone = cgns.Zone(Name=f'From{InitialIteration}To{coprocess_manager.iteration}', Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
         cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
         cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
+
+        if 'Data' in extraction and extraction['Data'] is not None:
+            extraction['Data'].merge(t)
+        else: 
+            extraction['Data'] = t
+    else:
+        extraction['Data'] = t
