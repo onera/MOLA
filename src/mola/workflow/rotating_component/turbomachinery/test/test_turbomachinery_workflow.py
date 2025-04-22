@@ -16,10 +16,12 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
+import os
 import numpy as np
 
 from mola.logging import mola_logger, MolaException, MolaAssertionError
-from mola.workflow.rotating_component.turbomachinery.workflow import WorkflowTurbomachinery
+import mola.server as SV
+from mola.workflow.rotating_component import turbomachinery
 
 def get_compressor_example_parameters(RunDirectory):
     params = dict( 
@@ -76,7 +78,7 @@ def get_compressor_example_parameters(RunDirectory):
     return params
 
 def get_compressor_example(RunDirectory):
-    w = WorkflowTurbomachinery(**get_compressor_example_parameters(RunDirectory))
+    w = turbomachinery.Workflow(**get_compressor_example_parameters(RunDirectory))
     return w
 
 def get_compressor_example_rotor_only_parameters(RunDirectory):
@@ -138,21 +140,56 @@ def get_compressor_example_rotor_only_parameters(RunDirectory):
     return params
 
 def get_compressor_example_rotor_only(RunDirectory):
-    w = WorkflowTurbomachinery(**get_compressor_example_rotor_only_parameters(RunDirectory))
+    w = turbomachinery.Workflow(**get_compressor_example_rotor_only_parameters(RunDirectory))
     return w
 
+# @pytest.mark.unit
+# @pytest.mark.elsa
+# @pytest.mark.cost_level_3
+# def test_initialize_with_turbo(tmp_path):
+#     w = get_compressor_example(tmp_path)
+#     w.Initialization['Method'] = 'turbo'
+#     w.ApplicationContext['Rows']['Rotor']['FlowAngleAtTipDeg'] = 30.
+#     w.ApplicationContext['Rows']['Rotor']['FlowAngleAtRootDeg'] = 30.
+
+#     w.prepare_job()
+#     w.assemble() 
+#     w.positioning()
+#     w.define_families() 
+#     w.connect()
+#     w.split_and_distribute() 
+#     w.process_overset()
+#     w.compute_flow_and_turbulence()
+#     w.set_motion()
+#     w.set_boundary_conditions()
+#     w.set_cfd_parameters()  
+    
+#     if w.Solver != 'elsa':
+#         with pytest.raises(MolaException):
+#             w.initialize_flow() 
+#     else:
+#         w.initialize_flow()
+
+#     w.write_cfd_files()
+
+#     # no other FlowSolution nodes than Init nodes at this stage
+#     expected_variables = list(w.Flow['Conservatives']) + list(w.Turbulence['Conservatives'])
+#     for zone in w.tree.zones():
+#         variables = zone.allFields(include_coordinates=False)
+#         assert all([v in variables for v in expected_variables])
+
 def get_workflow_rotor37(RunDirectory):
-    w = WorkflowTurbomachinery( 
+    w = turbomachinery.Workflow( 
         RawMeshComponents=[
             dict(
                 Name='rotor37',
                 Source = '/stck/mola/data/mesh/rotor37/rotor37.cgns',
+                Unit = 'cm',
                 ) 
         ],
 
         ApplicationContext = dict(
             ShaftRotationSpeed = -1800., 
-            # Surface = 0.11062898087649121,
             Rows = dict(
                 R37 = dict(
                     IsRotating = True,
@@ -174,7 +211,7 @@ def get_workflow_rotor37(RunDirectory):
         ),
 
         Numerics = dict(
-            NumberOfIterations = 5,
+            NumberOfIterations = 5000,
             CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
         ),
 
@@ -184,11 +221,89 @@ def get_workflow_rotor37(RunDirectory):
         ],
 
         Extractions = [
-            dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9)
+            dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9),
+            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.03, OtherOptions=dict(tag='InletPlane', ReferenceRow='R37')),
+            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.07, OtherOptions=dict(tag='OutletPlane', ReferenceRow='R37')),
+        ],
+
+        ConvergenceCriteria = [
+            dict(
+                ExtractionName = 'R37_INFLOW',
+                Variable  = 'rsd-MassFlow',
+                Threshold = 1e-4,
+            ),
         ],
 
         RunManagement=dict(
             JobName='rotor37',
+            RunDirectory=RunDirectory,
+            NumberOfProcessors=4,
+            ),
+
+        )
+    return w
+
+def get_workflow_srv2(RunDirectory):
+    w = turbomachinery.Workflow( 
+        RawMeshComponents=[
+            dict(
+                Name='SRV2',
+                Source = '/stck/mola/data/mesh/SRV2/SRV2.cgns',
+                ) 
+        ],
+
+        ApplicationContext = dict(
+            ShaftRotationSpeed = -1800., 
+            Rows = dict(
+                R37 = dict(
+                    IsRotating = True,
+                    NumberOfBlades = 36,
+                )
+            )
+        ),
+
+        Flow = dict(
+            MassFlow              = 20.5114,  # for the 360 degrees section, even it is simulated entirely
+            TemperatureStagnation = 288.15,
+            PressureStagnation    = 101330.,
+        ),
+
+        Turbulence = dict(
+            Level = 0.03,
+            Viscosity_EddyMolecularRatio = 0.1,
+            Model = 'smith',
+        ),
+
+        Numerics = dict(
+            NumberOfIterations = 5000,
+            CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
+        ),
+
+        BoundaryConditions = [
+            dict(Family='R37_INFLOW', Type='InflowStagnation'),
+            dict(Family='R37_OUTFLOW', Type='OutflowPressure', Pressure=0.9936*1e5),
+        ],
+
+        Initialization = dict(
+            ComputeWallDistanceAtPreprocess = True,
+        ),
+
+        Extractions = [
+            dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9),
+            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.03, OtherOptions=dict(tag='InletPlane', ReferenceRow='R37')),
+            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.07, OtherOptions=dict(tag='OutletPlane', ReferenceRow='R37')),
+        ],
+
+        ConvergenceCriteria = [
+            dict(
+                ExtractionName = 'R37_INFLOW',
+                Variable  = 'rsd-MassFlow',
+                Threshold = 1e-4,
+            ),
+        ],
+
+        RunManagement=dict(
+            JobName='srv2',
             RunDirectory=RunDirectory,
             NumberOfProcessors=4,
             ),
@@ -235,12 +350,17 @@ def test_compressor_example_local_rotor_only(tmp_path):
 # @pytest.mark.user_case
 # @pytest.mark.cost_level_4
 # def test_rotor37_sator():
-#     w = get_workflow_rotor37()
+#     # import snippet
+#     # import sys 
+#     # sys.path.append('$MOLA/../doc/src/tutorials/rotor37/')
+#     # from snippets.prepare import w
+
+
 #     w.RunManagement['NumberOfProcessors'] = 12
-#     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/$USER/.test/test_rotor37_sator/'
+#     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/{os.getenv("USER")}/.test_user_case/test_rotor37_sator/'
 #     scheduler_defaults = SV.get_scheduler_defaults('sator')
 #     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
-#     w.RunManagement['TimeLimit'] = '00:30:00'
+#     # w.RunManagement['TimeLimit'] = '00:30:00'
 
 #     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
@@ -253,6 +373,31 @@ def test_compressor_example_local_rotor_only(tmp_path):
 #     # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
 #     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
 #     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+
+
+# @pytest.mark.network_onera
+# @pytest.mark.user_case
+# @pytest.mark.cost_level_4
+# def test_srv2_sator(tmp_path):
+#     w = get_workflow_srv2(tmp_path)
+#     w.RunManagement['NumberOfProcessors'] = 12
+#     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/{os.getenv("USER")}/.test_user_case/test_srv2_sator/'
+#     scheduler_defaults = SV.get_scheduler_defaults('sator')
+#     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
+#     # w.RunManagement['TimeLimit'] = '00:30:00'
+
+#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+
+#     w.prepare()
+#     w.write_cfd_files()
+#     w.submit()
+
+#     # NOTE: do not wait for job to end, since that approach would provoke
+#     # too important delays (waiting for resources of SLURM)
+#     # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
+#     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
+#     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
+
 
 
 if __name__ == '__main__':

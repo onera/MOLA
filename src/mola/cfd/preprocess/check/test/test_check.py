@@ -59,11 +59,11 @@ Base CGNSBase_t:
     Zone Zone_t:
         FamilyName FamilyName_t "Rotor":
         ZoneBC ZoneBC_t:
-            blade BC_t "FamilyDefined":
+            blade BC_t "FamilySpecified":
                 FamilyName FamilyName_t "Blade":  
-            hub BC_t "FamilyDefined":
+            hub BC_t "FamilySpecified":
                 FamilyName FamilyName_t "Hub":  
-            shroud BC_t "FamilyDefined":
+            shroud BC_t "FamilySpecified":
                 FamilyName FamilyName_t "Shroud":                                                                                               
 ''')
     tree = cgns.castNode(tree)

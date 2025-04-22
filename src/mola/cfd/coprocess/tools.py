@@ -16,9 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+from pathlib import Path
 from fnmatch import fnmatch
-import glob
-import shutil
 import numpy as np
 
 from treelab import cgns
@@ -27,20 +26,47 @@ import mola.naming_conventions as names
 
 from . import rank, comm
 
+def write_tagfile(tag : str, coprocess_manager):
+
+    if rank == 0:
+        run_dir = coprocess_manager.workflow.RunManagement.get('RunDirectory','.')
+        path_newjob_required = Path(run_dir).resolve() / Path(tag)
+        with open(path_newjob_required, 'w') as f: 
+            f.write(tag)
+
+def write_extraction_log(extraction):
+    def _check_data(extraction):
+        try: 
+            assert isinstance(extraction['Data'], cgns.Tree)
+        except KeyError:
+            raise MolaException(f"No 'Data' in extraction {extraction}")
+        except AssertionError:
+            raise MolaException(f"extraction['Data'] must be a cgns.Tree (now its type is {type(extraction['Data'])})")
+
+    _check_data(extraction)
+    extraction_log = dict((k,v) for k,v in extraction.items() if k not in ['Data', 'IsToExtract', 'IsToSave'])
+
+    if extraction['Type'] in ['BC', 'IsoSurface']:
+        for base in extraction['Data'].bases():
+            base.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **extraction_log)
+
+    elif extraction['Type'] in ['Residuals', 'Integral', 'Probe']:
+        for zone in extraction['Data'].zones():
+            zone.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **extraction_log)
+
 def move_log_files():
     if rank == 0:
-        try: os.makedirs(names.DIRECTORY_LOG)
-        except: pass
+        dir_log = Path(names.DIRECTORY_LOG)
+        dir_log.mkdir(exist_ok=True)
 
-        for fn in glob.glob('*.log'):
-            FilenameBase = fn[:-4]
+        for fn in Path('.').glob('*.log'):
+            FilenameBase = str(fn)[:-4]
             i = 1
-            NewFilename = FilenameBase+'-%d'%i+'.log'
-            while os.path.isfile(os.path.join(names.DIRECTORY_LOG, NewFilename)):
+            NewFilename = Path(f'{FilenameBase}-{i}.log')
+            while Path(dir_log / NewFilename).is_file():
                 i += 1
-                NewFilename = FilenameBase+'-%d'%i+'.log'
-
-            shutil.move(fn, os.path.join(names.DIRECTORY_LOG, NewFilename))
+                NewFilename = Path(f'{FilenameBase}-{i}.log')
+            fn.rename(dir_log/NewFilename)
 
     comm.barrier()
     
@@ -63,7 +89,6 @@ def mpi_allgather_and_merge_trees(local_tree : cgns.Tree, comm=comm ) -> cgns.Tr
 
     return merged_tree
 
-
 def update_signals_using( current_iteration_signals : cgns.Tree,
                           previous_signals_to_be_updated : cgns.Tree ) -> None:
     
@@ -83,7 +108,6 @@ def update_signals_using( current_iteration_signals : cgns.Tree,
                 continue
         
             _update_signals_zones(current_zone, previous_zone)
-
 
 def _update_signals_zones(current_zone : cgns.Zone, previous_zone : cgns.Zone) -> None:
 
@@ -116,7 +140,6 @@ def _update_signals_zones(current_zone : cgns.Zone, previous_zone : cgns.Zone) -
     
     current_zone.updateShape()
 
-
 def _update_signals_container_overriding_all(previous_flow_sol, current_flow_sol):
 
     for current_data in current_flow_sol.children():
@@ -128,7 +151,6 @@ def _update_signals_container_overriding_all(previous_flow_sol, current_flow_sol
             continue
 
         previous_data.setValue(current_data.value())
-
 
 def _update_signals_container_stacking_all(previous_flow_sol, current_flow_sol):
 
@@ -148,8 +170,6 @@ def _update_signals_container_stacking_all(previous_flow_sol, current_flow_sol):
 
         previous_data.setValue(updated_value)
 
-
-
 def _update_signals_container_stacking_partially(previous_flow_sol, current_flow_sol):
 
     PreviousIterations = previous_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1).value()
@@ -157,7 +177,7 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
 
     ε = 1e-12
     UpdatePortion = PreviousIterations > (CurrentIterations[0] - ε)
-    if all(np.logical_not(UpdatePortion)) and len(UpdatePortion) == 1:
+    if len(UpdatePortion) == 1 and not UpdatePortion[0]:
         FirstPreviousIndex2Update = len(PreviousIterations) - 1 
     else:
         try:
@@ -165,9 +185,9 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
         except IndexError:
             msg = "FATAL: add case to test_update_signals:\n"
             msg+= f'PreviousIterations:\n{PreviousIterations}\n'
-            msg+=f'CurrentIterations:\n{CurrentIterations}\n'
-            msg+=f'UpdatePortion={UpdatePortion}\n'
-            msg+=f'np.where(UpdatePortion)={np.where(UpdatePortion)}'
+            msg+= f'CurrentIterations:\n{CurrentIterations}\n'
+            msg+= f'UpdatePortion={UpdatePortion}\n'
+            msg+= f'np.where(UpdatePortion)={np.where(UpdatePortion)}'
             raise IndexError(msg)
 
     for current_data in current_flow_sol.children():
@@ -182,10 +202,7 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
             previous_value = previous_data.value()
         
         current_value = current_data.value()
-
-        updated_value = np.hstack((previous_value[:FirstPreviousIndex2Update],
-                                   current_value))
-
+        updated_value = np.hstack((previous_value[:FirstPreviousIndex2Update], current_value))
         previous_data.setValue(updated_value)
 
 def get_bc_families_in_extraction(extraction, DictBCNames2Type):
@@ -206,26 +223,6 @@ def get_bc_families_in_extraction(extraction, DictBCNames2Type):
 
     return families
     
-def write_extraction_log(extraction):
-    def _check_data(extraction):
-        try: 
-            assert isinstance(extraction['Data'], cgns.Tree)
-        except KeyError:
-            raise MolaException(f"No 'Data' in extraction {extraction}")
-        except AssertionError:
-            raise MolaException(f"extraction['Data'] must be a cgns.Tree (now its type is {type(extraction['Data'])})")
-
-    _check_data(extraction)
-    extraction_log = dict((k,v) for k,v in extraction.items() if k not in ['Data', 'IsToExtract', 'IsToSave'])
-
-    if extraction['Type'] in ['BC', 'IsoSurface']:
-        for base in extraction['Data'].bases():
-            base.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **extraction_log)
-
-    elif extraction['Type'] in ['Residuals', 'Integral', 'Probe']:
-        for zone in extraction['Data'].zones():
-            zone.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **extraction_log)
-
 def extract_memory_usage(extraction, iteration):
     import psutil
 

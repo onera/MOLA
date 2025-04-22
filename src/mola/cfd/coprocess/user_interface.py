@@ -15,8 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import glob
+from pathlib import Path
 from fnmatch import fnmatch
 from . import comm, rank
 from mola.logging import MolaException, CYAN, ENDC
@@ -79,34 +78,20 @@ def get_user_signal(coprocess_manager, filename):
     '''
     signal = False
     if rank == 0:
-        filepath = path_accounting_for_exec_location(filename, coprocess_manager)
         try:
-            signal = glob.glob(filepath)[0]
-            os.remove(signal)
+            run_dir = Path(coprocess_manager.workflow.RunManagement['RunDirectory']).resolve()
+            # return from glob method is a generator. Acces to an element is done with next(...).
+            # If the generator is empty, it raises a StopIteration exception
+            filename = next(run_dir.glob(filename))  
+            filename.unlink()
+            signal = filename.name
             coprocess_manager.mola_logger.info(f'{CYAN}Received signal {signal}{ENDC}', rank=0)
-        except:
+        except StopIteration:
             pass
-    comm.Barrier()
+
+    comm.barrier()
     signal = comm.bcast(signal, root=0)
     return signal
-
-
-def write_tagfile(tag : str, coprocess_manager):
-
-    if rank == 0:
-        path_newjob_required = path_accounting_for_exec_location(tag, coprocess_manager)
-        with open(path_newjob_required, 'w') as f: 
-            f.write(tag)
-
-def path_accounting_for_exec_location(requested_path : str, coprocess_manager) -> str:
-
-    run_dir = coprocess_manager.workflow.RunManagement.get('RunDirectory','.')
-
-    if run_dir == "." or run_dir == os.path.basename(os.getcwd()):
-        return requested_path
-
-    else: 
-        return os.path.join(run_dir,requested_path)
 
 def save_extractions(Extractions, arg, mola_logger):
 

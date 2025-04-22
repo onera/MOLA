@@ -17,12 +17,8 @@
 
 import pytest 
 import os
-import shutil
-import numpy as np
 
-from treelab import cgns
-from mola.cfd.coprocess import comm, rank, NumberOfProcessors
-from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names
+from mola.cfd.coprocess.manager import CoprocessManager, names, write_tagfile
 from mola.cfd.coprocess import user_interface
 
 
@@ -60,33 +56,11 @@ def test_get_user_signal(tmp_path):
     workflow = FakeWorkflow(tmp_path)
     coprocess = CoprocessManager(workflow)
 
-    user_interface.write_tagfile('A_SIGNAL', coprocess)
+    write_tagfile('A_SIGNAL', coprocess)
     assert user_interface.get_user_signal(coprocess, 'A_SIGNAL')
     assert not os.path.isfile(os.path.join(tmp_path,'A_SIGNAL'))
     coprocess.status = 'COMPLETED'
 
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_write_tagfile(tmp_path):
-    workflow = FakeWorkflow(tmp_path)
-    coprocess = CoprocessManager(workflow)
-
-    user_interface.write_tagfile('NEWJOB_REQUIRED', coprocess)
-    os.unlink(os.path.join(tmp_path,'NEWJOB_REQUIRED'))
-    coprocess.status = 'COMPLETED'
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_path_accounting_for_exec_location(tmp_path):
-    workflow = FakeWorkflow(tmp_path)
-    coprocess = CoprocessManager(workflow)
-
-    path = user_interface.path_accounting_for_exec_location('file',coprocess)
-    
-    assert path == os.path.join(tmp_path,'file')
-
-    coprocess.status = 'COMPLETED'
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -113,6 +87,3 @@ def test_save_extractions_from_filename():
     assert Extractions[0] == dict(Type='BC', Name='extraction1', File='file1.cgns', IsToExtract=True, IsToSave=True)
     assert Extractions[1] == dict(Type='3D', Name='extraction2', File='file2.cgns', IsToExtract=True, IsToSave=True)
     assert Extractions[2] == dict(Type='BC', Name='extraction3', File='toto.cgns')
-
-if __name__ == '__main__':
-    test_write_tagfile(".")

@@ -17,3 +17,4 @@
 
 from .helpers import make_movie
 from .radial_profiles import plot_radial_profiles, RadialProfilesPlotter
+from .figure import Figure

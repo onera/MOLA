@@ -15,13 +15,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import timeit
 import datetime
 
 from mola.logging import MolaException, GREEN, ENDC
 from . import rank, comm
-from mola.cfd.coprocess.user_interface import write_tagfile
+from mola.cfd.coprocess.tools import write_tagfile
 import mola.naming_conventions as names
 
 def check_max_iteration(coprocess_manager):
@@ -100,6 +98,7 @@ def is_converged(coprocess_manager):
 
     all_necessary_criteria_are_verified = any([criterion['Necessary'] for criterion in ConvergenceCriteria])
     any_sufficient_criterion_is_verified = False
+    CONVERGED = None
     if rank == 0:
        
         for criterion in ConvergenceCriteria:
