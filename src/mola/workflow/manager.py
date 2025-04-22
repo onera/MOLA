@@ -185,7 +185,7 @@ class WorkflowManager():
                 for sequential_manager in self.sequential_managers 
                 for workflow in sequential_manager.workflows]
     
-    def write(self, filename='workflow_manager.cgns'):
+    def write(self, filename=names.FILE_WORKLFOW_MANAGER):
         if self.sequential_managers is None:
             self._init_sequential_managers()
 

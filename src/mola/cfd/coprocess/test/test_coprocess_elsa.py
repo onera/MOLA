@@ -51,6 +51,8 @@ def get_tree():
     DTW._distance2Walls(t, walls, loc='centers', type='ortho')
 
     t = cgns.castNode(t)
+    I.__FlowSolutionCenters__ = 'FlowSolution#Centers'
+
     return t
 
 

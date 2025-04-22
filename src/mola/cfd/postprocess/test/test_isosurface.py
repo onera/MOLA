@@ -202,6 +202,7 @@ def test_extract_bc_elsa(splitter):
         
     assert PT.is_same_tree(bc, bc_ref)
 
+
 if __name__ == '__main__':
     # compute_workflow('test')
     from mpi4py import MPI
