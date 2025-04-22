@@ -41,7 +41,7 @@ class WorkflowManager():
     ----------
 
     workflow : :py:class:`Workflow` object
-        Base workflow, used to generate variations around it. See the docummentation 
+        Base workflow, used to generate variations around it. See the documentation 
         of :py:class:`WorkflowDispatcher` object for details.
 
     root_directory : str
@@ -114,9 +114,10 @@ class WorkflowManager():
                  root_directory='.', 
                  data_directory='SHARED_DATA', 
                  skip_if_exists=True,
+                 manager_file_path=names.FILE_WORKLFOW_MANAGER,
                  ):
         
-        if isinstance(arg, str):
+        if isinstance(arg, str) and arg.endswith('.cgns'):
             # init reading a file previously written by WorkflowManager.write
             self.read(arg)
         else:
@@ -129,6 +130,7 @@ class WorkflowManager():
             self.dispatcher = WorkflowDispatcher(self.base_workflow)
             self.machine = None
             self.sequential_managers = None
+            self.manager_file_path = manager_file_path
     
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -185,7 +187,7 @@ class WorkflowManager():
                 for sequential_manager in self.sequential_managers 
                 for workflow in sequential_manager.workflows]
     
-    def write(self, filename=names.FILE_WORKLFOW_MANAGER):
+    def write(self):
         if self.sequential_managers is None:
             self._init_sequential_managers()
 
@@ -201,11 +203,11 @@ class WorkflowManager():
             RunDirectories = self.get_run_directories(),
             WorkflowDispatcher = d,
             )
-        tree.save(filename)
+        tree.save(self.manager_file_path)
 
-    def read(self, filename=names.FILE_WORKLFOW_MANAGER):
-        tree = cgns.load(filename)
-        WorkflowDispatcher = cgns.load_from_path(filename, 'WorkflowManager/WorkflowDispatcher')
+    def read(self, manager_filepath):
+        tree = cgns.load(manager_filepath)
+        WorkflowDispatcher = cgns.load_from_path(manager_filepath, 'WorkflowManager/WorkflowDispatcher')
         parameters = tree.getParameters('WorkflowManager', transform_numpy_scalars=True)
         self.root_directory = parameters['RootDirectory']
         self.data_directory = parameters['DataDirectory']
