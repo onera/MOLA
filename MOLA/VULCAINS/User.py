@@ -22,7 +22,7 @@ This module is used as a launcher for the VULCAINS simulations. VPM-only, couple
 and hybrid Lagrangian-Eulerian (VPM-URANS) simulations are available.
 
 Version:
-0.5
+0.6
 
 Author:
 Johan VALENTIN

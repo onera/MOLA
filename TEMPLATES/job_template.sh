@@ -12,7 +12,7 @@
 
 ###############################################################################
 # -------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ------------------ #
-export MOLAVER=v1.19
+export MOLAVER=Dev
 if [ -f "/tmp_user/sator/mola/$MOLAVER/env_MOLA.sh" ]; then
     source /tmp_user/sator/mola/$MOLAVER/env_MOLA.sh
 elif [ -f "/tmp_user/juno/mola/$MOLAVER/env_MOLA.sh" ]; then

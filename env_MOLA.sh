@@ -7,7 +7,7 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 
 ###############################################################################
 # ---------------- THESE LINES MUST BE ADAPTED BY DEVELOPERS ---------------- #
-export MOLAVER=v1.19
+export MOLAVER=Dev
 export MOLA=/stck/mola/$MOLAVER
 export MOLASATOR=/tmp_user/sator/mola/$MOLAVER
 export MOLAJUNO=/tmp_user/juno/mola/$MOLAVER
@@ -95,9 +95,15 @@ if [ "$MAC" = "sator" ]; then
     unset I_MPI_PMI_LIBRARY
     export MOLA=$MOLASATOR
 
+<<<<<<< HEAD
     # maia
     # module use --append /tmp_user/sator/sonics/usr/modules/
     # module load maia/$MAIAVERSION-dsi-cfd5_idx32
+=======
+    # # maia
+    # module use --append /tmp_user/sator/sonics/usr/modules/
+    # module load maia/$MAIAVERSION-dsi-cfd6
+>>>>>>> 04330f044d794436fc92e9f27de287da8aafb3e8
 
     # VPM
     export VPMPATH=/tmp_user/sator/lbernard/VPM/$VPMVERSION/sator_elsA/$ARCH

@@ -21,7 +21,7 @@ VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible 
 This module enables the coupling of the VPM with the FAST CFD solver.
 
 Version:
-0.5
+0.6
 
 Author:
 Johan VALENTIN
@@ -195,7 +195,7 @@ def initialiseEulerianDomain(Mesh = [], Parameters = {}):
     computeFastMetrics(tE)
 
     V.show(f"{'||':>57}\r" + '||'+'{:-^53}'.format(' Fast Warmup (0%) '))
-    n_warmup = 1 + 1000
+    n_warmup = 1 + 1000#*0
     for ite in range(n_warmup):
         computeFast(tE)
         V.deletePrintedLines()

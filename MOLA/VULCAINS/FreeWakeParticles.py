@@ -21,7 +21,7 @@ VULCAINS (Viscous Unsteady Lagrangian Code for Aerodynamics with Incompressible 
 This module enables the simulation of 3D viscous unsteady incompressible flow using the Vortex
 
 Version:
-0.5
+0.6
 
 Author:
 Johan VALENTIN
