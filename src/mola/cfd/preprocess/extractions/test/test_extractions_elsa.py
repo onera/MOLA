@@ -497,6 +497,5 @@ def test_add_integral_extractions_in_wall():
     assert solver_output == solver_output_ref
 
 
-
 if __name__ == '__main__':
     test_add_2d_extractions_in_SolverOutput_wall()

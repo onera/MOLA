@@ -54,4 +54,4 @@ def test_onera_get_job_text():
 
 source {env}
 unset "${{!OMPI_@}}" "${{!MPI_@}}"'''
-    
+        

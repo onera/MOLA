@@ -217,7 +217,8 @@ def test_WorkflowManager_prepare(tmp_path):
 
     test_dir = str(tmp_path)
     w = get_fake_workflow()
-    manager = WM.WorkflowManager(w, root_directory=test_dir)
+    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager = WM.WorkflowManager(w, root_directory=test_dir, manager_file_path=manager_file_path)
 
     for model in ['model1', 'model2']:
         manager.new_job(model)
@@ -245,7 +246,7 @@ def test_WorkflowManager_prepare(tmp_path):
         }
 
     assert files_list == [
-        [], 
+        [names.FILE_WORKLFOW_MANAGER],
         [names.FILE_JOB_SEQUENCE], 
         [names.FILE_INPUT_WORKLFOW], 
         [names.FILE_INPUT_WORKLFOW], 
@@ -253,7 +254,7 @@ def test_WorkflowManager_prepare(tmp_path):
         [names.FILE_JOB_SEQUENCE], 
         [names.FILE_INPUT_WORKLFOW], 
         [names.FILE_INPUT_WORKLFOW], 
-        [names.FILE_INPUT_WORKLFOW]
+        [names.FILE_INPUT_WORKLFOW],
         ]
     
     for workflows in manager.dispatcher.table_of_workflows:
@@ -273,7 +274,8 @@ def test_WorkflowManager_prepare_remote_sator(tmp_path):
     test_dir = str(tmp_path)
     w = get_fake_workflow()
     w.RunManagement['Machine'] = 'sator'
-    manager = WM.WorkflowManager(w, root_directory=test_dir)
+    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager = WM.WorkflowManager(w, root_directory=test_dir, manager_file_path=manager_file_path)
 
     for model in ['model1', 'model2']:
         manager.new_job(model)
@@ -311,7 +313,8 @@ def test_WorkflowManager_cart_local(tmp_path):
     w.RawMeshComponents[0]['Source'] = os.path.join('..','..','mesh.cgns') # CAUTION: path is relative to launch case
 
     test_dir = str(tmp_path)
-    manager = WM.WorkflowManager(w, test_dir)
+    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager = WM.WorkflowManager(w, test_dir, manager_file_path=manager_file_path)
     for BCWall in ['WallViscous',]:
         manager.new_job(BCWall)
         for velocity in [50., 20.]:
@@ -355,7 +358,8 @@ def test_WorkflowManager_write_local(tmp_path):
     w.RawMeshComponents[0]['Source'] = os.path.join('..','..','mesh.cgns') # CAUTION: path is relative to launch case
 
     test_dir = str(tmp_path)
-    written_manager = WM.WorkflowManager(w, test_dir)
+    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    written_manager = WM.WorkflowManager(w, test_dir, manager_file_path=manager_file_path)
     for BCWall in ['WallViscous',]:
         written_manager.new_job(BCWall)
         for velocity in [50., 20.]:
@@ -369,7 +373,7 @@ def test_WorkflowManager_write_local(tmp_path):
                 )
     
     written_manager.write()
-    read_manager = WM.WorkflowManager(names.FILE_WORKLFOW_MANAGER)
+    read_manager = WM.WorkflowManager(manager_file_path)
     assert read_manager == written_manager
     
 @pytest.mark.elsa
@@ -377,7 +381,7 @@ def test_WorkflowManager_write_local(tmp_path):
 @pytest.mark.network_onera
 @pytest.mark.integration
 @pytest.mark.cost_level_4
-def test_WorkflowManager_sphere_remote_sator():
+def test_WorkflowManager_sphere_remote_sator(tmp_path):
 
     from mola.workflow.test.test_workflow import get_workflow_sphere_struct
     w = get_workflow_sphere_struct('.')
@@ -392,7 +396,8 @@ def test_WorkflowManager_sphere_remote_sator():
     except FileNotFoundError:
         pass
 
-    manager = WM.WorkflowManager(w, test_dir)
+    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager = WM.WorkflowManager(w, test_dir,manager_file_path=manager_file_path)
     for BCWall in ['WallViscous', 'WallInviscid']:
         manager.new_job(BCWall)
         for velocity in [50., 20., 80.]:

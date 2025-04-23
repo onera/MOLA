@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os 
-from .. import misc
+from mola.dependency_injector.retriever import load_source
 from ..logging import mola_logger, MolaException
 
 def get_path_back_in_traceback(step=3):
@@ -40,7 +40,7 @@ def call_solver_specific_function(workflow, function_name, step=3, *args, **kwar
     expected_module = os.path.join(current_path, f'solver_{workflow.Solver}.py')
 
     try:
-        solverModule = misc.load_source('solverModule', expected_module)
+        solverModule = load_source('solverModule', expected_module)
     except FileNotFoundError as e:
         msg = (f'Missing solver-specific module "solver_{workflow.Solver}.py"'
                f' when requesting "{function_name}" at {current_path}')

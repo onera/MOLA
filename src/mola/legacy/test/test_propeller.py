@@ -60,7 +60,7 @@ def test_oras_mesher_single(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = False # True:testing False:debugging
+    test_mode_else_debug = True # True:testing False:debugging
 
     if test_mode_else_debug:
         check_dir = ''
@@ -122,7 +122,7 @@ def test_oras_mesher_ultracoarse(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = False # True:testing False:debugging
+    test_mode_else_debug = True # True:testing False:debugging
 
     if test_mode_else_debug:
         check_dir = ''
@@ -223,7 +223,7 @@ def test_oras_mesher_designer_ultracoarse(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = False # True:testing (no file write) False:debugging (file write)
+    test_mode_else_debug = True # True:testing (no file write) False:debugging (file write)
 
     if test_mode_else_debug:
         check_dir = ''
@@ -437,7 +437,7 @@ def test_oras_mesher_inpro_ultracoarse(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = False # True:testing False:debugging
+    test_mode_else_debug = True # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
 
     if test_mode_else_debug:
@@ -579,7 +579,7 @@ def test_oras_mesher_inpro(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = False # True:testing False:debugging
+    test_mode_else_debug = True # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
 
     if test_mode_else_debug:
@@ -750,7 +750,7 @@ def test_oras_mesher_barrier_ultracoarse(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = False # True:testing False:debugging
+    test_mode_else_debug = True # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
 
     if test_mode_else_debug:
@@ -914,7 +914,7 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
     import mola.legacy.InternalShortcuts as J
     import mola.legacy.propeller_mesher as RW
 
-    test_mode_else_debug = False # True:testing False:debugging
+    test_mode_else_debug = True # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
 
     if test_mode_else_debug:

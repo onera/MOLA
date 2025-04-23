@@ -33,7 +33,6 @@ def test_functions_well_defined():
     for fun_name in BoundaryConditionsNamesInElsa:
         assert getattr(solver_elsa, fun_name)
 
-
 @pytest.mark.unit
 @pytest.mark.cost_level_1
 def test_bc():
@@ -47,6 +46,7 @@ def test_bc():
         ]
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
     workflow.set_boundary_conditions()
+
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1

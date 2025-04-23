@@ -265,3 +265,20 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
                source_user, destination_user, 
                force_copy=force_copy
                )
+
+
+def get_module_name_from(module_path : str):
+    return module_path.split(os.sep)[-1]
+
+def trim(module_path : str, levels_from_end : int = 3):
+    if levels_from_end < 0: raise AttributeError("levels_from_end cannot be <0")
+    path_split = module_path.split(os.sep)
+    path_to_keep = path_split[:-levels_from_end]
+    trimmed_path = os.sep.join(path_to_keep)
+    return trimmed_path
+
+def remove_mola_path_from(module_path : str):
+    mola_path = os.environ["MOLA"]
+    if module_path.startswith(mola_path):
+        return module_path.replace(mola_path,'')
+    return module_path

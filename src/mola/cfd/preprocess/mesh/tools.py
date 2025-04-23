@@ -338,3 +338,8 @@ def _remove_PyPart_suffix(path):
     except:
         pass
     return path
+
+def is_partitioned(tree, backend='maia'):
+    if backend == 'maia':
+        from mola.cfd.preprocess.mesh import maia_wrapper
+        return maia_wrapper.is_partitioned(tree)

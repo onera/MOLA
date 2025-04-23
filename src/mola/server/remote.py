@@ -21,7 +21,7 @@ from fnmatch import fnmatch
 import subprocess
 import time
 
-from mola import misc
+from mola.dependency_injector.retriever import load_source
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola import __MOLA_PATH__
 
@@ -84,7 +84,7 @@ def get_network():
 
 def get_network_config():
     network = get_network()
-    return misc.load_source('config', os.path.join(__MOLA_PATH__, 'mola', 'env', network, 'network.py'))
+    return load_source('config', os.path.join(__MOLA_PATH__, 'mola', 'env', network, 'network.py'))
 
 def get_scheduler_defaults(machine, mola_target_path=__MOLA_PATH__):
     network = get_network()
@@ -93,7 +93,7 @@ def get_scheduler_defaults(machine, mola_target_path=__MOLA_PATH__):
         os.path.join(__MOLA_PATH__, 'mola', 'env', network, machine, 'scheduler_defaults.py')
         ]:
         try:
-            return misc.load_source('scheduler_defaults', path)
+            return load_source('scheduler_defaults', path)
         except FileNotFoundError:
             pass
 
