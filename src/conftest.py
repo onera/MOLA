@@ -2,7 +2,7 @@ import pytest
 import os
 import timeit
 import warnings
-from . import server as SV
+from mola import server as SV
 
 # useful example if we need to pass option to pytest:
 #   https://stackoverflow.com/questions/47559524/pytest-how-to-skip-tests-unless-you-declare-an-option-flag
@@ -115,4 +115,3 @@ def skip_if_solver_not_compatible_with_env(item):
     is_marked_with_another_solver = any([solver in item.keywords for solver in solvers if solver != current_solver])
     if not is_marked_with_current_solver and is_marked_with_another_solver:
          item.add_marker(skip_solver)
-

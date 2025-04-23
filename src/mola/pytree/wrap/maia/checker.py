@@ -15,34 +15,12 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import pytest
+try: import maia
+except: pass
 
-from mola.test_tools.mpi_subprocess import run_as_mpi_subprocess
+def is_partitioned_for_use_in_maia(tree):
+    return bool(maia.pytree.get_node_from_name(tree, ":CGNS#GlobalNumbering"))
 
 
-@pytest.mark.unit
-@pytest.mark.parametrize("size", [1, 2])
-def test_mpi(size):
-
-    def actual_test():
-        from mpi4py.MPI import COMM_WORLD as comm
-        import os
-        print(f"[Rank {comm.Get_rank()}] PYTHONPATH = {os.environ.get('MOLA_SOLVER')}")
-
-    run_as_mpi_subprocess(actual_test, size)
-
-@pytest.mark.unit
-@pytest.mark.parametrize("size", [1, 2])
-def test_mpi_with_error(size):
-
-    def actual_test():
-        from mpi4py.MPI import COMM_WORLD as comm
-        raise ValueError("this is designed to raise an error")
-
-    try:
-        run_as_mpi_subprocess(actual_test, size)
-    except AssertionError:
-        pass
-
-if __name__ == '__main__':
-    test_mpi(4)
+def is_distributed_for_use_in_maia(tree):
+    return bool(maia.pytree.get_node_from_name(tree, ":CGNS#Distribution"))
