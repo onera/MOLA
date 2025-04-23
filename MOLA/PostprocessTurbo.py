@@ -260,27 +260,12 @@ def cleanSurfaces(surfaces, var2keep=[]):
         'Pressure', 'StagnationPressureRelDim', 'RefStagnationPressureRelDim',
         'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ'
         ]
-    
-    var2keepOnRadialProfiles_vertex = conservatives + var2keep + ['Radius']
-    var2keepOnRadialProfiles = []
-
-    for var in var2keepOnRadialProfiles_vertex:
-        var_center = 'centers:' + var
-        var2keepOnRadialProfiles.append(var_center)
-
 
     surfacesIso = getSurfacesFromInfo(surfaces, type='IsoSurface')
     for surface in surfacesIso:
-        name = I.getName(surface)
         for zone in I.getZones(surface):
             I._rmNodesByName1(zone, I.__FlowSolutionCenters__)
             C._extractVars(zone, coordinates+conservatives+var2keep)
-
-    
-    radProfiles = I.getNodesFromName(surfaces, 'RadialProfiles')  
-    if radProfiles:
-        C._extractVars(radProfiles, coordinates+var2keepOnRadialProfiles)
-
 
     surfacesBC = getSurfacesFromInfo(surfaces, type='BC', BCType='BCWallViscous')
     for surface in surfacesBC:
