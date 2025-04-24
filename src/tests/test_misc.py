@@ -19,6 +19,7 @@ import pytest
 
 from mola.misc import run_as_mpi_subprocess
 
+_extra_env = {"I_MPI_DEBUG": "5"} # for better MPI debugging diagnostics
 
 @pytest.mark.unit
 @pytest.mark.parametrize("size", [1, 2])
@@ -29,7 +30,8 @@ def test_mpi(size):
         import os
         print(f"[Rank {comm.Get_rank()}] PYTHONPATH = {os.environ.get('MOLA_SOLVER')}")
 
-    run_as_mpi_subprocess(actual_test, size)
+    run_as_mpi_subprocess(actual_test, size, extra_env=_extra_env)
+                                                        
 
 @pytest.mark.unit
 @pytest.mark.parametrize("size", [1, 2])
@@ -40,7 +42,7 @@ def test_mpi_with_error(size):
         raise ValueError("this is designed to raise an error")
 
     try:
-        run_as_mpi_subprocess(actual_test, size)
+        run_as_mpi_subprocess(actual_test, size, extra_env=_extra_env)
     except AssertionError:
         pass
 

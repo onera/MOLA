@@ -19,6 +19,7 @@ SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
 source /tmp_user/juno/elsa/Public/$ELSAVERSION/Dist/bin/juno_mpi/.env_elsA &>/dev/null
+
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
 unset I_MPI_FABRICS_LIST
@@ -27,6 +28,10 @@ unset I_MPI_FABRICS_LIST
 # https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
 # https://slurm.schedmd.com/mpi_guide.html
 export I_MPI_HYDRA_BOOTSTRAP=ssh
+
+export I_MPI_FABRICS=shm:tcp
+export FI_PROVIDER=tcp
+
 
 # maia
 module use --append /tmp_user/juno/sonics/usr/modules/
