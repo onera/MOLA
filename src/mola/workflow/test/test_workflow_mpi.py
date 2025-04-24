@@ -97,7 +97,7 @@ def test_prepare(tmp_path, size):
             ),
         )
         w.RunManagement['Scheduler'] = 'local'
-        # w.prepare() # TODO currently failing at families
+        # w.prepare() # TODO WIP currently failing
         # w.write_cfd_files()
         # w.submit(f'cd {test_dir}; bash job.sh')
         # w.simulation_status()
