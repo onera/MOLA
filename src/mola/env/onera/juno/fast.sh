@@ -32,6 +32,10 @@ unset I_MPI_FABRICS_LIST
 # https://slurm.schedmd.com/mpi_guide.html
 export I_MPI_HYDRA_BOOTSTRAP=ssh
 
+export I_MPI_FABRICS=shm:tcp
+export FI_PROVIDER=tcp
+
+
 # maia
 module use --append /tmp_user/juno/sonics/usr/modules/
 module load maia/$MAIAVERSION-dsi-cfd6

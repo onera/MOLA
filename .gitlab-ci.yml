@@ -23,7 +23,7 @@ variables:
   MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
   MOLA_ENV_FAST: src/mola/env/onera/env.sh fast
   MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
-  SCHEDULER_PARAMETERS: "--ntasks=1 --time=00:30:00"  #Slurm default parameters
+  SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"  #Slurm default parameters
 
 default:
   tags: 
