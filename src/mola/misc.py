@@ -245,7 +245,7 @@ if __name__ == "__main__":
     except Exception as e:
         import traceback
         traceback.print_exc()
-        sys.exit(1)
+        MPI.COMM_WORLD.Abort(1)
 """
 
     with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as tmp_file:

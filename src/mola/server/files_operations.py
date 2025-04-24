@@ -15,11 +15,12 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
+import shutil
 import os
 import subprocess
-import mola.naming_conventions as names
+from pathlib import Path
 
+import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException
 from . import remote
 
@@ -205,15 +206,20 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
     source = get_path_with_machine(source_path, source_machine, source_user)
     destination = get_path_with_machine(destination_path, destination_machine, destination_user)
 
-    try:
-        subprocess.run([f'scp -r {source} {destination}'], shell=True, check=True, capture_output=True, timeout=timeout)
-    except:
-        if destination_path.endswith(os.path.sep):
-            destination_dir = destination_path
-        else:
-            destination_dir = os.path.sep.join(destination_path.split(os.path.sep)[:-1])
-        makedirs_remote(destination_dir, machine=destination_machine, user=destination_user)
-        subprocess.run([f'scp -r {source} {destination}'], shell=True, check=True, capture_output=True, timeout=timeout)
+    if is_local_copy(source_path, source_machine, destination_path, destination_machine):
+        safe_local_copy(source, destination, force_copy)
+
+    else:
+        try:
+            subprocess.run(['scp', '-r', source,destination], check=True, capture_output=True, timeout=timeout)
+
+        except:
+            if destination_path.endswith(os.path.sep):
+                destination_dir = destination_path
+            else:
+                destination_dir = os.path.sep.join(destination_path.split(os.path.sep)[:-1])
+            makedirs_remote(destination_dir, machine=destination_machine, user=destination_user)
+            subprocess.run(['scp', '-r', source,destination], check=True, capture_output=True, timeout=timeout)
 
 def copy_remote(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False):
     '''
@@ -265,6 +271,48 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
                source_user, destination_user, 
                force_copy=force_copy
                )
+    
+def is_local_copy(source_path, source_machine,
+                  destination_path, destination_machine):
+    is_source_local = remote.run_on_localhost(source_machine, source_path)
+    is_destination_local = remote.run_on_localhost(destination_machine, destination_path)
+    return is_source_local and is_destination_local
+    
+def safe_local_copy(source_path, destination_path, force_copy=False):
+
+    src = Path(source_path)
+    dst = Path(destination_path)
+
+    if not src.exists():
+        raise FileNotFoundError(f"Source path {src} does not exist.")
+
+    if src.is_dir():
+        if dst.exists():
+            if dst.is_file():
+                raise ValueError(f"Cannot copy directory {src} to existing file {dst}.")
+            if force_copy:
+                shutil.rmtree(dst)
+            else:
+                raise FileExistsError(f"Destination {dst} already exists. Use force_copy=True to overwrite.")
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(src, dst)
+    else:
+        # If dst is an existing dir, copy inside it like scp
+        if dst.exists() and dst.is_dir():
+            dst = dst / src.name
+        elif str(destination_path).endswith(os.path.sep):  # e.g. 'dir/'
+            dst.mkdir(parents=True, exist_ok=True)
+            dst = dst / src.name
+        else:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+
+        if dst.exists():
+            if force_copy:
+                dst.unlink()
+            else:
+                raise FileExistsError(f"Destination {dst} already exists. Use force_copy=True to overwrite.")
+
+        shutil.copy2(src, dst)
 
 
 def get_module_name_from(module_path : str):
