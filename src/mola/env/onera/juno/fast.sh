@@ -31,8 +31,8 @@ unset I_MPI_FABRICS_LIST
 # https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
 # https://slurm.schedmd.com/mpi_guide.html
 export I_MPI_HYDRA_BOOTSTRAP=ssh
-
-export I_MPI_FABRICS=shm:tcp
+export I_MPI_PMI_LIBRARY=disabled
+export I_MPI_FABRICS=shm:ofi
 export FI_PROVIDER=tcp
 
 
