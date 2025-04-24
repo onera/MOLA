@@ -40,7 +40,7 @@ SchedulerDefaults = dict(
 
 def apply(workflow):
 
-    workflow._SchedulerOptions = set_default(workflow.RunManagement)
+    workflow.RunManagement['SchedulerOptions'] = set_default(workflow.RunManagement)
 
 def set_default(RunManagement):
     # CAVEAT: cannot use other contextual information contained in Workflow if 
