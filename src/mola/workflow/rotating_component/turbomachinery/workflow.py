@@ -42,8 +42,8 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         signals = cgns.load(input_signals)
         # Read in parallel 
         surfaces = Cmpi.convertFile2SkeletonTree(input_extractions)
-        surfaces, stats = D2.distribute(surfaces, Cmpi.size, useCom=0, algorithm='fast')
-        surfaces = Cmpi.readZones(surfaces, input_extractions, rank=Cmpi.rank)
+        D2._distribute(surfaces, Cmpi.size, useCom=0, algorithm='fast')
+        Cmpi._readZones(surfaces, input_extractions, rank=Cmpi.rank)
         Cmpi._convert2PartialTree(surfaces)
         surfaces = cgns.castNode(surfaces)
         Cmpi.barrier()

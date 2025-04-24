@@ -71,7 +71,8 @@ class WorkflowRotatingComponent(Workflow):
 
     def initialize_flow(self):
         self.Initialization.setdefault('ParametrizeWithHeight', None)
-        if any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
+        if self.Initialization['ParametrizeWithHeight'] is None \
+            and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
             self.Initialization['ParametrizeWithHeight'] = 'maia'
 
         if self.Initialization['ParametrizeWithHeight'] == 'maia':
