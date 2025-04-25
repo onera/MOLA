@@ -253,7 +253,8 @@ class CoprocessManager():
                 if rank == 0:
                     with open('stderr-post.log', 'w') as f:
                         f.write(str(err)+'\n')
-                self.mola_logger.warning(f'  > postprocess failed. See stderr-post.log', rank=0)
+                self.mola_logger.error(f'  > postprocess failed. See stderr-post.log', rank=0)
+                comm.Abort(1)
 
     def _update_workflow_parameters_for_restart_if_needed(self):
         found_restart_tree = False

@@ -35,6 +35,7 @@ from mola.cfd.coprocess.tools import (
     get_bc_families_in_extraction, 
     write_extraction_log,
     extract_memory_usage,
+    remove_not_needed_fields,
 )
 from mola.cfd.coprocess.probes import extract_probe
 import mola.cfd.postprocess as POST
@@ -64,6 +65,7 @@ def perform_extractions(workflow, coprocess_manager):
         
         elif extraction['Type'] == 'IsoSurface':
             extraction['Data'] = extract_isosurface(output_tree, extraction)
+            remove_not_needed_fields(extraction)
 
         elif extraction['Type'] == 'Residuals':
             extract_residuals(output_tree, extraction)
@@ -201,14 +203,6 @@ def extract_isosurface(output_tree, extraction):
         Name = extraction['Name'],
         tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
         )
-    
-    # Remove nodes that are not required in Fields
-    for FS in isosurface.group(Type='FlowSolution'):
-        for node in FS.group(Type='DataArray', Depth=1):
-            if 'Fields' not in extraction or node.name() not in extraction['Fields']:
-                node.remove()
-        if len(FS.group(Type='DataArray', Depth=1)) == 0:
-            FS.remove()
     
     return isosurface
 
