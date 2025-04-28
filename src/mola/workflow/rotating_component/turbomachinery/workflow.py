@@ -18,7 +18,7 @@
 import os
 from treelab import cgns
 import mola.naming_conventions as names
-from mola.logging import MolaAssertionError
+from mola.logging import MolaNotImplementedError, mola_logger
 
 from ..workflow import WorkflowRotatingComponent
 from .interface import WorkflowTurbomachineryInterface
@@ -57,6 +57,6 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
     def after_compute(self):
         if self.Solver.lower() != 'elsa':
-            raise MolaAssertionError('For now, postprocess is available only with elsa solver.')
+            raise MolaNotImplementedError('For now, postprocess is available only with elsa solver.')
         self.postprocess()
         self.plot_radial_profiles()

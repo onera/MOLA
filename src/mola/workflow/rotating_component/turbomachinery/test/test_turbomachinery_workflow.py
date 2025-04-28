@@ -327,7 +327,6 @@ def test_compressor_example_local(tmp_path):
     w.write_cfd_files()
     w.submit()
     w.simulation_status()
-    w.remove_cfd_files()
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
@@ -343,7 +342,6 @@ def test_compressor_example_local_rotor_only(tmp_path):
     w.write_cfd_files()
     w.submit()
     w.simulation_status()
-    w.remove_cfd_files()
 
 # @pytest.mark.network_onera
 # @pytest.mark.user_case
