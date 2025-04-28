@@ -39,6 +39,8 @@ class MolaAssertionError(MolaException):
 class MolaUserError(MolaException):
     pass
 
+class MolaNotImplementedError(MolaException):
+    pass
 
 class MolaUserAttributeError(MolaException):
 

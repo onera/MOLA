@@ -152,17 +152,6 @@ def add_integral_extractions(workflow):
                                                 treg.face, 
                                                 family_type=treg.family_value, 
                                                 predicate=lambda n,v : v['name'] == family)
-                # if 'MassFlow' in extraction['Fields']:
-                #     extracts += df.create_families(treg.conv_flux(treg.Density), 
-                #                                 treg.face, 
-                #                                 family_type=treg.family_value, 
-                #                                 predicate=lambda n,v : v['name'] == family)
-                    
-                # if 'Force' in extraction['Fields']:
-                #     extracts += df.create_families(treg.conv_flux(treg.Momentum), 
-                #                                 treg.face, 
-                #                                 family_type=treg.family_value, 
-                #                                 predicate=lambda n,v : v['name'] == family)
 
         return extracts
     

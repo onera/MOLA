@@ -111,6 +111,10 @@ class WorkflowInterface(object):
                 setattr(self, attribute_name, expected_type())
 
         if self.SolverParameters is None: self.SolverParameters = dict()
+
+        # HACK treelab writes str with spaces as list of str
+        if isinstance(self.RunManagement['LauncherCommand'], list):
+            self.RunManagement['LauncherCommand'] = ' '.join(self.RunManagement['LauncherCommand'])
     
     def set_attributes(self, attributes, skip_attributes=['self','tree','workflow']):
 

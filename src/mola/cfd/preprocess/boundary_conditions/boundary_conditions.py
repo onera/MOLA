@@ -51,7 +51,8 @@ BoundaryConditionsNames = dict(
                                         sonics='BCSymmetryPlane',
                                         fast='BCSymmetryPlane'),
     # Rotor/stator interfaces
-    MixingPlane                  = dict(elsa='stage_mxpl_hyb'), 
+    MixingPlane                  = dict(elsa='stage_mxpl_hyb',
+                                        sonics='GCMixingPlane'), 
     UnsteadyRotorStatorInterface = dict(elsa='stage_red_hyb'), 
     ChorochronicInterface        = dict(elsa='chorochronic'),
 )

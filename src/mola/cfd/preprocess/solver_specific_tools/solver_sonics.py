@@ -48,7 +48,7 @@ def translate_extraction_variables_to_sonics(Variables, solver):
         VelocityZ = treg.Velocity,
         Mach = treg.Mach,
         Temperature = treg.Temperature,
-        # Pressure not available in Sonics !
+        Pressure = treg.Pressure,
 
         ViscosityMolecular = treg.LaminarViscosity,
         ViscosityEddy = treg.TurbulentViscosity,
@@ -68,8 +68,54 @@ def translate_extraction_variables_to_sonics(Variables, solver):
             if var_tr not in sonics_var:
                 sonics_var.append(var_tr)
         else:
-            mola_logger.warning(f'Unkwnown variable for SoNICS: {var}. It is ignored.')
+            mola_logger.warning(f'Unkwnown variable for SoNICS: {var}. It is ignored.', rank=0)
     return sonics_var
+
+def translate_extraction_variables_to_sonics_function(Variables):
+    if isinstance(Variables, str):
+        Variables = [Variables]
+
+    translator = dict(
+        Conservatives = lambda treg: treg.conservatives(treg.full),
+        Primitives = lambda treg: treg.primitives(treg.full),
+
+        Density = lambda treg: treg.Density,
+        Momentum = lambda treg: treg.Momentum,
+        MomentumX = lambda treg: treg.Momentum,
+        MomentumY = lambda treg: treg.Momentum,
+        MomentumZ = lambda treg: treg.Momentum,
+        EnergyStagnationDensity = lambda treg: treg.EnergyStagnationDensity,
+
+        Velocity = lambda treg: treg.Velocity,
+        VelocityX = lambda treg: treg.Velocity,
+        VelocityY = lambda treg: treg.Velocity,
+        VelocityZ = lambda treg: treg.Velocity,
+        Mach = lambda treg: treg.Mach,
+        Temperature = lambda treg: treg.Temperature,
+        Pressure = lambda treg: treg.Pressure,
+
+        ViscosityMolecular = lambda treg: treg.LaminarViscosity,
+        ViscosityEddy = lambda treg: treg.TurbulentViscosity,
+        TurbulentDistance = lambda treg: treg.TurbulentDistance,
+
+        # NormalVector = treg.SurfaceNormal,
+        yPlus = lambda treg: treg.XYZPlusMeshSize,
+        Friction = lambda treg: treg.SkinFriction,
+        Force = lambda treg: treg.conv_flux(treg.Momentum), 
+        MassFlow = lambda treg: treg.conv_flux(treg.Density),
+    )
+    
+    sonics_var = []
+    for var in Variables:
+        if var in translator:
+            var_tr = translator[var]
+            if var_tr not in sonics_var:
+                sonics_var.append(var_tr)
+        else:
+            mola_logger.warning(f'Unkwnown variable for SoNICS: {var}. It is ignored.', rank=0)
+
+    sonics_var_fun = lambda treg: [var(treg) for var in sonics_var]
+    return sonics_var_fun
 
 def translate_sonics_CGNS_field_names_to_MOLA(container_node : cgns.Node):
 

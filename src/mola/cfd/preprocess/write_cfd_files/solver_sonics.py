@@ -57,7 +57,7 @@ def write_data_files(workflow):
         
 def write_run_scripts(workflow):
     write_compute(workflow.RunManagement)
-    write_job_launcher(workflow.RunManagement, workflow._SchedulerOptions)
+    write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
 
 def write_compute(RunManagement):
     txt = f'''

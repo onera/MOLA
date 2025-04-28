@@ -38,6 +38,7 @@ from mola.cfd.coprocess.tools import (
     get_bc_families_in_extraction, 
     write_extraction_log,
     extract_memory_usage,
+    remove_not_needed_fields,
 )
 from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_sonics_CGNS_field_names_to_MOLA
 
@@ -65,6 +66,7 @@ def perform_extractions(workflow, coprocess_manager):
         
         elif extraction['Type'] == 'IsoSurface':
             extraction['Data'] = extract_isosurface(output_tree, extraction)
+            remove_not_needed_fields(extraction)
         
         elif extraction['Type'] == 'Integral':
             extract_integral(output_tree, extraction, families_to_bctype, NumberOfIterations=workflow.Numerics['NumberOfIterations'])  

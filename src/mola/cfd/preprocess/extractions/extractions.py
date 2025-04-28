@@ -79,6 +79,8 @@ def replace_shortcuts(workflow):
     for extraction in workflow.Extractions:
         if 'Fields' not in extraction: 
             continue
+        if isinstance(extraction['Fields'], str):
+            extraction['Fields'] = [extraction['Fields']]
         for shortcut, variables in shortcuts.items():
             if shortcut in extraction['Fields']:
                 extraction['Fields'].remove(shortcut)
