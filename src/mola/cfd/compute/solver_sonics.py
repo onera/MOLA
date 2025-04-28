@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+from packaging.version import Version
 import numpy as np
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
@@ -90,6 +92,15 @@ def get_iterators(workflow, config, hardware_target='cpu'):
             )
         pytriggers.append(residuals_trigger)
 
+        # TODO
+        # import miles
+        # ext = miles.ResidualExtractor(config, period=2, start_iter=5, output_folder=names.DIRECTORY_LOG)
+        # ext.add_matplotlib_callback(names.DIRECTORY_LOG+"/residuals_at_{it}.png",start_iter=1,period=1,
+        #     separate_systems=True,legend=True,grid={"ls":":"},
+        #     yscale="log",xlabel="Iterations",ylabel="Residual")
+        # residuals_trigger = ext.apply(niter=workflow.Numerics['NumberOfIterations'])
+        # pytriggers.append(residuals_trigger)
+
     if any([ext['Type'] in ['Restart', '3D', 'BC'] for ext in workflow.Extractions]):
         if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
             periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] in ['3D', 'BC']]
@@ -107,18 +118,50 @@ def get_iterators(workflow, config, hardware_target='cpu'):
 
     if any([ext['Type'] == 'Integral' for ext in workflow.Extractions]):
         periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']
-        integral_extraction_trigger = triggers.MonitoringIntegralData( 
-            config, 
-            add_integral_extractions(workflow), 
-            workflow.Numerics['NumberOfIterations'], 
-            hardware_target, 
-            period=np.gcd.reduce(periods)
-            ) 
-        pytriggers.append(integral_extraction_trigger)
+        
+        sonics_version = Version(os.getenv('SONICSVERSION', '1.0.0'))
+        if sonics_version < Version('0.5.35'):
+            integral_extraction_trigger = triggers.MonitoringIntegralData( 
+                config, 
+                add_integral_extractions(workflow), 
+                workflow.Numerics['NumberOfIterations'], 
+                hardware_target, 
+                period=np.gcd.reduce(periods)
+                ) 
+            pytriggers.append(integral_extraction_trigger)
+
+        else:
+            # HACK for sonics >= 0.5.35
+            # Different triggers must be defined for each family
+            # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
+            from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract
+            from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics_function
+
+            familiesBC = get_familiesBC_nodes(workflow.tree)
+            for extraction in workflow.Extractions: 
+                if extraction['Type'] != 'Integral':
+                    continue
+
+                families = get_bc_families_names_to_extract(workflow.tree, extraction, familiesBC)
+                for family in families:
+                    from miles.trigger import IntegralDataExtractor
+                    extractor = IntegralDataExtractor(config, period=extraction['ExtractionPeriod'])
+                    extractor.add_extraction(
+                        translate_extraction_variables_to_sonics_function(extraction['Fields']), 
+                        family=family)
+                    # pattern_png = "{output_folder}/fig_{it}.png"
+                    # pattern_csv = "{output_folder}/out.csv"
+                    # extractor.add_csv_callback(pattern_csv,delimiter=";")
+                    # extractor.add_matplotlib_callback(pattern_png,legend=True,grid={"ls":":"},
+                    #     yscale="log",xlabel="Iterations",period=10,start_iter=100)
+                    # extractor.add_print_callback(period=50)
+                    integral_extraction_trigger = extractor.apply(niter=workflow.Numerics['NumberOfIterations'])
+                    pytriggers.append(integral_extraction_trigger)
 
     if any([bc['Type'] == 'OutflowRadialEquilibrium' for bc in workflow.BoundaryConditions]):
         for bc in workflow.BoundaryConditions:
             try:
+                # Just to check if a valve lax if used or not
                 valve_type = bc['valve_type']
             except:
                 continue
