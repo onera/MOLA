@@ -36,10 +36,21 @@ source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
 unset I_MPI_FABRICS_LIST
+
 # for avoiding error bootstrap
 # https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
 # https://slurm.schedmd.com/mpi_guide.html
 export I_MPI_HYDRA_BOOTSTRAP=ssh
+export I_MPI_FABRICS=shm:tcp
+export FI_PROVIDER=tcp
+
+# TODO in future, but requires using "srun" instead of "mpirun":
+# export I_MPI_HYDRA_BOOTSTRAP=pmix
+# unset I_MPI_PMI_LIBRARY
+# export I_MPI_FABRICS=shm:ofi
+# export FI_PROVIDER=tcp
+
+
 
 # # maia
 # module use --append /tmp_user/juno/sonics/usr/modules/

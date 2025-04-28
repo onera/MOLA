@@ -206,3 +206,17 @@ def get_valve_law_trigger(config, bc, niter, hardware_target='cpu', period=10):
         )
     
     return valve_law_trigger
+
+
+def adapt_workflow_for_sonics(w):
+    from mola.cfd.preprocess.mesh import io
+    from mola.cfd.preprocess.mesh import families
+
+    if 'Families' in w.RawMeshComponents[0]:
+        io.read(w)
+        families.apply(w)
+        w.RawMeshComponents[0]['Source'] = w.tree
+        w.RawMeshComponents[0].pop('Families')
+    if 'Connection' in w.RawMeshComponents[0]:
+        w.RawMeshComponents[0].pop('Connection')
+    w.SplittingAndDistribution = dict(Splitter='maia', Strategy='AtComputation')

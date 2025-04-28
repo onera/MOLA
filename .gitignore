@@ -24,3 +24,5 @@ doc/theme
 !doc/src/**/*.png
 !doc/src/**/*.svg
 .vscode
+ext
+DOCUMENTATION

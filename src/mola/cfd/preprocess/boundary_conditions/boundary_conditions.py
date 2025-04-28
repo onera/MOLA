@@ -18,7 +18,7 @@ import os
 import copy
 import numpy as np
 from treelab import cgns
-from mola import misc
+from mola.dependency_injector.retriever import load_source
 from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null
 
 # TODO for elsa, add injrot, wallisoth and Giles conditions
@@ -137,7 +137,7 @@ def apply(workflow, selected_boundaries_conditions=None):
                  )
 
         current_path = os.path.dirname(os.path.realpath(__file__))
-        solverModule = misc.load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
+        solverModule = load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
         
         try:
             solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
