@@ -129,7 +129,9 @@ def test_extract_isosurface(tmp_path):
     output_tree = workflow.tree
     
     for extraction in workflow._coprocess_manager.Extractions:
-        tRef = solver_elsa.extract_isosurface(output_tree, extraction)
+        extraction['Data'] = solver_elsa.extract_isosurface(output_tree, extraction)
+        solver_elsa.remove_not_needed_fields(extraction)
+        tRef = extraction['Data']
 
         existing_field_names = []
         for FS in tRef.group(Type='FlowSolution'):

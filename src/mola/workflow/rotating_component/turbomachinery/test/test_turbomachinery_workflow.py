@@ -125,10 +125,9 @@ def get_compressor_example_rotor_only_parameters(RunDirectory):
              ExtractionPeriod=500, SavePeriod=500),
         dict(Type='BC', Source='Rotor_INFLOW', Fields=['PressureStagnation', 'TemperatureStagnation', 'VelocityX', 'VelocityY', 'VelocityZ']), 
         dict(Type='BC', Source='Rotor_OUTFLOW', Fields=['Pressure']), 
-        dict(Type='BC', Source='Rotor_Blade', Fields=['VelocityX', 'VelocityY', 'VelocityZ']), 
-        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.015, OtherOptions=dict(tag='InletPlane', ReferenceRow='Rotor')),
-        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.06, OtherOptions=dict(tag='OutletPlane', ReferenceRow='Rotor')),
-        dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.5)
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.015, Fields=['Conservatives'], OtherOptions=dict(tag='InletPlane', ReferenceRow='Rotor')),
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.06, Fields=['Conservatives'], OtherOptions=dict(tag='OutletPlane', ReferenceRow='Rotor')),
+        dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', Fields=['Conservatives'], IsoSurfaceValue=0.5)
     ],
 
     RunManagement=dict(
