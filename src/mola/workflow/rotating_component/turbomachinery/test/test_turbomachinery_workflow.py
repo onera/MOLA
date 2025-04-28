@@ -47,7 +47,7 @@ def get_compressor_example_parameters(RunDirectory):
     ),
 
     Turbulence = dict(
-        Model='Wilcox2006',
+        Model='SST-V2003',
     ),
 
     Numerics = dict(
@@ -318,9 +318,10 @@ def test_init(tmp_path):
     assert w.Name == 'WorkflowTurbomachinery'
 
 @pytest.mark.integration
-@pytest.mark.elsa # since not still functional using Fast nor Sonics
+@pytest.mark.elsa  
+# @pytest.mark.sonics
 @pytest.mark.cost_level_4
-def test_compressor_example_local(tmp_path):
+def test_compressor_example_local_test(tmp_path):
     w = get_compressor_example(tmp_path)
     w.RunManagement['Scheduler'] = "local" # otherwise we will have sync problem at simulation_status
     w.prepare()

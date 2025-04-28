@@ -26,15 +26,28 @@ BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNam
 
 # For each boundary condition, this generic function does the job
 def function_generator(bc_type):
-    def set_bc(workflow, **kwargs):
-        import miles
 
-        Family = kwargs.pop('Family')
-        kwargs = mola_to_miles(workflow, Family, bc_type, kwargs)
-        miles.set_bc(workflow.tree, bc_type, Family, **kwargs)
-        workflow.tree = cgns.castNode(workflow.tree)
-        
-    return set_bc
+    if bc_type.startswith('GC'):
+        def set_gc(workflow, **kwargs):
+            import miles
+
+            Family = kwargs.pop('Family')
+            LinkedFamily = kwargs.pop('LinkedFamily')
+            miles.set_gc(workflow.tree, bc_type, Family, LinkedFamily)
+            workflow.tree = cgns.castNode(workflow.tree)
+            
+        return set_gc
+    
+    else:
+        def set_bc(workflow, **kwargs):
+            import miles
+
+            Family = kwargs.pop('Family')
+            kwargs = mola_to_miles(workflow, Family, bc_type, kwargs)
+            miles.set_bc(workflow.tree, bc_type, Family, **kwargs)
+            workflow.tree = cgns.castNode(workflow.tree)
+            
+        return set_bc
 
 # Define functions with the write name to be called from .boundary_conditions
 for fun_name in BoundaryConditionsNamesInSONICS:
