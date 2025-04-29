@@ -30,8 +30,12 @@ def write_tagfile(tag : str, coprocess_manager):
 
     if rank == 0:
         run_dir = coprocess_manager.workflow.RunManagement.get('RunDirectory','.')
-        path_newjob_required = Path(run_dir).resolve() / Path(tag)
-        with open(path_newjob_required, 'w') as f: 
+        run_dir_absolute = Path(run_dir).resolve() # added twice sometimes
+        if not run_dir_absolute.is_dir(): # HACK
+            run_dir_absolute = run_dir_absolute.parent
+
+        filename_as_tag = run_dir_absolute / Path(tag)
+        with open(filename_as_tag, 'w') as f: 
             f.write(tag)
 
 def write_extraction_log(extraction):
