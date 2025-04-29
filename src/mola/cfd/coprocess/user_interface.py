@@ -79,10 +79,14 @@ def get_user_signal(coprocess_manager, filename):
     signal = False
     if rank == 0:
         try:
-            run_dir = Path(coprocess_manager.workflow.RunManagement['RunDirectory']).resolve()
+            run_dir = Path(coprocess_manager.workflow.RunManagement['RunDirectory'])
             # return from glob method is a generator. Acces to an element is done with next(...).
             # If the generator is empty, it raises a StopIteration exception
-            filename = next(run_dir.glob(filename))  
+            run_dir_absolute = Path(run_dir).resolve() # added twice sometimes
+            if not run_dir_absolute.is_dir(): # HACK
+                run_dir_absolute = run_dir_absolute.parent
+
+            filename = next(run_dir_absolute.glob(filename))  
             filename.unlink()
             signal = filename.name
             coprocess_manager.mola_logger.info(f'{CYAN}Received signal {signal}{ENDC}', rank=0)
