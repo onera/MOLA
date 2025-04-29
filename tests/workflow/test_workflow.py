@@ -820,6 +820,7 @@ def test_workflow_sphere_struct_local_monoproc_maia(tmp_path, remove_cfd_files=T
 
 @pytest.mark.integration
 @pytest.mark.elsa
+@pytest.mark.sonics
 @pytest.mark.cost_level_3
 def test_workflow_sphere_unstruct_local_euler(tmp_path, remove_cfd_files=True):
     w = get_workflow_sphere_unstruct(tmp_path)
