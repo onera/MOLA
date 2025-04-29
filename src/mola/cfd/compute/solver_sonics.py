@@ -166,8 +166,17 @@ def get_iterators(workflow, config, hardware_target='cpu'):
             except:
                 continue
 
+            # TODO handle the fact that OUTFLOW family can be extracted twice: 
+            # once with the default extraction of MassFlow, and once with the 
+            # valve law trigger 
+
             from mola.cfd.preprocess.boundary_conditions.solver_sonics import get_valve_law_trigger
-            valve_law_trigger = get_valve_law_trigger(config, bc, period=10, hardware_target=hardware_target)
+            valve_law_trigger = get_valve_law_trigger(
+                workflow, 
+                config, 
+                bc, 
+                hardware_target=hardware_target
+                )
             pytriggers.append(valve_law_trigger)
 
     # This Trigger write time at the end of run:
