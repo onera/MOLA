@@ -24,7 +24,7 @@ import copy
 import numpy as np
 
 from treelab import cgns
-from mola.logging import (MolaException, MolaAssertionError, MolaUserError,
+from mola.logging import (MolaException, MolaAssertionError, MolaUserError, MolaNotImplementedError,
                           MolaLogger, CYAN, ENDC, GREEN)
 import mola.naming_conventions as names
 import mola.server as SV
@@ -248,12 +248,16 @@ class CoprocessManager():
             self.mola_logger.info('try to postprocess...', rank=0)
             try:
                 self.workflow.after_compute()
-                self.mola_logger.info(f'  {CYAN}> postprocess done.{ENDC}', rank=0)
+            except MolaNotImplementedError as err:
+                self.mola_logger.warning('  postprocess cannot be done.', rank=0)
             except Exception as err:
                 if rank == 0:
                     with open('stderr-post.log', 'w') as f:
                         f.write(str(err)+'\n')
-                self.mola_logger.warning(f'  > postprocess failed. See stderr-post.log', rank=0)
+                self.mola_logger.error(f'  > postprocess failed. See stderr-post.log', rank=0)
+                comm.Abort(1)
+            else:
+                self.mola_logger.info(f'  {CYAN}> postprocess done.{ENDC}', rank=0)
 
     def _update_workflow_parameters_for_restart_if_needed(self):
         found_restart_tree = False

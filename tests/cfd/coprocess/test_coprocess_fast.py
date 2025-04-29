@@ -289,7 +289,9 @@ def test_extract_isosurface(tmp_path):
     output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
     
     for extraction in workflow._coprocess_manager.Extractions:
-        tRef = solver_fast.extract_isosurface(output_tree, extraction)
+        extraction['Data'] = solver_fast.extract_isosurface(output_tree, extraction)
+        solver_fast.remove_not_needed_fields(extraction)
+        tRef = extraction['Data']
         
         computed_fields = solver_fast.get_field_names(tRef,
                                     container='FlowSolution#CentersV')

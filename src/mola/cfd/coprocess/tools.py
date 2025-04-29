@@ -254,3 +254,19 @@ def extract_memory_usage(extraction, iteration):
         update_signals_using(current_iteration_signals, previous_signals_to_be_updated)
     else: 
         extraction['Data'] = current_iteration_signals
+
+def remove_not_needed_fields(extraction):
+    '''Remove nodes that are not required in Fields'''
+    if 'Data' not in extraction or extraction['Data'] is None:
+        return
+    
+    COORDINATES = ['ChannelHeight', 'Radius', 'Theta']
+
+    for FS in extraction['Data'].group(Type='FlowSolution'):
+        for node in FS.group(Type='DataArray', Depth=1):
+            if node.name() in COORDINATES:
+                continue
+            if 'Fields' not in extraction or node.name() not in extraction['Fields']:
+                node.remove()
+        if len(FS.group(Type='DataArray', Depth=1)) == 0:
+            FS.remove()

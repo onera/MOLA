@@ -58,12 +58,12 @@ def write_data_files(workflow):
 def write_run_scripts(workflow):
 
     workflow.RunManagement['NumberOfThreads']=1 # required by elsA
-    workflow._SchedulerOptions['cpus-per-task']=1 # required by elsA
+    workflow.RunManagement['SchedulerOptions']['cpus-per-task']=1 # required by elsA
     workflow.set_workflow_parameters_in_tree()
 
     write_compute(workflow.RunManagement)
     write_coprocess(workflow.RunManagement)
-    write_job_launcher(workflow.RunManagement, workflow._SchedulerOptions)
+    write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
 
 def write_compute(RunManagement):
     txt = f'''

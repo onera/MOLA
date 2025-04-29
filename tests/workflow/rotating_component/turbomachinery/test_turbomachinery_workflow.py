@@ -47,7 +47,7 @@ def get_compressor_example_parameters(RunDirectory):
     ),
 
     Turbulence = dict(
-        Model='Wilcox2006',
+        Model='SST-V2003',
     ),
 
     Numerics = dict(
@@ -125,10 +125,9 @@ def get_compressor_example_rotor_only_parameters(RunDirectory):
              ExtractionPeriod=500, SavePeriod=500),
         dict(Type='BC', Source='Rotor_INFLOW', Fields=['PressureStagnation', 'TemperatureStagnation', 'VelocityX', 'VelocityY', 'VelocityZ']), 
         dict(Type='BC', Source='Rotor_OUTFLOW', Fields=['Pressure']), 
-        dict(Type='BC', Source='Rotor_Blade', Fields=['VelocityX', 'VelocityY', 'VelocityZ']), 
-        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.015, OtherOptions=dict(tag='InletPlane', ReferenceRow='Rotor')),
-        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.06, OtherOptions=dict(tag='OutletPlane', ReferenceRow='Rotor')),
-        dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.5)
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.015, Fields=['Conservatives'], OtherOptions=dict(tag='InletPlane', ReferenceRow='Rotor')),
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.06, Fields=['Conservatives'], OtherOptions=dict(tag='OutletPlane', ReferenceRow='Rotor')),
+        dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', Fields=['Conservatives'], IsoSurfaceValue=0.5)
     ],
 
     RunManagement=dict(
@@ -319,16 +318,16 @@ def test_init(tmp_path):
     assert w.Name == 'WorkflowTurbomachinery'
 
 @pytest.mark.integration
-@pytest.mark.elsa # since not still functional using Fast nor Sonics
+@pytest.mark.elsa  
+# @pytest.mark.sonics
 @pytest.mark.cost_level_4
-def test_compressor_example_local(tmp_path):
+def test_compressor_example_local_test(tmp_path):
     w = get_compressor_example(tmp_path)
     w.RunManagement['Scheduler'] = "local" # otherwise we will have sync problem at simulation_status
     w.prepare()
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()
-    w.remove_cfd_files()
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
@@ -344,7 +343,6 @@ def test_compressor_example_local_rotor_only(tmp_path):
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()
-    w.remove_cfd_files()
 
 # @pytest.mark.network_onera
 # @pytest.mark.user_case
@@ -401,4 +399,4 @@ def test_compressor_example_local_rotor_only(tmp_path):
 
 
 if __name__ == '__main__':
-    test_compressor_example_local()
+    test_compressor_example_local_test()

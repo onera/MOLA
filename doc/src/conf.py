@@ -41,7 +41,8 @@ meta_data = {
     "header_right_icons":[
         {'url':'https://gitlab.onera.net/numerics/mola', 'icon':'gitlab', 'name':'MOLA GitLab'},
         {'url':'https://github.com/onera/MOLA', 'icon':'_static/icons/github-white.svg', 'name':'MOLA GitHub'},
-        {'url':'https://github.com/Luispain/treelab', 'icon':'_static/icons/github', 'name':'Treelab GitHub'}
+        {'url':'https://github.com/Luispain/treelab', 'icon':'_static/icons/treelab.png', 'name':'Treelab GitHub'},
+        {'url':'https://numerics.gitlab-pages.onera.net/mola/v1.19', 'icon':'_static/icons/mola_v1.png', 'name':'MOLA v1'},
     ],
     "intersphinx_mapping":{
         'python':('https://docs.python.org/3',None),

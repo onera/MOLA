@@ -103,13 +103,13 @@ TURBULENCE_SONICS_KEYS = {
     ),
 
     'smith': dict(
-        turbmod        = 'kl_smith',
-        k_prod_compute = 'from_sij',
+        features = ['kl_smith', 'k_prod/from_sij'],
+        parameters = dict(k_prod_limiter=20.),
     ),
 
     'smith-V': dict(
-        turbmod        = 'kl_smith',
-        k_prod_compute = 'from_vorticity',
+        features = ['kl_smith', 'k_prod/from_vorticity'],
+        parameters = dict(k_prod_limiter=20.),
     ),
 }
 

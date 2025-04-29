@@ -142,6 +142,10 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
     # NOTE BE CAREFUL!!! This function needs to be run on all ranks, 
     # and MPI handling is done internally
 
+    # FIXME Error if some zone has no FlowSolution (e.g. isosurface without variables)
+    # _remove_empty_zones(surfaces)
+    # surfaces = _gather_on_all_ranks(surfaces)
+
     # prepare auxiliary surfaces tree, with flattened FlowSolution container
     # located at Vertex including ChannelHeight
     previous_vertex_container = I.__FlowSolutionNodes__
@@ -159,7 +163,6 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
 
     for container_at_vertex in containers_at_vertex:
         I.__FlowSolutionNodes__ = container_at_vertex
-        channel_height = None
         for zone in I.getZones(surfaces):
             fs_container = I.getNodeFromName1(zone, container_at_vertex)
             if not fs_container: 
@@ -175,8 +178,6 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
         # Variables
         #______________________________________________________________________________
         allVariables = TUS.getFields(config=config)
-        if not channel_height and 'ChannelHeight' in allVariables:
-            allVariables.remove('ChannelHeight')
         if not var4comp_repart:
             var4comp_repart = ['StagnationEnthalpyDelta',
                             'StagnationPressureRatio', 'StagnationTemperatureRatio',
@@ -211,7 +212,7 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
         # if config == 'annular' and heightListForIsentropicMach:
         #     # TODO compute Machis also for linear cascade. Is this available in turbo ? 
         #     computeVariablesOnBladeProfiles(w, surfaces, height_list=heightListForIsentropicMach)
-        
+
         # COMPUTE BY COMPARING TWO SURFACES _________________________________________________________#
         move_0D_and_1D_data_to_rank_0(surfaces)
         if Cmpi.rank == 0:
@@ -248,6 +249,44 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
         move_scalar_outputs_to_signals(surfaces, signals)
 
     return surfaces, signals
+
+# def _remove_empty_zones(surfaces):
+#     for zone in I.getZones(surfaces):
+#         if all([not I.getNodeFromType1(fs, 'DataArray_t') for fs in I.getNodesFromType(zone, 'FlowSolution_t')]):
+#             I._rmNode(surfaces, zone)
+
+# def _gather_on_all_ranks(surfaces):
+#     if Cmpi.size > 1:
+#         # Share the skeleton on all procs
+#         Cmpi._setProc(surfaces, Cmpi.rank)
+#         Skeleton = _getStructure(surfaces)
+#         trees = Cmpi.allgather(Skeleton)
+#         trees.insert(0, surfaces)
+#         surfaces = I.merge(trees)
+#         Cmpi._convert2PartialTree(surfaces)
+#         # Ensure that bases are in the same order on all procs. 
+#         # It is MANDATORY for next post-processings
+#         _reorderBases(surfaces)
+#     Cmpi.barrier()
+
+#     return surfaces
+
+# def _getStructure(t):
+#     '''Get a PyTree's base structure (children of base nodes are empty)'''
+#     tR = I.copyRef(t)
+#     for n in I.getZones(tR):
+#         n[2] = []
+#     return tR
+
+# def _reorderBases(t):
+#     '''Reorder bases of the PyTree **t** in the alphabetical order.'''
+#     tmp = {}
+#     for base in I.getBases(t):
+#         tmp[I.getName(base)] = base
+#         I._rmNode(t, base)
+
+#     for tmpKey in sorted(tmp):
+#         I.addChild(t, tmp[tmpKey])
 
 def move_scalar_outputs_to_signals(surfaces: cgns.Tree, signals: cgns.Tree) -> None:
     # TODO Add IterationNumber in signals, and update bases to concatenate data for each iteration
@@ -380,7 +419,6 @@ def getSurfaceArea(surface):
         area += abs(P.integNorm(zone, var='ones')[0][0])
     return area
 
-
 def sortVariablesByAverage(variables):
     '''
     Sort variables in a dictionnary by average type.
@@ -465,18 +503,12 @@ def cleanSurfaces(w, surfaces, var2keep=[]):
         'Pressure', 'StagnationPressureRelDim', 'RefStagnationPressureRelDim',
         'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ'
         ]
-    var2keepOnRadialProfiles = conservatives + var2keep + ['ChannelHeight', 'Radius']
-    var2keepOnRadialProfiles += [f'centers:{var}' for var in var2keepOnRadialProfiles]
 
     surfacesIso = getSurfacesFromInfo(surfaces, Type='IsoSurface')
     for surface in surfacesIso:
         for zone in I.getZones(surface):
             I._rmNodesByName1(zone, I.__FlowSolutionCenters__)
             C._extractVars(zone, coordinates+conservatives+var2keep)
-
-    radProfiles = I.getNodeFromName1(surfaces, RADIAL_PROFILES_BASE)  
-    if radProfiles:
-        C._extractVars(radProfiles, coordinates+var2keepOnRadialProfiles)
 
     surfacesBC = getSurfacesFromInfo(surfaces, Type='BC', BCType='BCWallViscous')
     for surface in surfacesBC:
@@ -487,6 +519,8 @@ def cleanSurfaces(w, surfaces, var2keep=[]):
                 varname = I.getName(node)
                 if varname not in var2keepOnBlade:
                     I._rmNode(FSnodes, node)
+
+
 
 def computeVariablesOnIsosurface(w, surfaces, variables, config='annular', lin_axis='XZ'):
     '''
@@ -621,7 +655,6 @@ def compute0DPerformances(w, surfaces, variablesByAverage):
         perfos.setParameters(CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)                   
         I.addChild(Averages, perfos)
 
-
 def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[]):
     '''
     Compare averaged values between the **InletPlane** and the **OutletPlane**.
@@ -665,7 +698,6 @@ def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[]):
         I.createUniqueChild(fsBudget, 'GridLocation', 'GridLocation_t', 'CellCenter', pos=0)
         I.setName(fsBudget, f'Comparison#{I.getName(InletPlane)}')
         I.addChild(OutletPlane, fsBudget)
-
 
 def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY', NumberOfRadialPoints=121, tipRadius=None):
     '''
@@ -751,7 +783,6 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
         z_radial.setParameters(CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)   
         I.addChild(RadialProfiles, z_radial)
 
-
 def compareRadialProfilesPlane2Plane(w, surfaces, var4comp_repart, stages=[], config='compressor'):
     '''
     Compare radial profiles between the **InletPlane** and the **OutletPlane**.
@@ -803,7 +834,6 @@ def compareRadialProfilesPlane2Plane(w, surfaces, var4comp_repart, stages=[], co
             I.createUniqueChild(fsBudget, 'GridLocation', 'GridLocation_t', 'CellCenter', pos=0)
             I.setName(fsBudget, f'Comparison#{I.getName(InletPlane)}')
             I.addChild(OutletPlane, fsBudget)
-
 
 def computeVariablesOnBladeProfiles(w, surfaces, height_list='all', kind='rotor'):
     '''

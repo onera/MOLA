@@ -35,10 +35,11 @@ class FakeWorkflow():
                             NumberOfProcessors=2,
                             NumberOfThreads=3,
                             Scheduler=None,
-                            mola_target_path=__MOLA_PATH__)
+                            mola_target_path=__MOLA_PATH__,
+                            SchedulerOptions = dict(opt1="a", opt2="b"),
+                            )
         self.tree = cgns.Tree()
         self._treeCellCenter = cgns.Tree()
-        self._SchedulerOptions = dict(opt1="a", opt2="b")
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

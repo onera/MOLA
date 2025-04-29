@@ -37,7 +37,7 @@ AVAILABLE_WORKFLOWS_CLASSES = [
 ]
 AVAILABLE_WORKFLOWS = dict((w.__name__, w) for w in AVAILABLE_WORKFLOWS_CLASSES)
 
-def read_workflow(source):
+def read_workflow(source: str) -> Workflow:
     # Get the right class of Workflow
     try:
         workflow_name_node = cgns.load_from_path(source, 'WorkflowParameters/Name')
