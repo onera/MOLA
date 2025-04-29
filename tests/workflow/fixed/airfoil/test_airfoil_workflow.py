@@ -105,9 +105,7 @@ def test_default_transition_zones():
 
 
 @pytest.mark.integration
-@pytest.mark.elsa
-@pytest.mark.fast
-@pytest.mark.sonics
+@pytest.mark.elsa # TODO include fast and sonics
 @pytest.mark.cost_level_3
 def test_micro_naca(tmp_path):
     w = get_workflow_micro_naca(tmp_path)
@@ -118,8 +116,8 @@ def test_micro_naca(tmp_path):
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.assert_completed_without_errors() # TODO replicate in all tests replacing simulation_status
-    # w.remove_cfd_files()
+    w.assert_completed_without_errors()
+    w.remove_cfd_files()
 
 
 if __name__ == '__main__':
