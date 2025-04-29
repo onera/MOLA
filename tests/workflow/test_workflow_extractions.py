@@ -102,7 +102,7 @@ def test_integrals_one_run(tmp_path, niter=10):
     
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     
     expected_number_of_items = niter + 1
 
@@ -146,7 +146,7 @@ def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
     # First run
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
 
     # update NumberOfIterations, it was 0 at the end of the first run
     os.system(f'cd {tmp_path}; mola_update --NumberOfIterations={niter_second_run}')
@@ -154,7 +154,7 @@ def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
     # Second run: we must read the updated file main.cgns with workflow reader
     w = read_workflow(os.path.join(tmp_path,names.FILE_INPUT_SOLVER))
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
 
     expected_number_of_items = niter_first_run + niter_second_run + 1
 
@@ -191,7 +191,7 @@ def test_bc_one_run(tmp_path, niter=10):
     
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     
 @pytest.mark.integration
 @pytest.mark.elsa
@@ -216,7 +216,7 @@ def test_integral_with_postprocess(tmp_path, niter=10):
 
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
 
     expected_number_of_items = niter + 1 
 
@@ -244,7 +244,7 @@ def test_convergence_on_criterion(tmp_path, niter=20):
 
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
 
     if w.Solver == 'elsa':
         expected_number_of_items = 12 

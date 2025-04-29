@@ -23,7 +23,7 @@ from mola.math_tools import rotate_3d_vector_from_axis_and_angle_in_degrees
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height
 from mola.cfd.preprocess.mesh.families import get_family_names_from_patterns
 import mola.cfd.postprocess as POST
-from .. import Workflow
+from ... import Workflow
 from .interface import WorkflowLinearCascadeInterface
 
 class WorkflowLinearCascade(Workflow):

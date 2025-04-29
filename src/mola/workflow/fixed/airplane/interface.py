@@ -17,10 +17,10 @@
 
 from typing import Union
 from treelab import cgns
-from .. import WorkflowInterface
+from ... import WorkflowInterface
 
 
-class WorkflowLinearCascadeInterface(WorkflowInterface):
+class WorkflowAirplaneInterface(WorkflowInterface):
 
     def __init__(self, workflow, tree=None, **kwargs):
         super().__init__(workflow, tree, **kwargs)

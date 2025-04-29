@@ -22,8 +22,8 @@ from .workflow import Workflow
 from .interface import WorkflowInterface
 from .manager import WorkflowManager
 
-from . import airfoil
-from . import linear_cascade
+from .fixed import airfoil
+from .fixed import linear_cascade
 from . import rotating_component
 
 # This list must be updated when a new workflow is added to mola

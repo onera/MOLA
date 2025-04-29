@@ -17,4 +17,4 @@
 
 from .workflow import WorkflowLinearCascade as Workflow
 from .interface import WorkflowLinearCascadeInterface as WorkflowInterface
-from .. import WorkflowManager 
+from ... import WorkflowManager 

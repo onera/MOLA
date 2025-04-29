@@ -40,7 +40,7 @@ def test_stop_and_go_for_timeout(tmp_path, niter=500):
     w.RunManagement['TimeOutInSeconds'] = 5  # after prepare() method to hack this value
     w.write_cfd_files()
     w.submit()
-    w.simulation_status()
+    w.assert_completed_without_errors()
 
 #     check_log_files(Path(w.RunManagement['RunDirectory']) / names.DIRECTORY_LOG)
     

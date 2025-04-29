@@ -89,6 +89,119 @@ def test_file_writer():
         os.unlink(file_src)
     MPI.COMM_WORLD.barrier()
 
+@pytest.fixture
+def cube():
+    x, y, z = np.meshgrid( np.linspace(0,1,5),
+                           np.linspace(0,1,5),
+                           np.linspace(0,1,5), indexing='ij')
+    zone = cgns.newZoneFromArrays( 'cube', ['x','y','z'], [ x,  y,  z ])
+    return zone
+
+@pytest.fixture
+def monolayer():
+    x, y, z = np.meshgrid( np.linspace(0,1,5),
+                           np.linspace(0,1,5),
+                           np.linspace(0,1,2), indexing='ij')
+    zone = cgns.newZoneFromArrays( 'monolayer', ['x','y','z'], [ x,  y,  z ])
+    return zone
+
+@pytest.fixture
+def surface():
+    x, y = np.meshgrid( np.linspace(0,1,5),
+                           np.linspace(0,1,5), indexing='ij')
+    zone = cgns.newZoneFromArrays( 'surface', ['x','y','z'], [ x,  y,  y*0 ])
+    return zone
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_is_cell_multilayer(cube, monolayer, surface):
+    assert io.is_cell_multilayer(cube)
+    assert not io.is_cell_multilayer(monolayer)
+    assert not io.is_cell_multilayer(surface)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_is_cell_monolayer(cube, monolayer, surface):
+    assert not io.is_cell_monolayer(cube)
+    assert io.is_cell_monolayer(monolayer)
+    assert not io.is_cell_monolayer(surface)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_is_surface(cube, monolayer, surface):
+    assert not io.is_surface(cube)
+    assert not io.is_surface(monolayer)
+    assert io.is_surface(surface)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_homogeneous_dimension():
+
+    class FakeWorkflow():
+        def __init__(self):                          
+            self.ProblemDimension = None
+
+    w = FakeWorkflow()
+    
+    io.set_homogeneous_dimension(w, [1,0,0])
+    assert w.ProblemDimension == 3
+
+    io.set_homogeneous_dimension(w, [0,1,0])
+    assert w.ProblemDimension == 2
+
+    io.set_homogeneous_dimension(w, [0,0,1])
+    assert w.ProblemDimension == 2
+
+    try:
+        io.set_homogeneous_dimension(w, [0,2,1])
+    except ValueError as e:
+        msg = str(e)
+        if not msg.startswith("grid dimensions are not homogeneous"):
+            raise e
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_homogeneous_dimension_cube(cube):
+
+    class FakeWorkflow():
+        def __init__(self):                          
+            self.tree = cgns.Tree(base=cube)
+
+    w = FakeWorkflow()
+    
+    io.set_problem_dimension_based_on_grid(w)
+    assert w.ProblemDimension == 3
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_homogeneous_dimension_monolayer(monolayer):
+
+    class FakeWorkflow():
+        def __init__(self):                          
+            self.tree = cgns.Tree(base=monolayer)
+
+    w = FakeWorkflow()
+    
+    io.set_problem_dimension_based_on_grid(w)
+    assert w.ProblemDimension == 2
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_set_homogeneous_dimension_surface(surface):
+
+    class FakeWorkflow():
+        def __init__(self):                          
+            self.tree = cgns.Tree(base=surface)
+
+    w = FakeWorkflow()
+    
+    io.set_problem_dimension_based_on_grid(w)
+    assert w.ProblemDimension == 2
+
 if __name__ == '__main__':
-    # test_is_using_mpi()
-    test_file_writer()
+    test_is_using_mpi()

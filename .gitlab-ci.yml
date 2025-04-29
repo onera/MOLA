@@ -23,7 +23,7 @@ variables:
   MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
   MOLA_ENV_FAST: src/mola/env/onera/env.sh fast
   MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
-  SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"  #Slurm default parameters
+  SCHEDULER_PARAMETERS: "--ntasks=1 --time=00:30:00"  #Slurm default parameters
 
 default:
   tags: 
@@ -41,6 +41,8 @@ stages:
 
 test_unit_elsa: 
   stage: test-unit 
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_ELSA
   script:
@@ -66,6 +68,8 @@ test_integration_elsa:
 
 test_unit_fast: 
   stage: test-unit 
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_FAST
   script:
@@ -90,7 +94,9 @@ test_integration_fast:
     expire_in: 1 day
 
 test_unit_sonics: 
-  stage: test-unit 
+  stage: test-unit
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_SONICS
   script:

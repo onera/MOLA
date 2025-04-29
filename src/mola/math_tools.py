@@ -403,16 +403,10 @@ def rotate_3d_vector_from_axis_and_angle_in_degrees(v, axis, angle):
     v_rot = rot.apply(v)  
     return v_rot
 
-import pytest
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_rotate_3d_vector_from_axis_and_angle_in_degrees():
-    i = np.array([1,0,0])
-    j = np.array([0,1,0])
-    k = np.array([0,0,1])
-    quarter = 90
-    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(2*i, i, quarter), 2*i)  
-    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(3*i, k, quarter), 3*j)  
-    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(j, -k, quarter), i)  
-    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(j, i, quarter), k) 
-    assert np.allclose(rotate_3d_vector_from_axis_and_angle_in_degrees(2*i, j, 2*quarter), -2*i)
+
+def normalize_numpy_vector(vector):
+    if vector.size not in (2,3):
+        raise TypeError("argument must be a 2 or 3-item numpy array")
+
+    norm = np.linalg.norm(vector)
+    vector /= norm

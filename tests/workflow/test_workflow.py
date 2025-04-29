@@ -768,7 +768,7 @@ def test_workflow_cart_monoproc(tmp_path, remove_cfd_files=True):
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     if remove_cfd_files: w.remove_cfd_files()
 
 
@@ -783,7 +783,7 @@ def test_workflow_sphere_struct_local_monoproc(tmp_path, remove_cfd_files=True):
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     if remove_cfd_files: w.remove_cfd_files()
 
 @pytest.mark.integration
@@ -799,7 +799,7 @@ def test_workflow_sphere_struct_local_monoproc_pypart(tmp_path, remove_cfd_files
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     if remove_cfd_files: w.remove_cfd_files()
 
 @pytest.mark.integration
@@ -815,7 +815,7 @@ def test_workflow_sphere_struct_local_monoproc_maia(tmp_path, remove_cfd_files=T
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     if remove_cfd_files: w.remove_cfd_files()
 
 @pytest.mark.integration
@@ -828,7 +828,7 @@ def test_workflow_sphere_unstruct_local_euler(tmp_path, remove_cfd_files=True):
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     if remove_cfd_files: w.remove_cfd_files()
 
 @pytest.mark.integration
@@ -843,7 +843,7 @@ def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=Tr
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     if remove_cfd_files: w.remove_cfd_files()
 
 @pytest.mark.elsa
@@ -860,7 +860,7 @@ def test_workflow_sphere_struct_local_dist(tmp_path,remove_cfd_files=True):
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     if remove_cfd_files: w.remove_cfd_files()
 
 @pytest.mark.integration
@@ -876,7 +876,7 @@ def test_workflow_sphere_unstruct_local(tmp_path):
 
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
-    w.simulation_status()
+    w.assert_completed_without_errors()
     w.remove_cfd_files()
 
 # @pytest.mark.integration
@@ -891,7 +891,7 @@ def test_workflow_sphere_unstruct_local(tmp_path):
 #     w.prepare()
 #     w.write_cfd_files()
 #     w.submit(f'cd {tmp_path}; bash job.sh')
-#     w.simulation_status()
+#     w.assert_completed_without_errors()
 #     w.remove_cfd_files()
 
 @pytest.mark.network_onera
