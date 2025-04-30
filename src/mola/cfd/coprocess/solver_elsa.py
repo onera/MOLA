@@ -211,6 +211,7 @@ def extract_residuals(output_tree, extraction):
     t = cgns.Tree()
     residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
     if residuals: 
+        residuals = residuals.copy()
         residuals.findAndRemoveNode(Name='.Solver#Output')
         base = cgns.Base(Name='Residuals', Parent=t)
         # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
