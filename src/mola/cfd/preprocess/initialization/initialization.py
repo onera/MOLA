@@ -166,6 +166,10 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
         if workflow.Initialization['SourceContainer'] != FlowSolution_name:
             FlowSolutionInSourceTree.setName(FlowSolution_name)
 
+        for var in varNames:
+            if FlowSolutionInSourceTree.get(Name=var, Depth=1) is None:
+                raise MolaException(f'{var} cannot be found in {FSpath}')
+
         zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
 
 def initialize_flow_from_previous(**kwargs):

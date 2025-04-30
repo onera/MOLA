@@ -22,6 +22,7 @@ from treelab import cgns
 from mola.workflow.workflow import Workflow
 from mola.cfd.preprocess.initialization import initialization
 import mola.naming_conventions as names
+from mola.logging import MolaException
 
 def get_debug_mesh():
     tree = cgns.Tree()
@@ -154,7 +155,7 @@ def test_initialization_copy():
         RawMeshComponents = [dict(Name='cart', Source=mesh)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
-        Turbulence = dict(Model='SA'),
+        Turbulence = dict(Model='SST'),
         Initialization=dict(Method='copy', Source=source),
     )
     apply_all_previous_stages(workflow)
@@ -166,6 +167,37 @@ def test_initialization_copy():
     import maia.pytree as PT
     assert PT.is_same_node(fs, ref_fs)
     # assert str(fs) == str(ref_fs)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_initialization_copy_missing_variable():    
+
+    fs_name = get_correct_FlowSolution_name_from_solver()
+
+    ref_fs = cgns.Node(Name='FlowSolution#Init', Type='FlowSolution_t')
+    cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
+    cgns.Node(Name='Density', Value=np.array([[[3.]],[[4.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumX', Value=np.array([[[50.]],[[-5.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumY', Value=np.array([[[0.1]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumZ', Value=np.array([[[0.0]],[[1.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='EnergyStagnationDensity', Value=np.array([[[2.0e5]],[[3.0e5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='TurbulentEnergyKineticDensity', Value=np.array([[[0.2]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+
+    mesh = get_debug_mesh()
+    source = mesh.copy(deep=True)
+    zone = source.zones()[0]
+    zone.addChild(ref_fs)    
+
+    workflow = Workflow(
+        RawMeshComponents = [dict(Name='cart', Source=mesh)],
+        Flow = dict(Velocity=10.0),
+        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
+        Turbulence = dict(Model='SST'),
+        Initialization=dict(Method='copy', Source=source),
+    )
+    apply_all_previous_stages(workflow)
+    with pytest.raises(MolaException):
+        initialization.apply(workflow)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
