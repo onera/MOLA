@@ -592,14 +592,23 @@ class WorkflowSequentialManager():
         loop_on_cases = f'''
 SECONDS=0
 SEQUENCE_OF_PATHS={sequence_of_paths}
+MAX_NUMBER_OF_ATTEMPTS=10
 
 for case in $SEQUENCE_OF_PATHS; do
 
     echo "entering $case"
     cd $case
 
-    while [ ! -f "{names.FILE_JOB_COMPLETED}" ] && [ ! -f "{names.FILE_JOB_FAILED}" ]; do
+    if [ -f "{names.FILE_ERROR_PREPARING_WORKFLOW}" ] || [ -f "{names.FILE_JOB_FAILED}" ]; then
+        echo "this run has failed, end job."
+        exit 0
+    fi
 
+    NUMBER_OF_ATTEMPTS=0
+
+    while [ "$NUMBER_OF_ATTEMPTS" -lt "$MAX_NUMBER_OF_ATTEMPTS" ]; do
+
+        NUMBER_OF_ATTEMPTS=$((NUMBER_OF_ATTEMPTS+1))
         mola_prepare {names.FILE_INPUT_WORKLFOW}
 
         echo "compute case $case at $SECONDS s"
@@ -611,7 +620,15 @@ for case in $SEQUENCE_OF_PATHS; do
             cd ..
             sbatch {sequential_job_filename} --dependency=singleton
             exit 0
-        elif [ -f "{names.FILE_ERROR_PREPARING_WORKFLOW}" ]; then
+        elif [ -f "{names.FILE_JOB_COMPLETED}" ]; then
+            # exit the while loop
+            break
+        elif [ -f "{names.FILE_ERROR_PREPARING_WORKFLOW}" ] || [ -f "{names.FILE_JOB_FAILED}" ]; then
+            echo "this run has failed, end job."
+            exit 0
+        else
+            # there must be an error that was not raised -> exit the while loop
+            echo "unraised error, end job."
             exit 0
         fi
     done
