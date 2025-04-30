@@ -161,4 +161,3 @@ def test_spleen_cascade(tmp_path):
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
-    w.remove_cfd_files()

@@ -50,6 +50,8 @@ def apply_with_cassiopee(workflow):
     import Connector.Mpi as Xmpi
     import Converter.Internal as I
 
+    from mola.cfd.preprocess.check.check import assert_bc_and_connectivity_coherency
+
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
         base_name = base.name()
@@ -76,10 +78,10 @@ def apply_with_cassiopee(workflow):
                 # HACK Xmpi.connectMatch works only for structured mesh, 
                 # whereas X.connectMatch works also for unstructured mesh.
                 # See https://elsa-e.onera.fr/issues/11719
-                if base.isStructured():
+                if mpi_size == 1:
+                    base_out = X.connectMatch(base, tol=tolerance, dim=base_dim)
+                elif base.isStructured():
                     base_out = Xmpi.connectMatch(base, tol=tolerance, dim=base_dim) 
-                elif mpi_size == 1:
-                    base_out = X.connectMatch(base, tol=tolerance, dim=base_dim)  
                 else:
                     raise MolaAssertionError('connectMatch in parallel works only for structured mesh.')
 

@@ -26,46 +26,15 @@ class WorkflowAirplaneInterface(WorkflowInterface):
         super().__init__(workflow, tree, **kwargs)
         if tree is None:
             self.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
-            self.add_to_Extractions_Integral(Source='BCInflow*', Fields=['MassFlow'])
-            self.add_to_Extractions_Integral(Source='BCOutflow*', Fields=['MassFlow'])
+            self.add_to_Extractions_Integral(Source='BCWall*', Fields=['Force', 'Torque'])
+            self.add_to_Extractions_Residuals(Type='Residuals')
 
     def set_ApplicationContext(self, 
-            AngleOfAttackDeg : float = None,
-        ):
+        AngleOfAttackDeg : float = 0.0,
+        AngleOfSlipDeg : float = 0.0,
+        YawAxis : list = [0.0,0.0,1.0],
+        PitchAxis : list = [0.0,1.0,0.0],
+        Length : float = 1.0,
+        Surface : float = 1.0):
+
         self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.get_default_values_from_local_signature())
-
-    def add_to_RawMeshComponents(self,
-        Mesher        : str  = 'Autogrid',
-        **kwargs):
-        local_kwargs = self.get_default_values_from_local_signature()
-        local_kwargs.update(kwargs)
-        super().add_to_RawMeshComponents(**local_kwargs)
-
-    def set_Flow(self,
-                Generator : str = 'Internal',
-                **kwargs):
-        local_kwargs = self.get_default_values_from_local_signature()
-        local_kwargs.update(kwargs)
-        super().set_Flow(**local_kwargs)
-
-    def set_SplittingAndDistribution(self, 
-            Strategy                         : str = 'AtComputation',
-            Splitter                         : str = 'PyPart',
-            Distributor                      : str = 'PyPart',
-            **kwargs):
-        super().set_SplittingAndDistribution(**self.get_default_values_from_local_signature())
-    
-    def set_Initialization(self,
-            Method    : str  = 'uniform',
-            Source    : Union[     str,
-                                  cgns.Tree,
-                                  cgns.Base,
-                                  cgns.Zone ]  = None,
-            SourceContainer : str = None,
-            ComputeWallDistanceAtPreprocess : bool = False,
-            KeepWallDistance : bool = False,
-            ParametrizeWithHeight : str = None, # parameter specific to that workflow
-            ):
-        self.Initialization = self._get_comp(
-            self.set_Initialization, self.get_default_values_from_local_signature())
-        
