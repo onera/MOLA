@@ -77,8 +77,15 @@ def check_empty_bc(workflow):
 def assert_bc_and_connectivity_coherency(tree):
     import Converter.Internal as I
     import Converter.PyTree as C
+    
+    checks = {
+        5:'valid BC range', 
+        6:'valid opposite BC range for match and nearmatch',
+        # 9:'valid connectivity', # BUG https://github.com/onera/Cassiopee/issues/324
+    }
+    
     errors = []
-    for check_code in (5,6,9):
+    for check_code in list(checks):
         errors += I.checkPyTree(tree, level=check_code)
     if errors:
         C.convertPyTree2File(tree, 'debug.cgns')
