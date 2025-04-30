@@ -340,3 +340,6 @@ class CoprocessManager():
                                                extraction['TimeAveragingIterations'], 
                                                operations=[operation['Type']])
 
+                elif hasattr(self.workflow, operation['Type']):
+                    self.mola_logger.debug(f"  callling workflow-specific method {operation['Type']} on {extraction['Name']}", rank=0)
+                    getattr(self.workflow,operation['Type'])(extraction, **operation)

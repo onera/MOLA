@@ -39,7 +39,7 @@ w = WorkflowAirplane(
     ),
 
     Numerics = dict(
-        NumberOfIterations=2000,
+        NumberOfIterations=10,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
     ),
@@ -48,6 +48,18 @@ w = WorkflowAirplane(
         dict(Family='WING', Type='Wall'),
         dict(Family='FARFIELD', Type='Farfield'),
         dict(Family='SYMMETRY', Type='SymmetryPlane'),
+    ],
+
+    Extractions = [
+        dict(
+            Type='Integral',
+            Source='BCWall',
+            Fields=['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'],
+            ExtractAtEndOfRun=False,
+            PostprocessOperations=[
+                dict(Type="compute_aerodynamic_coefficients"),
+            ]
+        )
     ],
 
     SplittingAndDistribution = dict (
