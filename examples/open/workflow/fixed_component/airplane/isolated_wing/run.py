@@ -50,18 +50,6 @@ w = WorkflowAirplane(
         dict(Family='SYMMETRY', Type='SymmetryPlane'),
     ],
 
-    Extractions = [
-        dict(
-            Type='Integral',
-            Source='BCWall',
-            Fields=['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'],
-            ExtractAtEndOfRun=False,
-            PostprocessOperations=[
-                dict(Type="compute_aerodynamic_coefficients"),
-            ]
-        )
-    ],
-
     SplittingAndDistribution = dict (
         Strategy = 'AtComputation',
         Splitter = 'PyPart',

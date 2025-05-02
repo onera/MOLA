@@ -17,10 +17,11 @@
 
 import pytest 
 import os
+import numpy as np
 
 from treelab import cgns
 from mola import naming_conventions as names
-from mola.workflow import read_workflow
+from mola.workflow import Workflow, read_workflow
 from .test_workflow import  get_workflow_cart_monoproc
 
 def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames,
@@ -59,6 +60,55 @@ def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames,
 
         if expected_number_of_items is not None:
             assert len(field_node.value()) == expected_number_of_items
+
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_found_requested_extraction():
+
+    dist = np.linspace(0,1,5)
+    x, y, z = np.meshgrid( dist, dist, dist, indexing='ij')
+    zone = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+    tree = cgns.Tree(Base=zone)
+
+    w = Workflow(
+        Solver=os.environ.get('MOLA_SOLVER'),
+
+        RawMeshComponents=[
+            dict(
+                Name='CART',
+                Source=tree,
+                Families=[
+                    dict(Name='Ground',
+                         Location='kmin'),
+                    dict(Name='Farfield',
+                         Location='remaining'),
+                ],
+            )
+        ],
+        
+        SplittingAndDistribution=dict(
+            Strategy='AtComputation',
+            Splitter='maia',
+            Distributor='maia', 
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Ground', Type='Wall'),
+            dict(Family='Farfield', Type='Farfield'),
+        ],
+
+        Extractions = [
+            dict(Type='Integral', Name='TOTO', Fields=['Force', 'Torque'])
+        ]
+    )
+
+    found_extract = any([e["Name"] == "TOTO" for e in w.Extractions if "Name" in e])
+    assert found_extract
+    w.prepare()
+    
+    still_found_extract = any([e["Name"] == "TOTO" for e in w.Extractions if "Name" in e])
+    assert still_found_extract
+
 
 
 @pytest.mark.integration

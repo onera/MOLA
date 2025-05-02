@@ -17,35 +17,47 @@
 
 from treelab import cgns
 
+from mola.logging.exceptions import MolaMissingFieldsError
+
+
 def add_aerodynamic_coefficients_to( integral_extraction : dict, ApplicationContext : dict):
     
+    if integral_extraction["Type"] != "Integral": return
+
     t : cgns.Tree = integral_extraction["Data"] 
     zone : cgns.Zone
             
     for zone in t.zones():
         for container_name in [n.name() for n in zone.group(Type='FlowSolution_t')]:
-            
             fx, fy, fz, tx, ty, tz = _get_forces_and_moments_from(zone, container_name)
-            coefs = _get_or_create_coefficients_from(zone, container_name)
+            coefs = _new_coefficients_from(zone, container_name)
             
             _update_force_coefficients(coefs, fx, fy, fz, ApplicationContext)
             _update_torque_coefficients(coefs, tx, ty, tz, ApplicationContext)
 
 
-def _get_or_create_coefficients_from(zone : cgns.Zone, container_name : str,
-    field_names = ['CL','CD','CS','CX','CY','CZ','CmX','CmY','CmZ']):
+def _new_coefficients_from(zone : cgns.Zone, container_name : str,
+    field_names = ['CL','CD','CS','CX','CY','CZ','CmL','CmD','CmS','CmX','CmY','CmZ']):
 
-    coefs = zone.fields(field_names, Container=container_name,
-                        BehaviorIfNotFound='create', return_type='dict')
-
+    zone.removeFields(field_names, Container=container_name)
+    try:
+        coefs = zone.newFields(field_names, Container=container_name,
+            GridLocation='Vertex', return_type='dict')
+    except:
+        zone.save('debug.cgns')
+        exit()
     return coefs
 
 
 def _get_forces_and_moments_from(zone : cgns.Zone, container_name : str,
     field_names = [ 'ForceX', 'ForceY', 'ForceZ', 'TorqueX','TorqueY','TorqueZ']):
 
-    existing = zone.fields(field_names, Container=container_name,
-                    BehaviorIfNotFound='raise', return_type='dict')
+    try:
+        existing = zone.fields(field_names, Container=container_name,
+                        BehaviorIfNotFound='raise', return_type='dict')
+    except ValueError as e:
+        raise MolaMissingFieldsError(f"missing required forces and moments, will skip zone {zone.path()}") from e
+
     fx, fy, fz = [existing[n] for n in ['ForceX','ForceY','ForceZ']]
     tx, ty, tz = [existing[n] for n in ['TorqueX','TorqueY','TorqueZ']]
     

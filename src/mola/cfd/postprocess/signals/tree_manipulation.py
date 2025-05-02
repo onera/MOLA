@@ -151,3 +151,15 @@ def _get_complete_variable_name(node: cgns.Node):
     tmp = path.split('/')
     tmp.reverse()
     return '-'.join(tmp)   
+
+
+def update_zones_shape_using_iteration_number(tree : cgns.Tree, Container="FlowSolution"):
+
+    zone : cgns.Zone
+    for zone in tree.zones():
+        zone_shape = zone.value()
+        flow_sol = zone.get(Name=Container, Depth=1)
+        if not flow_sol: continue
+        it_nb_node = flow_sol.get(Name='IterationNumber')
+        if not it_nb_node: continue
+        zone_shape[0] = it_nb_node.value().size

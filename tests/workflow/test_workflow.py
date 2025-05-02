@@ -920,6 +920,7 @@ def test_print_interface_1():
     w = get_workflow1()
     w.print_interface()
 
+
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()

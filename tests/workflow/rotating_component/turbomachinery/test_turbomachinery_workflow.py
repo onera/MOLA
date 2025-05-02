@@ -318,6 +318,32 @@ def test_init(tmp_path):
     assert w.Name == 'WorkflowTurbomachinery'
 
 @pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_extractions_definition_coherency(tmp_path):
+    params = get_compressor_example_parameters(tmp_path)
+    params["Extractions"] = [ dict(
+            Type='Integral',
+            Name='WALL_LOADS',
+            Source='BCWallViscous',
+            Fields=['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'],
+            ExtractAtEndOfRun=True,
+            PostprocessOperations = ["TOTO_OPERATION"],
+        ) ]
+
+    w = turbomachinery.Workflow(**params)
+    w.prepare()
+
+    from pprint import pformat as pretty
+    print(pretty(w.Extractions))
+
+    found_requested_extraction = False
+    for e in w.Extractions:
+        if "Name" in e and e["Name"]=="WALL_LOADS": 
+            found_requested_extraction = True
+    assert found_requested_extraction
+    
+
+@pytest.mark.integration
 @pytest.mark.elsa  
 # @pytest.mark.sonics
 @pytest.mark.cost_level_4

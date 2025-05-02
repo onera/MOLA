@@ -17,8 +17,10 @@
 
 import copy
 from fnmatch import fnmatch
+from pprint import pformat as pretty
 from mola.cfd import apply_to_solver
 from mola.cfd.postprocess.signals import AVAILABLE_OPERATIONS_ON_SIGNALS
+from mola.logging.exceptions import MolaUserError
 
 def apply(workflow):
 
@@ -45,6 +47,9 @@ def add_time_monitoring_extraction(workflow):
 def split_bc_and_integral_extractions_by_family(workflow):
     familiesBC = get_familiesBC_nodes(workflow.tree)
 
+    if not familiesBC:
+        raise ValueError("did not have any family in tree")
+
     Extractions = []
     for Extraction in workflow.Extractions:
         if Extraction['Type'] in ['BC', 'Integral']:
@@ -55,6 +60,12 @@ def split_bc_and_integral_extractions_by_family(workflow):
                 Extraction['Fields'] = [Extraction['Fields']]
             
             fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction, familiesBC)
+
+            if not fam_names:
+                errmsg = "did not have any family associated to Extraction:\n"
+                errmsg+= pretty(Extraction)
+                raise ValueError(errmsg)
+
             for fam_name in fam_names:
                 ext = copy.deepcopy(Extraction)
                 ext['Source'] = fam_name
@@ -103,17 +114,33 @@ def get_bc_families_to_extract(tree, Extraction, familiesBC=None):
         familiesBC = get_familiesBC_nodes(tree)
     requested_source = Extraction['Source']
 
+    family_node_matched = None
+    registered_family_names = []
+    registered_bc_types = []
     for familyBC in familiesBC:
 
         family = familyBC.parent()
         family_name = family.name()
-        bc_type = familyBC.value() 
+        registered_family_names += [ family_name ]
+        bc_type = familyBC.value()
+        registered_bc_types += [ bc_type ]
         
         family_match_requirement = fnmatch(family_name, requested_source) or fnmatch(bc_type, requested_source) 
+
         if family_match_requirement and 'Fields' in Extraction and len(Extraction['Fields']) > 0:
-            if family not in bc_families_to_extract:
-                bc_families_to_extract.append(family) 
-    
+            family_node_matched = family
+            break
+
+    if not family_node_matched:
+        extraction_name = Extraction["Name"]
+        raise MolaUserError((f'requested Source="{requested_source}" in'
+            f' Extraction named "{extraction_name}" does not match'
+            f' any family from names {pretty(registered_family_names)} nor'
+            f' from types {pretty(registered_bc_types)}'))
+
+    if family not in bc_families_to_extract:
+        bc_families_to_extract.append(family) 
+
     return bc_families_to_extract
 
 def get_bc_families_names_to_extract(tree, Extraction, familiesBC=None):
