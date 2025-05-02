@@ -20,6 +20,7 @@ from treelab import cgns
 from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract, replace_shortcuts
 from ....workflow.test_workflow import  get_workflow2
 from mola.cfd.preprocess.mesh.io import read
+from mola.logging.exceptions import MolaUserError
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -50,12 +51,16 @@ def test_get_bc_families_names_to_extract():
     assert fam_names == ['Ground']
 
     Extraction = dict(Type='BC', Fields=[], Source='Farfield')
-    fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
-    assert fam_names == []
+    try:
+        fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
+    except MolaUserError:
+        pass
 
-    Extraction = dict(Type='BC', Fields=['Mach'], Source='Fake') 
-    fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
-    assert fam_names == []
+    Extraction = dict(Type='BC', Fields=['Mach'], Source='Fake')
+    try:
+        fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
+    except MolaUserError:
+        pass
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

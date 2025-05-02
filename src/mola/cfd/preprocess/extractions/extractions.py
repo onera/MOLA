@@ -132,7 +132,11 @@ def get_bc_families_to_extract(tree, Extraction, familiesBC=None):
             break
 
     if not family_node_matched:
-        extraction_name = Extraction["Name"]
+        try:
+            extraction_name = Extraction["Name"]
+        except:
+            if 'Data' in Extraction: del Extraction['Data']
+            extraction_name = "\n" + pretty(Extraction) + "\n"
         raise MolaUserError((f'requested Source="{requested_source}" in'
             f' Extraction named "{extraction_name}" does not match'
             f' any family from names {pretty(registered_family_names)} nor'

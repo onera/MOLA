@@ -112,7 +112,7 @@ def get_workflow_dist():
         ExtractionsDefaults=[dict(ReferenceParameter='File',File='signals.cgns',SavePeriod=69)],
 
         Extractions=[
-            dict(Type='Integral', Name='AeroCoefs', Fields=['CL', 'std-CL']),
+            dict(Type='Integral', Name='Loads', Fields=['Force', 'Torque'], Source="BCWall*"),
             # dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
             # dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
             dict(Type='3D', Fields=['Mach', 'q_criterion']),
@@ -197,7 +197,7 @@ def get_workflow2_parameters():
         ExtractionsDefaults=[dict(ReferenceParameter='File',File='signals.cgns',SavePeriod=69)],
 
         Extractions=[
-            dict(Type='Integral', Name='AeroCoefs', Fields=['CL', 'std-CL']),
+            dict(Type='Integral', Name='Loads', Fields=['Force', 'Torque'], Source="BCWall*"),
             # dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
             # dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
             dict(Type='3D', Fields=['Mach', 'q_criterion']),
