@@ -327,7 +327,7 @@ def test_compressor_example_local_stage(tmp_path):
     w.prepare()
     w.write_cfd_files()
     w.submit()
-    w.simulation_status()
+    w.assert_completed_without_errors()
 
 @pytest.mark.integration
 @pytest.mark.cost_level_4
@@ -342,7 +342,7 @@ def test_compressor_example_local_rotor_only(tmp_path):
     w.prepare()
     w.write_cfd_files()
     w.submit()
-    w.simulation_status()
+    w.assert_completed_without_errors()
 
 # @pytest.mark.network_onera
 # @pytest.mark.user_case

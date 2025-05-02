@@ -320,7 +320,7 @@ class Workflow(object):
         if SV.is_existing_path(os.path.join(run_dir, names.FILE_JOB_COMPLETED),
                 machine=machine, user=user, file_only=True):
             
-            errmsg = SV.read_last_run_error_file_in_log_directory(run_dir)
+            errmsg = self.get_last_run_error_message(max_lines_of_catched_error)
             if errmsg:
                 raise MolaException(errmsg)
 
@@ -333,16 +333,63 @@ class Workflow(object):
         else:
             status = 'RUNNING, NOT STARTED OR CRASHED'
 
+        crashmsg = self.get_crash_message(max_lines_of_catched_error)            
+        if crashmsg:
+            raise MolaException(crashmsg)
+
+        return status
+
+    def get_last_run_error_message(self, max_lines_of_catched_error=1000):
+        run_dir = self.RunManagement['RunDirectory']
+        errmsg = SV.read_last_run_error_file_in_log_directory(run_dir, max_lines=max_lines_of_catched_error)
+        return errmsg
+
+        
+    def get_crash_message(self, max_lines_of_catched_error=1000):
+        run_dir = self.RunManagement['RunDirectory']
+        machine = self.RunManagement['Machine']
+        user = self.RunManagement.get('User')
+
         try:
             crashmsg = SV.read_text_file_from_errors(os.path.join(run_dir, names.FILE_STDERR),
-                machine=machine, user=user, max_lines=max_lines_of_catched_error)
-            
-            if crashmsg:
-                raise MolaException(crashmsg)
+                machine=machine, user=user, max_lines=max_lines_of_catched_error)            
+            return crashmsg
         except FileNotFoundError:
             pass
 
-        return status
+        
+    def assert_completed_without_errors(self, max_lines_of_catched_error=1000):
+        crash_msg = self.get_crash_message(max_lines_of_catched_error)
+        last_err_msg = self.get_last_run_error_message(max_lines_of_catched_error)
+        
+        has_crashed = bool(crash_msg)
+        had_errors = bool(last_err_msg)
+        status = self.simulation_status()
+        was_completed = status == 'COMPLETED'
+        maybe_running = status.startswith('RUNNING')
+        
+        msg_to_raise = None
+        if has_crashed:
+            msg_to_raise = 'CRASH MESSAGE:\n'+crash_msg
+        
+        if had_errors:
+            msg_to_raise = 'HAD ERROR:\n'+last_err_msg
+
+        if not has_crashed and not had_errors:
+            
+            if maybe_running:
+                msg_to_raise = 'did not completed'
+            
+            elif was_completed:
+                msg_to_raise = None
+            
+            else:
+                msg_to_raise = 'FATAL ERROR: UNREACHABLE, BAD CONDITIONING'
+    
+        if msg_to_raise:
+            raise MolaException(msg_to_raise)
+
+
 
     def print_interface(self, keep=None, maxlevel : int = 1000):
         if keep is not None:

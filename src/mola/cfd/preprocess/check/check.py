@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
+import pprint
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException, GREEN, ENDC
 from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
@@ -55,10 +56,14 @@ def check_empty_bc(workflow):
         if is_dist:
             if not workflow.tree.isStructured:
                 t = to_full_tree_at_rank_0(workflow.tree)
+    
     if t is None: 
         t = workflow.tree.copy()
 
+    assert_bc_and_connectivity_coherency(t)
+
     I._adaptPE2NFace(t)
+
     emptyBC = C.getEmptyBC(t, dim=3)
     hasEmpty = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
     if rank ==0:
@@ -67,6 +72,25 @@ def check_empty_bc(workflow):
         else:
             check_no_empty_Family_of_BC(workflow.tree)
             mola_logger.info(f'{GREEN}No undefined BC found in tree{ENDC}')
+
+
+def assert_bc_and_connectivity_coherency(tree):
+    import Converter.Internal as I
+    import Converter.PyTree as C
+    
+    checks = {
+        5:'valid BC range', 
+        6:'valid opposite BC range for match and nearmatch',
+        # 9:'valid connectivity', # BUG https://github.com/onera/Cassiopee/issues/324
+    }
+    
+    errors = []
+    for check_code in list(checks):
+        errors += I.checkPyTree(tree, level=check_code)
+    if errors:
+        C.convertPyTree2File(tree, 'debug.cgns')
+        raise MolaException(pprint.pformat(errors))
+
 
 def check_no_empty_Family_of_BC(tree):
     for bc in tree.group(Type='BC', Value='FamilySpecified'):

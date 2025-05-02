@@ -493,7 +493,7 @@ class WorkflowInterface(object):
         if StartIteration is None:
             cfl['StartIteration'] = self.Numerics['IterationAtInitialState'] 
 
-        self.Numerics['CFL'] = cfl
+        self.Numerics['CFL'].update(cfl)
 
     def set_BodyForceModeling(self, user_list : list):
         self._set_by_user_list(self._method_name(), user_list)

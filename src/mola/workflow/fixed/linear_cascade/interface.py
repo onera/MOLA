@@ -17,7 +17,7 @@
 
 from typing import Union
 from treelab import cgns
-from .. import WorkflowInterface
+from ... import WorkflowInterface
 
 
 class WorkflowLinearCascadeInterface(WorkflowInterface):

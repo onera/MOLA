@@ -74,9 +74,13 @@ def set_parameters_in_elsa_objects(SolverParameters, Numerics):
     Num.set('inititer', Numerics['IterationAtInitialState'])
     Num.set('itime', Numerics['TimeAtInitialState'])
 
+
     funDict = get_cfl_function(NumDict)
     if funDict:
         set_cfl_function(elsA_user, Num, funDict)
+    
+    if SolverParameters['cfdpb']['config'] == "2d":
+        Cfdpb.set_ghostcell(2,2,2,2,0,1)
 
 def get_cfl_function(NumDict):
     for k in NumDict:

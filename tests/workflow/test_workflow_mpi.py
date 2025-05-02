@@ -100,8 +100,7 @@ def test_prepare(tmp_path, size):
         # w.prepare() # TODO WIP currently failing
         # w.write_cfd_files()
         # w.submit(f'cd {test_dir}; bash job.sh')
-        # w.simulation_status()
-        # if remove_cfd_files: w.remove_cfd_files()
+        # w.assert_completed_without_errors()
         
     run_as_mpi_subprocess(actual_test, size, None, test_dir)
 

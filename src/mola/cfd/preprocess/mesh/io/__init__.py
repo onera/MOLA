@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 from mola.logging import MolaException, MolaUserError
 from . import default, autogrid, utils, reader, writer, unstructured
 
@@ -41,12 +42,71 @@ def read(workflow):
     
     workflow.tree = cgns.add(meshes)
 
-    dimOfBases = set(base.dim() for base in workflow.tree.bases())
-    if len(dimOfBases) != 1:
-        raise MolaUserError('All bases must have the same physical dimension')
-    workflow.ProblemDimension = int(list(dimOfBases)[0])
-
+    set_problem_dimension_based_on_grid(workflow)
     enforce_name_of_FamilyBC(workflow.tree)
+
+
+def set_problem_dimension_based_on_grid(workflow):
+
+    cell_multilayer_count = 0
+    cell_monolayer_count = 0
+    surface_count = 0
+    for zone in workflow.tree.zones():
+        if is_cell_multilayer(zone):
+            cell_multilayer_count += 1
+        
+        if is_cell_monolayer(zone):
+            cell_monolayer_count += 1
+        
+        if is_surface(zone):
+            surface_count += 1
+
+    topo_counts = (cell_multilayer_count, cell_monolayer_count, surface_count)
+    
+    set_homogeneous_dimension(workflow, topo_counts)
+    
+
+def is_cell_multilayer( zone : cgns.Zone ):
+    cell_shape = zone.value()[:,1]
+    if zone.isUnstructured(): return True # TODO how to check if unstructured is 2D?
+    if len(cell_shape) < 3: return False
+    for s in cell_shape:
+        if s < 2:
+            return False
+    return True
+
+def is_cell_monolayer( zone : cgns.Zone ):
+    cell_shape = zone.value()[:,1]
+    if len(cell_shape) < 3: return False
+    for s in cell_shape:
+        if s == 1:
+            return True
+    return False
+    
+def is_surface( zone : cgns.Zone ):
+    cell_shape = zone.value()[:,1]
+    if len(cell_shape) == 2: return True
+    for s in cell_shape:
+        if s == 0:
+            return True
+    return False
+
+
+def set_homogeneous_dimension(workflow, topo_counts):
+    _, counts = np.unique(topo_counts, return_counts=True)
+    if counts[0] != 2:
+        raise ValueError(f"grid dimensions are not homogeneous, had: {topo_counts}")
+    if topo_counts[0] > 0:
+        workflow.ProblemDimension = 3
+    elif topo_counts[1] > 0:
+        workflow.ProblemDimension = 2
+    elif topo_counts[2] > 0:
+        workflow.ProblemDimension = 2
+    else:
+        raise RuntimeError('fatal condition')
+
+
+
 
 def enforce_name_of_FamilyBC(tree: cgns.Tree):
     # Mainly for PointWise, that use the name 'FamBC' for 'FamilyBC_t' nodes, 

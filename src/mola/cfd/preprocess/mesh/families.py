@@ -83,9 +83,13 @@ def set_family_from_location(base, FamilyName, location):
             msg+= f'be applied at requested location "{location}"'
             raise ValueError(msg)
 
-        WindowTags = getWindowTagsAtPlane(zone, planeTag=location)
+        for zone in base.zones():
+            WindowTags = getWindowTagsAtPlane(cgns.castNode(zone), planeTag=location)
+            for winTag in WindowTags:
+                C._addBC2Zone(zone, FamilyName, 'FamilySpecified:'+FamilyName, winTag)
 
-def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
+
+def getWindowTagsAtPlane(zone : cgns.Zone, planeTag='planeXZ', tolerance=1e-8):
     '''
     Returns the windows keywords of a structured zone that entirely lies (within
     a geometrical tolerance) on a plane provided by user.
@@ -116,7 +120,7 @@ def getWindowTagsAtPlane(zone, planeTag='planeXZ', tolerance=1e-8):
                 list will have several items.
     '''
     WindowTags = ('imin','imax','jmin','jmax','kmin','kmax')
-    Windows = zone.exteriorFaces()
+    Windows = zone.boundaries()
 
     if planeTag.endswith('XZ') or planeTag.endswith('ZX'):
         DistanceVariable = 'y'

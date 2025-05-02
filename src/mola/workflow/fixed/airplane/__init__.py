@@ -15,6 +15,6 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .workflow import WorkflowLinearCascade as Workflow
-from .interface import WorkflowLinearCascadeInterface as WorkflowInterface
-from .. import WorkflowManager 
+from .workflow import WorkflowAirplane as Workflow
+from ... import WorkflowInterface
+from ... import WorkflowManager 
