@@ -75,7 +75,7 @@ def get_iterators(workflow, config, hardware_target='cpu'):
     import sonics.toolkit.triggers as triggers
     from sonics.toolkit.iterators import SteadyIterators
     
-    execution_trigger = triggers.ExecutionTrigger(config, workflow.Numerics['NumberOfIterations'])
+    execution_trigger = triggers.ExecutionTrigger(config, workflow.Numerics['NumberOfIterations'], nstep=2)
     cfl_trigger = triggers.CflTrigger(config, get_cfl_function(workflow.Numerics['CFL']))
 
     pytriggers = [

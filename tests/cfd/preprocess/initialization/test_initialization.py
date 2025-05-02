@@ -225,7 +225,7 @@ def test_initialization_interpolate():
         RawMeshComponents = [dict(Name='cart', Source=mesh)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
-        Turbulence = dict(Model='SA'),
+        Turbulence = dict(Model='SST'),
         Initialization=dict(Method='interpolate', Source=source),
     )
     apply_all_previous_stages(workflow)
@@ -237,3 +237,31 @@ def test_initialization_interpolate():
     import maia.pytree as PT
     assert PT.is_same_node(fs, ref_fs)
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_initialization_interpolate_missing_variable():    
+
+    ref_fs = cgns.Node(Name='FlowSolution#Init', Type='FlowSolution_t')
+    cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
+    cgns.Node(Name='Density', Value=np.array([[[3.]],[[4.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumX', Value=np.array([[[50.]],[[-5.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumY', Value=np.array([[[0.1]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumZ', Value=np.array([[[0.0]],[[1.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='EnergyStagnationDensity', Value=np.array([[[2.0e5]],[[3.0e5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='TurbulentEnergyKineticDensity', Value=np.array([[[0.2]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+
+    mesh = get_debug_mesh()
+    source = mesh.copy(deep=True)
+    zone = source.zones()[0]
+    zone.addChild(ref_fs)    
+
+    workflow = Workflow(
+        RawMeshComponents = [dict(Name='cart', Source=mesh)],
+        Flow = dict(Velocity=10.0),
+        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
+        Turbulence = dict(Model='SST'),
+        Initialization=dict(Method='interpolate', Source=source),
+    )
+    apply_all_previous_stages(workflow)
+    with pytest.raises(MolaException):
+        initialization.apply(workflow)

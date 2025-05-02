@@ -112,6 +112,15 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     if workflow.Initialization['SourceContainer'] != FlowSolution_name:
         for FS in tree_source.group(Name=workflow.Initialization['SourceContainer'], Type='FlowSolution'):
             FS.setName(FlowSolution_name)
+
+    # Check that requiered variables are present 
+    varNames = list(workflow.Flow['ReferenceState'])
+    if workflow.Initialization['KeepWallDistance']:
+        varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
+    for FS in tree_source.group(Name=FlowSolution_name, Type='FlowSolution'):
+        for var in varNames:
+            if FS.get(Name=var, Depth=1) is None:
+                raise MolaException(f'{var} cannot be found in {FS.path()}')
     
     tree_source = to_partitioned(tree_source)
     workflow.tree = to_partitioned(workflow.tree)
