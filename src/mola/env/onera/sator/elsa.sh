@@ -33,9 +33,9 @@ export TREELABPATH=/tmp_user/sator/lbernard/treelab/dev/sator_elsA # ONLY DURING
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
-# # maia
-# module use --append /tmp_user/sator/sonics/usr/modules/
-# module load maia/$MAIAVERSION-dsi-cfd6
+# maia
+module use --append /tmp_user/sator/sonics/usr/modules/
+module load maia/$MAIAVERSION-dsi-cfd6
 
 # turbo
 export PYTHONPATH=/tmp_user/sator/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/sator_new22/lib/python3.8/site-packages/:$PYTHONPATH

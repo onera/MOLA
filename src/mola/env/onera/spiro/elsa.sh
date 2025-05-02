@@ -36,9 +36,9 @@ export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
-# # maia
-# module use --append /scratchm/sonics/usr/modules/
-# module load maia/$MAIAVERSION-dsi-cfd6
+# maia
+module use --append /scratchm/sonics/usr/modules/
+module load maia/$MAIAVERSION-dsi-cfd6
 
 # VPM
 export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
