@@ -455,10 +455,10 @@ def test_oras_mesher_inpro_ultracoarse(tmp_path):
     toc = J.tic()
 
 
-    profile = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/hub_profile.cgns",
+    profile = J.load("/stck/mola/data/restricted/geometry/oras/inpro/hub_profile.cgns",
                      return_type='zone')
-    rotor = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/rotor_structured_surface.cgns")
-    stator = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/stator_structured_surface.cgns")
+    rotor = J.load("/stck/mola/data/restricted/geometry/oras/inpro/rotor_structured_surface.cgns")
+    stator = J.load("/stck/mola/data/restricted/geometry/oras/inpro/stator_structured_surface.cgns")
 
     # extrapolate at root in order to guarantee that blade fully intersects hub
     rotor_blade = J.selectZoneWithHighestNumberOfPoints(rotor)
@@ -596,15 +596,15 @@ def test_oras_mesher_inpro(tmp_path):
 
     toc = J.tic()
 
-    profile = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/hub_profile.cgns",
+    profile = J.load("/stck/mola/data/restricted/geometry/oras/inpro/hub_profile.cgns",
                         return_type='zone')
     x = J.getx(profile)
     x[-1] = 21 # prolongation
 
 
 
-    rotor = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/rotor_structured_surface.cgns")
-    stator = J.load("/stck/mola/data/geometry/oras/RESTRICTED_inpro/stator_structured_surface.cgns")
+    rotor = J.load("/stck/mola/data/restricted/geometry/oras/inpro/rotor_structured_surface.cgns")
+    stator = J.load("/stck/mola/data/restricted/geometry/oras/inpro/stator_structured_surface.cgns")
 
 
     # extrapolate at root in order to guarantee that blade fully intersects hub

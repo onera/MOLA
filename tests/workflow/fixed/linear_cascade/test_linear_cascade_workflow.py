@@ -53,7 +53,7 @@ def get_workflow_spleen(tmp_path):
         RawMeshComponents=[
             dict(
                 Name='SPLEEN_Base',
-                Source='/stck/mola/data/mesh/spleen/SPLEEN.cgns',
+                Source='/stck/mola/data/open/mesh/spleen/SPLEEN.cgns',
                 Mesher='autogrid',
                 )
         ],

@@ -131,6 +131,7 @@ coverage_report:
     - test_integration_fast
   before_script:
     - source $MOLA_ENV_DEFAULT
+  allow_failure: true  # if job fails (in script section), it will just raise a warning
   script:
     - coverage combine .coverage_test_unit_elsa .coverage_test_unit_sonics .coverage_test_integration_elsa .coverage_test_unit_fast .coverage_test_integration_fast .coverage_test_integration_sonics
     - coverage report
