@@ -815,6 +815,7 @@ def test_workflow_sphere_struct_local_monoproc_maia(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.elsa
+@pytest.mark.sonics
 @pytest.mark.cost_level_3
 def test_workflow_sphere_unstruct_local_euler(tmp_path):
     w = get_workflow_sphere_unstruct(tmp_path)

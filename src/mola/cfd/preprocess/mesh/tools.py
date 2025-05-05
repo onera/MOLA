@@ -37,6 +37,8 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
     if len(PT.get_nodes_from_predicate(tree, shroud_bc_predicate)) == 0:
         raise MolaException(f'Cannot find shroud families in tree from names {shroud_families}')
     
+    # TODO make this operation separately for each row family to prevent errors
+    # and to reduce the duration of the process
     # Compute distances to hub and shroud
     compute_projection_to(tree, hub_bc_predicate, MPI.COMM_WORLD, out_fs_name='DistanceToHub', point_cloud=GridLocation)
     compute_projection_to(tree, shroud_bc_predicate, MPI.COMM_WORLD, out_fs_name='DistanceToShroud', point_cloud=GridLocation)

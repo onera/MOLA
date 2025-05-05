@@ -147,17 +147,22 @@ def BCOutflowSubsonic_interface(workflow, **kwargs):
 
 def BCOutflowRadialEquilibrium_interface(workflow, **kwargs):
 
-    AVAILABLE_VALVE_LAWS = [None, 'BCValveLawSlopePsQ', 'BCValveLawQTarget', 'BCValveLawQHyperbolic'] # respectively laws 1, 2 and 4
-
     parameters = dict(
         Pressure = kwargs.get('Pressure', workflow.Flow['Pressure']),
         PivotPercenthH = kwargs.get('PivotPercenthH', 0.),
         )
-    
-    valve_type = kwargs.get('valve_type')
-    assert valve_type in AVAILABLE_VALVE_LAWS
-    if valve_type is None:
-        return parameters
+
+    return parameters
+
+def valve_law_interface(workflow, **kwargs):
+
+    AVAILABLE_VALVE_LAWS = {1: 'BCValveLawSlopePsQ', 2: 'BCValveLawQTarget', 4: 'BCValveLawQHyperbolic'}
+
+    valve_type = kwargs['valve_type']
+    if isinstance(valve_type, int):
+        valve_type = AVAILABLE_VALVE_LAWS[valve_type]
+    else:
+        assert valve_type in AVAILABLE_VALVE_LAWS.values()
 
     def _get_default_valve_ref_mflow():
         bcs = get_bc_nodes_from_family(workflow.tree, kwargs['Family'])
@@ -180,29 +185,31 @@ def BCOutflowRadialEquilibrium_interface(workflow, **kwargs):
     if not valve_ref_mflow:
         valve_ref_mflow = kwargs.get('MassFlow', _get_default_valve_ref_mflow())
 
-    parameters.update(
-        dict(
-            valve_type = valve_type, 
-            valve_ref_mflow = valve_ref_mflow, 
-            valve_relax = kwargs.get('valve_relax', 0.1),
-        )
+    parameters = dict(
+        valve_type = valve_type, 
+        valve_ref_pres = kwargs.get('valve_ref_pres', workflow.Flow['Pressure']),
+        valve_ref_mflow = valve_ref_mflow, 
+        valve_relax = kwargs.get('valve_relax', 0.1),
+        valve_period = kwargs.get('valve_period', 10),
     )
-    
+
     return parameters
 
-def get_valve_law_trigger(config, bc, niter, hardware_target='cpu', period=10):
+def get_valve_law_trigger(workflow, config, bc, hardware_target='cpu'):
     from sonics.toolkit.triggers import valve_law_trigger as VLT
+
+    valve_params = valve_law_interface(workflow, **bc)
 
     valve_law_trigger = VLT.ValveLawRadialEquilibrium(
         config, 
         hardware_target, 
         bc['Family'], 
-        bc['valve_ref_pres'], 
-        bc['valve_ref_mflow'], 
-        niter, 
-        valve_law=bc['valve_type'], 
-        valve_relax=bc['valve_relax'], 
-        period=period
+        valve_params['valve_ref_pres'], 
+        valve_params['valve_ref_mflow'], 
+        niter=workflow.Numerics['NumberOfIterations'], 
+        valve_law=valve_params['valve_type'], 
+        valve_relax=valve_params['valve_relax'], 
+        period=valve_params['valve_period']
         )
     
     return valve_law_trigger

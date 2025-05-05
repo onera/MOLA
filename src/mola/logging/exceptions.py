@@ -39,9 +39,6 @@ class MolaAssertionError(MolaException):
 class MolaUserError(MolaException):
     pass
 
-class MolaNotImplementedError(MolaException):
-    pass
-
 class MolaUserAttributeError(MolaException):
 
     def __init__(self, fun, error):

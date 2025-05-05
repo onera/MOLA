@@ -75,7 +75,7 @@ def get_iterators(workflow, config, hardware_target='cpu'):
     import sonics.toolkit.triggers as triggers
     from sonics.toolkit.iterators import SteadyIterators
     
-    execution_trigger = triggers.ExecutionTrigger(config, workflow.Numerics['NumberOfIterations'])
+    execution_trigger = triggers.ExecutionTrigger(config, workflow.Numerics['NumberOfIterations'], nstep=2)
     cfl_trigger = triggers.CflTrigger(config, get_cfl_function(workflow.Numerics['CFL']))
 
     pytriggers = [
@@ -166,8 +166,17 @@ def get_iterators(workflow, config, hardware_target='cpu'):
             except:
                 continue
 
+            # TODO handle the fact that OUTFLOW family can be extracted twice: 
+            # once with the default extraction of MassFlow, and once with the 
+            # valve law trigger 
+
             from mola.cfd.preprocess.boundary_conditions.solver_sonics import get_valve_law_trigger
-            valve_law_trigger = get_valve_law_trigger(config, bc, period=10, hardware_target=hardware_target)
+            valve_law_trigger = get_valve_law_trigger(
+                workflow, 
+                config, 
+                bc, 
+                hardware_target=hardware_target
+                )
             pytriggers.append(valve_law_trigger)
 
     # This Trigger write time at the end of run:
