@@ -20,7 +20,7 @@ from fnmatch import fnmatch
 from pprint import pformat as pretty
 from mola.cfd import apply_to_solver
 from mola.cfd.postprocess.signals import AVAILABLE_OPERATIONS_ON_SIGNALS
-from mola.logging.exceptions import MolaUserError
+from mola.logging.exceptions import MolaUserError, MolaException
 
 def apply(workflow):
 
@@ -80,7 +80,21 @@ def split_bc_and_integral_extractions_by_family(workflow):
         else:
             Extractions.append(Extraction)
 
+    assert_no_extraction_named_by_family_is_left(Extractions)
     workflow.Extractions = Extractions
+
+
+def assert_no_extraction_named_by_family_is_left(Extractions : dict):
+    unsplit_extractions = []
+    for extraction in Extractions:
+        if "Name" in extraction and extraction["Name"] == "ByFamily":
+            unsplit_extractions += [ extraction ]
+
+    if unsplit_extractions:        
+        msg = f'Some "ByFamily" extractions where not correctly split:\n'
+        msg+= f'{pretty(unsplit_extractions)}'
+        raise MolaException(msg)
+
 
 def replace_shortcuts(workflow):
     shortcuts = dict(
@@ -137,10 +151,11 @@ def get_bc_families_to_extract(tree, Extraction, familiesBC=None):
         except:
             if 'Data' in Extraction: del Extraction['Data']
             extraction_name = "\n" + pretty(Extraction) + "\n"
+
         raise MolaUserError((f'requested Source="{requested_source}" in'
             f' Extraction named "{extraction_name}" does not match'
             f' any family from names {pretty(registered_family_names)} nor'
-            f' from types {pretty(registered_bc_types)}'))
+            f' from types {pretty(registered_bc_types)}'+ "\n" + pretty(Extraction) + "\n"))
 
     if family not in bc_families_to_extract:
         bc_families_to_extract.append(family) 

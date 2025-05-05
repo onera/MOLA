@@ -342,6 +342,5 @@ class CoprocessManager():
                                                operations=[operation['Type']])
 
                 elif hasattr(self.workflow, operation['Type']):
-                    if extraction["Type"] != "Integral": return
                     self.mola_logger.debug(f"  calling workflow-specific method {operation['Type']} on {extraction['Name']}", rank=0)
                     getattr(self.workflow,operation['Type'])(extraction, **operation)

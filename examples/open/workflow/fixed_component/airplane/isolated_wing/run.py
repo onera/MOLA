@@ -58,7 +58,7 @@ w = WorkflowAirplane(
 
     RunManagement = dict(
         NumberOfProcessors = 1,
-        RunDirectory = 'local_run',
+        RunDirectory = 'example_local_run',
         Scheduler = 'local',
     ),
 )

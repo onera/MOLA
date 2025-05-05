@@ -54,4 +54,5 @@ class WorkflowAirplane(Workflow):
         self.Flow['Reynolds'] = self.Flow['Density'] * self.Flow['VelocityForScalingAndTurbulence'] * self.ApplicationContext['Length'] / self.Flow['ViscosityMolecular']
 
     def compute_aerodynamic_coefficients(self, extraction : dict, **operation):
+        if extraction["Type"] != "Integral": return
         add_aerodynamic_coefficients_to(extraction, self.ApplicationContext)

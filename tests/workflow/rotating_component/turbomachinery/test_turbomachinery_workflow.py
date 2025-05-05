@@ -320,21 +320,25 @@ def test_init(tmp_path):
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_extractions_definition_coherency(tmp_path):
-    params = get_compressor_example_parameters(tmp_path)
-    params["Extractions"] = [ dict(
+    params = get_compressor_example_rotor_only_parameters(tmp_path)
+
+    params["Extractions"] += [ dict(
             Type='Integral',
             Name='WALL_LOADS',
             Source='BCWallViscous',
             Fields=['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'],
             ExtractAtEndOfRun=True,
-            PostprocessOperations = ["TOTO_OPERATION"],
+            PostprocessOperations = [dict(Type="TOTO_OPERATION")],
         ) ]
 
     w = turbomachinery.Workflow(**params)
-    w.prepare()
 
-    from pprint import pformat as pretty
-    print(pretty(w.Extractions))
+    if w.Solver == 'fast':
+        w.Numerics.update(dict(
+            TimeMarching = 'Unsteady',
+            TimeStep = 1e-6))
+
+    w.prepare()
 
     found_requested_extraction = False
     for e in w.Extractions:
@@ -425,4 +429,4 @@ def test_compressor_example_local_rotor_only(tmp_path):
 
 
 if __name__ == '__main__':
-    test_compressor_example_local_test()
+    test_compressor_example_local_rotor_only('test_toto')

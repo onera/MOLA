@@ -98,7 +98,7 @@ def test_found_requested_extraction():
         ],
 
         Extractions = [
-            dict(Type='Integral', Name='TOTO', Fields=['Force', 'Torque'])
+            dict(Type='Integral', Name='TOTO', Fields=['Force', 'Torque'], Source='Ground')
         ]
     )
 

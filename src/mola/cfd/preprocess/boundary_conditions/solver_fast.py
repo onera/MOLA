@@ -34,7 +34,7 @@ def BCWall(workflow, Family, Motion=None):
     '''
     wall_family = workflow.tree.get(Name=Family, Type='Family', Depth=2)
     wall_family.findAndRemoveNodes(Type='FamilyBC', Depth=1)
-    cgns.Node( Name='FamilyBC', Value='BCWall', Type='FamilyBC', Parent=wall_family)
+    cgns.Node( Name='FamilyBC', Value='BCWallViscous', Type='FamilyBC', Parent=wall_family)
     # add motion
     if Motion is not None:
         mobile_coef = 1. if is_mobile(Motion) else 0.
@@ -131,11 +131,16 @@ def Inj1_interface(workflow, **kwargs):
         'EnthalpyStagnation',
         'TurbulentSANuTilde',
     ]
-    ImposedVariables = dict(
-        sorted(ImposedVariables.items(), 
-               key= lambda item: order_of_variables.index(item[0])
-               )
-        )
+
+    try:
+        ImposedVariables = dict(
+            sorted(ImposedVariables.items(), 
+                key= lambda item: order_of_variables.index(item[0])
+                )
+            )
+    except ValueError:
+        from pprint import pformat as pretty
+        raise ValueError(pretty(ImposedVariables))
 
     return ImposedVariables
 

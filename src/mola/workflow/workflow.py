@@ -68,15 +68,7 @@ class Workflow(object):
         self.set_boundary_conditions()
         self.set_cfd_parameters()  # model, numerics, others...
         self.initialize_flow()  # eventually + distance to wall
-
-        from pprint import pformat as pretty
-        print('BEFORE')
-        print(pretty(self.Extractions))
-
         self.set_extractions()
-        print('\nAFTER')
-        print(pretty(self.Extractions))
-
         self.check_preprocess() # empty BCs... maybe solver-specific
         self.finalize_preprocess() # solver-specific
 
