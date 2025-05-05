@@ -39,7 +39,7 @@ w = WorkflowAirplane(
     ),
 
     Numerics = dict(
-        NumberOfIterations=2000,
+        NumberOfIterations=10,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
     ),
@@ -58,7 +58,7 @@ w = WorkflowAirplane(
 
     RunManagement = dict(
         NumberOfProcessors = 1,
-        RunDirectory = 'local_run',
+        RunDirectory = 'example_local_run',
         Scheduler = 'local',
     ),
 )

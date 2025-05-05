@@ -609,8 +609,8 @@ class WorkflowInterface(object):
             PostprocessOperations : list = None,
             OtherOptions : dict = None,
             *,
-            Type : str = 'Integral',
-            Source : str = 'BCWall', # "BCWall", "MyFamilyBC"... TODO accept regex &| ?
+            Type : str = 'Integral', # 'Integral',
+            Source : str, # "BCWall", "MyFamilyBC"... TODO accept regex &| ?
             Fields : list, # accepts prefix avg- or std- Accept MOLA keywords "Force" and "Torque"
             ):
         '''
@@ -668,7 +668,7 @@ class WorkflowInterface(object):
             OtherOptions : dict = None,
             *,
             Type : str = 'BC',
-            Source : str = 'MyFamily', # Family, BC... TODO accept regex ?
+            Source : str # Family, BC... TODO accept regex ?
             ):
         '''
         Extraction at boundaries of the mesh

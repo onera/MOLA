@@ -225,6 +225,7 @@ def update_existing_solver_output(SolverOutput_node, output_keys):
 
 def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) -> dict:
 
+
     output_keys = dict(
         period        = Extraction["ExtractionPeriod"],
 

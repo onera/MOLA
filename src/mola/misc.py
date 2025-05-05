@@ -257,7 +257,12 @@ if __name__ == "__main__":
         if extra_env:
             run_env.update(extra_env)
 
-        cmd = ["mpirun", "-np", str(size), "python3", tmp_file_path]
+        if "SLURM_JOB_ID" in run_env:
+            launcher = ["srun", "-n", str(size)]
+        else:
+            launcher = ["mpirun", "-np", str(size)]
+
+        cmd = launcher + ["python3", tmp_file_path]
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=run_env
         )

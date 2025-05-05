@@ -318,6 +318,36 @@ def test_init(tmp_path):
     assert w.Name == 'WorkflowTurbomachinery'
 
 @pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_extractions_definition_coherency(tmp_path):
+    params = get_compressor_example_rotor_only_parameters(tmp_path)
+
+    params["Extractions"] += [ dict(
+            Type='Integral',
+            Name='WALL_LOADS',
+            Source='BCWallViscous',
+            Fields=['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'],
+            ExtractAtEndOfRun=True,
+            PostprocessOperations = [dict(Type="TOTO_OPERATION")],
+        ) ]
+
+    w = turbomachinery.Workflow(**params)
+
+    if w.Solver == 'fast':
+        w.Numerics.update(dict(
+            TimeMarching = 'Unsteady',
+            TimeStep = 1e-6))
+
+    w.prepare()
+
+    found_requested_extraction = False
+    for e in w.Extractions:
+        if "Name" in e and e["Name"]=="WALL_LOADS": 
+            found_requested_extraction = True
+    assert found_requested_extraction
+    
+
+@pytest.mark.integration
 @pytest.mark.elsa  
 # @pytest.mark.sonics
 @pytest.mark.cost_level_4
@@ -395,4 +425,3 @@ def test_compressor_example_local_rotor_only(tmp_path):
 #     # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
 #     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
 #     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
-

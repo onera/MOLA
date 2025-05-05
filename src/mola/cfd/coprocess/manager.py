@@ -309,6 +309,7 @@ class CoprocessManager():
         from mola.cfd.postprocess.signals import apply_operations_on_signal, AVAILABLE_OPERATIONS_ON_SIGNALS
 
         for extraction in self.Extractions:
+
             PostprocessOperations = extraction.get('PostprocessOperations', [])
 
             for operation in PostprocessOperations:
@@ -324,3 +325,6 @@ class CoprocessManager():
                                                extraction['TimeAveragingIterations'], 
                                                operations=[operation['Type']])
 
+                elif hasattr(self.workflow, operation['Type']):
+                    self.mola_logger.debug(f"  calling workflow-specific method {operation['Type']} on {extraction['Name']}", rank=0)
+                    getattr(self.workflow,operation['Type'])(extraction, **operation)

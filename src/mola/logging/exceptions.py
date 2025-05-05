@@ -49,6 +49,9 @@ class MolaUserAttributeError(MolaException):
         super().__init__(msg)
 
 
+class MolaMissingFieldsError(MolaException):
+    pass
+
 def get_signature(fun):
     signature = inspect.signature(fun)
 
