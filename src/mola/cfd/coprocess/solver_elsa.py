@@ -43,6 +43,9 @@ from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, ravel_FlowSolution, 
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_elsa_CGNS_field_names_to_MOLA
 
+from mola.cfd.postprocess.signals.tree_manipulation import update_zones_shape_using_iteration_number
+
+
 def perform_extractions(workflow, coprocess_manager):
     output_tree = get_elsa_output_tree(workflow._Skeleton)
     families_to_bctype = get_family_to_BCType(output_tree)
@@ -265,6 +268,9 @@ def extract_integral(output_tree, extraction) -> None:
         update_signals_using(current_iteration_signals, previous_signals_to_be_updated)
     else: 
         extraction['Data'] = current_iteration_signals
+    
+    update_zones_shape_using_iteration_number(extraction['Data'], Container="FlowSolution")
+
 
 def extract_time_monitoring(extraction, coprocess_manager):
     # At the end of elsA_MPI* file, the following lines can be found: 

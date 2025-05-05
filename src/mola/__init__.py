@@ -20,6 +20,8 @@ __version__ = '2.0.0dev'
 __MOLA_PATH__ = os.path.sep.join(__file__.split(os.path.sep)[:-2])
 __ONLY_DOC__ = 0 # set to True for sphinx compilation
 
+solver = os.environ["MOLA_SOLVER"]
+
 try:
     def getSHA():
         with open('{}/.git/HEAD'.format(__MOLA_PATH__), 'r') as HEAD:

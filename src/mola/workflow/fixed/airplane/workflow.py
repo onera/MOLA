@@ -21,7 +21,7 @@ from treelab import cgns
 from ... import Workflow
 from .interface import WorkflowAirplaneInterface
 from ..flow_direction_calculator import from_two_angles_and_aircraft_yaw_pitch_axis
-
+from mola.cfd.postprocess.signals.airplane_coefficients_computer import add_aerodynamic_coefficients_to
 
 class WorkflowAirplane(Workflow):
 
@@ -53,3 +53,6 @@ class WorkflowAirplane(Workflow):
         self.ApplicationContext['TorqueCoef'] = self.ApplicationContext['FluxCoef'] / self.ApplicationContext['Length']
         self.Flow['Reynolds'] = self.Flow['Density'] * self.Flow['VelocityForScalingAndTurbulence'] * self.ApplicationContext['Length'] / self.Flow['ViscosityMolecular']
 
+    def compute_aerodynamic_coefficients(self, extraction : dict, **operation):
+        if extraction["Type"] != "Integral": return
+        add_aerodynamic_coefficients_to(extraction, self.ApplicationContext)
