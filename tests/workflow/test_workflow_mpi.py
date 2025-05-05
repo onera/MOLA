@@ -46,7 +46,7 @@ def test_prepare(tmp_path, size):
         RawMeshComponents=[
             dict(
                 Name='sphere',
-                Source='/stck/mola/data/mesh/sphere/sphere_struct.cgns',
+                Source='/stck/mola/data/open/mesh/sphere/sphere_struct.cgns',
                 Families=[
                     dict(Name='Wall', Location='kmin'),
                     dict(Name='Farfield', Location='kmax'),

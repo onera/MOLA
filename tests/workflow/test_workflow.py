@@ -221,7 +221,7 @@ def get_workflow_sphere_struct(RunDirectory):
         RawMeshComponents=[
             dict(
                 Name='sphere',
-                Source='/stck/mola/data/mesh/sphere/sphere_struct_not_connected.cgns',
+                Source='/stck/mola/data/open/mesh/sphere/sphere_struct_not_connected.cgns',
                 Families=[
                     dict(Name='Wall', Location='kmin'),
                     dict(Name='Farfield', Location='kmax'),
@@ -282,7 +282,7 @@ def get_workflow_sphere_struct_cassiopee_mpi_to_connect(RunDirectory):
         RawMeshComponents=[
             dict(
                 Name='sphere',
-                Source='/stck/mola/data/mesh/sphere/sphere_struct_not_connected.cgns',
+                Source='/stck/mola/data/open/mesh/sphere/sphere_struct_not_connected.cgns',
                 Families=[
                     dict(Name='Wall', Location='kmin'),
                     dict(Name='Farfield', Location='kmax'),
@@ -344,7 +344,7 @@ def get_workflow_sphere_struct_dist(RunDirectory):
         RawMeshComponents=[
             dict(
                 Name='sphere',
-                Source='/stck/mola/data/mesh/sphere/sphere_struct.cgns',
+                Source='/stck/mola/data/open/mesh/sphere/sphere_struct.cgns',
                 Families=[
                     dict(Name='Wall', Location='kmin'),
                     dict(Name='Farfield', Location='kmax'),
@@ -402,7 +402,7 @@ def get_workflow_sphere_hybrid(RunDirectory):
         RawMeshComponents=[
             dict(
                 Name='sphere',
-                Source='/stck/mola/data/mesh/sphere/sphere_hybrid.cgns',
+                Source='/stck/mola/data/open/mesh/sphere/sphere_hybrid.cgns',
                 Positioning=[dict(Type='Scale', Scale=1e-3)], # since Pointwise mesh is in mm
                 )
         ],
@@ -454,7 +454,7 @@ def get_workflow_sphere_unstruct(RunDirectory):
         RawMeshComponents=[
             dict(
                 Name='sphere',
-                Source='/stck/mola/data/mesh/sphere/sphere_unstructured.cgns',
+                Source='/stck/mola/data/open/mesh/sphere/sphere_unstructured.cgns',
                 Positioning=[dict(Type='Scale', Scale=1e-3)], # since Pointwise mesh is in mm
                 )
         ],
