@@ -20,34 +20,33 @@ from abc import ABC, abstractmethod
 class BoundaryConditionsDispatcher(ABC):
 
     def __init__(self):
+        self._mapping = dict()
+        self._without_generic_name = []
+    
+    def _remove_unsupported_bcs_from_mapping(self):
+        for key in list(self._mapping):
+            if self._mapping[key] is None:
+                del self._mapping[key]
 
-        types = [
-            "Farfield",
-            "InflowStagnation",
-            "InflowMassFlow",
-            "OutflowPressure",
-            "OutflowSupersonic",
-            "OutflowMassFlow",
-            "OutflowRadialEquilibrium",
-            "WallViscous",
-            "WallViscousIsothermal",
-            "WallInviscid",
-            "SymmetryPlane",
-            "MixingPlane",
-            "UnsteadyRotorStatorInterface",
-            "ChorochronicInterface"
-        ]
+    def get_name_used_by_solver(self, requested_type: str) -> str:
 
-    def assert_type_supported(self, requested_type : str) -> bool:
-        if requested_type not in self.types:
+        if requested_type in self.get_all_generic_names():
+            return self._mapping[requested_type]
+        
+        elif requested_type in self.get_all_specific_names():
+            return requested_type
+        
+        else:
             msg = (f'requested boundary-condition type "{requested_type}" not'
-                   f' supported, must be in:\n{self.types}')
+                   f' supported, must be in:\n{list(self._mapping)}\n'
+                   f'or in:\n{self._without_generic_name}')
             raise AttributeError(msg)
     
-    @abstractmethod
-    def get_solver_type(self, requested_type : str):
-        """
-        Must be implemented by subclasses to map a generic BC name
-        to a solver-specific BC string.
-        """
-        pass
+    def get_all_generic_names(self) -> list:
+        return list(self._mapping)
+    
+    def get_all_specific_names(self) -> list:
+        return [self._mapping[k] for k in self._mapping] + self._without_generic_name
+    
+    def get_all_supported_names(self) -> list:
+        return self.get_all_generic_names() + self.get_all_specific_names()

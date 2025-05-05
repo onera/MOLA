@@ -18,7 +18,7 @@
 import pytest
 
 from mola.cfd.preprocess.boundary_conditions import solver_elsa
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_elsa import BoundaryConditionsDispatcherElsa
 from .test_boundary_conditions import get_workflow_prepared_to_test_bcs
 
 from mola.workflow.rotating_component import turbomachinery
@@ -29,13 +29,13 @@ pytestmark = pytest.mark.elsa
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_functions_well_defined():
-    BoundaryConditionsNamesInElsa = set(v['elsa'] for v in BoundaryConditionsNames.values() if 'elsa' in v)
-    for fun_name in BoundaryConditionsNamesInElsa:
-        assert getattr(solver_elsa, fun_name)
+    bc_dict = BoundaryConditionsDispatcherElsa()
+    for expected_function_name in bc_dict.get_all_specific_names():
+        assert getattr(solver_elsa, expected_function_name)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1
-def test_bc():
+def test_bc_generic():
     BoundaryConditions=[
             dict(Family='imin', Type='WallViscous'),
             dict(Family='imax', Type='Farfield'),
@@ -43,6 +43,20 @@ def test_bc():
             dict(Family='jmax', Type='InflowMassFlow', MassFlow=1.),
             dict(Family='kmin', Type='OutflowPressure'),
             dict(Family='kmax', Type='OutflowMassFlow', MassFlow=1.),
+        ]
+    workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
+    workflow.set_boundary_conditions()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_bc_specific():
+    BoundaryConditions=[
+            dict(Family='imin', Type='walladia'),
+            dict(Family='imax', Type='nref'),
+            dict(Family='jmin', Type='inj1'),
+            dict(Family='jmax', Type='injmfr1', MassFlow=1.),
+            dict(Family='kmin', Type='outpres'),
+            dict(Family='kmax', Type='outmfr2', MassFlow=1.),
         ]
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
     workflow.set_boundary_conditions()

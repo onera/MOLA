@@ -18,60 +18,10 @@ import os
 import copy
 import numpy as np
 from treelab import cgns
+
 from mola.dependency_injector.retriever import load_source
 from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null
 
-# TODO for elsa, add injrot, wallisoth and Giles conditions
-BoundaryConditionsNames = dict(
-    # Fluid boudaries
-    Farfield                     = dict(elsa='nref',
-                                        sonics='BCFarfield',
-                                        fast='BCFarfield'),
-    InflowStagnation             = dict(elsa='inj1', 
-                                        sonics='BCInflowSubsonicPressure',
-                                        fast='BCInj1'),
-    InflowMassFlow               = dict(elsa='injmfr1', 
-                                        sonics='BCInflowSubsonicMassFlow'),
-    OutflowPressure              = dict(elsa='outpres', 
-                                        sonics='BCOutflowSubsonic',
-                                        fast='BCOutpres'),
-    OutflowSupersonic            = dict(elsa='outsup'),
-    OutflowMassFlow              = dict(elsa='outmfr2'),
-    OutflowRadialEquilibrium     = dict(elsa='outradeqhyb', 
-                                        sonics='BCOutflowRadialEquilibrium'),
-    # Wall boudaries + symmetry
-    WallViscous                  = dict(elsa='walladia',
-                                        sonics='BCWallViscous',
-                                        fast='BCWall'),
-    WallViscousIsothermal        = dict(sonics='BCWallViscousIsothermal'),
-    WallInviscid                 = dict(elsa='wallslip',
-                                        sonics='BCWallInviscid',
-                                        fast='BCWallInviscid'),
-    SymmetryPlane                = dict(elsa='sym',
-                                        sonics='BCSymmetryPlane',
-                                        fast='BCSymmetryPlane'),
-    # Rotor/stator interfaces
-    MixingPlane                  = dict(elsa='stage_mxpl_hyb',
-                                        sonics='GCMixingPlane'), 
-    UnsteadyRotorStatorInterface = dict(elsa='stage_red_hyb'), 
-    ChorochronicInterface        = dict(elsa='chorochronic'),
-)
-
-# Plug conditions with no "MOLA" name, but available with their "solver" name
-other_available_boundaries = dict(
-    elsa = ['stage_mxpl', 'stage_red', 'outradeq'],
-) 
-
-permeable_boundaries = ['Farfield', 'InflowStagnation', 'InflowMassFlow', 'OutflowPressure', 'OutflowMassFlow', 'OutflowRadialEquilibrium']
-turbomachinery_interfaces = ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface']
-
-# def check_name_is_one_of_authorized_names(name, authorized_names):
-#     import difflib
-#     closest_names = difflib.get_close_matches(name, possibilities=authorized_names)
-#     closest_msg = ""
-#     if len(closest_names) > 0:
-#         closest_msg = f"Did you mean {' or '.join(closest_names)}?"
-#     raise NameError(f"Invalid name '{name}'. "+closest_msg)
 
 def apply(workflow, selected_boundaries_conditions=None):
     '''
@@ -87,11 +37,8 @@ def apply(workflow, selected_boundaries_conditions=None):
         If not given, the attribute `BoundaryConditions` of the **workflow** is used.
         Otherwise, it is possible to give a filtered list.
     '''
-    # Shortcut for Wall BC towards WallViscous or WallInviscid depending on Euler simulation or not
-    if workflow.Turbulence['Model'] == 'Euler':
-        BoundaryConditionsNames['Wall'] = BoundaryConditionsNames['WallInviscid']
-    else:
-        BoundaryConditionsNames['Wall'] = BoundaryConditionsNames['WallViscous']
+
+    _adapt_bc_to_euler(workflow)
 
     if selected_boundaries_conditions is None:
         selected_boundaries_conditions = workflow.BoundaryConditions
@@ -101,17 +48,6 @@ def apply(workflow, selected_boundaries_conditions=None):
     if len(selected_boundaries_conditions) != 0:
         mola_logger.info(f'Set boundary conditions:', rank=0)
 
-    available_bc_names = [name for name, solvers in BoundaryConditionsNames.items() if workflow.Solver.lower() in solvers]
-    other_available_bc_names = [solvers[workflow.Solver.lower()] for solvers in BoundaryConditionsNames.values() if workflow.Solver.lower() in solvers]
-    try:
-        other_available_bc_names += other_available_boundaries[workflow.Solver.lower()]
-    except KeyError:
-        # no other available boundary defined for the current solver
-        pass
-
-    if workflow.Turbulence['Model'] == 'Euler':
-        _adapt_bc_to_euler(workflow)
-
     for bc in selected_boundaries_conditions:
 
         _check_family_exists(workflow.tree, bc['Family'])
@@ -119,47 +55,45 @@ def apply(workflow, selected_boundaries_conditions=None):
         bc_type = bc.pop('Type')
         if bc_type == 'InterfaceBetweenWorkflows':
             continue
+
         if 'LinkedFamily' in bc:
             mola_logger.info(f'  > {bc_type} between families {bc["Family"]} and {bc["LinkedFamily"]}', rank=0)
         else:
             mola_logger.info(f'  > {bc_type} on family {bc["Family"]}', rank=0)
         
-        if bc_type in available_bc_names:
-            solverSpecificFunctionName = BoundaryConditionsNames[bc_type][workflow.Solver]
-        elif bc_type in other_available_bc_names:
-            # Defined only in the specific solver module
-            solverSpecificFunctionName = bc_type
-        else:
-            raise MolaUserError(
-                f'Boundary condition {bc_type} is not available. ' 
-                f'Please choose one among conditions currently available for solver {workflow.Solver}: '
-                f'{", ".join(available_bc_names)}'
-                 )
-
-        current_path = os.path.dirname(os.path.realpath(__file__))
-        solverModule = load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-        
-        try:
-            solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
-        except AttributeError:
-            raise MolaException(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
-        else:
-            solverSpecificFunction(workflow, **bc)
+        _call_solver_specific_bc_preparation_function(workflow, bc_type, **bc)
 
     add_missing_PointRange_in_BCDataSet(workflow)
+
+def _call_solver_specific_bc_preparation_function(workflow, bc_type, **kwargs):
+    current_path = os.path.dirname(os.path.realpath(__file__))
+    solverModule = load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
+
+    solverSpecificFunctionName = solverModule.get_name_used_by_solver(bc_type)
+    
+    try:
+        solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
+    except AttributeError:
+        raise MolaException(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
+    else:
+        solverSpecificFunction(workflow, **kwargs)
 
 def _check_family_exists(tree, family_name):
     if not tree.get(Name=family_name, Type='Family', Depth=2):
         raise MolaException(f'Cannot apply a boundary condition on family {family_name}: This family does not exist in the mesh.')
 
 def _adapt_bc_to_euler(workflow):
-    for bc in workflow.BoundaryConditions:
-        if bc['Type'] in ['WallViscous']:
-            mola_logger.warning(
-                f"Inconsistency between BC {bc['Family']} of type {bc['Type']} and the Euler model.\n"
-                "-> Type is automatically changed into WallInviscid."
-                )
-            bc['Type'] = 'WallInviscid'
+    if workflow.Turbulence['Model'] == 'Euler':
+        for bc in workflow.BoundaryConditions:
+            if bc['Type'] in ['WallViscous']:
+                mola_logger.warning(
+                    f"Inconsistency between BC {bc['Family']} of type {bc['Type']} and the Euler model.\n"
+                    "-> Type is automatically changed into WallInviscid."
+                    )
+                bc['Type'] = 'WallInviscid'
+            
+            elif bc['Type'] == ['Wall']:
+                bc['Type'] = 'WallInviscid'
 
 def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
     '''

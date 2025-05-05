@@ -30,6 +30,13 @@ from mola.cfd.preprocess.boundary_conditions import boundary_conditions
 from mola.cfd.preprocess.mesh.families import get_zone_family_from_bc_or_gc_family
 import mola.server as SV
 
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_elsa import BoundaryConditionsDispatcherElsa
+
+
+def get_name_used_by_solver(bc_type : str):
+    bc_dict = BoundaryConditionsDispatcherElsa()
+    return bc_dict.get_name_used_by_solver(bc_type)
+
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
     familyNode.findAndRemoveNode(Name='.Solver#BC', Depth=1)

@@ -18,10 +18,18 @@
 from treelab import cgns
 
 from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames, get_turbulent_primitives, get_bc_nodes_from_family
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import get_turbulent_primitives, get_bc_nodes_from_family
 from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
 
-BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
+
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_sonics import BoundaryConditionsDispatcherSonics
+
+bc_names = BoundaryConditionsDispatcherSonics()
+BoundaryConditionsNamesInSONICS = bc_names.get_all_specific_names()
+
+def get_name_used_by_solver(bc_type : str):
+    bc_dict = BoundaryConditionsDispatcherSonics()
+    return bc_dict.get_name_used_by_solver(bc_type)
 
 
 # For each boundary condition, this generic function does the job
