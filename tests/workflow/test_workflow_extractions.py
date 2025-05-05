@@ -92,6 +92,10 @@ def test_found_requested_extraction():
             Distributor='maia', 
         ),
 
+        Turbulence=dict(
+            Model='SA'
+        ),
+
         BoundaryConditions=[
             dict(Family='Ground', Type='Wall'),
             dict(Family='Farfield', Type='Farfield'),
@@ -104,6 +108,10 @@ def test_found_requested_extraction():
 
     found_extract = any([e["Name"] == "TOTO" for e in w.Extractions if "Name" in e])
     assert found_extract
+
+    if w.Solver == 'sonics':
+        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
+        adapt_workflow_for_sonics(w)
     w.prepare()
     
     still_found_extract = any([e["Name"] == "TOTO" for e in w.Extractions if "Name" in e])
