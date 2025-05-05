@@ -187,8 +187,8 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
     
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
-    for IntegralDataNode in output_tree.group(Name='*:GCH', Type='ConvergenceHistory', Depth=2):
-        family = IntegralDataNode.name().split(':')[0]
+    for IntegralDataNode in output_tree.group(Name='*:*', Type='ConvergenceHistory', Depth=2):
+        family, suffix = IntegralDataNode.name().split(':')
 
         if family not in families_to_extract: 
             continue
@@ -201,7 +201,10 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
             n.setType('DataArray_t')
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
         cgns.Node(Name='IterationNumber', Type='DataArray', Value=np.arange(NumberOfIterations, dtype=float), Parent=IntegralDataNode)
-        zone = cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
+        if suffix != 'VALVE':
+            cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
+        else:
+            cgns.Zone(Name=f'{family}:{suffix}', Parent=base, Children=[IntegralDataNode])
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
@@ -217,6 +220,7 @@ def extract_residuals(extraction, output_tree):
 
     residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
     if residuals: 
+        residuals = residuals.copy()
         base = cgns.Base(Name='Residuals', Parent=t)
         # base/zone/FlowSolution structure required for allowing conversion to tecplot fmt
         residuals.setType('FlowSolution_t')

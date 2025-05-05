@@ -65,6 +65,7 @@ def apply_to_solver(workflow):
 
         if workflow._coprocess_manager.status == 'TO_FINALIZE': break
 
+    workflow.tree = cgns.castNode(workflow.tree)
     workflow._coprocess_manager.finalize()
     del workflow._coprocess_manager
     

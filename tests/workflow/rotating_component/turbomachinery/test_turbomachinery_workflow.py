@@ -321,7 +321,7 @@ def test_init(tmp_path):
 @pytest.mark.elsa  
 # @pytest.mark.sonics
 @pytest.mark.cost_level_4
-def test_compressor_example_local_test(tmp_path):
+def test_compressor_example_local_stage(tmp_path):
     w = get_compressor_example(tmp_path)
     w.RunManagement['Scheduler'] = "local" # otherwise we will have sync problem at simulation_status
     w.prepare()
@@ -396,7 +396,3 @@ def test_compressor_example_local_rotor_only(tmp_path):
 #     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
 #     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
-
-
-if __name__ == '__main__':
-    test_compressor_example_local_test()

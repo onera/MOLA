@@ -131,9 +131,9 @@ def get_sonics_config(workflow):
 
     import miles
 
-    fluid_features, fluid_parameters = get_fluid_template(workflow.Fluid)
+    fluid_features, fluid_parameters = get_fluid_template(workflow.Fluid, workflow.Turbulence['Model'])
     turb_features, turb_parameters = get_turbulence_template(workflow.Turbulence)
-    flux_features, flux_parameters = get_spatial_fluxes_template(workflow.Numerics)
+    flux_features, flux_parameters = get_spatial_fluxes_template(workflow.Numerics, workflow.Turbulence['Model'])
     time_features, time_parameters = get_time_marching_template(workflow.Numerics)
 
     my_config = miles.Configuration(pure_cgns_mode=True)
@@ -170,7 +170,7 @@ def update_config_with_user_parameters(my_config, workflow):
     user_given_parameters = copy.copy(workflow.SolverParameters) 
     return user_given_parameters
 
-def get_spatial_fluxes_template(Numerics):
+def get_spatial_fluxes_template(Numerics, TurbulenceModel):
     scheme = Numerics['Scheme']
     if Numerics['Scheme'] != 'Roe':
         mola_logger.warning(f'sonics Scheme={scheme} not implemented, using Roe instead')
@@ -189,7 +189,8 @@ def get_spatial_fluxes_template(Numerics):
     else:
         raise MolaException(f"Scheme={Numerics['Scheme']} is not available for solver sonics")
 
-    features.append("viscous_flux/vf5p_cor") 
+    if TurbulenceModel != 'Euler':
+        features.append("viscous_flux/vf5p_cor") 
     features.append("grad_scheme/green_gauss") 
 
     parameters['pctrad'] = 0.01
@@ -218,14 +219,23 @@ def get_time_marching_template(Numerics):
 
 def get_turbulence_template(Turbulence):
 
-    try:
-        turb_dict = TURBULENCE_SONICS_KEYS[Turbulence['Model']]
-        features = turb_dict['features']
-        parameters = turb_dict.get('parameters', dict())
-    except:
-        raise MolaException(f"Scheme={Turbulence['Model']} is not available for solver sonics")
+    if Turbulence['Model'] == 'Euler':
+        features = ['euler']
+        parameters = dict()
+
+    elif Turbulence['Model'] == 'Laminar':
+        features = ['nslam']
+        parameters = dict()
     
-    parameters['cutvars'] = get_turbulence_cutoff_setup(Turbulence)
+    else:
+        try:
+            turb_dict = TURBULENCE_SONICS_KEYS[Turbulence['Model']]
+            features = turb_dict['features']
+            parameters = turb_dict.get('parameters', dict())
+        except:
+            raise MolaException(f"Scheme={Turbulence['Model']} is not available for solver sonics")
+        
+        parameters['cutvars'] = get_turbulence_cutoff_setup(Turbulence)
 
     return features, parameters
 
@@ -241,7 +251,7 @@ def get_turbulence_cutoff_setup(Turbulence):
 
     return cutoffs
 
-def get_fluid_template(Fluid):
+def get_fluid_template(Fluid, TurbulenceModel):
     features = ['viscosity']
     parameters = dict()
 
@@ -257,6 +267,14 @@ def get_fluid_template(Fluid):
         if key in translate_to_miles:
             key = translate_to_miles[key]
         parameters[key] = value
+    
+    if TurbulenceModel == 'Euler':
+        try: parameters.pop('Prandtl') 
+        except: pass
+    if TurbulenceModel in ['DNS', 'ILES', 'Laminar', 'Euler']:
+        try: parameters.pop('PrandtlTurbulent') 
+        except: pass
+
     return features, parameters
         
 def get_cfl_function(cfl):

@@ -18,7 +18,6 @@
 import os
 from treelab import cgns
 import mola.naming_conventions as names
-from mola.logging import MolaNotImplementedError, mola_logger
 
 from ..workflow import WorkflowRotatingComponent
 from .interface import WorkflowTurbomachineryInterface
@@ -55,8 +54,36 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
             signals.save(output_signals)
         Cmpi.barrier()
 
-    def after_compute(self):
+    def after_compute(self, logger):
+        from mpi4py import MPI
+        rank = MPI.COMM_WORLD.Get_rank()
+
+        postprocess_possible = self.tree.get(Name='ChannelHeight') is not None
+
+        if not postprocess_possible:
+            return
+        
         if self.Solver.lower() != 'elsa':
-            raise MolaNotImplementedError('For now, postprocess is available only with elsa solver.')
-        self.postprocess()
-        self.plot_radial_profiles()
+            logger.warning(f'For now, postprocess is available only with elsa solver.', rank=0)
+            return
+
+        logger.info('try to postprocess...', rank=0)
+        try:
+            self.postprocess()
+        except Exception as err:
+            logger.error(f'  > postprocess failed', rank=0)
+            if rank == 0:
+                # Add error message to file stderr.log 
+                with open(names.FILE_STDERR, 'a') as f:
+                    f.write(str(err)+'\n')
+                # Write file FAILED
+                with open(names.FILE_JOB_FAILED, 'w') as f: 
+                    f.write(names.FILE_JOB_FAILED)
+            MPI.COMM_WORLD.Abort(1)
+        else:
+            logger.info(f'  > postprocess done.', rank=0)
+
+        try:
+            self.plot_radial_profiles()
+        except Exception as err:
+            logger.warning(f'Cannot plot radial profiles', rank=0)
