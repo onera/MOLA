@@ -19,12 +19,12 @@ from typing import Union
 
 import numpy as np
 import scipy.optimize
-from .external_flow import ExternalFlowGenerator 
+from .external_flow_Mach_Pt_Tt import ExternalMPtTtFlowGenerator 
 from ..mesh import tools as mesh_tools
 from mola.logging import mola_logger, MolaException
 
 
-class InternalFlowGenerator(ExternalFlowGenerator):
+class InternalFlowGenerator(ExternalMPtTtFlowGenerator):
 
     name = 'Internal'
 
@@ -89,20 +89,20 @@ class InternalFlowGenerator(ExternalFlowGenerator):
         else:
             raise Exception(f'Either MassFlow or Mach must be provided for the FlowGenerator {self.name}')
 
-        Mach = self.Flow['Mach']
-        Temperature  = self.Flow['TemperatureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)
-        Pressure  = self.Flow['PressureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)**(self.Fluid['Gamma']/(self.Fluid['Gamma']-1))
-        Density = Pressure / (Temperature * self.Fluid['IdealGasConstant'])
-        SoundSpeed  = np.sqrt(self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * Temperature)
-        Velocity  = Mach * SoundSpeed
+        # Mach = self.Flow['Mach']
+        # Temperature  = self.Flow['TemperatureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)
+        # Pressure  = self.Flow['PressureStagnation'] / (1. + 0.5*(self.Fluid['Gamma']-1.) * Mach**2)**(self.Fluid['Gamma']/(self.Fluid['Gamma']-1))
+        # Density = Pressure / (Temperature * self.Fluid['IdealGasConstant'])
+        # SoundSpeed  = np.sqrt(self.Fluid['Gamma'] * self.Fluid['IdealGasConstant'] * Temperature)
+        # Velocity  = Mach * SoundSpeed
 
-        self.Flow.update(dict(
-            Temperature = Temperature,
-            Pressure = Pressure,
-            Density = Density,
-            SoundSpeed = SoundSpeed,
-            Velocity = Velocity,
-        ))
+        # self.Flow.update(dict(
+        #     Temperature = Temperature,
+        #     Pressure = Pressure,
+        #     Density = Density,
+        #     SoundSpeed = SoundSpeed,
+        #     Velocity = Velocity,
+        # ))
 
     @staticmethod
     def MassFlowFromMach(Mx, S, Pt=101325.0, Tt=288.25, r=287.053, gamma=1.4):
