@@ -66,3 +66,5 @@ export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
+
+export MOLA_SOLVER=sonics
