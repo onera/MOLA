@@ -30,7 +30,7 @@ def test_WorkflowManager_prepare(tmp_path):
     test_dir = str(tmp_path)
     w = get_compressor_example('not_used_directory')
     manager = turbomachinery.WorkflowManager(w, root_directory=test_dir,
-                    manager_file_path=str(tmp_path/names.FILE_WORKLFOW_MANAGER))
+                    manager_file_path=str(tmp_path/names.FILE_WORKFLOW_MANAGER))
     manager.add_isospeed_line(throttles=[1e5, 1.1e5, 1.2e5])
     manager.prepare()
 

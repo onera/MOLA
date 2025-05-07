@@ -19,7 +19,7 @@ import pytest
 
 from mola.logging import mola_logger
 from mola.cfd.preprocess.boundary_conditions import solver_sonics
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_sonics import BoundaryConditionsDispatcherSonics
 from .test_boundary_conditions import get_workflow_prepared_to_test_bcs
 
 from mola.workflow.rotating_component import turbomachinery
@@ -30,13 +30,28 @@ pytestmark = pytest.mark.sonics
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_functions_well_defined():
-    BoundaryConditionsNamesInSONICS = set(v['sonics'] for v in BoundaryConditionsNames.values() if 'sonics' in v)
-    for fun_name in BoundaryConditionsNamesInSONICS:
-        assert getattr(solver_sonics, fun_name)
+    bc_dict = BoundaryConditionsDispatcherSonics()
+    for expected_function_name in bc_dict.get_all_specific_names():
+        assert getattr(solver_sonics, expected_function_name)
+
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1
-def test_bc():
+def test_bc_generic():
+    BoundaryConditions=[
+            dict(Family='imin', Type='Farfield'),
+            dict(Family='imax', Type='InflowStagnation'),
+            dict(Family='jmin', Type='InflowMassFlow', MassFlow=1),
+            dict(Family='jmax', Type='OutflowPressure'),
+            dict(Family='kmin', Type='WallViscous'),
+            dict(Family='kmax', Type='WallInviscid'),
+        ]
+    workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
+    workflow.set_boundary_conditions()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_bc_specific():
     BoundaryConditions=[
             dict(Family='imin', Type='BCFarfield'),
             dict(Family='imax', Type='BCInflowSubsonicPressure'),

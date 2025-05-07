@@ -43,22 +43,22 @@ def test_get_bc_families_names_to_extract():
     workflow.set_boundary_conditions()
 
     Extraction = dict(Type='BC', Fields=['Mach'], Source='Ground')
-    fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
+    fam_names = get_bc_families_names_to_extract(workflow, Extraction)
     assert fam_names == ['Ground']
 
-    Extraction = dict(Type='BC', Fields=['Mach'], Source='BCWall*')
-    fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
+    Extraction = dict(Type='BC', Fields=['Mach'], Source='Wall*')
+    fam_names = get_bc_families_names_to_extract(workflow, Extraction)
     assert fam_names == ['Ground']
 
     Extraction = dict(Type='BC', Fields=[], Source='Farfield')
     try:
-        fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
+        fam_names = get_bc_families_names_to_extract(workflow, Extraction)
     except MolaUserError:
         pass
 
     Extraction = dict(Type='BC', Fields=['Mach'], Source='Fake')
     try:
-        fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction)
+        fam_names = get_bc_families_names_to_extract(workflow, Extraction)
     except MolaUserError:
         pass
 

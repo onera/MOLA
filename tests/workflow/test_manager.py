@@ -217,7 +217,7 @@ def test_WorkflowManager_prepare(tmp_path):
 
     test_dir = str(tmp_path)
     w = get_fake_workflow()
-    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager_file_path = str(tmp_path/names.FILE_WORKFLOW_MANAGER)
     manager = WM.WorkflowManager(w, root_directory=test_dir, manager_file_path=manager_file_path)
 
     for model in ['model1', 'model2']:
@@ -246,15 +246,15 @@ def test_WorkflowManager_prepare(tmp_path):
         }
 
     assert files_list == [
-        [names.FILE_WORKLFOW_MANAGER],
+        [names.FILE_WORKFLOW_MANAGER],
         [names.FILE_JOB_SEQUENCE], 
-        [names.FILE_INPUT_WORKLFOW], 
-        [names.FILE_INPUT_WORKLFOW], 
-        [names.FILE_INPUT_WORKLFOW], 
+        [names.FILE_INPUT_WORKFLOW], 
+        [names.FILE_INPUT_WORKFLOW], 
+        [names.FILE_INPUT_WORKFLOW], 
         [names.FILE_JOB_SEQUENCE], 
-        [names.FILE_INPUT_WORKLFOW], 
-        [names.FILE_INPUT_WORKLFOW], 
-        [names.FILE_INPUT_WORKLFOW],
+        [names.FILE_INPUT_WORKFLOW], 
+        [names.FILE_INPUT_WORKFLOW], 
+        [names.FILE_INPUT_WORKFLOW],
         ]
     
     for workflows in manager.dispatcher.table_of_workflows:
@@ -274,7 +274,7 @@ def test_WorkflowManager_prepare_remote_sator(tmp_path):
     test_dir = str(tmp_path)
     w = get_fake_workflow()
     w.RunManagement['Machine'] = 'sator'
-    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager_file_path = str(tmp_path/names.FILE_WORKFLOW_MANAGER)
     manager = WM.WorkflowManager(w, root_directory=test_dir, manager_file_path=manager_file_path)
 
     for model in ['model1', 'model2']:
@@ -313,7 +313,7 @@ def test_WorkflowManager_cart_local(tmp_path):
     w.RawMeshComponents[0]['Source'] = os.path.join('..','..','mesh.cgns') # CAUTION: path is relative to launch case
 
     test_dir = str(tmp_path)
-    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager_file_path = str(tmp_path/names.FILE_WORKFLOW_MANAGER)
     manager = WM.WorkflowManager(w, test_dir, manager_file_path=manager_file_path)
     for BCWall in ['WallViscous',]:
         manager.new_job(BCWall)
@@ -358,7 +358,7 @@ def test_WorkflowManager_write_local(tmp_path):
     w.RawMeshComponents[0]['Source'] = os.path.join('..','..','mesh.cgns') # CAUTION: path is relative to launch case
 
     test_dir = str(tmp_path)
-    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager_file_path = str(tmp_path/names.FILE_WORKFLOW_MANAGER)
     written_manager = WM.WorkflowManager(w, test_dir, manager_file_path=manager_file_path)
     for BCWall in ['WallViscous',]:
         written_manager.new_job(BCWall)
@@ -396,7 +396,7 @@ def test_WorkflowManager_sphere_remote_sator(tmp_path):
     except FileNotFoundError:
         pass
 
-    manager_file_path = str(tmp_path/names.FILE_WORKLFOW_MANAGER)
+    manager_file_path = str(tmp_path/names.FILE_WORKFLOW_MANAGER)
     manager = WM.WorkflowManager(w, test_dir,manager_file_path=manager_file_path)
     for BCWall in ['WallViscous', 'WallInviscid']:
         manager.new_job(BCWall)

@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import datetime
+from pprint import pformat as pretty
 
 from mola.logging import MolaException, GREEN, ENDC
 from . import rank, comm
@@ -82,11 +83,11 @@ def check_convergence_criteria(coprocess_manager):
 
     has_done_enough_iterations = (it - itinit) >= itmin 
     if has_done_enough_iterations and coprocess_manager.status.startswith('RUNNING'):
-        coprocess_manager.mola_logger.warning('check convergence...', rank=0)
         if is_converged(coprocess_manager):
             coprocess_manager.status = 'TO_STOP'
             has_reached_convergence_criteria = True
-    
+        print_quantities_used_for_convergence(coprocess_manager)
+        
     return has_reached_convergence_criteria
 
 
@@ -128,20 +129,27 @@ def is_criterion_flux_lower_than_threshold(criterion, Extractions) -> bool:
 
     Flux = get_data_to_test_criterion(criterion, Extractions)
 
-    if Flux is None:
-        raise MolaException(
-           f"requested convergence variable {criterion['Variable']} not found in {criterion['ExtractionName']}")
-
     criterion['FoundValue'] = Flux[-1]
     criterion_verified = criterion['FoundValue'] < criterion['Threshold']
     criterion['CriterionVerified'] = True if criterion_verified else False
 
     return criterion_verified
 
+def print_quantities_used_for_convergence(coprocess_manager):
+    msg = ''
+    for criterion in coprocess_manager.workflow.ConvergenceCriteria:
+        if 'FoundValue' in criterion:
+            value_str = "%g"%criterion['FoundValue']
+            msg += criterion['Variable'] + '=' + value_str + ' '
+    all_msg = comm.bcast(msg, root=0)
+    single_line = ''.join(all_msg)
+    coprocess_manager.mola_logger.info(single_line, rank=0)
+
 
 def get_data_to_test_criterion(criterion, Extractions):
     for extraction in Extractions:
-        if extraction['Type'] in ['Integral', 'Probe'] \
+            
+        if extraction['Type'] in ['Integral', 'Probe', 'Residuals'] \
             and extraction['Name'] == criterion['ExtractionName']:
 
             if 'Data' not in extraction:
@@ -151,7 +159,16 @@ def get_data_to_test_criterion(criterion, Extractions):
                 return extraction['Data'].get(Name=criterion['Variable']).value()
             except:
                 extraction['Data'].save('debug.cgns')
-                raise MolaException(f'Cannot evaluate convergence for criterion {criterion}, because the variable is not found in extracted data.')
+                extraction_no_data = dict((k, v) for k, v in extraction.items() if k != "Data")
+                var_name = criterion['Variable']
+                msg = (f'Cannot evaluate convergence for criterion {criterion} '
+                       f'because the variable "{var_name}" is not found in '
+                       f'extraction {pretty(extraction_no_data)})')
+                raise MolaException(msg)
+
+
+    raise MolaException((f"requested convergence variable {criterion['Variable']}"
+                         f" not found in {criterion['ExtractionName']}"))
 
 
 def get_convergence_message(ConvergenceCriteria, iteration) -> str:

@@ -17,31 +17,30 @@
 
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher import BoundaryConditionsDispatcher
 
-class BoundaryConditionsDispatcherElsa(BoundaryConditionsDispatcher):
+class BoundaryConditionsDispatcherSonics(BoundaryConditionsDispatcher):
 
     def __init__(self):
         super().__init__()
 
-        # TODO add injrot, wallisoth and Giles conditions
         self._mapping = {
-            "Farfield" : "nref",
-            "InflowStagnation" : "inj1",
-            "InflowMassFlow" : "injmfr1",
-            "OutflowPressure" : "outpres",
-            "OutflowSupersonic" : "outsup",
-            "OutflowMassFlow" : "outmfr2",
-            "OutflowRadialEquilibrium" : "outradeqhyb",
-            "Wall": "walladia",
-            "WallViscous" : "walladia",
-            "WallViscousIsothermal" : None, # not implemented
-            "WallInviscid" : "wallslip",
-            "SymmetryPlane" : "sym",
-            "MixingPlane" : "stage_mxpl_hyb",
-            "UnsteadyRotorStatorInterface" : "stage_red_hyb",
-            "ChorochronicInterface" : "chorochronic"
+            "Farfield" : "BCFarfield",
+            "InflowStagnation" : "BCInflowSubsonicPressure",
+            "InflowMassFlow" : "BCInflowSubsonicMassFlow",
+            "OutflowPressure" : "BCOutflowSubsonic",
+            "OutflowSupersonic" : None,
+            "OutflowMassFlow" : None,
+            "OutflowRadialEquilibrium" : "BCOutflowRadialEquilibrium",
+            "Wall": "BCWallViscous",
+            "WallViscous" : "BCWallViscous",
+            "WallViscousIsothermal" : "BCWallViscousIsothermal",
+            "WallInviscid" : "BCWallInviscid",
+            "SymmetryPlane" : "BCSymmetryPlane",
+            "MixingPlane" : "GCMixingPlane",
+            "UnsteadyRotorStatorInterface" : None,
+            "ChorochronicInterface" : None
         }
 
-        self._without_generic_name = ['stage_mxpl', 'stage_red', 'outradeq']
+        self._without_generic_name = []
 
         self._remove_unsupported_bcs_from_mapping()
 

@@ -120,7 +120,7 @@ def add_fields_and_bc_extractions(workflow):
                     raise MolaUserError('Cannot extract a BC at "CellCenter" because SoNICS will run at Vertex')
                 bc_location = treg.dual_facet
 
-            families = get_bc_families_names_to_extract(workflow.tree, extraction, familiesBC)
+            families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
             fields = translate_extraction_variables_to_sonics(extraction['Fields'], solver)
             for family in families:                
                 for field in fields:
@@ -144,7 +144,7 @@ def add_integral_extractions(workflow):
             if extraction['Type'] != 'Integral':
                 continue
 
-            families = get_bc_families_names_to_extract(workflow.tree, extraction, familiesBC)
+            families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
             fields = translate_extraction_variables_to_sonics(extraction['Fields'], solver)
             for family in families:
                 for field in fields:

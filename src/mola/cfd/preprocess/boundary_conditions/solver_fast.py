@@ -19,6 +19,7 @@ import numpy as np
 from treelab import cgns
 from mola.cfd.preprocess.motion.motion import is_mobile
 
+
 def BCWall(workflow, Family, Motion=None):
     '''
     Set a wall boundary condition.

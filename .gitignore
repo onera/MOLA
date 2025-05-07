@@ -19,6 +19,7 @@ __pycache__
 *elsA_MPI_Pid*
 dist
 EXAMPLES*
+example_*
 doc/html
 doc/theme
 !doc/src/**/*.png

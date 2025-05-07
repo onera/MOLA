@@ -28,6 +28,7 @@ AVAILABLE_SIGNALS = [
     'QUIT',
 ]
 
+# TODO rename this "signal" by "command"
 def check_and_execute_user_signal(coprocess_manager):
     for signal_pattern in AVAILABLE_SIGNALS:
         signal_received = get_user_signal(coprocess_manager, signal_pattern)

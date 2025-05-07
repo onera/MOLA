@@ -23,9 +23,9 @@ class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
     def __init__(self, workflow, tree=None, **kwargs):
         super().__init__(workflow, tree, **kwargs)
         if tree is None:
-            self.add_to_Extractions_BC(Source='BCWallViscous', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
-            self.add_to_Extractions_Integral(Source='BCIn*', Fields=['MassFlow'])
-            self.add_to_Extractions_Integral(Source='BCOut*', Fields=['MassFlow'])
+            self.add_to_Extractions_BC(Source='WallViscous', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
+            self.add_to_Extractions_Integral(Source='Inflow*', Fields=['MassFlow'])
+            self.add_to_Extractions_Integral(Source='Outflow*', Fields=['MassFlow'])
 
     def add_to_RawMeshComponents(self,
         Mesher        : str  = 'Autogrid',

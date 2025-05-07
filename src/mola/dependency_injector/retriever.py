@@ -59,7 +59,10 @@ def load_source(ModuleName, filename, safe=True):
         spec = importlib.util.spec_from_file_location(ModuleName, filename)
         LoadedModule = importlib.util.module_from_spec(spec)
         sys.modules[ModuleName] = LoadedModule
-        spec.loader.exec_module(LoadedModule)
+        try:
+            spec.loader.exec_module(LoadedModule)
+        except ImportError as e:
+            raise ImportError(f"failed sourcing {filename}") from e
     else:
         raise ValueError("Not supporting Python version "+sys.version)
     return LoadedModule
