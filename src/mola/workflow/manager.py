@@ -602,6 +602,8 @@ for case in $SEQUENCE_OF_PATHS; do
     if [ -f "{names.FILE_ERROR_PREPARING_WORKFLOW}" ] || [ -f "{names.FILE_JOB_FAILED}" ]; then
         echo "this run has failed, end job."
         exit 0
+    elif [ ! -f "{names.FILE_INPUT_SOLVER}" ]; then
+        mola_prepare {names.FILE_INPUT_WORKLFOW}
     fi
 
     NUMBER_OF_ATTEMPTS=0
@@ -609,7 +611,6 @@ for case in $SEQUENCE_OF_PATHS; do
     while [ "$NUMBER_OF_ATTEMPTS" -lt "$MAX_NUMBER_OF_ATTEMPTS" ]; do
 
         NUMBER_OF_ATTEMPTS=$((NUMBER_OF_ATTEMPTS+1))
-        mola_prepare {names.FILE_INPUT_WORKFLOW}
 
         echo "compute case $case at $SECONDS s"
         ./{names.FILE_JOB}

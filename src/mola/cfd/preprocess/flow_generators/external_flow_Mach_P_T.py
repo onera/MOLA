@@ -18,9 +18,8 @@
 from typing import Union
 
 import numpy as np
-from mola import math_tools
 from .external_flow import ExternalFlowGenerator 
-from mola.logging import mola_logger, MolaException, MolaUserAttributeError, MolaUserError
+from mola.logging import MolaUserAttributeError, MolaUserError
 
 class ExternalMPTFlowGenerator(ExternalFlowGenerator):
 

@@ -31,7 +31,7 @@ def get_workflow_annular_sector_parameters(RunDirectory):
         RawMeshComponents=[
         dict(
             Name='annularSector',
-            Source='/stck/mola/data/mesh/annular_sector_45deg/annular_sector_45deg.cgns',
+            Source='/stck/mola/data/open/mesh/annular_sector_45deg/annular_sector_45deg.cgns',
             Connection = [
                     dict(Type='PeriodicMatch', 
                          RotationAngle=np.array([45., 0., 0.]), 

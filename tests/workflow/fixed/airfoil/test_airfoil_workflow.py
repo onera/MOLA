@@ -27,7 +27,7 @@ def get_workflow_micro_naca(tmp_path):
 
         RawMeshComponents=[
             dict( Name='AIRFOIL',
-                  Source='/stck/mola/data/mesh/micro_naca0012/mesh.cgns')
+                  Source='/stck/mola/data/open/mesh/micro_naca0012/mesh.cgns')
         ],
 
         Solver=os.environ.get('MOLA_SOLVER'),

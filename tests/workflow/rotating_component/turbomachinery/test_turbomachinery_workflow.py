@@ -28,7 +28,7 @@ def get_compressor_example_parameters(RunDirectory):
         RawMeshComponents=[
         dict(
             Name='CompressorStage',
-            Source='/stck/mola/data/mesh/compressor_example/compressor_example.cgns',
+            Source='/stck/mola/data/open/mesh/compressor_example/compressor_example.cgns',
             )
     ],
 
@@ -86,7 +86,7 @@ def get_compressor_example_rotor_only_parameters(RunDirectory):
         RawMeshComponents=[
         dict(
             Name='Base',
-            Source='/stck/mola/data/mesh/compressor_example/compressor_example_rotor_only.cgns',
+            Source='/stck/mola/data/open/mesh/compressor_example/compressor_example_rotor_only.cgns',
             )
     ],
 
@@ -182,7 +182,7 @@ def get_workflow_rotor37(RunDirectory):
         RawMeshComponents=[
             dict(
                 Name='rotor37',
-                Source = '/stck/mola/data/mesh/rotor37/rotor37.cgns',
+                Source = '/stck/mola/data/open/mesh/rotor37/rotor37.cgns',
                 Unit = 'cm',
                 ) 
         ],
@@ -247,7 +247,7 @@ def get_workflow_srv2(RunDirectory):
         RawMeshComponents=[
             dict(
                 Name='SRV2',
-                Source = '/stck/mola/data/mesh/SRV2/SRV2.cgns',
+                Source = '/stck/mola/data/open/mesh/SRV2/SRV2.cgns',
                 ) 
         ],
 

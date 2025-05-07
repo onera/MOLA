@@ -9,7 +9,7 @@ w = WorkflowAirplane(
     RawMeshComponents=[
         dict(
             Name='Wing',
-            Source='/stck/mola/data/mesh/isolated_wing/raw_mesh.cgns',
+            Source='/stck/mola/data/open/mesh/isolated_wing/raw_mesh.cgns',
             Families=[
                 dict(Name='WING',     Location='kmin'),
                 dict(Name='FARFIELD', Location='kmax'),

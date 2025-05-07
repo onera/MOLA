@@ -18,9 +18,8 @@
 from typing import Union
 
 import numpy as np
-from treelab import cgns
 from mola import math_tools
-from mola.logging import mola_logger, MolaException, MolaUserAttributeError, MolaUserError
+from mola.logging import MolaUserAttributeError, MolaUserError
 
 K_OMEGA_TWO_EQN_MODELS = ['Wilcox2006-klim', 'Wilcox2006-klim-V',
             'Wilcox2006', 'Wilcox2006-V', 'SST-2003', 
