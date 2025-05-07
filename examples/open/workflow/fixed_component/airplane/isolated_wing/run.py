@@ -1,15 +1,14 @@
 from mola.workflow.fixed.airplane.workflow import WorkflowAirplane
+from mola import solver
 
 # WorkflowAirplane().print_interface();exit()
 
 w = WorkflowAirplane(
 
-    Solver='elsa',
-
     RawMeshComponents=[
         dict(
             Name='Wing',
-            Source='/stck/mola/data/mesh/isolated_wing/raw_mesh.cgns',
+            Source='/stck/mola/data/open/mesh/isolated_wing/raw_mesh.cgns',
             Families=[
                 dict(Name='WING',     Location='kmin'),
                 dict(Name='FARFIELD', Location='kmax'),
@@ -39,7 +38,8 @@ w = WorkflowAirplane(
     ),
 
     Numerics = dict(
-        NumberOfIterations=10,
+        NumberOfIterations=10000,
+        MinimumNumberOfIterations=2,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
     ),
@@ -50,20 +50,26 @@ w = WorkflowAirplane(
         dict(Family='SYMMETRY', Type='SymmetryPlane'),
     ],
 
-    SplittingAndDistribution = dict (
-        Strategy = 'AtComputation',
-        Splitter = 'PyPart',
-        Distributor = 'PyPart',
-    ),
+    ConvergenceCriteria = [
+        dict(
+            ExtractionName = 'WING',
+            Variable = "std-CL",
+            Threshold = 1e-3,
+        ),
+        dict(
+            ExtractionName = 'WING',
+            Variable = "CL",
+            Threshold = -1e9, # HINT just for showing variable in coprocess.log
+        )
+    ],
 
     RunManagement = dict(
-        NumberOfProcessors = 1,
-        RunDirectory = 'example_local_run',
+        NumberOfProcessors = 8,
+        RunDirectory = f'example_{solver}',
         Scheduler = 'local',
     ),
 )
-
 w.prepare()
 w.write_cfd_files()
-w.submit(f'cd {w.RunManagement["RunDirectory"]}; bash job.sh')
+w.submit()
 w.assert_completed_without_errors()

@@ -16,6 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from abc import ABC, abstractmethod
+from fnmatch import fnmatch
 
 class BoundaryConditionsDispatcher(ABC):
 
@@ -50,3 +51,15 @@ class BoundaryConditionsDispatcher(ABC):
     
     def get_all_supported_names(self) -> list:
         return self.get_all_generic_names() + self.get_all_specific_names()
+
+    def is_type_matching_shell_pattern(self, type_with_pattern : str) -> bool:
+        for name in self.get_all_supported_names():
+            if fnmatch(name, type_with_pattern):
+                return True
+        return False
+    
+    def specific_to_generic(self, specific_name : str) -> str:
+        translator = dict( (v,k) for k,v in self._mapping.items() )
+        if specific_name in translator:
+            return translator[specific_name]
+        return 'NoGenericName'

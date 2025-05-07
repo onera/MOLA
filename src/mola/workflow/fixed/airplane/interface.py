@@ -30,8 +30,11 @@ class WorkflowAirplaneInterface(WorkflowInterface):
                 Source='BCWall*',
                 Fields=['Force', 'Torque'],
                 PostprocessOperations=[
-                    dict(Type="compute_aerodynamic_coefficients",
-                        AtEndOfRunOnly=False),
+                    dict(Type="compute_aerodynamic_coefficients", AtEndOfRunOnly=False),
+                    dict(Type='avg', Variable='CL'),
+                    dict(Type='std', Variable='CL'),
+                    dict(Type='avg', Variable='CD'),
+                    dict(Type='std', Variable='CD'),
                 ]
             )
             self.add_to_Extractions_Residuals(Type='Residuals')
@@ -45,3 +48,11 @@ class WorkflowAirplaneInterface(WorkflowInterface):
         Surface : float = 1.0):
 
         self.ApplicationContext = self._get_comp(self.set_ApplicationContext, self.get_default_values_from_local_signature())
+
+    def set_SplittingAndDistribution(self,
+            Strategy    : str = 'AtComputation',
+            Splitter    : str = 'PyPart',
+            Distributor : str = 'PyPart',
+            **kwargs):
+
+        super().set_SplittingAndDistribution(**kwargs)

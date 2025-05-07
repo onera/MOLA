@@ -59,7 +59,7 @@ def split_bc_and_integral_extractions_by_family(workflow):
                 # when workflow.cgns is read directly, in the context of WorkflowManager
                 Extraction['Fields'] = [Extraction['Fields']]
             
-            fam_names = get_bc_families_names_to_extract(workflow.tree, Extraction, familiesBC)
+            fam_names = get_bc_families_names_to_extract(workflow, Extraction, familiesBC)
 
             if not fam_names:
                 errmsg = "did not have any family associated to Extraction:\n"
@@ -111,18 +111,9 @@ def replace_shortcuts(workflow):
                 extraction['Fields'].remove(shortcut)
                 extraction['Fields'].extend(variables)
 
-def get_familiesBC_nodes(tree):
 
-    families = tree.group(Type='Family', Depth=2)
-    familiesBC = []
-    for family in families:
-        familyBC = family.get(Type='FamilyBC', Depth=1)
-        if familyBC:
-            familiesBC += [ familyBC ]
-
-    return familiesBC
-
-def get_bc_families_to_extract(tree, Extraction, familiesBC=None):
+def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
+    tree = workflow.tree
     bc_families_to_extract = []
     if familiesBC is None:
         familiesBC = get_familiesBC_nodes(tree)
@@ -137,9 +128,13 @@ def get_bc_families_to_extract(tree, Extraction, familiesBC=None):
         family_name = family.name()
         registered_family_names += [ family_name ]
         bc_type = familyBC.value()
-        registered_bc_types += [ bc_type ]
-        
-        family_match_requirement = fnmatch(family_name, requested_source) or fnmatch(bc_type, requested_source) 
+        bc_dispatcher = workflow.get_bc_dispatcher()
+        bc_type_generic = bc_dispatcher.specific_to_generic(bc_type)
+        registered_bc_types += [ bc_type, bc_type_generic ]
+
+        family_match_requirement = fnmatch(family_name, requested_source) or \
+                                   fnmatch(bc_type_generic, requested_source) or \
+                                   fnmatch(bc_type, requested_source)
 
         if family_match_requirement and 'Fields' in Extraction and len(Extraction['Fields']) > 0:
             family_node_matched = family
@@ -162,8 +157,20 @@ def get_bc_families_to_extract(tree, Extraction, familiesBC=None):
 
     return bc_families_to_extract
 
-def get_bc_families_names_to_extract(tree, Extraction, familiesBC=None):
-    bc_families_to_extract = get_bc_families_to_extract(tree, Extraction, familiesBC=familiesBC)
+def get_familiesBC_nodes(tree):
+
+    families = tree.group(Type='Family', Depth=2)
+    familiesBC = []
+    for family in families:
+        familyBC = family.get(Type='FamilyBC', Depth=1)
+        if familyBC:
+            familiesBC += [ familyBC ]
+
+    return familiesBC
+
+
+def get_bc_families_names_to_extract(workflow, Extraction, familiesBC=None):
+    bc_families_to_extract = get_bc_families_to_extract(workflow, Extraction, familiesBC=familiesBC)
     fam_names = [fam.name() for fam in bc_families_to_extract]
     return fam_names
 
@@ -176,7 +183,10 @@ def update_extractions_from_convergence_criteria(workflow):
         
         extraction_ok = False
         for Extraction in workflow.Extractions:
-            if Extraction['Type'] not in ['BC', 'Integral']: 
+            if Extraction['Type'] not in [
+                # 'Residuals', # FIXME do not have Source, so find out another way to detect it
+                # 'Probe', # TODO
+                'Integral']: 
                 continue
 
             if criterion['ExtractionName'] == Extraction['Source']:
@@ -233,6 +243,6 @@ def _split_operations_on_variable(var: str, prefixes=None) -> tuple:
             prefixes, var = _split_operations_on_variable(var, prefixes)
 
     # Remove final '-' if prefixes is not empty
-    if prefixes[-1] == '-':
+    if prefixes and prefixes[-1] == '-':
         prefixes = prefixes[:-1]
     return prefixes, var

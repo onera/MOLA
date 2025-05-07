@@ -37,6 +37,7 @@ def get_name_used_by_solver(bc_type : str):
     bc_dict = BoundaryConditionsDispatcherElsa()
     return bc_dict.get_name_used_by_solver(bc_type)
 
+
 def define_bc_family(workflow, Family, Value):
     familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
     familyNode.findAndRemoveNode(Name='.Solver#BC', Depth=1)

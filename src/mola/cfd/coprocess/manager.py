@@ -18,6 +18,7 @@
 import os
 import timeit
 import copy
+from pprint import pformat as pretty
 
 from treelab import cgns
 from mola.logging import (MolaException, MolaAssertionError, MolaUserError,
@@ -136,7 +137,8 @@ class CoprocessManager():
         if any([extraction['IsToSave'] for extraction in self.Extractions]):
             self.mola_logger.debug(f'Saving data...', rank=0)
             self.save_data()
-    
+
+
     def initialize_extraction_data_from_last_run(self):
 
         # dictonary that indicates Base name for each extraction Type
@@ -319,6 +321,9 @@ class CoprocessManager():
                     continue
 
                 if operation['Type'] in AVAILABLE_OPERATIONS_ON_SIGNALS:
+                    if 'Data' not in extraction:
+                        raise KeyError(f"no Data in extraction:\n{extraction}")
+
                     # ex: PostprocessOperations = [dict(Type='avg', Variable='MassFlow')]
                     self.mola_logger.debug(f"  compute {operation['Type']}-{operation['Variable']} on {extraction['Name']}", rank=0)
                     apply_operations_on_signal(extraction['Data'], operation['Variable'], 

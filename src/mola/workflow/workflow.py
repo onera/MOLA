@@ -54,6 +54,7 @@ class Workflow(object):
 
     def __init__(self, **kwargs):
         self._interface = WorkflowInterface(self, **kwargs)
+        self._bc_dispatcher = None
         
     def prepare(self):
         self.prepare_job()
@@ -389,6 +390,10 @@ class Workflow(object):
         if msg_to_raise:
             raise MolaException(msg_to_raise)
 
+    def get_bc_dispatcher(self):
+        if not self._bc_dispatcher:
+            boundary_conditions._instantiate_bc_dispatcher(self)
+        return self._bc_dispatcher
 
 
     def print_interface(self, keep=None, maxlevel : int = 1000):

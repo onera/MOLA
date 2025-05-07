@@ -65,22 +65,6 @@ def apply(workflow, selected_boundaries_conditions=None):
 
     add_missing_PointRange_in_BCDataSet(workflow)
 
-def _call_solver_specific_bc_preparation_function(workflow, bc_type, **kwargs):
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    solverModule = load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
-
-    solverSpecificFunctionName = solverModule.get_name_used_by_solver(bc_type)
-    
-    try:
-        solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
-    except AttributeError:
-        raise MolaException(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
-    else:
-        solverSpecificFunction(workflow, **kwargs)
-
-def _check_family_exists(tree, family_name):
-    if not tree.get(Name=family_name, Type='Family', Depth=2):
-        raise MolaException(f'Cannot apply a boundary condition on family {family_name}: This family does not exist in the mesh.')
 
 def _adapt_bc_to_euler(workflow):
     if workflow.Turbulence['Model'] == 'Euler':
@@ -94,6 +78,25 @@ def _adapt_bc_to_euler(workflow):
             
             elif bc['Type'] == ['Wall']:
                 bc['Type'] = 'WallInviscid'
+
+
+def _call_solver_specific_bc_preparation_function(workflow, bc_type, **kwargs):
+    current_path = os.path.dirname(os.path.realpath(__file__))
+    solverModule = load_source('solverModule', os.path.join(current_path, f'solver_{workflow.Solver}.py'))
+
+    bc_dispatcher = workflow.get_bc_dispatcher()
+    solverSpecificFunctionName = bc_dispatcher.get_name_used_by_solver(bc_type)
+    
+    try:
+        solverSpecificFunction = getattr(solverModule, solverSpecificFunctionName)
+    except AttributeError:
+        raise MolaException(f'The function {solverSpecificFunctionName} does not exist for the solver {workflow.Solver}.')
+    else:
+        solverSpecificFunction(workflow, **kwargs)
+
+def _check_family_exists(tree, family_name):
+    if not tree.get(Name=family_name, Type='Family', Depth=2):
+        raise MolaException(f'Cannot apply a boundary condition on family {family_name}: This family does not exist in the mesh.')
 
 def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
     '''
@@ -292,3 +295,12 @@ def add_missing_PointRange_in_BCDataSet(workflow):
         # here to add PointRange nodes and not to check if they are present
         add_missing_pr_in_bcdataset(workflow.tree)
     workflow.tree = cgns.castNode(workflow.tree)
+
+
+def _instantiate_bc_dispatcher(workflow):
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(current_path, f'boundary_conditions_dispatcher_{workflow.Solver}.py')
+    solverModule = load_source('solverModule', file_path)
+    dispatcher = getattr(solverModule, 
+                            f"BoundaryConditionsDispatcher{workflow.Solver.capitalize()}")
+    workflow._bc_dispatcher = dispatcher()

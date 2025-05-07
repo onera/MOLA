@@ -122,7 +122,7 @@ def get_elsa_output_tree(skeleton):
     # force_FamilyBC_as_FamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
     t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
     # HACK Pypart puts WorkflowParameters under the base... need to remove it
-    t.findAndRemoveNodes(Name=names.CONTAINER_WORKLFOW_PARAMETERS, Type='UserDefinedData', Depth=2) 
+    t.findAndRemoveNodes(Name=names.CONTAINER_WORKFLOW_PARAMETERS, Type='UserDefinedData', Depth=2) 
     return t
 
 def update_restart_fields(workflow, output_tree):

@@ -19,7 +19,7 @@ import pytest
 
 from mola.cfd.preprocess.boundary_conditions import solver_elsa
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_elsa import BoundaryConditionsDispatcherElsa
-from .test_boundary_conditions import get_workflow_prepared_to_test_bcs
+from test_boundary_conditions import get_workflow_prepared_to_test_bcs
 
 from mola.workflow.rotating_component import turbomachinery
 from ....workflow.rotating_component.turbomachinery.test_turbomachinery_workflow import get_compressor_example_parameters
@@ -89,3 +89,6 @@ def test_RotorStatorInterface(tmp_path, interface_type):
     workflow.set_motion()
 
     workflow.set_boundary_conditions()
+
+if __name__ == "__main__":
+    test_bc_generic()

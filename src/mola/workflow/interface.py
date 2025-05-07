@@ -35,13 +35,14 @@ from mola.logging import (mola_logger,
                        get_signature)
 from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
 import mola.naming_conventions as names
+from mola import solver
 
 
 class WorkflowInterface(object):
 
     def __init__(self, workflow,
             tree=None,
-            Solver : str = os.environ.get('MOLA_SOLVER'),
+            Solver : str = None,
             RawMeshComponents : list = None,
             Fluid : dict = None,
             Flow : dict = None,
@@ -61,7 +62,9 @@ class WorkflowInterface(object):
             ):
             
         attributes = self.get_default_values_from_local_signature()
+        attributes["Solver"] = solver # special case (not list nor dict)
         self.workflow = workflow
+        
     
         # Link attributes of WorkflowInterface to them of Workflow.
         # Hence, a modification of the attribute in WorkflowInterface
@@ -72,7 +75,7 @@ class WorkflowInterface(object):
                 continue
             self._create_property(attr_name)
 
-        self._workflow_parameters_container_ = names.CONTAINER_WORKLFOW_PARAMETERS
+        self._workflow_parameters_container_ = names.CONTAINER_WORKFLOW_PARAMETERS
         self.Name = self.workflow.__class__.__name__
         self.tree = tree
 
@@ -119,7 +122,7 @@ class WorkflowInterface(object):
     def set_attributes(self, attributes, skip_attributes=['self','tree','workflow']):
 
         expected_attribute_types = self.get_argument_types(WorkflowInterface.__init__)
-        
+
         for attribute_name, user_input in attributes.items():
             if attribute_name in skip_attributes: continue
         
@@ -128,7 +131,8 @@ class WorkflowInterface(object):
             except KeyError:
                 raise MolaException(f'attribute_name={attribute_name} not implemented from {self.Name} (expected {list(expected_attribute_types)})')
 
-            if user_input is None: user_input = expected_type()
+            if user_input is None:
+                user_input = expected_type()
             
             if not isinstance(user_input, expected_type):
                 raise MolaUserError(f'attribute {attribute_name} must be of type {expected_type}')
@@ -153,7 +157,7 @@ class WorkflowInterface(object):
                 f'match the type of environment "{env_solver}"'
                 )
 
-    def set_Solver(self, solver_name : str):
+    def set_Solver(self, solver_name : str = solver):
         self.Solver = solver_name.lower()
         
 
