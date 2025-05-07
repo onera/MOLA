@@ -46,7 +46,7 @@ def test_get_bc_families_names_to_extract():
     fam_names = get_bc_families_names_to_extract(workflow, Extraction)
     assert fam_names == ['Ground']
 
-    Extraction = dict(Type='BC', Fields=['Mach'], Source='BCWall*')
+    Extraction = dict(Type='BC', Fields=['Mach'], Source='Wall*')
     fam_names = get_bc_families_names_to_extract(workflow, Extraction)
     assert fam_names == ['Ground']
 

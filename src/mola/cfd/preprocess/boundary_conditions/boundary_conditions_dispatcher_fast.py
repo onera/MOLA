@@ -26,7 +26,7 @@ class BoundaryConditionsDispatcherFast(BoundaryConditionsDispatcher):
             "Farfield" : "BCFarfield",
             "InflowStagnation" : "BCInj1",
             "InflowMassFlow" : None,
-            "OutflowPressure" : "BCOutpres",
+            "OutflowPressure" : "BCOutpress",
             "OutflowSupersonic" : None,
             "OutflowMassFlow" : None,
             "OutflowRadialEquilibrium" : None,

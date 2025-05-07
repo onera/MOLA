@@ -145,7 +145,7 @@ def Inj1_interface(workflow, **kwargs):
 
     return ImposedVariables
 
-def BCOutpres(workflow, Family, Pressure=None):
+def BCOutpress(workflow, Family, Pressure=None):
     '''
     Set an Outpres boundary condition.
 
@@ -163,7 +163,7 @@ def BCOutpres(workflow, Family, Pressure=None):
         
     family = workflow.tree.get(Name=Family, Type='Family', Depth=2)
     family.findAndRemoveNodes(Type='FamilyBC', Depth=1)
-    cgns.Node(Name='FamilyBC', Value='BCOutpres', Type='FamilyBC', Parent=family)
+    cgns.Node(Name='FamilyBC', Value='BCOutpress', Type='FamilyBC', Parent=family)
     # BC data cannot be set in Family, they must be in BC nodes, 
     # even if data are scalar
     set_bc_with_imposed_variables(workflow.tree, Family, dict(Pressure=Pressure))
