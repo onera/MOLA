@@ -59,7 +59,7 @@ w = WorkflowAirplane(
         dict(
             ExtractionName = 'WING',
             Variable = "CL",
-            Threshold = -1e9, # HINT just for showing variable in coprocess.log
+            Threshold = -1e9, # HINT just for showing Variable progress in coprocess.log
         )
     ],
 

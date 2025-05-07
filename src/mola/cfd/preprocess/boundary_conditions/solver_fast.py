@@ -19,12 +19,6 @@ import numpy as np
 from treelab import cgns
 from mola.cfd.preprocess.motion.motion import is_mobile
 
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_fast import BoundaryConditionsDispatcherFast
-
-def get_name_used_by_solver(bc_type : str):
-    bc_dict = BoundaryConditionsDispatcherFast()
-    return bc_dict.get_name_used_by_solver(bc_type)
-
 
 def BCWall(workflow, Family, Motion=None):
     '''

@@ -586,6 +586,7 @@ class WorkflowInterface(object):
         return {}
     
     def add_to_Extractions_Residuals(self,
+            Name : str = "Residuals",
             File : str = names.FILE_OUTPUT_1D,
             ExtractionPeriod : int = 1,
             SavePeriod : int = 100,

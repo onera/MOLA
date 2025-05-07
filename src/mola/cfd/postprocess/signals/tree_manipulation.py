@@ -28,7 +28,7 @@ def apply_operations_on_signal(node: cgns.Node, var_name: str, window_size_inter
     except:
         return 
     window_size = len(IterationNumber[IterationNumber>(IterationNumber[-1]-window_size_interations)])
-    # if window_size < 2: return
+    if window_size < 2: return
 
     operation_tree = _build_operation_tree(var_name, operations)
     _walk_on_operation_tree(operation_tree, node, window_size)

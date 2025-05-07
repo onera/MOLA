@@ -148,6 +148,7 @@ def print_quantities_used_for_convergence(coprocess_manager):
 
 def get_data_to_test_criterion(criterion, Extractions):
     for extraction in Extractions:
+            
         if extraction['Type'] in ['Integral', 'Probe', 'Residuals'] \
             and extraction['Name'] == criterion['ExtractionName']:
 

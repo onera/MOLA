@@ -23,13 +23,8 @@ from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
 
 
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_sonics import BoundaryConditionsDispatcherSonics
-
-bc_names = BoundaryConditionsDispatcherSonics()
-BoundaryConditionsNamesInSONICS = bc_names.get_all_specific_names()
-
-def get_name_used_by_solver(bc_type : str):
-    bc_dict = BoundaryConditionsDispatcherSonics()
-    return bc_dict.get_name_used_by_solver(bc_type)
+bc_dispatcher = BoundaryConditionsDispatcherSonics()
+BoundaryConditionsNamesInSONICS = bc_dispatcher.get_all_specific_names()
 
 
 # For each boundary condition, this generic function does the job

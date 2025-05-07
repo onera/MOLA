@@ -603,7 +603,7 @@ for case in $SEQUENCE_OF_PATHS; do
         echo "this run has failed, end job."
         exit 0
     elif [ ! -f "{names.FILE_INPUT_SOLVER}" ]; then
-        mola_prepare {names.FILE_INPUT_WORKLFOW}
+        mola_prepare {names.FILE_INPUT_WORKFLOW}
     fi
 
     NUMBER_OF_ATTEMPTS=0
