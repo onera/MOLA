@@ -40,9 +40,9 @@ export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
-# maia
-module use --append /home/sonics/LD8/modules/
-module load maia/$MAIAVERSION-dsi-ompi405
+# # maia
+# module use --append /home/sonics/LD8/modules/
+# module load maia/$MAIAVERSION-dsi-ompi405
 
 # turbo 
 export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH

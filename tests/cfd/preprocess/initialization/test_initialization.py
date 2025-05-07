@@ -24,15 +24,36 @@ from mola.cfd.preprocess.initialization import initialization
 import mola.naming_conventions as names
 from mola.logging import MolaException
 
-def get_debug_mesh():
+@pytest.fixture
+def debug_mesh(FlowSolution_ref):
     tree = cgns.Tree()
     base = cgns.Base(Name='cart', Parent=tree)
-    x, y, z = np.meshgrid( np.linspace(0,1,3),
-                           np.linspace(0,1,2),
-                           np.linspace(0,1,2), indexing='ij')
+    # There must be at least 4 cells in mesh to be able to apply interpolation with maia with n_closest_pt=4
+    shape = FlowSolution_ref.get(Name='Density').value().shape
+    x, y, z = np.meshgrid( np.linspace(0,1,shape[0]+1),
+                           np.linspace(0,1,shape[1]+1),
+                           np.linspace(0,1,shape[2]+1), indexing='ij')
     zone = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+    zone.addChild(FlowSolution_ref.copy(deep=True)) 
     base.addChild(zone)
+    
     return tree
+
+@pytest.fixture
+def FlowSolution_ref():
+    shape = (2,2,2)
+    ref_fs = cgns.Node(Name='FlowSolution#Init', Type='FlowSolution_t')
+    cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
+    cgns.Node(Name='Density', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumX', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumY', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='MomentumZ', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='EnergyStagnationDensity', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='TurbulentEnergyKineticDensity', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
+    cgns.Node(Name='TurbulentDissipationRateDensity', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
+    
+    return ref_fs   
+
 
 def apply_all_previous_stages(workflow):
     workflow.assemble()
@@ -46,10 +67,9 @@ def apply_all_previous_stages(workflow):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_copy_not_existing_file():
-    mesh = get_debug_mesh()
+def test_initialization_copy_not_existing_file(debug_mesh):
     workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
+        RawMeshComponents = [dict(Name='cart', Source=debug_mesh)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SA'),
@@ -66,30 +86,22 @@ def test_initialization_copy_not_existing_file():
         raise AssertionError('Should raise an exception when the source file for initialization does not exist.')
     
 @pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_compute_wall_distance_with_maia():
-    tree = get_debug_mesh()
-
-    tree.useEquation("{field1}=1.0", Container=names.CONTAINER_INITIAL_FIELDS)
-    tree.useEquation("{field2}=2.0", Container=names.CONTAINER_INITIAL_FIELDS)
-    tree = initialization.compute_wall_distance_with_maia(tree)
+@pytest.mark.cost_level_1
+def test_compute_wall_distance_with_maia(debug_mesh):
+    tree = initialization.compute_wall_distance_with_maia(debug_mesh)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_force_grid_location_as_first_sibling():
-    tree = get_debug_mesh()
-
-    tree.useEquation("{field1}=1.0", Container=names.CONTAINER_INITIAL_FIELDS)
-    tree.useEquation("{field2}=2.0", Container=names.CONTAINER_INITIAL_FIELDS)
+def test_force_grid_location_as_first_sibling(debug_mesh):
     
-    GridLocation = tree.get('GridLocation')
+    GridLocation = debug_mesh.get('GridLocation')
     FlowSolution = GridLocation.parent()
     GridLocation.dettach()
     GridLocation.attachTo(FlowSolution, position='last')
 
-    initialization.force_grid_location_as_first_sibling(tree)
+    initialization.force_grid_location_as_first_sibling(debug_mesh)
 
-    FlowSolution = tree.get(Type='FlowSolution_t')
+    FlowSolution = debug_mesh.get(Type='FlowSolution_t')
     assert FlowSolution.children()[0].name() == 'GridLocation'
 
 def get_correct_FlowSolution_name_from_solver():
@@ -106,13 +118,12 @@ def get_correct_FlowSolution_name_from_solver():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_uniform():
+def test_initialization_uniform(debug_mesh):
 
     fs_name = get_correct_FlowSolution_name_from_solver()
 
-    mesh = get_debug_mesh()
     workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
+        RawMeshComponents = [dict(Name='cart', Source=debug_mesh)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SA'),
@@ -131,137 +142,94 @@ def test_initialization_uniform():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_copy():    
+def test_initialization_copy(debug_mesh, FlowSolution_ref):    
 
     fs_name = get_correct_FlowSolution_name_from_solver()
 
-    ref_fs = cgns.Node(Name='FlowSolution#Init', Type='FlowSolution_t')
-    cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
-    cgns.Node(Name='Density', Value=np.array([[[3.]],[[4.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumX', Value=np.array([[[50.]],[[-5.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumY', Value=np.array([[[0.1]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumZ', Value=np.array([[[0.0]],[[1.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='EnergyStagnationDensity', Value=np.array([[[2.0e5]],[[3.0e5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='TurbulentEnergyKineticDensity', Value=np.array([[[0.2]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='TurbulentDissipationRateDensity', Value=np.array([[[125.0]],[[12.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-
-
-    mesh = get_debug_mesh()
-    source = mesh.copy(deep=True)
-    zone = source.zones()[0]
-    zone.addChild(ref_fs)    
+    target = debug_mesh.copy(deep=True)
+    target.findAndRemoveNodes(Type='FlowSolution')
 
     workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
+        RawMeshComponents = [dict(Name='cart', Source=target)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SST'),
-        Initialization=dict(Method='copy', Source=source),
+        Initialization=dict(Method='copy', Source=debug_mesh),
     )
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)
 
     fs = workflow.tree.get(Name=fs_name)
-    ref_fs.setName(fs_name)
+    FlowSolution_ref.setName(fs_name)
 
     import maia.pytree as PT
-    assert PT.is_same_node(fs, ref_fs)
-    # assert str(fs) == str(ref_fs)
+    assert PT.is_same_node(fs, FlowSolution_ref)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_copy_missing_variable():    
+def test_initialization_copy_missing_variable(debug_mesh):  
 
-    fs_name = get_correct_FlowSolution_name_from_solver()
+    # remove one of the field
+    debug_mesh.findAndRemoveNode(Name='Density')
 
-    ref_fs = cgns.Node(Name='FlowSolution#Init', Type='FlowSolution_t')
-    cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
-    cgns.Node(Name='Density', Value=np.array([[[3.]],[[4.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumX', Value=np.array([[[50.]],[[-5.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumY', Value=np.array([[[0.1]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumZ', Value=np.array([[[0.0]],[[1.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='EnergyStagnationDensity', Value=np.array([[[2.0e5]],[[3.0e5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='TurbulentEnergyKineticDensity', Value=np.array([[[0.2]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-
-    mesh = get_debug_mesh()
-    source = mesh.copy(deep=True)
-    zone = source.zones()[0]
-    zone.addChild(ref_fs)    
+    target = debug_mesh.copy(deep=True)
+    target.findAndRemoveNodes(Type='FlowSolution')
 
     workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
+        RawMeshComponents = [dict(Name='cart', Source=target)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SST'),
-        Initialization=dict(Method='copy', Source=source),
-    )
+        Initialization=dict(Method='copy', Source=debug_mesh),
+    )  
+
     apply_all_previous_stages(workflow)
     with pytest.raises(MolaException):
         initialization.apply(workflow)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_interpolate():   
+def test_initialization_interpolate(debug_mesh, FlowSolution_ref):    
 
     fs_name = get_correct_FlowSolution_name_from_solver()
 
-    ref_fs = cgns.Node(Name='FlowSolution#Init', Type='FlowSolution_t')
-    cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
-    cgns.Node(Name='Density', Value=np.array([[[3.]],[[4.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumX', Value=np.array([[[50.]],[[-5.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumY', Value=np.array([[[0.1]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumZ', Value=np.array([[[0.0]],[[1.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='EnergyStagnationDensity', Value=np.array([[[2.0e5]],[[3.0e5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='TurbulentEnergyKineticDensity', Value=np.array([[[0.2]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='TurbulentDissipationRateDensity', Value=np.array([[[125.0]],[[12.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-
-
-    mesh = get_debug_mesh()
-    source = mesh.copy(deep=True)
-    zone = source.zones()[0]
-    zone.addChild(ref_fs)    
+    target = debug_mesh.copy(deep=True)
+    target.findAndRemoveNodes(Type='FlowSolution')
 
     workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
+        RawMeshComponents = [dict(Name='cart', Source=target)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SST'),
-        Initialization=dict(Method='interpolate', Source=source),
+        Initialization=dict(Method='interpolate', Source=debug_mesh),
     )
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)
 
     fs = workflow.tree.get(Name=fs_name)
-    ref_fs.setName(fs_name)
+    FlowSolution_ref.setName(fs_name)
 
     import maia.pytree as PT
-    assert PT.is_same_node(fs, ref_fs)
+    assert PT.is_same_node(fs, FlowSolution_ref)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_interpolate_missing_variable():    
+def test_initialization_interpolate_missing_variable(debug_mesh):    
 
-    ref_fs = cgns.Node(Name='FlowSolution#Init', Type='FlowSolution_t')
-    cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
-    cgns.Node(Name='Density', Value=np.array([[[3.]],[[4.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumX', Value=np.array([[[50.]],[[-5.]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumY', Value=np.array([[[0.1]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='MomentumZ', Value=np.array([[[0.0]],[[1.0]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='EnergyStagnationDensity', Value=np.array([[[2.0e5]],[[3.0e5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
-    cgns.Node(Name='TurbulentEnergyKineticDensity', Value=np.array([[[0.2]],[[0.5]]],order='F'), Type='DataArray_t', Parent=ref_fs)
+    # remove one of the field
+    debug_mesh.findAndRemoveNode(Name='Density')
 
-    mesh = get_debug_mesh()
-    source = mesh.copy(deep=True)
-    zone = source.zones()[0]
-    zone.addChild(ref_fs)    
+    target = debug_mesh.copy(deep=True)
+    target.findAndRemoveNodes(Type='FlowSolution')
 
     workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=mesh)],
+        RawMeshComponents = [dict(Name='cart', Source=target)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SST'),
-        Initialization=dict(Method='interpolate', Source=source),
-    )
+        Initialization=dict(Method='interpolate', Source=debug_mesh),
+    )  
+
     apply_all_previous_stages(workflow)
     with pytest.raises(MolaException):
         initialization.apply(workflow)
