@@ -784,8 +784,29 @@ def outradeqhyb(workflow, Family, **kwargs):
                     params['valve_ref_mflow'], valve_relax=params['valve_relax'], 
                     valve_file=f'prespiv_{Family}.log')
     bc.dirorder = params['dirorder']
-    radius = bc.repartition()
-    radius.compute(t, nbband=params['nbband'], c=params['c'])
+
+    write_radius_in_cgns = False
+    if write_radius_in_cgns:
+        # NOT WORKING FOR NOW
+        radius = bc.repartition()
+        radius.compute(t, nbband=params['nbband'], c=params['c'])
+    
+    else:
+        radius_filename = f'radius_{Family}.plt'
+        radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
+        radius.compute(t, nbband=params['nbband'], c=params['c'])
+        radius.write()
+        # Move radius files to the RunDirectory
+        # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
+        # see https://elsa-e.onera.fr/issues/10541
+        if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
+            SV.copy_remote(
+                source_path=radius_filename, 
+                destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(radius_filename), 
+                destination_machine=workflow.RunManagement['Machine'],
+                force_copy=True
+                )
+            
     bc.create()
     workflow.tree = cgns.castNode(t)
 
