@@ -289,7 +289,7 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
 #         I.addChild(t, tmp[tmpKey])
 
 def move_scalar_outputs_to_signals(surfaces: cgns.Tree, signals: cgns.Tree) -> None:
-    # TODO Add IterationNumber in signals, and update bases to concatenate data for each iteration
+    # TODO Add Iteration in signals, and update bases to concatenate data for each iteration
     base = surfaces.get(Name=AVERAGES_0D_BASE, Type='CGNSBase', Depth=1)
     if base:
         base.dettach()

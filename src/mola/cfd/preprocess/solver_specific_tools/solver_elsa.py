@@ -122,6 +122,7 @@ CGNS2ElsaInVarNode = dict(
 )
 
 ElsaCGNS2MOLA = dict(
+    IterationNumber = 'Iteration',
     MomentumXFlux = 'ForceX',
     MomentumYFlux = 'ForceY',
     MomentumZFlux = 'ForceZ',

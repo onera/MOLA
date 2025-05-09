@@ -65,7 +65,7 @@ def _createConvergenceHistory(t, inititer, niter,
                                   Value=0, # FIXME this may produce segfault
                                   Parent=zone)
 
-            cgns.Node(Name='IterationNumber',
+            cgns.Node(Name='Iteration',
                       Type='DataArray_t',
                       Value=np.zeros((niter),dtype=np.int32, order='F'),
                       Parent=conv_hist)

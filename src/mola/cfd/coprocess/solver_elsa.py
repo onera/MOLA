@@ -213,7 +213,7 @@ def extract_residuals(output_tree, extraction):
     
     t = cgns.Tree()
     residuals = output_tree.base().get(Name='GlobalConvergenceHistory', Depth=2)
-    if residuals: 
+    if residuals and residuals.get(Name='IterationNumber') is not None: 
         residuals = residuals.copy()
         residuals.findAndRemoveNode(Name='.Solver#Output')
         base = cgns.Base(Name='Residuals', Parent=t)
@@ -221,6 +221,7 @@ def extract_residuals(output_tree, extraction):
         residuals.setType('FlowSolution_t')
         residuals.setName('FlowSolution')
         residuals.setValue(None)
+        residuals.get(Name='IterationNumber').setName('Iteration')
         cgns.Zone(Name=base.name(), Parent=base, Children=[residuals])
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
@@ -257,7 +258,7 @@ def extract_integral(output_tree, extraction) -> None:
 
             # multiply integrated data by the FluxCoef
             for node in zone.group(Type='DataArray'):
-                if node.name() != 'IterationNumber':
+                if node.name() != 'Iteration':
                     node.setValue(node.value() * extraction['FluxCoef'])
             break
 
@@ -289,7 +290,7 @@ def extract_time_monitoring(extraction, coprocess_manager):
         InitialIteration = coprocess_manager.workflow.Numerics['IterationAtInitialState']
         zone = cgns.Zone(Name=f'From{InitialIteration}To{coprocess_manager.iteration}', Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
-        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+        cgns.Node(Name='Iteration', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
         cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
 
         try:

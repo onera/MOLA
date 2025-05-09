@@ -29,10 +29,10 @@ def plot_residuals(signals, figname='residuals.png'):
         residuals = residuals_zone.allFields(include_coordinates=False)
 
         varList = list(residuals)
-        varList.remove('IterationNumber')
+        varList.remove('Iteration')
         plt.figure()
         for varname in varList:
-            plt.plot(residuals['IterationNumber'], residuals[varname], label=varname)
+            plt.plot(residuals['Iteration'], residuals[varname], label=varname)
         plt.yscale('log')
         plt.xlabel('Iterations')
         plt.ylabel('Residuals')
@@ -46,7 +46,7 @@ def plot_massflow(signals, figname='massflow.png'):
     for node in signals.group(Type='FlowSolution'):
         try:
             massflows[node.Parent.name()] = dict(
-                IterationNumber = node.get(Name='IterationNumber').value(),
+                Iteration = node.get(Name='Iteration').value(),
                 MassFlow = np.absolute(node.get(Name='MassFlow').value()), 
                 )
         except:
@@ -58,7 +58,7 @@ def plot_massflow(signals, figname='massflow.png'):
         plt.figure()
         zones = sorted(massflows.keys())
         for zone in zones:
-            plt.plot(massflows[zone]['IterationNumber'], massflows[zone]['MassFlow'], label=zone)
+            plt.plot(massflows[zone]['Iteration'], massflows[zone]['MassFlow'], label=zone)
         plt.xlabel('Iterations')
         plt.ylabel('MassFlow (kg/s)')
         plt.legend(loc='best')

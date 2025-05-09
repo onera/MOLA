@@ -213,7 +213,7 @@ def test_extract_isosurface(tmp_path):
     
 #     assert flow_sol
 
-#     expected_integrals = ('IterationNumber','ForceX',  'ForceY',   'ForceZ',
+#     expected_integrals = ('Iteration','ForceX',  'ForceY',   'ForceZ',
 #                           'MassFlow',     'TorqueX','TorqueY', 'TorqueZ')
 #     for k in expected_integrals: 
 #         expected_node = flow_sol.get(k, Type='DataArray_t')
