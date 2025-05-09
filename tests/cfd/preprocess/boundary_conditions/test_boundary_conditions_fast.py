@@ -18,7 +18,7 @@
 import pytest
 
 from mola.cfd.preprocess.boundary_conditions import solver_fast
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions import BoundaryConditionsNames
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_fast import BoundaryConditionsDispatcherFast
 from .test_boundary_conditions import get_workflow_prepared_to_test_bcs
 
 pytestmark = pytest.mark.fast
@@ -26,13 +26,28 @@ pytestmark = pytest.mark.fast
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_functions_well_defined():
-    BoundaryConditionsNamesInfast = set(v['fast'] for v in BoundaryConditionsNames.values() if 'fast' in v)
-    for fun_name in BoundaryConditionsNamesInfast:
-        assert getattr(solver_fast, fun_name)
+    bc_dict = BoundaryConditionsDispatcherFast()
+    for expected_function_name in bc_dict.get_all_specific_names():
+        assert getattr(solver_fast, expected_function_name)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1
-def test_bc():
+def test_bc_generic():
+    BoundaryConditions=[
+            dict(Family='imin', Type='Wall'),
+            dict(Family='imax', Type='Farfield'),
+            dict(Family='jmin', Type='SymmetryPlane'),
+            dict(Family='jmax', Type='InflowStagnation'),
+            dict(Family='kmin', Type='OutflowPressure'),
+            dict(Family='kmax', Type='Farfield'),
+        ]
+    workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
+    workflow.set_boundary_conditions()
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_bc_specific():
     BoundaryConditions=[
             dict(Family='imin', Type='BCWall'),
             dict(Family='imax', Type='BCFarfield'),

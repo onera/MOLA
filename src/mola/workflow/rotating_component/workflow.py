@@ -21,7 +21,6 @@ import numpy as np
 from treelab import cgns
 
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, redirect_streams_to_logger
-from mola.cfd.preprocess.boundary_conditions import permeable_boundaries, turbomachinery_interfaces 
 from mola.cfd.preprocess.mesh import duplicate
 from mola.cfd.preprocess.mesh.families import get_family_nodes_from_patterns, get_family_names_from_patterns
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height
@@ -313,9 +312,6 @@ class WorkflowRotatingComponent(Workflow):
         self.ApplicationContext.setdefault('NormalizationCoefficient', dict())
 
         for bc in self.BoundaryConditions:
-
-            # if bc['Type'] not in permeable_boundaries+turbomachinery_interfaces:
-            #     continue
             
             Families = [value for key, value in bc.items() if key in ['Family', 'LinkedFamily']]
             for Family in Families:

@@ -15,9 +15,4 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .boundary_conditions import (
-    apply, 
-    BoundaryConditionsNames,
-    permeable_boundaries,
-    turbomachinery_interfaces,
-    )
+from .boundary_conditions import apply, _instantiate_bc_dispatcher

@@ -18,7 +18,6 @@
 import copy
 import treelab.cgns as cgns
 from mola.logging import mola_logger, MolaException, MolaUserError
-# from mola.cfd.preprocess.boundary_conditions import BoundaryConditionsNames
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 

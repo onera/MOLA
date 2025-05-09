@@ -9,7 +9,7 @@ import mola.naming_conventions as names
 from mola.logging import MolaException
 from mola.workflow import read_workflow
 
-err1 = f'must specify an input file name, e.g.: "mola_prepare {names.FILE_INPUT_WORKLFOW}"'
+err1 = f'must specify an input file name, e.g.: "mola_prepare {names.FILE_INPUT_WORKFLOW}"'
 if len(sys.argv) != 2: raise AttributeError(err1)
 filename = str(sys.argv[1])
 

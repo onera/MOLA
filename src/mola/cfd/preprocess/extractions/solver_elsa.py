@@ -175,7 +175,7 @@ def process_extractions_of_type_bc_and_integral(workflow):
         if Extraction['Type'] not in ['Integral', 'BC']: 
             continue 
 
-        families_to_extract = get_bc_families_to_extract(workflow.tree, Extraction, familiesBC)
+        families_to_extract = get_bc_families_to_extract(workflow, Extraction, familiesBC)
 
         for family in families_to_extract:
             add_2d_extractions_in_SolverOutput(family, Extraction, workflow)

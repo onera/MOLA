@@ -114,7 +114,7 @@ class WorkflowManager():
                  root_directory='.', 
                  data_directory='SHARED_DATA', 
                  skip_if_exists=True,
-                 manager_file_path=names.FILE_WORKLFOW_MANAGER,
+                 manager_file_path=names.FILE_WORKFLOW_MANAGER,
                  ):
         
         if isinstance(arg, str) and arg.endswith('.cgns'):
@@ -226,7 +226,7 @@ class WorkflowManager():
         def _get_local_run_directories():
             local_run_directories = []
             for local_dir in self.run_directories:
-                w = read_workflow(f'{local_dir}/{names.FILE_INPUT_WORKLFOW}')
+                w = read_workflow(f'{local_dir}/{names.FILE_INPUT_WORKFLOW}')
                 status = w.simulation_status()
                 mola_logger.info(f'{local_dir} -> {status}')
                 if status == names.FILE_JOB_COMPLETED:
@@ -466,7 +466,7 @@ def read_workflow_dispatcher_from_tree(tree):
     def _build_workflow_tree(t):
         workflow_tree = cgns.Tree()
         t = t.copy()
-        t.setName(names.CONTAINER_WORKLFOW_PARAMETERS)
+        t.setName(names.CONTAINER_WORKFLOW_PARAMETERS)
         workflow_tree.addChild(t)
         return workflow_tree
         
@@ -603,7 +603,7 @@ for case in $SEQUENCE_OF_PATHS; do
         echo "this run has failed, end job."
         exit 0
     elif [ ! -f "{names.FILE_INPUT_SOLVER}" ]; then
-        mola_prepare {names.FILE_INPUT_WORKLFOW}
+        mola_prepare {names.FILE_INPUT_WORKFLOW}
     fi
 
     NUMBER_OF_ATTEMPTS=0
@@ -643,7 +643,7 @@ done
 
 class WorkflowSender():
     '''
-    This class allow to save in a file :mola_name:`FILE_INPUT_WORKLFOW` 
+    This class allow to save in a file :mola_name:`FILE_INPUT_WORKFLOW` 
     the parametrization of a workflow that has been just instanciated, 
     without calling its method ``prepare``, 
     and to send this file to ``workflow.RunManagement['RunDirectory']``, 
@@ -684,7 +684,7 @@ class WorkflowSender():
 
     '''
 
-    _workflow_filename = names.FILE_INPUT_WORKLFOW
+    _workflow_filename = names.FILE_INPUT_WORKFLOW
 
     def __init__(self, workflow, data_directory=None, copy_options=None): 
         self.workflow = copy.deepcopy(workflow)
