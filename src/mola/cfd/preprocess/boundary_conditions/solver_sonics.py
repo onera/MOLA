@@ -219,14 +219,40 @@ def get_valve_law_trigger(workflow, config, bc, hardware_target='cpu'):
 
 
 def adapt_workflow_for_sonics(w):
-    from mola.cfd.preprocess.mesh import io
-    from mola.cfd.preprocess.mesh import families
+    will_define_connection = _will_define_connection(w)
+    will_define_families = _will_define_families(w)
+    
+    if will_define_connection or will_define_families:
+        _read_mesh(w)    
 
-    if 'Families' in w.RawMeshComponents[0]:
-        io.read(w)
-        families.apply(w)
-        w.RawMeshComponents[0]['Source'] = w.tree
-        w.RawMeshComponents[0].pop('Families')
-    if 'Connection' in w.RawMeshComponents[0]:
-        w.RawMeshComponents[0].pop('Connection')
-    w.SplittingAndDistribution = dict(Splitter='maia', Strategy='AtComputation')
+        if will_define_connection:
+            _preset_connection(w)
+
+        if will_define_families:
+            _preset_families(w)
+
+    _preset_splitting_and_distribution(w)
+
+def _read_mesh(workflow):
+    from mola.cfd.preprocess.mesh import io
+    io.read(workflow)
+    workflow.RawMeshComponents[0]['Source'] = workflow.tree
+
+def _will_define_connection(workflow) -> bool:
+    return 'Connection' in workflow.RawMeshComponents[0]
+
+def _will_define_families(workflow) -> bool:
+    return 'Families' in workflow.RawMeshComponents[0]
+
+def _preset_families(workflow):
+    from mola.cfd.preprocess.mesh import families
+    families.apply(workflow)
+    workflow.RawMeshComponents[0].pop('Families')
+
+def _preset_connection(workflow):
+    from mola.cfd.preprocess.mesh import connect
+    connect.apply(workflow)
+    workflow.RawMeshComponents[0].pop('Connection')
+
+def _preset_splitting_and_distribution(workflow):
+    workflow.SplittingAndDistribution = dict(Splitter='maia', Strategy='AtComputation')

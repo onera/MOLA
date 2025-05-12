@@ -142,7 +142,7 @@ def get_iterators(workflow, config, hardware_target='cpu'):
                 if extraction['Type'] != 'Integral':
                     continue
 
-                families = get_bc_families_names_to_extract(workflow.tree, extraction, familiesBC)
+                families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
                 for family in families:
                     from miles.trigger import IntegralDataExtractor
                     extractor = IntegralDataExtractor(config, period=extraction['ExtractionPeriod'])

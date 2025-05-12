@@ -15,12 +15,110 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import pytest
 import numpy as np
 from treelab import cgns
 import maia.pytree as PT
 from mola.logging import MolaException
 from mola.cfd.preprocess.check import check
+from mola.cfd.preprocess.mesh.families import set_family_from_location
+
+# --------------------------------- fixtures --------------------------------- #
+@pytest.fixture
+def grid2D():
+    x, y, z = np.meshgrid( np.linspace(0,1,5),
+                           np.linspace(0,1,5),
+                           np.linspace(0,1,2), 
+                           indexing='ij')
+    zone = cgns.newZoneFromArrays( 'block', ['x','y','z'],
+                                            [ x,  y,  z ])
+    return zone
+
+@pytest.fixture
+def tree2D_with_bc_defined(grid2D):
+    t = cgns.Tree(Base=grid2D)
+
+    for location in ['imin', 'imax', 'jmin', 'jmax']:
+        set_family_from_location(t.bases()[0], 'FARFIELD',location)
+
+    return t
+
+@pytest.fixture
+def tree2D_with_bc_undefined(grid2D):
+    t = cgns.Tree(Base=grid2D)
+
+    for location in ['imin', 'imax']:
+        set_family_from_location(t.bases()[0], 'FARFIELD',location)
+
+    return t
+
+@pytest.fixture
+def grid3D():
+    x, y, z = np.meshgrid( np.linspace(0,1,5),
+                           np.linspace(0,1,5),
+                           np.linspace(0,1,5), 
+                           indexing='ij')
+    zone = cgns.newZoneFromArrays( 'block', ['x','y','z'],
+                                            [ x,  y,  z ])
+    return zone
+
+@pytest.fixture
+def tree3D_with_bc_defined(grid3D):
+    t = cgns.Tree(Base=grid3D)
+
+    for location in ['imin', 'imax', 'jmin', 'jmax', 'kmin', 'kmax']:
+        set_family_from_location(t.bases()[0], 'FARFIELD',location)
+
+    return t
+
+@pytest.fixture
+def tree3D_with_bc_undefined(grid3D):
+    t = cgns.Tree(Base=grid3D)
+
+    for location in ['imin', 'imax', 'jmin', 'jmax']:
+        set_family_from_location(t.bases()[0], 'FARFIELD',location)
+
+    return t
+
+@pytest.fixture
+def tree_dispatcher(request):
+    return request.getfixturevalue(request.param)
+all_trees = ["tree2D_with_bc_defined", "tree2D_with_bc_undefined", 
+             "tree3D_with_bc_defined", "tree3D_with_bc_undefined"]
+# ----------------------------- end of fixtures ----------------------------- #
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+@pytest.mark.parametrize('tree_dispatcher',all_trees, indirect=True)
+def testassert_bc_and_connectivity_coherency(tree_dispatcher):
+    check.assert_bc_and_connectivity_coherency(tree_dispatcher)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+@pytest.mark.parametrize('tree_dispatcher',all_trees, indirect=True)
+def test_ignore_undefined_periodic_boundaries_in_2D_structured_grids(tree_dispatcher):
+    check._ignore_undefined_periodic_boundaries_in_2D_structured_grids(tree_dispatcher)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+@pytest.mark.parametrize('tree_dispatcher',["tree2D_with_bc_undefined", "tree3D_with_bc_undefined"], indirect=True)
+def test_raise_undefined_bc_error_saving_undefined_bc_surfaces(tree_dispatcher):
+
+    try:
+        check._raise_undefined_bc_error_saving_undefined_bc_surfaces(tree_dispatcher,0)
+
+    except MolaException as e:
+
+        if "UNDEFINED BC IN TREE" not in str(e):
+            raise MolaException("unexpected error in test") from e
+        
+        os.unlink('dbg_undefined_bc_0.cgns')
+        
+
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -72,3 +170,5 @@ Base CGNSBase_t:
 
     tree.findAndRemoveNode(Type='BC', Name='hub')
     check.check_no_empty_Family_of_BC(tree)
+
+

@@ -28,9 +28,6 @@ from .test_workflow import  get_workflow_cart_monoproc
 def test_stop_and_go_for_timeout(tmp_path, niter=500):
     
     w = get_workflow_cart_monoproc(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     
     w.Numerics['NumberOfIterations'] = niter
     w.RunManagement['Scheduler'] = 'local'

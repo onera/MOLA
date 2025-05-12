@@ -56,7 +56,9 @@ def convert_elements_to_ngon(t):
             uns = get_unstructured_zones(t)[0]
             I.printTree(uns, 'tree2.txt')
             C._convertArray2NGon(uns, recoverBC=1)
-        
+        C._signNGonFaces(uns)
+        I._adaptNGon32NGon4(uns)
+
     return cgns.castNode(t)
 
 def merge_all_unstructured_zones_from_families(t):
@@ -94,9 +96,11 @@ def merge_all_unstructured_zones_from_families(t):
 
     for family, zone_paths in zonePathsByFamily.items():
         if len(zone_paths) < 2: continue
+        base_name = zone_paths[0].split('/')[0]
         mola_logger.info(f' --> merging zones of family {family}')
+
         try:
-            base_name = zone_paths[0].split('/')[0]
+            t.findAndRemoveNodes(Name='NFaceElements')
             maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD, output_path=f'{base_name}/{family}_Zone', subset_merge='family')
         except BaseException as e:
             mola_logger.warning(f'Could not merge zones using maia, received error:\n{e}\nwill not merge zones')

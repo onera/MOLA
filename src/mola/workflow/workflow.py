@@ -57,11 +57,7 @@ class Workflow(object):
         
     def prepare(self):
         self.prepare_job()
-        self.assemble() # distributed from here 
-        self.positioning()
-        self.define_families() # possibly partitioned from here
-        self.connect()
-        self.split_and_distribute() # partitioned from here
+        self.process_mesh()
         self.process_overset()
         self.compute_flow_and_turbulence()
         self.set_motion()
@@ -71,6 +67,19 @@ class Workflow(object):
         self.set_extractions()
         self.check_preprocess() # empty BCs... maybe solver-specific
         self.finalize_preprocess() # solver-specific
+
+    def process_mesh(self):
+        if self.Solver == 'sonics': # CAVEAT specifically verifying sonics, should reverse dependency properly
+            from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
+            adapt_workflow_for_sonics(self)            
+            self.assemble() 
+
+        else:
+            self.assemble() 
+            self.define_families()
+            self.connect()
+        self.positioning()
+        self.split_and_distribute()
 
     def check_consistency_between_solver_and_environment(self):
         requested_solver = self.Solver

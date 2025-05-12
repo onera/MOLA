@@ -61,7 +61,7 @@ def apply(workflow):
         MPI.COMM_WORLD.barrier()
 
 def set_family_from_location(base, FamilyName, location):
-    import Converter.PyTree as C  # TODO _addBC2Zone, _fillEmptyBCWith
+    import Converter.PyTree as C
 
     mola_logger.info(f'setting Family {FamilyName} in base {base.name()}')
                     
