@@ -25,7 +25,7 @@ export CASSIOPEE=/stck/cassiope/git/Cassiopee/
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode/1.85.2
+module load vscode/1.99.3
 
 export OPENMPIOVERSUBSCRIBE='--use-hwthread-cpus'
 

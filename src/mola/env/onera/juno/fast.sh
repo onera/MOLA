@@ -18,10 +18,21 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+# Treelab
+# NOTE installation hint:
+# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
+# export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
+export TREELABPATH=/tmp_user/juno/lbernard/treelab/dev/juno_elsA # ONLY DURING DEV (replaces stable version)
+export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
 export MACHINE=juno
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
+source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/tools/netcdf/4.8.0-gnu831/lib
+
 
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
@@ -41,26 +52,15 @@ export FI_PROVIDER=tcp
 # export FI_PROVIDER=tcp
 
 
-# maia
-module use --append /tmp_user/juno/sonics/usr/modules/
-module load maia/$MAIAVERSION-dsi-cfd6
 
-# VPM
-export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
-export PATH=$VPMPATH:$PATH
-export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
-export PYTHONPATH=$VPMPATH:$PYTHONPATH
-export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
+# # maia
+# module use --append /tmp_user/juno/sonics/usr/modules/
+# module load maia/$MAIAVERSION-dsi-cfd6
 
-# Treelab
-# NOTE installation hint:
-# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-# export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
-export TREELABPATH=/tmp_user/juno/lbernard/treelab/dev/juno_elsA # ONLY DURING DEV (replaces stable version)
-export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
-export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
-
+# # external python packages
+# export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH
+# export PATH=$MOLAext/spiro_el8/bin:$PATH
+# export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH

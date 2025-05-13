@@ -61,17 +61,39 @@ def check_empty_bc(workflow):
         t = workflow.tree.copy()
 
     assert_bc_and_connectivity_coherency(t)
+    _ignore_undefined_periodic_boundaries_in_2D_structured_grids(t)
 
     I._adaptPE2NFace(t)
-
     emptyBC = C.getEmptyBC(t, dim=3)
-    hasEmpty = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
+    empty_bcs = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
+    
+    raise_error = False
     if rank ==0:
-        if hasEmpty:
-            mola_logger.error('UNDEFINED BC IN TREE')
+        if empty_bcs:
+            raise_error = True
         else:
             check_no_empty_Family_of_BC(workflow.tree)
             mola_logger.info(f'{GREEN}No undefined BC found in tree{ENDC}')
+
+    if raise_error:
+        _raise_undefined_bc_error_saving_undefined_bc_surfaces(t, rank)
+
+
+def _ignore_undefined_periodic_boundaries_in_2D_structured_grids(t):
+    import Converter.PyTree as C
+    
+    for zone in t.zones():
+        if not zone.isStructured(): return
+        
+        shape = zone.shape()
+        dims = len(shape)
+        if dims != 3:
+            raise MolaException(f"must be 3D, but got dims={dims} for zone {zone.path()}")
+
+        if shape[2] != 2: return
+
+        C._addBC2Zone(zone, "IGNORED", "IGNORED_t",'kmin')
+        C._addBC2Zone(zone, "IGNORED", "IGNORED_t",'kmax')
 
 
 def assert_bc_and_connectivity_coherency(tree):
@@ -90,6 +112,22 @@ def assert_bc_and_connectivity_coherency(tree):
     if errors:
         C.convertPyTree2File(tree, 'debug.cgns')
         raise MolaException(pprint.pformat(errors))
+
+
+def _raise_undefined_bc_error_saving_undefined_bc_surfaces(t, rank):
+    import Converter.PyTree as C
+    import Converter.Internal as I
+
+    C._fillEmptyBCWith(t,'UNDEFINED','UNDEFINED_t')
+    # C.convertPyTree2File(t,f'dbg_tree_{rank}.cgns')
+    surfs = C.extractBCOfType(t,'UNDEFINED_t')
+    if not surfs:
+        raise MolaException("expected undefined BC but finnally did not found them")
+    I._rmNodesByType(surfs,'FlowSolution_t')
+    C.convertPyTree2File(surfs,f'dbg_undefined_bc_{rank}.cgns')
+    raise MolaException(f'UNDEFINED BC IN TREE, CHECK dbg_undefined_bc_{rank}.cgns')
+
+
 
 
 def check_no_empty_Family_of_BC(tree):

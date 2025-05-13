@@ -109,9 +109,6 @@ def test_default_transition_zones():
 @pytest.mark.cost_level_3
 def test_micro_naca(tmp_path):
     w = get_workflow_micro_naca(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()

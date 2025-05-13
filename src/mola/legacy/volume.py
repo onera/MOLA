@@ -1845,8 +1845,7 @@ def _addExtrusionLayerSurface(tExtru, mode='TRI', closeExtrusionLayer=False):
     ExtrudeLayerBase = I.getNodeFromName1(tExtru,'ExtrudeLayerBase')
 
     if mode == 'NGON':
-        raise ValueError('Cannot use "NGON". This will be implemented in future.')
-        # tNG = C.convertArray2NGon(InitialSurfaceBase)
+        raise ValueError('Cannot use "NGON"')
     elif mode == 'TRI':
         tNG = C.convertArray2Tetra(InitialSurfaceBase)
     elif mode == 'QUAD':

@@ -742,6 +742,9 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
     for surface in surfacesIsoX:
         surfaceName = I.getName(surface)
         tmp_surface = C.convertArray2NGon(surface, recoverBC=0)
+        C._signNGonFaces(tmp_surface)
+        I._adaptNGon32NGon4(tmp_surface)
+
 
         if config == 'oras':
             radial_extend = 1.5

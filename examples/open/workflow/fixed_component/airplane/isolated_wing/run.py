@@ -69,6 +69,7 @@ w = WorkflowAirplane(
         Scheduler = 'local',
     ),
 )
+
 w.prepare()
 w.write_cfd_files()
 w.submit()
