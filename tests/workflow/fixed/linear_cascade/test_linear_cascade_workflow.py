@@ -146,7 +146,7 @@ def test_parametrize_with_height(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.elsa
-# @pytest.mark.sonics # FIXME missing SPLEEN Family_t under CGNSBase_t 
+@pytest.mark.sonics
 @pytest.mark.cost_level_3
 def test_spleen_cascade(tmp_path):
     w = get_workflow_spleen(tmp_path)
