@@ -406,6 +406,7 @@ def remove_not_requested_containers(t : cgns.Tree, container : str):
 def unstack_residual( residual : cgns.Node ):
 
     it_nb_node = residual.get('IterationNumber')
+    it_nb_node.setName('Iteration')
     
     if not it_nb_node: return
     
@@ -475,7 +476,7 @@ def remove_spurious_data_from_output( t : cgns.Tree ) -> None:
 
 def initialize_integral_fields_dict(coprocess_manager) -> dict:
     it = coprocess_manager.iteration
-    fields = dict(IterationNumber=np.array([it]))
+    fields = dict(Iteration=np.array([it]))
 
     if coprocess_manager.workflow.Numerics['TimeMarching'] != 'Steady':
         time = coprocess_manager.time
@@ -501,7 +502,7 @@ def extract_time_monitoring(extraction, coprocess_manager):
         InitialIteration = coprocess_manager.workflow.Numerics['IterationAtInitialState']
         zone = cgns.Zone(Name=f'From{InitialIteration}To{coprocess_manager.iteration}', Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
-        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+        cgns.Node(Name='Iteration', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
         cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
 
         if 'Data' in extraction and extraction['Data'] is not None:

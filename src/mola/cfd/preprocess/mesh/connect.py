@@ -59,8 +59,6 @@ def apply_with_cassiopee(workflow):
     import Connector.Mpi as Xmpi
     import Converter.Internal as I
 
-    from mola.cfd.preprocess.check.check import assert_bc_and_connectivity_coherency
-
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
         base_name = base.name()

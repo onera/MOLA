@@ -60,7 +60,6 @@ def split_bc_and_integral_extractions_by_family(workflow):
                 Extraction['Fields'] = [Extraction['Fields']]
             
             fam_names = get_bc_families_names_to_extract(workflow, Extraction, familiesBC)
-
             if not fam_names:
                 errmsg = "did not have any family associated to Extraction:\n"
                 errmsg+= pretty(Extraction)
@@ -121,7 +120,6 @@ def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
     
     bc_dispatcher = workflow.get_bc_dispatcher()
 
-    family_node_matched = None
     registered_family_names = []
     registered_bc_types = set()
     for familyBC in familiesBC:
@@ -145,11 +143,14 @@ def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
                                    fnmatch(bc_type, requested_source) or \
                                    fnmatch(bc_type_generic, requested_source)
 
-        if family_match_requirement and 'Fields' in Extraction and len(Extraction['Fields']) > 0:
-            family_node_matched = family
-            break
+        if family_match_requirement \
+            and 'Fields' in Extraction \
+            and len(Extraction['Fields']) > 0 \
+            and family not in bc_families_to_extract:
 
-    if not family_node_matched:
+            bc_families_to_extract.append(family) 
+
+    if len(bc_families_to_extract) == 0: 
         try:
             extraction_name = Extraction["Name"]
         except:
@@ -160,9 +161,6 @@ def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
             f' Extraction named "{extraction_name}" does not match'
             f' any family from names {pretty(registered_family_names)} nor'
             f' from types {registered_bc_types}'+ "\n" + pretty(Extraction) + "\n"))
-
-    if family not in bc_families_to_extract:
-        bc_families_to_extract.append(family) 
 
     return bc_families_to_extract
 

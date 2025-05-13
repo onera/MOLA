@@ -16,7 +16,6 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import socket
 from fnmatch import fnmatch
 import subprocess
 import time
@@ -107,14 +106,11 @@ def add_mola_env(machine, solver=os.environ.get('MOLA_SOLVER')):
 
 
 def guess_localhost():
-    HostName = socket.gethostname()
     try:
         network_config = get_network_config()
-        for pattern, env in network_config.PatternsToEnvironments.items():
-            if fnmatch(HostName, pattern):
-                return env
+        return network_config.guess_localhost()
     except:
-        raise MolaException(f'Host name {HostName} is unknown')
+        raise MolaException(f'Cannot guess local host')
 
 def guess_machine_from_path(path):
 

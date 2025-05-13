@@ -29,7 +29,7 @@ from mola.cfd.postprocess.signals.tree_manipulation import (
 @pytest.fixture
 def test_node():
     node = cgns.Node(Name='Probe')
-    cgns.Node(Name='IterationNumber', Type='DataArray', Parent=node,
+    cgns.Node(Name='Iteration', Type='DataArray', Parent=node,
               Value=np.arange(10))
     cgns.Node(Name='var', Type='DataArray', Parent=node,
               Value=2*np.arange(10))
@@ -40,14 +40,14 @@ def test_node():
 def test_apply_operations_on_signal_1(test_node):
     apply_operations_on_signal(test_node, 'rsd-avg-var', 5)
     print(test_node)
-    assert test_node.getChildrenNames() == ['IterationNumber', 'var', 'avg-var', 'rsd-avg-var']
+    assert test_node.getChildrenNames() == ['Iteration', 'var', 'avg-var', 'rsd-avg-var']
     assert test_node.get(Name='rsd-avg-var').value().size == 10
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_apply_operations_on_signal_2(test_node):
     apply_operations_on_signal(test_node, 'var', 5, ['rsd-avg'])
-    assert test_node.getChildrenNames() == ['IterationNumber', 'var', 'avg-var', 'rsd-avg-var']
+    assert test_node.getChildrenNames() == ['Iteration', 'var', 'avg-var', 'rsd-avg-var']
     assert test_node.get(Name='rsd-avg-var').value().size == 10
 
 @pytest.mark.unit
@@ -55,7 +55,7 @@ def test_apply_operations_on_signal_2(test_node):
 def test_apply_operations_on_signal_3(test_node):
     # nothing is done with a window of size 1
     apply_operations_on_signal(test_node, 'var', 1, ['rsd-avg'])
-    assert test_node.getChildrenNames() == ['IterationNumber', 'var']
+    assert test_node.getChildrenNames() == ['Iteration', 'var']
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

@@ -784,8 +784,29 @@ def outradeqhyb(workflow, Family, **kwargs):
                     params['valve_ref_mflow'], valve_relax=params['valve_relax'], 
                     valve_file=f'prespiv_{Family}.log')
     bc.dirorder = params['dirorder']
-    radius = bc.repartition()
-    radius.compute(t, nbband=params['nbband'], c=params['c'])
+
+    write_radius_in_cgns = False
+    if write_radius_in_cgns:
+        # NOT WORKING FOR NOW
+        radius = bc.repartition()
+        radius.compute(t, nbband=params['nbband'], c=params['c'])
+    
+    else:
+        radius_filename = f'radius_{Family}.plt'
+        radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
+        radius.compute(t, nbband=params['nbband'], c=params['c'])
+        radius.write()
+        # Move radius files to the RunDirectory
+        # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
+        # see https://elsa-e.onera.fr/issues/10541
+        if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
+            SV.copy_remote(
+                source_path=radius_filename, 
+                destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(radius_filename), 
+                destination_machine=workflow.RunManagement['Machine'],
+                force_copy=True
+                )
+            
     bc.create()
     workflow.tree = cgns.castNode(t)
 
@@ -851,7 +872,7 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     I._correctPyTree(workflow.tree, level=4)
 
 @mute_stdout
-def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirtype='axial'):
+def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirtype='axial', write_radius_in_cgns=True):
     '''
     Set a hybrid mixing plane condition between families **Family** and **LinkedFamily**.
 
@@ -874,25 +895,67 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
     stage.jtype = 'nomatch_rad_line'
     stage.hray_tolerance = 1e-16
 
-    for stg in stage.down:
-        radius = stg.repartition(mxpl_dirtype=mxpl_dirtype, 
-                                 parent=workflow.tree.get(Name=Family, Type='Family', Depth=2),
-                                 tree=workflow.tree)
+    if write_radius_in_cgns:
+
+        for stg in stage.down:
+            radius = stg.repartition(mxpl_dirtype=mxpl_dirtype, 
+                                    parent=workflow.tree.get(Name=Family, Type='Family', Depth=2),
+                                    tree=workflow.tree)
+            radius.compute(workflow.tree, nbband=nbband, c=c)
+            # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the GC
+            # It also overrides MixingPlaneData/radius in the Family
+
+        for stg in stage.up:
+            radius = stg.repartition(mxpl_dirtype=mxpl_dirtype, 
+                                    parent=workflow.tree.get(Name=LinkedFamily, Type='Family', Depth=2), 
+                                    tree=workflow.tree)
+            radius.compute(workflow.tree, nbband=nbband, c=c)
+            # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the GC
+            # It also overrides MixingPlaneData/radius in the Family
+
+        stage.create()
+        workflow.tree = cgns.castNode(workflow.tree)
+
+        # HACK file and format parameters are written only in one GC, but they may be several GC
+        for gc in workflow.tree.group(Type='GridConnectivity'):
+            if not gc.get(Type='FamilyName', Value=Family) and not gc.get(Type='FamilyName', Value=LinkedFamily):
+                continue
+            
+            sp_node = gc.get(Name='.Solver#Property')
+            cgns.Node(Name='file', Type='DataArray', Parent=sp_node)
+            cgns.Node(Name='format', Type='DataArray', Value='CGNS', Parent=sp_node)
+
+    else:
+
+        filename_left = f'radius_{LinkedFamily}.plt'
+        for stg in stage.down:
+            radius = stg.repartition(mxpl_dirtype='axial', filename=filename_left, fileformat="bin_tp")
         radius.compute(workflow.tree, nbband=nbband, c=c)
-        # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the GC
-        # It also overrides MixingPlaneData/radius in the Family
+        radius.write()
 
-    for stg in stage.up:
-        radius = stg.repartition(mxpl_dirtype=mxpl_dirtype, 
-                                 parent=workflow.tree.get(Name=LinkedFamily, Type='Family', Depth=2), 
-                                 tree=workflow.tree)
+        filename_right = f'radius_{Family}.plt'
+        for stg in stage.up:
+            radius = stg.repartition(mxpl_dirtype='axial', filename=filename_right, fileformat="bin_tp")
         radius.compute(workflow.tree, nbband=nbband, c=c)
-        # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the GC
-        # It also overrides MixingPlaneData/radius in the Family
+        radius.write()
 
-    stage.create()
+        stage.create()
 
-    workflow.tree = cgns.castNode(workflow.tree)
+        # Move radius files to the RunDirectory
+        # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
+        # see https://elsa-e.onera.fr/issues/10541
+        if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
+            for filename in [filename_left, filename_right]:
+                SV.copy_remote(
+                    source_path=filename, 
+                    destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(filename), 
+                    destination_machine=workflow.RunManagement['Machine'],
+                    force_copy=True
+                    )
+                
+        workflow.tree = cgns.castNode(workflow.tree)
+
+        
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
     I._correctPyTree(workflow.tree, level=4)

@@ -59,9 +59,19 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         rank = MPI.COMM_WORLD.Get_rank()
 
         postprocess_possible = self.tree.get(Name='ChannelHeight') is not None
-
         if not postprocess_possible:
             return
+        
+        # check required variables are present
+        for extraction in self.Extractions:
+            if extraction['Type'] == 'IsoSurface':
+                if not 'Fields' in extraction or \
+                    any([v in extraction['Fields'] for v in self.Flow['Conservatives']]):
+                    logger.warning(
+                        ('postprocess is available only if all conservative quantities'
+                         'were extracted on each isosurface.'), 
+                         rank=0)
+                    return
         
         if self.Solver.lower() != 'elsa':
             logger.warning(f'For now, postprocess is available only with elsa solver.', rank=0)

@@ -220,7 +220,9 @@ def update_existing_solver_output(SolverOutput_node, output_keys):
                 var_value = [var_value]
             if isinstance(value, str):
                 value = [value]
-            var_value += value
+            for element in value:
+                if element not in var_value:
+                    var_value.append(element)
             var_node.setValue(var_value)
 
 def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) -> dict:

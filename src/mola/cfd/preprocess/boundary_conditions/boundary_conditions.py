@@ -64,7 +64,7 @@ def apply(workflow, selected_boundaries_conditions=None):
         _call_solver_specific_bc_preparation_function(workflow, bc_type, **bc)
 
     add_missing_PointRange_in_BCDataSet(workflow)
-
+    fix_FaceCenter_in_BCDataSet(workflow.tree)
 
 def _adapt_bc_to_euler(workflow):
     if workflow.Turbulence['Model'] == 'Euler':
@@ -158,7 +158,8 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
 
                     kwargs[arg_name] = I.getValue(node)
 
-                VarDictToImpose[variable_name] = function_to_apply(**kwargs)
+                result = function_to_apply(**kwargs)
+                VarDictToImpose[variable_name] = np.asfortranarray(result).ravel(order='K')
 
             # Get BC path in the main tree
             zname, wname = bc[0].split('\\')
@@ -296,6 +297,15 @@ def add_missing_PointRange_in_BCDataSet(workflow):
         add_missing_pr_in_bcdataset(workflow.tree)
     workflow.tree = cgns.castNode(workflow.tree)
 
+def fix_FaceCenter_in_BCDataSet(t):
+    import maia.pytree as PT
+
+    for zone in PT.get_all_Zone_t(t):
+        if PT.get_value(PT.get_node_from_label(zone, 'ZoneType_t')) == 'Structured':
+            for node in PT.get_nodes_from_label(zone, 'BCDataSet_t'):
+                if PT.Subset.GridLocation(node) == 'FaceCenter':
+                    axis = PT.Subset.normal_axis(node)
+                    PT.update_child(node, 'GridLocation', value='IJK'[axis] + 'FaceCenter')
 
 def _instantiate_bc_dispatcher(workflow):
     current_path = os.path.dirname(os.path.abspath(__file__))

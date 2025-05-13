@@ -200,7 +200,7 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
         for n in IntegralDataNode.children(): 
             n.setType('DataArray_t')
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
-        cgns.Node(Name='IterationNumber', Type='DataArray', Value=np.arange(NumberOfIterations, dtype=float), Parent=IntegralDataNode)
+        cgns.Node(Name='Iteration', Type='DataArray', Value=np.arange(0, NumberOfIterations, extraction['ExtractionPeriod'], dtype=float), Parent=IntegralDataNode)
         if suffix != 'VALVE':
             cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
         else:
@@ -274,7 +274,7 @@ def extract_time_monitoring(extraction, coprocess_manager):
         InitialIteration = coprocess_manager.workflow.Numerics['IterationAtInitialState']
         zone = cgns.Zone(Name=f'From{InitialIteration}To{coprocess_manager.iteration}', Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
-        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+        cgns.Node(Name='Iteration', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
         cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
         
         TimePerCellPerIteration = None

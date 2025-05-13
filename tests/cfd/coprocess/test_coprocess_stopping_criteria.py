@@ -126,7 +126,7 @@ def test_check_convergence_criteria_verified(tmp_path):
     coprocess = CoprocessManager(workflow)
     coprocess.iteration = 3 # able to evaluate convergence
     coprocess.Extractions[-1]['Data'] = cgns.newZoneFromDict( 'FamA', 
-             {'IterationNumber'    : np.array([1,2,3]),
+             {'Iteration'    : np.array([1,2,3]),
                         'var1'     : np.array([1.2,1.1,1.0])} )
 
     coprocess.status = 'RUNNING_BEFORE_ITERATION'
@@ -188,7 +188,7 @@ def test_is_converged(tmp_path, params):
 
         criterion['Name'] = 'Fam%d'%i
         criterion['Data'] = cgns.newZoneFromDict( 'Fam%d'%i, 
-             {'IterationNumber'    :np.array([1,2,3]),
+             {'Iteration'    :np.array([1,2,3]),
                         'var%d'%i    :np.array([1.2,1.1,1.0])} )
 
     coprocess = CoprocessManager(workflow)
@@ -216,7 +216,7 @@ def test_is_criterion_flux_lower_than_threshold():
 
     check_value = 0.3
 
-    data1 = cgns.newZoneFromDict( 'zone', dict(IterationNumber=np.array([1,2,3]),
+    data1 = cgns.newZoneFromDict( 'zone', dict(Iteration=np.array([1,2,3]),
                                                var1=np.array([0.1,0.2,check_value])) )
     Extractions = [
         dict(Type='Integral', Name='FamA', Data=data1),
@@ -238,7 +238,7 @@ def test_get_data_to_test_criterion():
 
     check_value = 0.3
 
-    data1 = cgns.newZoneFromDict( 'zone', dict(IterationNumber=np.array([1,2,3]),
+    data1 = cgns.newZoneFromDict( 'zone', dict(Iteration=np.array([1,2,3]),
                                                var1=np.array([0.1,0.2,check_value])) )
     Extractions = [
         dict(Type='Integral', Name='FamA', Data=data1),

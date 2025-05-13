@@ -47,7 +47,7 @@ def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames,
     container = zone.get(Name='FlowSolution', Type='FlowSolution_t', Depth=1)
     assert container
 
-    iterations = container.get(Name='IterationNumber', Type='DataArray_t', Depth=1)
+    iterations = container.get(Name='Iteration', Type='DataArray_t', Depth=1)
     assert iterations
 
     if not isinstance(fieldnames,list):
