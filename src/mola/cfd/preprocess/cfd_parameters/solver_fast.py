@@ -159,7 +159,7 @@ def get_time_marching_setup(Numerics):
         
         Parameters['Num2Base'].update(dict(
             ss_iteration=1,
-            modulo_verif=10,
+            modulo_verif=1,
         ))
         
         Parameters['Num2Zones'].update(dict(
