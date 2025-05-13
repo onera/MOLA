@@ -848,7 +848,7 @@ class WorkflowInterface(object):
         JobName : str = None,
         RunDirectory : Union[str, pathlib.PosixPath] = '.',
         NumberOfProcessors : int = MPI.COMM_WORLD.Get_size(),
-        NumberOfThreads : int = None,
+        NumberOfThreads : int = 1,
         Machine : str = None,
         User : str = None,
         TimeLimit : Union[str, float] = None,
