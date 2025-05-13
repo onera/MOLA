@@ -207,7 +207,8 @@ def apply_to_solver(workflow):
 def set_cfdpb(workflow):
     workflow.SolverParameters['cfdpb'] = dict(
         config=f'{workflow.ProblemDimension}d',
-        extract_filtering='inactive' # NOTE required with writingmode=2 for NeumannData in coprocess
+        extract_filtering='inactive', # NOTE required with writingmode=2 for NeumannData in coprocess
+        cgns_standard = 'active',
     )
 
     if not workflow.tree.isStructured():

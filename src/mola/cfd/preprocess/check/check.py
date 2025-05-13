@@ -60,7 +60,13 @@ def check_empty_bc(workflow):
     if t is None: 
         t = workflow.tree.copy()
 
-    assert_bc_and_connectivity_coherency(t)
+    no_rotor_stator_interface_in_tree = all([
+        bc['Type'] not in ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface'] 
+            for bc in workflow.BoundaryConditions
+            ])
+    if no_rotor_stator_interface_in_tree:
+        # Not compatible with maia renaming of connectivities at a rotor/stator interface with *.N?.P?
+        assert_bc_and_connectivity_coherency(t)
 
     I._adaptPE2NFace(t)
 

@@ -117,7 +117,7 @@ def write_with_pypart(w, tree, dst):
     # Write in parallel with PyPart
     Cmpi._convert2PartialTree(tree)
     Cmpi.barrier()
-    w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'))
+    w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'), cgns_standard=True)
     Cmpi.barrier()
 
     # Read PyPart files in parallel 

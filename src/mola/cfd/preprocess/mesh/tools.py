@@ -133,7 +133,6 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
 
     t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
 
-    # fix_FaceCenter_in_BCDataSet(t)
     t = cgns.castNode(t)
     for zone in t.zones():
         zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
@@ -252,16 +251,6 @@ def force_FamilyBC_as_FamilySpecified(t):
                         Family_node = cgns.Node(Name=family, Type='Family', Parent=base)
                         cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='UserDefined', Parent=Family_node)
                     continue
-
-def fix_FaceCenter_in_BCDataSet(t):
-    import maia.pytree as PT
-
-    for zone in PT.get_all_Zone_t(t):
-        if PT.get_value(PT.get_node_from_label(zone, 'ZoneType_t')) == 'Structured':
-            for node in PT.get_nodes_from_label(zone, 'BCDataSet_t'):
-                if PT.Subset.GridLocation(node) == 'FaceCenter':
-                    axis = PT.Subset.normal_axis(node)
-                    PT.update_child(node, 'GridLocation', value='IJK'[axis] + 'FaceCenter')
 
 def get_empty_FlowSolution_nodes(tree, remove=False):
     # NOTE Cmpi.convertPyTree2File does not write DataArray in FlowSolution
