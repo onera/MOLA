@@ -53,8 +53,9 @@ def apply_to_solver(workflow):
                        workflow._treeAtCenters,
                        workflow._fast_graph)
 
-        FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store')
-        FastS._calc_global_convergence(workflow.tree) # should work now: https://github.com/onera/Fast/issues/14
+        if inititer == 1: # HACK FIXME BUG https://github.com/onera/Fast/issues/88
+            FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store') 
+            FastS._calc_global_convergence(workflow.tree) # should work now: https://github.com/onera/Fast/issues/14
 
         workflow._iteration = it + 1  # we are after the method Fast._compute
 
