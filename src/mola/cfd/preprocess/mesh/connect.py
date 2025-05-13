@@ -25,13 +25,22 @@ def apply(workflow):
     if not all([('Connection' in component) for component in workflow.RawMeshComponents]):
         return
     
-    try:
-        assert workflow.Solver != 'sonics'
-        apply_with_cassiopee(workflow)
+    reason_for_not_using_maia = get_reason_why_maia_cannot_connect(workflow)
+    use_maia = not bool(reason_for_not_using_maia)
 
-    except (AssertionError, ModuleNotFoundError):
-        _check_can_apply_maia_connect(workflow)     
+    if use_maia:
         apply_with_maia(workflow)
+
+    else:
+        try:
+            apply_with_cassiopee(workflow)
+        except BaseException as e:
+            reason_for_not_using_cassiopee = str(e)
+            msg =('Unable to connect:\n'
+                 f'maia reason: {reason_for_not_using_maia}\n'
+                 f'cassiopee reason: {reason_for_not_using_cassiopee}')
+            raise MolaException(msg) from e
+
         
 def apply_with_cassiopee(workflow):
 
@@ -128,7 +137,7 @@ def apply_with_cassiopee(workflow):
 def apply_with_maia(workflow):
     workflow.tree = to_distributed(workflow.tree)
 
-    component = workflow.RawMeshComponents[0]
+    component = workflow.RawMeshComponents[0] # CAVEAT this prevents from connecting multiple raw mesh components using maia
     for operation in component['Connection']:
         ConnectionType = operation['Type']
         mola_logger.info(f'  > connecting type {ConnectionType}', rank=0)
@@ -148,21 +157,20 @@ def apply_with_maia(workflow):
     
     workflow.tree = cgns.castNode(workflow.tree)
 
-def _check_can_apply_maia_connect(workflow):
+def get_reason_why_maia_cannot_connect(workflow):
     if not workflow.tree.isUnstructured():
-            raise MolaException('Periodic Match with Maia is possible only for unstructured mesh')
+        return 'Periodic Match with Maia is possible only for unstructured mesh'
 
     for component in workflow.RawMeshComponents:
         for connection in component['Connection']:
             if connection['Type'] != 'PeriodicMatch':
-                raise MolaException('Connection operations are possible only for Type PeriodicMatch without Cassiopee.')
+                return 'Connection operations are possible only for Type PeriodicMatch without Cassiopee.'
             elif not 'Families' in connection:
-                raise MolaException('PeriodicMatch with Maia needs Families.')
+                return 'PeriodicMatch with Maia needs Families.'
             elif not len(connection['Families']) == 2:
-                raise MolaException('Families must be a tuple of length 2.')
+                return 'Families must be a tuple of length 2.'
             elif not any([workflow.tree.get(Type='Family', Depth=2, Name=fam) for fam in connection['Families']]):
-                raise MolaException(
-                    f'Families {connection["Families"]}, '
+                return (f'Families {connection["Families"]}, '
                     'needed to perform PeriodicMatch operation with Maia, '
                     'cannot be found in the mesh tree.')
 

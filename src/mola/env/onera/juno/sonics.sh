@@ -26,12 +26,13 @@ export TREELABPATH=/tmp_user/juno/lbernard/treelab/dev/juno_elsA # ONLY DURING D
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
-
 export MACHINE=juno
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/tools/netcdf/4.8.0-gnu831/lib
+
 
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 

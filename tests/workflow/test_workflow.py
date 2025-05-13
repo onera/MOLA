@@ -718,16 +718,9 @@ def test_prepare_assemble_dist():
 
 @pytest.mark.cost_level_1
 @pytest.mark.integration
-def test_prepare_workflow1():
+def test_process_mesh_workflow1():
     w = get_workflow1()
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
-    w.assemble()
-    w.positioning()
-    w.connect()
-    w.define_families()
-    w.split_and_distribute()
+    w.process_mesh()
     w.write_tree('test.cgns')
     try: os.unlink('test.cgns')
     except: pass
@@ -737,9 +730,6 @@ def test_prepare_workflow1():
 def test_prepare_workflow2(tmp_path):
     w = get_workflow2()
     w.RunManagement["RunDirectory"] = str(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     w.prepare()
     w.write_cfd_files()
 
@@ -760,9 +750,6 @@ def test_prepare_workflow2(tmp_path):
 @pytest.mark.cost_level_0
 def test_workflow_cart_monoproc(tmp_path):
     w = get_workflow_cart_monoproc(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -774,9 +761,6 @@ def test_workflow_cart_monoproc(tmp_path):
 @pytest.mark.cost_level_3
 def test_workflow_sphere_struct_local_monoproc(tmp_path):
     w = get_workflow_sphere_struct(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -831,9 +815,6 @@ def test_workflow_sphere_unstruct_local_euler(tmp_path):
 @pytest.mark.mpi
 def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=True):
     w = get_workflow_sphere_struct_cassiopee_mpi_to_connect(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -847,9 +828,6 @@ def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=Tr
 @pytest.mark.mpi
 def test_workflow_sphere_struct_local_dist(tmp_path,remove_cfd_files=True):
     w = get_workflow_sphere_struct_dist(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -892,9 +870,6 @@ def test_workflow_sphere_struct_remote_sator():
     w = get_workflow_sphere_struct(
         RunDirectory=f'/tmp_user/sator/$USER/.test_workflow_sphere_struct_remote_sator_{os.getenv("MOLA_SOLVER")}/'
     )
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     scheduler_defaults = SV.get_scheduler_defaults('sator')
     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
     w.RunManagement['TimeLimit'] = '00:30:00'
@@ -925,7 +900,8 @@ def test_print_interface_1():
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
-    test_workflow_sphere_struct_local_monoproc('sphere_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
+    test_workflow_cart_monoproc('test_workflow_cart_monoproc')
+    # test_workflow_sphere_struct_local_monoproc('sphere_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
     # test_workflow_cart_monoproc('cart_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
     # test_workflow_sphere_struct_local_dist('sphere_dist_'+os.environ.get("MOLA_SOLVER"))
     # test_workflow_sphere_struct_local_cassiopee_mpi('sphere_struct_cassmpi_'+os.environ.get("MOLA_SOLVER"),False)

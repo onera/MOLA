@@ -61,11 +61,13 @@ def get_workflow_prepared_to_test_bcs(BoundaryConditions):
     if workflow.Solver == 'sonics':
         from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
         adapt_workflow_for_sonics(workflow)
-    workflow.assemble()
-    workflow.positioning()
-    workflow.define_families() 
-    workflow.connect()
-    workflow.split_and_distribute() 
+    else:
+        workflow.assemble() # distributed from here 
+        workflow.positioning()
+        workflow.define_families() # possibly partitioned from here
+        workflow.connect()
+        workflow.split_and_distribute() # partitioned from here
+
     workflow.process_overset()
     workflow.compute_flow_and_turbulence()
     workflow.set_motion()

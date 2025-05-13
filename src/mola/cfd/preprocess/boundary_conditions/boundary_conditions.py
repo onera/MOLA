@@ -314,3 +314,5 @@ def _instantiate_bc_dispatcher(workflow):
     dispatcher = getattr(solverModule, 
                             f"BoundaryConditionsDispatcher{workflow.Solver.capitalize()}")
     workflow._bc_dispatcher = dispatcher()
+
+    return workflow._bc_dispatcher

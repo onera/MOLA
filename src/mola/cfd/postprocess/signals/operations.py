@@ -18,6 +18,8 @@
 import numpy as np
 from scipy.ndimage import uniform_filter1d
 
+# TODO implement "maxdiff-" (for applying to residuals decrease for example)
+
 def slidding_average(array: np.ndarray, window: int) -> np.ndarray:
     '''
     Compute the slidding average of the signal

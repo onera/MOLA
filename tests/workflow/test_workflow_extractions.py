@@ -109,9 +109,6 @@ def test_found_requested_extraction():
     found_extract = any([e["Name"] == "TOTO" for e in w.Extractions if "Name" in e])
     assert found_extract
 
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
     w.prepare()
     
     still_found_extract = any([e["Name"] == "TOTO" for e in w.Extractions if "Name" in e])
@@ -128,9 +125,6 @@ def test_integrals_one_run(tmp_path, niter=10):
     separated_filename = 'test_integrals.cgns'
 
     w = get_workflow_cart_monoproc(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
 
     w._interface.add_to_Extractions_Integral(
         Name='TestSeparatedFile',
@@ -185,9 +179,6 @@ def test_integrals_one_run(tmp_path, niter=10):
 def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
 
     w = get_workflow_cart_monoproc(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
 
     w._interface.add_to_Extractions_Integral(
         Name='TestIntoSignals',
@@ -231,9 +222,6 @@ def test_bc_one_run(tmp_path, niter=10):
     separated_filename = 'test_bc.cgns'
 
     w = get_workflow_cart_monoproc(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
 
     w._interface.add_to_Extractions_BC(
         Name='TestSeparatedFile',
@@ -258,9 +246,6 @@ def test_bc_one_run(tmp_path, niter=10):
 def test_integral_with_postprocess(tmp_path, niter=10):
     
     w = get_workflow_cart_monoproc(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
 
     w._interface.add_to_Extractions_Integral(
         Source='Ground',
@@ -288,9 +273,6 @@ def test_integral_with_postprocess(tmp_path, niter=10):
 def test_convergence_on_criterion(tmp_path, niter=20):
     
     w = get_workflow_cart_monoproc(tmp_path)
-    if w.Solver == 'sonics':
-        from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-        adapt_workflow_for_sonics(w)
 
     w.Flow['Velocity'] = 0.01  # With that, the solution is already converged when the run begins. Not 0 otherwise elsA stops at iteration 1
     w.Numerics['MinimumNumberOfIterations'] = 10  # to allow stopping the simulation as soon as the convergence criterion is reached

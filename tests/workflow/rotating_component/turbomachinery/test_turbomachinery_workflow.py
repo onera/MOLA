@@ -294,7 +294,8 @@ def test_compressor_example_local_stage(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.elsa  
-@pytest.mark.sonics # No fast because having NaN
+@pytest.mark.sonics
+@pytest.mark.fast
 @pytest.mark.cost_level_4
 def test_compressor_example_local_rotor_only(tmp_path):
     w = get_compressor_example_rotor_only(tmp_path)

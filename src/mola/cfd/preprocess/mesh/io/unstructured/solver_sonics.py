@@ -29,7 +29,7 @@ def apply_to_solver(workflow):
     tree_was_full = not(bool(workflow.tree.get(':CGNS#Distribution')) or bool(workflow.tree.get(':CGNS#GlobalNumbering')))
 
     if any_not_ngon:
-        workflow.tree = convert_elements_to_ngon(workflow.tree)
+        workflow.tree = convert_elements_to_ngon(workflow.tree)   
 
     workflow.tree = merge_all_unstructured_zones_from_families(workflow.tree)
 
@@ -39,7 +39,10 @@ def apply_to_solver(workflow):
 def make_mesh_unstructured(t):
     import maia 
     from mpi4py import MPI
+    from maia.io.fix_tree import fix_point_ranges
+    
     t = to_distributed(t)
+    fix_point_ranges(t)
     maia.algo.dist.convert_s_to_ngon(t, MPI.COMM_WORLD)
     maia.algo.pe_to_nface(t, MPI.COMM_WORLD)
     t = cgns.castNode(t)
