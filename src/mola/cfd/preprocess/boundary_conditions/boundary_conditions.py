@@ -158,7 +158,8 @@ def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
 
                     kwargs[arg_name] = I.getValue(node)
 
-                VarDictToImpose[variable_name] = function_to_apply(**kwargs)
+                result = function_to_apply(**kwargs)
+                VarDictToImpose[variable_name] = np.asfortranarray(result).ravel(order='K')
 
             # Get BC path in the main tree
             zname, wname = bc[0].split('\\')

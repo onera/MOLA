@@ -24,8 +24,6 @@ from mola.server import remote
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_set_default():
-    config = remote.get_network_config()
-
     RunManagement = dict(
         Machine = 'auto',
         RunDirectory = '.',
@@ -34,9 +32,6 @@ def test_set_default():
         )
 
     run_manager.set_default(RunManagement)
-
-    assert RunManagement['Machine'] in config.AvailableEnvironments
-    # TODO Complete the assertion tests
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

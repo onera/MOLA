@@ -153,10 +153,13 @@ def write_with_pypart(w, tree, dst):
 def _add_GridLocation_and_PointRange_in_BCDataSet(tree):
     # HACK add GridLocation and PointRange or PointList nodes in each BCDataSet
     # It is needed for compatibility with maia, otherwise maia cannot read the mesh from file.
-    for BCDataSet in tree.group(Type='BCDataSet'):
-        GridLocation = BCDataSet.get(Type='GridLocation')
-        if GridLocation is None:
-            cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=BCDataSet)
+    # for BCDataSet in tree.group(Type='BCDataSet'):
+    #     GridLocation = BCDataSet.get(Type='GridLocation')
+    #     if GridLocation is None:
+    #         cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=BCDataSet)
+    from mola.cfd.preprocess.boundary_conditions.boundary_conditions import fix_FaceCenter_in_BCDataSet
+    fix_FaceCenter_in_BCDataSet(tree)
+
     from maia.io.fix_tree import add_missing_pr_in_bcdataset
     add_missing_pr_in_bcdataset(tree)
     return cgns.castNode(tree)
