@@ -346,7 +346,7 @@ class Figure():
     def plotSignals(self, signals: Union[str, cgns.Tree, None], left=0.05, right=0.5, bottom=0.05, top=0.4,
             xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
             background_opacity=1.0, font_color='black', 
-            curves=[dict(zone_name='BLADES',x='IterationNumber',y='MomentumXFlux',
+            curves=[dict(zone_name='BLADES',x='Iteration',y='MomentumXFlux',
                          plot_params={})], 
             iterationTracer=None):
         
@@ -377,7 +377,7 @@ class Figure():
                 try:
                     if isinstance(iterationTracer, int):
                         iterationTracer = dict(iteration=iterationTracer)
-                    iterations = zone.fields(['IterationNumber'])[0]
+                    iterations = zone.fields(['Iteration'])[0]
                     # On the following line: -1 because quantities correspond to the previous iteration
                     index = np.where(iterations == iterationTracer['iteration'] - 1)[0]
                     if not 'plot_params' in iterationTracer:
@@ -586,7 +586,7 @@ if __name__ == '__main__':
         #         xlabel='iteration', ylabel=r'$\bf{C_D}$',
         #         xlim=(first_iteration, i), ylim=(0,0.8),
         #         background_opacity=0.0, font_color='black',
-        #         curves=[dict(zone_name='WALL',x='IterationNumber',y='CD',
+        #         curves=[dict(zone_name='WALL',x='Iteration',y='CD',
         #                         plot_params={'color':'C0'}),])
         # for b in 'top', 'right': ax.spines[b].set_visible(False)
 
@@ -595,7 +595,7 @@ if __name__ == '__main__':
         #         xlabel='iteration', ylabel=r'$\bf{Pressure}$ at Probe (Pa)',
         #         xlim=(first_iteration, i),
         #         background_opacity=0.0, font_color='black',
-        #         curves=[dict(zone_name='ProbeDownstream',x='IterationNumber',y='Pressure',
+        #         curves=[dict(zone_name='ProbeDownstream',x='Iteration',y='Pressure',
         #                         plot_params={'color':'magenta'}),])
 
         # probe = signals.get(Name='ProbeDownstream', Type='Zone_t')

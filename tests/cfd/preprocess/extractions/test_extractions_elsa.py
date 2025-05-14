@@ -122,7 +122,7 @@ def test_process_extractions_3d_additional_variables():
     params = get_workflow2_parameters()
     params['Extractions'] = [
         dict(Type='3D', Fields=['Density', 'MomentumX'], Container='FS#Output3D'),
-        dict(Type='3D', Fields=['Mach', 'Pressure'], Container='FS#Output3D'),
+        dict(Type='3D', Fields=['MomentumX', 'Mach', 'Pressure'], Container='FS#Output3D'),
         ]
     workflow = Workflow(**params)
     workflow.assemble()

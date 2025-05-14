@@ -123,7 +123,7 @@ CGNSTree CGNSTree_t:
                 0.5], [0.0, 0.25, 0.5], [0.0, 0.25, 0.5]], [[0.0, 0.25, 0.5], [0.0, 0.25, 0.5], [0.0, 0.25, 0.5], [0.0, 0.25,
                 0.5], [0.0, 0.25, 0.5]]]
     GlobalConvergenceHistory ConvergenceHistory_t:
-      IterationNumber DataArray_t I4 [1, 2]:
+      Iteration DataArray_t I4 [1, 2]:
       RSDDensityRMS DataArray_t R8 [6.280369834735101e-16, 0.011596290523384858]:
       RSDMomentumXRMS DataArray_t R8 [61.321840800853444, 55.15993410868326]:
       RSDMomentumYRMS DataArray_t R8 [0.0, 0.3821713624809199]:

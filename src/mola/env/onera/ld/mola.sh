@@ -27,7 +27,7 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 module load python/3.10.8-gnu831
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode/1.85.2
+module load vscode
 module load pointwise/2022.1.2
 # # module load paraview/5.11.0 # provokes python and libraries incompatibilities
 module load occt/7.6.1-gnu831
@@ -67,3 +67,5 @@ export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
+
+export MOLA_SOLVER=mola

@@ -168,13 +168,13 @@ def test_update_signals(arrays):
     new_field = new_it*10
 
     previous_tree = cgns.Tree(Integral=cgns.newZoneFromDict('ZoneName',
-                        dict(IterationNumber=previous_it, field=previous_field)))
+                        dict(Iteration=previous_it, field=previous_field)))
     current_tree = cgns.Tree(Integral=cgns.newZoneFromDict('ZoneName',
-                        dict(IterationNumber=new_it, field=new_field)))
+                        dict(Iteration=new_it, field=new_field)))
 
     update_signals_using(current_tree, previous_tree)
 
-    updated_it = previous_tree.get('IterationNumber').value()
+    updated_it = previous_tree.get('Iteration').value()
     updated_field = previous_tree.get('field').value()
 
     assert len(updated_it) == len(updated_field)

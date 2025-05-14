@@ -209,7 +209,7 @@ class WorkflowRotatingComponent(Workflow):
                 omega = np.zeros(CoordinateX.shape, dtype=float)
                 for interval in self.ApplicationContext['HubRotationIntervals']:
                     omega[(interval['xmin']<=CoordinateX) & (CoordinateX<=interval['xmax'])] = self.ApplicationContext['ShaftRotationSpeed']
-                return np.asfortranarray(omega).ravel(order='K')
+                return omega
 
         else:
             assert callable(self.ApplicationContext['HubRotationIntervals'])

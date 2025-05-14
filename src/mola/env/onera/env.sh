@@ -17,22 +17,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-# Detection machine
-HOSTNAME=`hostname`
-# Extract lines containing the Python dict PatternsToEnvironments in network.py
-python_data=$(sed -n '/PatternsToEnvironments/,/}/p' $SCRIPT_DIR/network.py)
-# Extract keys and values from PatternsToEnvironments
-keys=$(echo "$python_data" | grep -oP "'[^']+'\ *:" | sed "s/'//g;s/://g")
-values=$(echo "$python_data" | grep -oP ":\ *'[^']+'" | sed "s/://;s/'//g")
-i=1
-for pattern in $keys; do
-    if [[ $HOSTNAME == $pattern ]]; then 
-        export MOLA_MACHINE=$(echo $values | cut -d ' ' -f $i)
-        break
-    fi
-    i=$((i+1))
-done
+export MOLA_MACHINE=$(python3 $SCRIPT_DIR/network.py)
 
 if [ "$1" = "" ]; then
     export MOLA_SOLVER=mola

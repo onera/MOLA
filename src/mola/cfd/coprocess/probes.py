@@ -129,7 +129,7 @@ def extract_probe(output_tree: cgns.Tree, extraction: dict, coprocess_manager):
         zone = cgns.Zone(Name=extraction['Name'], Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
 
-        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
+        cgns.Node(Name='Iteration', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.iteration]))
         if coprocess_manager.workflow.Numerics['TimeMarching'] == 'Unsteady': 
             time = coprocess_manager.iteration * coprocess_manager.workflow.Numerics['TimeStep']
             cgns.Node(Name='Time', Type='DataArray', Parent=fs, Value=np.array([time]))

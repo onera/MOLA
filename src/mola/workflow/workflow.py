@@ -72,12 +72,10 @@ class Workflow(object):
         if self.Solver == 'sonics': # CAVEAT specifically verifying sonics, should reverse dependency properly
             from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
             adapt_workflow_for_sonics(self)            
-            self.assemble() 
-
-        else:
-            self.assemble() 
-            self.define_families()
-            self.connect()
+  
+        self.assemble() 
+        self.define_families()
+        self.connect()
         self.positioning()
         self.split_and_distribute()
 

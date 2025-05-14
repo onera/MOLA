@@ -39,8 +39,8 @@ def apply(workflow):
 
     if rank == 0:
         for base in t.bases():
+            # Add new BC families
             component = workflow.get_component(base.name())
-
             try:
                 families = component['Families']
             except: 
@@ -51,6 +51,7 @@ def apply(workflow):
                 location   = operation.get('Location')
                 set_family_from_location(base, FamilyName, location)
 
+            # Add zone bamilies in base or zones if needed
             appendFamiliesToBase(base)
             append_default_family_to_zones(base)
 

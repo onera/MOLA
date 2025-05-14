@@ -39,9 +39,9 @@ export FI_PROVIDER=tcp
 
 
 
-# maia
-module use --append /tmp_user/juno/sonics/usr/modules/
-module load maia/$MAIAVERSION-dsi-cfd6
+# # maia
+# module use --append /tmp_user/juno/sonics/usr/modules/
+# module load maia/$MAIAVERSION-dsi-cfd6
 
 # VPM
 export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
@@ -67,3 +67,5 @@ export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
+
+export MOLA_SOLVER=elsa

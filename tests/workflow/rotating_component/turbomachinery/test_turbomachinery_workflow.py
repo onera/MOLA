@@ -57,7 +57,8 @@ def get_compressor_example_parameters(RunDirectory):
 
     BoundaryConditions = [
         dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
-        dict(Family='Stator_OUTFLOW', Type='OutflowPressure', Pressure=110e3), #98500.),
+        # dict(Family='Stator_OUTFLOW', Type='OutflowPressure', Pressure=110e3), #98500.),
+        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', valve_type=4, valve_ref_pres=0.75*101325, valve_relax=0.1*101325),
         dict(Family='HUB', Type='WallInviscid'),
         dict(Family='SHROUD', Type='WallInviscid'),
         dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', Type='MixingPlane')
@@ -242,74 +243,6 @@ def get_workflow_rotor37(RunDirectory):
         )
     return w
 
-def get_workflow_srv2(RunDirectory):
-    w = turbomachinery.Workflow( 
-        RawMeshComponents=[
-            dict(
-                Name='SRV2',
-                Source = '/stck/mola/data/open/mesh/SRV2/SRV2.cgns',
-                ) 
-        ],
-
-        ApplicationContext = dict(
-            ShaftRotationSpeed = -1800., 
-            Rows = dict(
-                R37 = dict(
-                    IsRotating = True,
-                    NumberOfBlades = 36,
-                )
-            )
-        ),
-
-        Flow = dict(
-            MassFlow              = 20.5114,  # for the 360 degrees section, even it is simulated entirely
-            TemperatureStagnation = 288.15,
-            PressureStagnation    = 101330.,
-        ),
-
-        Turbulence = dict(
-            Level = 0.03,
-            Viscosity_EddyMolecularRatio = 0.1,
-            Model = 'smith',
-        ),
-
-        Numerics = dict(
-            NumberOfIterations = 5000,
-            CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
-        ),
-
-        BoundaryConditions = [
-            dict(Family='R37_INFLOW', Type='InflowStagnation'),
-            dict(Family='R37_OUTFLOW', Type='OutflowPressure', Pressure=0.9936*1e5),
-        ],
-
-        Initialization = dict(
-            ComputeWallDistanceAtPreprocess = True,
-        ),
-
-        Extractions = [
-            dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9),
-            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.03, OtherOptions=dict(tag='InletPlane', ReferenceRow='R37')),
-            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.07, OtherOptions=dict(tag='OutletPlane', ReferenceRow='R37')),
-        ],
-
-        ConvergenceCriteria = [
-            dict(
-                ExtractionName = 'R37_INFLOW',
-                Variable  = 'rsd-MassFlow',
-                Threshold = 1e-4,
-            ),
-        ],
-
-        RunManagement=dict(
-            JobName='srv2',
-            RunDirectory=RunDirectory,
-            NumberOfProcessors=4,
-            ),
-
-        )
-    return w
-
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_init(tmp_path):
@@ -376,55 +309,3 @@ def test_compressor_example_local_rotor_only(tmp_path):
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()
-
-# @pytest.mark.network_onera
-# @pytest.mark.user_case
-# @pytest.mark.cost_level_4
-# def test_rotor37_sator():
-#     # import snippet
-#     # import sys 
-#     # sys.path.append('$MOLA/../doc/src/tutorials/rotor37/')
-#     # from snippets.prepare import w
-
-
-#     w.RunManagement['NumberOfProcessors'] = 12
-#     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/{os.getenv("USER")}/.test_user_case/test_rotor37_sator/'
-#     scheduler_defaults = SV.get_scheduler_defaults('sator')
-#     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
-#     # w.RunManagement['TimeLimit'] = '00:30:00'
-
-#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
-
-#     w.prepare()
-#     w.write_cfd_files()
-#     w.submit()
-
-#     # NOTE: do not wait for job to end, since that approach would provoke
-#     # too important delays (waiting for resources of SLURM)
-#     # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
-#     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
-#     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
-
-
-# @pytest.mark.network_onera
-# @pytest.mark.user_case
-# @pytest.mark.cost_level_4
-# def test_srv2_sator(tmp_path):
-#     w = get_workflow_srv2(tmp_path)
-#     w.RunManagement['NumberOfProcessors'] = 12
-#     w.RunManagement['RunDirectory'] = f'/tmp_user/sator/{os.getenv("USER")}/.test_user_case/test_srv2_sator/'
-#     scheduler_defaults = SV.get_scheduler_defaults('sator')
-#     w.RunManagement['AER'] = scheduler_defaults.AER_FOR_TEST
-#     # w.RunManagement['TimeLimit'] = '00:30:00'
-
-#     SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
-
-#     w.prepare()
-#     w.write_cfd_files()
-#     w.submit()
-
-#     # NOTE: do not wait for job to end, since that approach would provoke
-#     # too important delays (waiting for resources of SLURM)
-#     # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
-#     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
-#     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)

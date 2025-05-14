@@ -119,10 +119,10 @@ def _update_signals_zones(current_zone : cgns.Zone, previous_zone : cgns.Zone) -
     current_flow_sol  =  current_zone.get(Name='FlowSolution',Depth=1)
 
 
-    PreviousIterationsNode = previous_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1)
+    PreviousIterationsNode = previous_flow_sol.get(Name='Iteration',Type='DataArray_t',Depth=1)
     if not PreviousIterationsNode: return
     PreviousIterations = PreviousIterationsNode.value()
-    CurrentIterationsNode = current_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1)
+    CurrentIterationsNode = current_flow_sol.get(Name='Iteration',Type='DataArray_t',Depth=1)
     if not CurrentIterationsNode: return
     CurrentIterations = CurrentIterationsNode.value()
 
@@ -163,7 +163,7 @@ def _update_signals_container_stacking_all(previous_flow_sol, current_flow_sol):
         
         previous_data = previous_flow_sol.get(current_data.name(),Type='DataArray_t',Depth=1)
         if not previous_data:
-            previous_it = previous_flow_sol.get('IterationNumber',Type='DataArray_t',Depth=1).value()
+            previous_it = previous_flow_sol.get('Iteration',Type='DataArray_t',Depth=1).value()
             previous_value = np.empty_like(previous_it)
             previous_value[:] = np.nan
         else:
@@ -176,8 +176,8 @@ def _update_signals_container_stacking_all(previous_flow_sol, current_flow_sol):
 
 def _update_signals_container_stacking_partially(previous_flow_sol, current_flow_sol):
 
-    PreviousIterations = previous_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1).value()
-    CurrentIterations = current_flow_sol.get(Name='IterationNumber',Type='DataArray_t',Depth=1).value()
+    PreviousIterations = previous_flow_sol.get(Name='Iteration',Type='DataArray_t',Depth=1).value()
+    CurrentIterations = current_flow_sol.get(Name='Iteration',Type='DataArray_t',Depth=1).value()
 
     ε = 1e-12
     UpdatePortion = PreviousIterations > (CurrentIterations[0] - ε)
@@ -199,7 +199,7 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
 
         previous_data = previous_flow_sol.get(current_data.name(),Type='DataArray_t',Depth=1)
         if not previous_data:
-            previous_it = previous_flow_sol.get('IterationNumber',Type='DataArray_t',Depth=1).value()
+            previous_it = previous_flow_sol.get('Iteration',Type='DataArray_t',Depth=1).value()
             previous_value = np.empty_like(previous_it)
             previous_value[:] = np.nan
         else:
@@ -243,7 +243,7 @@ def extract_memory_usage(extraction, iteration):
         base = cgns.Base(Name='MemoryUsage', Parent=t)
         zone = cgns.Zone(Name=f'MemoryUsageOfProc{rank}', Parent=base)
         fs = cgns.Node(Name='FlowSolution', Type='FlowSolution', Parent=zone)
-        cgns.Node(Name='IterationNumber', Type='DataArray', Parent=fs, Value=np.array([iteration]))
+        cgns.Node(Name='Iteration', Type='DataArray', Parent=fs, Value=np.array([iteration]))
         cgns.Node(Name='UsedMemoryInPercent', Type='DataArray', Parent=fs, Value=np.array([psutil.virtual_memory().percent]))
         cgns.Node(Name='UsedMemory', Type='DataArray', Parent=fs, Value=np.array([psutil.virtual_memory().used]))
 

@@ -21,14 +21,14 @@ from pathlib import Path
 import mola.naming_conventions as names
 
 from mola.workflow.rotating_component import turbomachinery
-from .test_turbomachinery_workflow import get_compressor_example
+from .test_turbomachinery_workflow import get_compressor_example_rotor_only
 
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_WorkflowManager_prepare(tmp_path):
 
     test_dir = str(tmp_path)
-    w = get_compressor_example('not_used_directory')
+    w = get_compressor_example_rotor_only('not_used_directory')
     manager = turbomachinery.WorkflowManager(w, root_directory=test_dir,
                     manager_file_path=str(tmp_path/names.FILE_WORKFLOW_MANAGER))
     manager.add_isospeed_line(throttles=[1e5, 1.1e5, 1.2e5])
