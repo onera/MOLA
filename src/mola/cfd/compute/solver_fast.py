@@ -38,9 +38,10 @@ def apply_to_solver(workflow):
     inititer, niter = get_range_of_iterations(workflow)
 
     # time-marching loop
-    for it in range( inititer-1, inititer+niter ):
+    for it in range( inititer-1, inititer+niter-1 ):
     
-        workflow._iteration = it  # + 1  # Numbering in MOLA starts at iteration 1, and starts at 0 for Fast
+        # Numbering in MOLA starts at iteration 1, and starts at 0 for Fast
+        workflow._iteration = it
         workflow._status = 'RUNNING_BEFORE_ITERATION'
         workflow._coprocess_manager.run_iteration()
 

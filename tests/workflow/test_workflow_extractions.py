@@ -49,6 +49,7 @@ def assert_file_with_relevant_zone_and_fields(filename, zonename, fieldnames,
 
     iterations = container.get(Name='Iteration', Type='DataArray_t', Depth=1)
     assert iterations
+    assert np.allclose(iterations.value(), np.arange(1, expected_number_of_items+1))
 
     if not isinstance(fieldnames,list):
         if not isinstance(fieldnames,str): raise AttributeError("wrong fieldnames attribute")
@@ -156,7 +157,7 @@ def test_integrals_one_run(tmp_path, niter=10):
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
     
-    expected_number_of_items = niter + 1
+    expected_number_of_items = niter
 
     def assert_all():
         assert_file_with_relevant_zone_and_fields(separated_filename, "TestSeparatedFile",
@@ -205,7 +206,7 @@ def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
-    expected_number_of_items = niter_first_run + niter_second_run + 1
+    expected_number_of_items = niter_first_run + niter_second_run
 
     # TODO test also here the residuals output
     assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "TestIntoSignals",
@@ -261,7 +262,7 @@ def test_integral_with_postprocess(tmp_path, niter=10):
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
-    expected_number_of_items = niter + 1 
+    expected_number_of_items = niter
 
     assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "Ground",
             ['ForceX', 'ForceY', 'ForceZ', 'rsd-ForceX'], tmp_path, expected_number_of_items)
@@ -287,7 +288,7 @@ def test_convergence_on_criterion(tmp_path, niter=20):
     w.assert_completed_without_errors()
 
     if w.Solver == 'elsa':
-        expected_number_of_items = 12 
+        expected_number_of_items = 11 
     elif w.Solver == 'fast':
         expected_number_of_items = 11
     else:

@@ -242,6 +242,22 @@ def extract_integral(output_tree, extraction) -> None:
         suffix = full_name_parts[1][:-1]  # name of IntegralData ends with ":"
         return family, suffix
     
+    def remove_iteration_zero(fs_node : cgns.Node):
+        # Check if 'Iteration' starts by 0
+        try:
+            Iteration = fs_node.get(Name='Iteration', Depth=1).value()
+        except:
+            return None
+
+        if Iteration[0] == 0:
+            if Iteration.size == 1:
+                return None
+
+            # remove the first element of each array 
+            for node in fs_node.group(Type='DataArray', Depth=1):
+                node.setValue(node.value()[1:])
+        return fs_node
+
     IntegralDataTree = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=IntegralDataTree)
 
@@ -254,6 +270,9 @@ def extract_integral(output_tree, extraction) -> None:
             for n in IntegralDataNode.children(): 
                 n.setType('DataArray_t')
             translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
+            IntegralDataNode = remove_iteration_zero(IntegralDataNode)
+            if IntegralDataNode is None: 
+                break
             zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
 
             # multiply integrated data by the FluxCoef
