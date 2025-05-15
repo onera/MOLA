@@ -872,7 +872,7 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     I._correctPyTree(workflow.tree, level=4)
 
 @mute_stdout
-def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirtype='axial', write_radius_in_cgns=True):
+def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirtype='axial', write_radius_in_cgns=False):
     '''
     Set a hybrid mixing plane condition between families **Family** and **LinkedFamily**.
 

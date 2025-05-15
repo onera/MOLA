@@ -61,8 +61,8 @@ class WorkflowRotatingComponent(Workflow):
     def __init__(self, **kwargs):
         self._interface = WorkflowRotatingComponentInterface(self, **kwargs)
 
-    def define_families(self):
-        super().define_families()
+    def process_mesh(self):
+        super().process_mesh()
         self.set_default_parameters_for_rows()
         self.compute_fluxcoef_by_row() 
         # duplicate.duplicate_workflow_with_cassiopee(self)
@@ -95,11 +95,7 @@ class WorkflowRotatingComponent(Workflow):
                 rowParams['NumberOfBladesInInitialMesh'] = 1
                 mola_logger.info(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
 
-            try: 
-                n = self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades'])
-            except:
-                mola_logger.warning(f'Cannot compute NumberOfBladesInInitialMesh automatically. It is set to 1 by default.')
-                n = 1
+            n = self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades'])
             rowParams.setdefault('NumberOfBladesInInitialMesh', n)     
 
     def set_motion(self):
@@ -435,3 +431,22 @@ class WorkflowRotatingComponent(Workflow):
         if MPI.COMM_WORLD.Get_rank() == 0:
             from mola.visu import plot_radial_profiles
             plot_radial_profiles(*args, **kwargs)
+
+    @staticmethod
+    def remove_row(tree, row, interface_family=None, new_interface_family=None):
+        mola_logger.info(f'Remove row {row}')
+        tree.findAndRemoveNodes(Type='Family', Name=f'{row}*')
+        tree.findAndRemoveNodes(Type='Zone', Name=f'{row}*')
+        tree.findAndRemoveNodes(Type='Family', Name='Rotor_stator_10_right')
+        tree.findAndRemoveNodes(Type='GridConnectivity', Value=f'{row}*')
+
+        # modifies interface Family
+        if interface_family is not None and new_interface_family is not None: 
+            mola_logger.info(f'Rename {interface_family} to {new_interface_family}')
+            fam = tree.get(Type='Family', Name=interface_family)
+            fam.setName(new_interface_family)
+            bcs = [bc for bc in tree.group(Type='BC') if bc.get(Type='FamilyName', Value=interface_family)]
+            for bc in bcs:
+                bc.findAndRemoveNode(Name='InterfaceType')
+                bc.findAndRemoveNode(Name='DonorFamily')
+                bc.get(Type='FamilyName').setValue(new_interface_family)

@@ -74,9 +74,9 @@ class Workflow(object):
             adapt_workflow_for_sonics(self)            
   
         self.assemble() 
-        self.define_families()
-        self.connect()
         self.positioning()
+        self.connect()
+        self.define_families()
         self.split_and_distribute()
 
     def check_consistency_between_solver_and_environment(self):
