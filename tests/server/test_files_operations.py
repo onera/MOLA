@@ -137,6 +137,39 @@ def test_scp_local_destination_and_source_are_the_same(tmp_path):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
+def test_copy_remote_local_destination_is_a_file(tmp_path):
+    filename = '.dummy_test_file'
+    source = tmp_path / filename
+    with open(source, 'w') as fi:
+        fi.write('test')
+
+    # destination is a file: the file must be copied by changing its name
+    destination_dir = tmp_path / '.new_dummy_dir/'
+    destination = destination_dir / filename
+
+    FOP.copy_remote(source, destination)
+
+    assert FOP.is_file(destination)
+    shutil.rmtree(destination_dir)
+    assert not FOP.is_existing_path(destination_dir)
+    os.unlink(source)
+    assert not FOP.is_existing_path(source)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_move_remote_local(tmp_path):
+    filename = 'dummy_test_file'
+    source = tmp_path / 'dummy_test_file'
+    with open(source, 'w') as fi:
+        fi.write('test')
+    destination = tmp_path / 'test_dir' / filename
+
+    FOP.move_remote(source, destination)
+    assert not FOP.is_existing_path(source)
+    assert FOP.is_existing_path(destination)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_read_text_file_from_errors_local(tmp_path):
     source = tmp_path / '.dummy_test_err_file.log'
     expected_err_msg = (

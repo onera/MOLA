@@ -271,7 +271,14 @@ def copy_remote(source_path, destination_path, source_machine=None, destination_
                source_user, destination_user, 
                force_copy=force_copy
                )
-    
+
+def move_remote(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, file_only=True):
+    copy_remote(source_path, destination_path, source_machine, destination_machine, source_user, destination_user, force_copy)
+    if is_existing_path(destination_path, machine=destination_machine, user=destination_user, file_only=file_only):
+        remove_path(source_path, machine=source_machine, user=source_user, file_only=file_only)
+    else:
+        raise MolaException(f"Copy {source_path} to {destination_path} failed")
+
 def is_local_copy(source_path, source_machine,
                   destination_path, destination_machine):
     is_source_local = remote.run_on_localhost(source_machine, source_path)
