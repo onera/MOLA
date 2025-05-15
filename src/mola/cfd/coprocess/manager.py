@@ -107,12 +107,8 @@ class CoprocessManager():
 
     
     def update_extractions_to_perform(self):
-        # FIXME Fast starts at iteration 0, so all extractions are extracted and saved
-        # at iteration 0 (because of modulo). 
-        # Change iteration number in MOLA (n in MOLA <--> n-1 in Fast) ?
-        # But residuals have iterations coming directly from Fast...
         if self.iteration == self.workflow.Numerics['IterationAtInitialState'] - 1:
-            # e.g. exclude the iteration 0 for a simulation with elsa
+            # extractions are not done on the initial field
             for extraction in self.Extractions:                
                 extraction['IsToExtract'] = False
                 extraction['IsToSave'] = False

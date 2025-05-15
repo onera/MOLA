@@ -38,9 +38,10 @@ def apply_to_solver(workflow):
     inititer, niter = get_range_of_iterations(workflow)
 
     # time-marching loop
-    for it in range( inititer-1, inititer+niter ):
+    for it in range( inititer-1, inititer+niter-1 ):
     
-        workflow._iteration = it  # + 1  # Numbering in MOLA starts at iteration 1, and starts at 0 for Fast
+        # Numbering in MOLA starts at iteration 1, and starts at 0 for Fast
+        workflow._iteration = it
         workflow._status = 'RUNNING_BEFORE_ITERATION'
         workflow._coprocess_manager.run_iteration()
 
@@ -53,7 +54,7 @@ def apply_to_solver(workflow):
                        workflow._treeAtCenters,
                        workflow._fast_graph)
 
-        FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store')
+        FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store') 
         FastS._calc_global_convergence(workflow.tree) # should work now: https://github.com/onera/Fast/issues/14
 
         workflow._iteration = it + 1  # we are after the method Fast._compute
