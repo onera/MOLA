@@ -52,13 +52,16 @@ def apply_to_solver(workflow):
 
     hardware_target = 'cpu'
 
+    iterators = get_iterators(workflow, config, hardware_target)
+    workflow._iterators = iterators
+
     sonics.solver.run(dist_tree, comm, 
-                      iterators = get_iterators(workflow, config, hardware_target), 
-                      additional_parameters = dict(
-                          output_folder = names.DIRECTORY_LOG,
-                          hpc_conf = dict(hardware_target=hardware_target),
-                          )
-                      )
+                iterators = iterators, 
+                additional_parameters = dict(
+                    output_folder = names.DIRECTORY_LOG,
+                    hpc_conf = dict(hardware_target=hardware_target),
+                    )
+                )
 
     coprocess_manager.output_tree = cgns.castNode(dist_tree)
     if not coprocess_manager.output_tree.get(Name='NFaceElements'):

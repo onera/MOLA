@@ -61,12 +61,15 @@ class WorkflowRotatingComponent(Workflow):
     def __init__(self, **kwargs):
         self._interface = WorkflowRotatingComponentInterface(self, **kwargs)
 
+    def duplicate(self):
+        # duplicate.duplicate_workflow_with_cassiopee(self)
+        duplicate.duplicate_workflow_with_maia(self)
+
     def process_mesh(self):
         super().process_mesh()
         self.set_default_parameters_for_rows()
         self.compute_fluxcoef_by_row() 
-        # duplicate.duplicate_workflow_with_cassiopee(self)
-        duplicate.duplicate_workflow_with_maia(self)
+        self.duplicate()
 
     def initialize_flow(self):
         self.Initialization.setdefault('ParametrizeWithHeight', None)

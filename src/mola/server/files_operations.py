@@ -89,7 +89,7 @@ def save_file(filename, text, directory='.'):
         f.write(text)
     os.chmod(filename, 0o777)
 
-def save_file_maybe_remote(filename, txt, directory='.', machine=None):
+def save_file_maybe_remote(filename, txt, directory='.', machine=None, force_copy=False):
     if not directory.endswith(os.path.sep):
         directory += os.path.sep
 
@@ -98,12 +98,13 @@ def save_file_maybe_remote(filename, txt, directory='.', machine=None):
         
     else:
         save_file(filename, txt, '.')
-        copy_remote(
+        move_remote(
             source_path=filename, 
-            destination_path=directory, 
+            source_machine='localhost',
+            destination_path=os.path.join(directory, filename), 
             destination_machine=machine,
+            force_copy=force_copy
             )
-        remove_path(filename, machine='localhost')
 
 def is_existing_path(path, machine=None, user=None, file_only=False):
     '''
@@ -169,6 +170,15 @@ def makedirs_remote(path, machine=None, user=None):
     ssh_host = remote.get_ssh_host_command(machine, user, path)
     subprocess.run([f'{ssh_host} mkdir -p {path}'], shell=True)
 
+def get_path_with_machine(path, machine=None, user=None):
+    if not remote.run_on_localhost(machine, path):
+        if user is None:
+            return f'{machine}:{path}'
+        else:
+            return f'{user}@{machine}:{path}'
+    else:
+        return path
+
 def scp(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, timeout=60):
 
     # Force convertion to str in case paths are Path objects from pathlib
@@ -193,15 +203,6 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
             f'The destination path {destination_path} already exists{precision_if_needed}.'
             ' To force copy and erase previous path, use force_copy=True.'
             )
-    
-    def get_path_with_machine(path, machine=None, user=None):
-        if not remote.run_on_localhost(machine, path):
-            if user is None:
-                return f'{machine}:{path}'
-            else:
-                return f'{user}@{machine}:{path}'
-        else:
-            return path
 
     source = get_path_with_machine(source_path, source_machine, source_user)
     destination = get_path_with_machine(destination_path, destination_machine, destination_user)
@@ -220,6 +221,47 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
                 destination_dir = os.path.sep.join(destination_path.split(os.path.sep)[:-1])
             makedirs_remote(destination_dir, machine=destination_machine, user=destination_user)
             subprocess.run(['scp', '-r', source,destination], check=True, capture_output=True, timeout=timeout)
+
+def rsync(source_path, destination_path, source_machine=None, destination_machine=None, 
+          source_user=None, destination_user=None, included_files=None, excluded_files=None):
+    '''
+    Synchronize local and remote directories using rsync
+
+    Parameters
+    ----------
+    included_files : list, optional
+        If not None, the list of files to include
+    excluded_files : list, optional
+       If not None, the list of files to exclude. 
+       By default, if an **included_file** is given, all other files are by default not included.
+    '''
+    source = get_path_with_machine(source_path, source_machine, source_user)
+    destination = get_path_with_machine(destination_path, destination_machine, destination_user)
+
+    if included_files is None:
+        included_files = []
+    else:
+        if excluded_files is None:
+            excluded_files = ['*']
+    if excluded_files is None:
+        excluded_files = []
+
+    rsync_cmd = ['rsync', '-avz']  # Options: archive mode, verbose, compression
+
+    # Adding --include and --exclude options
+    for pattern in included_files:
+        rsync_cmd.append("--include=" + pattern)
+    for pattern in excluded_files:
+        rsync_cmd.append("--exclude=" + pattern)
+
+    # Adding source and destination
+    rsync_cmd.append(source)
+    rsync_cmd.append(destination)
+
+    # Executing the rsync command with subprocess
+    print(f"Executing command: {' '.join(rsync_cmd)}")
+    subprocess.run(rsync_cmd, check=True)
+
 
 def copy_remote(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False):
     '''

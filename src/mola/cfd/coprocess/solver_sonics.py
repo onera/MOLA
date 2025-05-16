@@ -251,7 +251,9 @@ def deduce_container_for_slicing(IsoSurfaceField):
     
 def move_log_files(w):
     if rank == 0:
-        for filename in glob.glob('taskflow-residual-explicit-rank*-sync.dot') + glob.glob('graph-post-rank*.dot'):
+        for filename in glob.glob('taskflow-residual-explicit-rank*-sync.dot') \
+            + glob.glob('graph-post-rank*.dot')\
+            + glob.glob('graph-full-rank*.*'):
             try:
                 shutil.move(filename, os.path.join(names.DIRECTORY_LOG, filename))
             except FileNotFoundError:
@@ -260,6 +262,7 @@ def move_log_files(w):
 
 def get_iteration(workflow):
     return workflow.Numerics['NumberOfIterations']-1 # TODO
+    # return workflow._iterators.initial + workflow._iterators.niter - 1
 
 def get_status(workflow):
     return 'RUNNING_BEFORE_ITERATION' # TODO: implement this (using elsaXdt?)

@@ -722,12 +722,12 @@ class WorkflowSender():
 
             self.workflow.set_workflow_parameters_in_tree()
             self.workflow.write_tree(filename=self._workflow_filename)
-            SV.copy_remote(
+            SV.move_remote(
                 source_path=self._workflow_filename, 
+                source_machine='localhost', 
                 destination_path=destination, 
                 destination_machine=self.machine,
                 )
-            SV.remove_path(self._workflow_filename, machine='localhost')
 
     def _copy_files_and_update_paths_in_workflow(self, patterns, operation, excluded_attributes):
         files2copy = find_matching_leaves(self.workflow, patterns, operation, excluded_attributes)
