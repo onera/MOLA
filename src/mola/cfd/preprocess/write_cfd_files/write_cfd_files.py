@@ -24,6 +24,24 @@ def apply(workflow):
 
     apply_to_solver(workflow)
 
+    run_on_localhost = SV.run_on_localhost(workflow.RunManagement['Machine'], workflow.RunManagement['RunDirectory'])
+    if not run_on_localhost:
+        write_info_for_data_retrieval(workflow.RunManagement)
+
+def write_info_for_data_retrieval(RunManagement):
+    run_directory = str(RunManagement['RunDirectory'])
+    if not run_directory.endswith(os.path.sep):
+        run_directory += os.path.sep
+
+    file_text = f"""# MOLA log file
+# The following lines can be used for retrieving the results of a MOLA run on a remote machine 
+RunDirectory={run_directory}
+Machine={RunManagement['Machine']}
+User={str(RunManagement.get('User'))}
+"""
+    with open(names.FILE_LOG_REMOTE_DIRECTORY, 'w') as log_file:
+        log_file.write(file_text)
+
 def get_job_text(solver, RunManagement, scheduler_options):
 
     network = SV.get_network()

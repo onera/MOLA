@@ -156,7 +156,7 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
     else:
         mola_logger.info(f"Initialize FlowSolution by copy of the given tree", rank=0)
         tree_source = workflow.Initialization['Source']
-        errtag = 'tree'
+        errtag = 'source tree'
 
     varNames = list(workflow.Flow['ReferenceState'])
     if workflow.Initialization['KeepWallDistance']:
@@ -166,9 +166,10 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
     for zone in workflow.tree.zones():
         FSpath = zone.path() + '/' + workflow.Initialization['SourceContainer']
-        FlowSolutionInSourceTree = tree_source.getAtPath(FSpath)
-
-        if FlowSolutionInSourceTree is None:
+        try:
+            FlowSolutionInSourceTree = tree_source.getAtPath(FSpath)
+            assert FlowSolutionInSourceTree is not None
+        except:
             raise MolaException(f"The node {FSpath} is not found in {errtag}")
 
         #Rename the container if needed

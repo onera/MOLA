@@ -74,9 +74,9 @@ class Workflow(object):
             adapt_workflow_for_sonics(self)            
   
         self.assemble() 
-        self.define_families()
-        self.connect()
         self.positioning()
+        self.connect()
+        self.define_families()
         self.split_and_distribute()
 
     def check_consistency_between_solver_and_environment(self):
@@ -192,6 +192,34 @@ class Workflow(object):
                     except: pass
         MPI.COMM_WORLD.barrier()
         return job_nb
+    
+    def prepare_and_submit_remotely(self):
+        self.prepare_job()
+        assert self.RunManagement['Scheduler'] == 'SLURM'
+        self.set_workflow_parameters_in_tree()
+        self.write_tree_remote()
+        write_cfd_files.write_info_for_data_retrieval(self.RunManagement)
+
+        def write_job_prepare(RunManagement, scheduler_options, solver):
+            from mola import naming_conventions as names
+            from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text
+
+            if RunManagement['Scheduler'] == 'SLURM':
+                scheduler_options['time'] = '00:30:00'
+
+            job_text = get_job_text(solver, RunManagement, scheduler_options)+'\n\n'
+            job_text += 'mola_prepare workflow.cgns\n'
+            SV.save_file_maybe_remote("prepare_job.sh", job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'], force_copy=True)
+
+        write_job_prepare(self.RunManagement, self.RunManagement['SchedulerOptions'], self.Solver)
+
+        mola_logger.info(f"Preparing job on machine {self.RunManagement['Machine']}...")
+        SV.submit_command(
+            f"cd {self.RunManagement['RunDirectory']}; sbatch --wait prepare_job.sh", 
+            machine=self.RunManagement['Machine']
+            )
+        
+        self.submit()
 
     def write_tree_remote(self, data_directory=None, copy_options=None):
         from . import manager as WM

@@ -31,6 +31,7 @@ DIRECTORY_LOG = 'LOGS'
 FILE_STDOUT = 'stdout.log'
 FILE_STDERR = 'stderr.log'
 CGNS_NODE_EXTRACTION_LOG = 'MOLA:Extraction-Log'
+FILE_LOG_REMOTE_DIRECTORY = '.mola_run_directory'
 
 # JOB
 FILE_JOB = 'job.sh'

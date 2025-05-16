@@ -66,9 +66,9 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         for extraction in self.Extractions:
             if extraction['Type'] == 'IsoSurface':
                 if not 'Fields' in extraction or \
-                    any([v in extraction['Fields'] for v in self.Flow['Conservatives']]):
+                    not all([v in extraction['Fields'] for v in self.Flow['Conservatives']]):
                     logger.warning(
-                        ('postprocess is available only if all conservative quantities'
+                        ('postprocess is available only if all conservative quantities '
                          'were extracted on each isosurface.'), 
                          rank=0)
                     return
