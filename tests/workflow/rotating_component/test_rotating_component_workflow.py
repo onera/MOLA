@@ -229,9 +229,13 @@ def test_duplicate(tmp_path):
                 bc.remove()
     w.positioning()
     w.connect()
-    rotor_zone_names = ['blk-1']
     w.define_families()
+    w.set_default_parameters_for_rows()
+    w.compute_fluxcoef_by_row() 
+    w.duplicate()
+
     if w.tree.isStructured():
+        rotor_zone_names = ['blk-1']
         for name in rotor_zone_names:
             assert w.tree.get(Type='Zone', Name=f'{name}.D0') is not None
             assert w.tree.get(Type='Zone', Name=f'{name}.D1') is not None

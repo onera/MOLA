@@ -15,4 +15,4 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .write_cfd_files import apply
+from .write_cfd_files import apply, write_info_for_data_retrieval

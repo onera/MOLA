@@ -800,7 +800,7 @@ def outradeqhyb(workflow, Family, **kwargs):
         # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
         # see https://elsa-e.onera.fr/issues/10541
         if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
-            SV.copy_remote(
+            SV.move_remote(
                 source_path=radius_filename, 
                 destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(radius_filename), 
                 destination_machine=workflow.RunManagement['Machine'],
@@ -872,7 +872,7 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     I._correctPyTree(workflow.tree, level=4)
 
 @mute_stdout
-def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirtype='axial', write_radius_in_cgns=True):
+def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirtype='axial', write_radius_in_cgns=False):
     '''
     Set a hybrid mixing plane condition between families **Family** and **LinkedFamily**.
 
@@ -902,7 +902,7 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
                                     parent=workflow.tree.get(Name=Family, Type='Family', Depth=2),
                                     tree=workflow.tree)
             radius.compute(workflow.tree, nbband=nbband, c=c)
-            # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the GC
+            # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the first found GC
             # It also overrides MixingPlaneData/radius in the Family
 
         for stg in stage.up:
@@ -910,13 +910,13 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
                                     parent=workflow.tree.get(Name=LinkedFamily, Type='Family', Depth=2), 
                                     tree=workflow.tree)
             radius.compute(workflow.tree, nbband=nbband, c=c)
-            # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the GC
+            # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the first found GC
             # It also overrides MixingPlaneData/radius in the Family
 
         stage.create()
         workflow.tree = cgns.castNode(workflow.tree)
 
-        # HACK file and format parameters are written only in one GC, but they may be several GC
+        # HACK file, format and mxpl_dirtype parameters are written only in one GC, but they may be several GC
         for gc in workflow.tree.group(Type='GridConnectivity'):
             if not gc.get(Type='FamilyName', Value=Family) and not gc.get(Type='FamilyName', Value=LinkedFamily):
                 continue
@@ -924,6 +924,7 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
             sp_node = gc.get(Name='.Solver#Property')
             cgns.Node(Name='file', Type='DataArray', Parent=sp_node)
             cgns.Node(Name='format', Type='DataArray', Value='CGNS', Parent=sp_node)
+            cgns.Node(Name='mxpl_dirtype', Type='DataArray', Value=mxpl_dirtype, Parent=sp_node)
 
     else:
 
@@ -946,7 +947,7 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
         # see https://elsa-e.onera.fr/issues/10541
         if Path(workflow.RunManagement['RunDirectory']).resolve() != Path.cwd():
             for filename in [filename_left, filename_right]:
-                SV.copy_remote(
+                SV.move_remote(
                     source_path=filename, 
                     destination_path=Path(workflow.RunManagement['RunDirectory']) / Path(filename), 
                     destination_machine=workflow.RunManagement['Machine'],
@@ -970,7 +971,8 @@ def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     '''
     import etc.transform as trf
 
-    SectorPassagePeriod = stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod)
+    if SectorPassagePeriod is None:
+        SectorPassagePeriod = compute_RNA_ref_time(workflow, Family, LinkedFamily)
 
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
@@ -988,30 +990,28 @@ def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
 
     workflow.tree = cgns.castNode(workflow.tree)
 
-def stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod):
+def compute_RNA_ref_time(workflow, Family, LinkedFamily):
     '''
     see https://elsa-doc.onera.fr/restricted/MU_MT_tuto/latest/Tutos/Speciality/StageRed.html#numerical-parameters
     '''    
-    if not SectorPassagePeriod:
+    row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
+    row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
 
-        row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
-        row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
+    LapPeriod = 2*np.pi / abs(workflow.ApplicationContext['ShaftRotationSpeed'])
 
-        LapPeriod = 2*np.pi / abs(workflow.ApplicationContext['ShaftRotationSpeed'])
+    N1 = workflow.ApplicationContext['Rows'][row1]['NumberOfBlades']
+    N2 = workflow.ApplicationContext['Rows'][row2]['NumberOfBlades']
+    K1 = workflow.ApplicationContext['Rows'][row1]['NumberOfBladesSimulated']
+    K2 = workflow.ApplicationContext['Rows'][row2]['NumberOfBladesSimulated']
 
-        N1 = workflow.ApplicationContext['Rows'][row1]['NumberOfBlades']
-        N2 = workflow.ApplicationContext['Rows'][row2]['NumberOfBlades']
-        K1 = workflow.ApplicationContext['Rows'][row1]['NumberOfBladesSimulated']
-        K2 = workflow.ApplicationContext['Rows'][row2]['NumberOfBladesSimulated']
+    Dm = 2 / (K1/N1 + K2/N2)
+    SectorPassagePeriod = LapPeriod / Dm
 
-        Dm = 2 / (K1/N1 + K2/N2)
-        SectorPassagePeriod = LapPeriod / Dm
-
-        msg = f'The reference time period for RNA interface is equal to {Dm}EO.'
-        if np.isclose(Dm, 1) or np.isclose(Dm, K1/N1):
-            mola_logger.info(msg)
-        else:
-            mola_logger.warning(msg)
+    msg = f'The reference time period for RNA interface is equal to {Dm}EO.'
+    if np.isclose(Dm, 1) or np.isclose(Dm, K1/N1):
+        mola_logger.info(msg)
+    else:
+        mola_logger.warning(msg)
 
     return SectorPassagePeriod
 
