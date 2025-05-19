@@ -21,7 +21,8 @@ source $SCRIPT_DIR/../network.sh
 export MAIAVERSION=1.6.0 #dev #1.4
 
 export MACHINE=ld
-export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
+export CASSIOPEE_VERSION=main #main #v4.0a
+export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font

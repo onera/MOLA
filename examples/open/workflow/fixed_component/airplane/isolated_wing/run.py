@@ -37,7 +37,7 @@ w = WorkflowAirplane(
         Model = 'SA',
     ),
 
-    # Initialization = dict(WallDistanceComputingTool='cassiopee'),
+    Initialization = dict(WallDistanceComputingTool='cassiopee'),
 
     Numerics = dict(
         NumberOfIterations=5,
