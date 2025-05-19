@@ -103,9 +103,19 @@ def test_update_force_coefficients(application_context):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_get_forces_and_moments_from(zone_with_loads):
-    arrays = acc._get_forces_and_moments_from(zone_with_loads, 'FlowSolution')
-    assert len(arrays) == 6
+def test_get_forces_from(zone_with_loads):
+    arrays = acc._get_forces_from(zone_with_loads, 'FlowSolution')
+    assert len(arrays) == 3
+    
+    number_of_grid_points = zone_with_loads.numberOfPoints()
+    for a in arrays:
+        assert a.size == number_of_grid_points
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_moments_from(zone_with_loads):
+    arrays = acc._get_moments_from(zone_with_loads, 'FlowSolution')
+    assert len(arrays) == 3
     
     number_of_grid_points = zone_with_loads.numberOfPoints()
     for a in arrays:

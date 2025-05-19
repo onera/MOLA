@@ -17,7 +17,7 @@
 
 import os 
 from mola.dependency_injector.retriever import load_source
-from ..logging import mola_logger, MolaException
+from ..logging import mola_logger, MolaException, MolaNotImplementedError
 
 def get_path_back_in_traceback(step=3):
     import traceback
@@ -50,7 +50,7 @@ def call_solver_specific_function(workflow, function_name, step=3, *args, **kwar
         fun = getattr(solverModule, function_name)
     except AttributeError as e:
         msg = f'Function {function_name} not implemented in {expected_module}'
-        raise MolaException(msg) from e
+        raise MolaNotImplementedError(msg) from e
 
     return fun(workflow, *args, **kwargs)
 

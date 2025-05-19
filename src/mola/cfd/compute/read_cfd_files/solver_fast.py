@@ -76,10 +76,7 @@ def _split_global_and_local_parameters(parameters: dict, prefix_local: str = 'Lo
         return global_parameters, local_parameters
 
 def get_infos_ale(workflow):
-    infos_ale = None
 
     if is_any_family_mobile(workflow):
         theta, omega = get_theta_and_omega(workflow, workflow.Numerics['IterationAtInitialState'])
-        infos_ale = [theta, omega]
-
-    return infos_ale
+        return [theta, omega]

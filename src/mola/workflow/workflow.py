@@ -28,7 +28,7 @@ from mola.logging import (mola_logger,
                        MolaException,
                        MolaUserError,
                        redirect_streams_to_logger, 
-                       GREEN, ENDC)
+                       GREEN, CYAN, ENDC)
 from  mola.cfd.preprocess.mesh import (io,
                                     positioning,
                                     connect,
@@ -72,7 +72,11 @@ class Workflow(object):
         if self.Solver == 'sonics': # CAVEAT specifically verifying sonics, should reverse dependency properly
             from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
             adapt_workflow_for_sonics(self)            
-  
+
+        elif self.Solver == 'fast': # CAVEAT specifically verifying fast, should reverse dependency properly
+            from mola.cfd.preprocess.initialization.solver_fast import adapt_workflow_for_fast
+            adapt_workflow_for_fast(self)
+
         self.assemble() 
         self.define_families()
         self.connect()

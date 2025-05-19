@@ -29,14 +29,19 @@ from . import rank, comm
 def write_tagfile(tag : str, coprocess_manager):
 
     if rank == 0:
-        run_dir = coprocess_manager.workflow.RunManagement.get('RunDirectory','.')
-        run_dir_absolute = Path(run_dir).resolve() # added twice sometimes
-        if not run_dir_absolute.is_dir(): # HACK
-            run_dir_absolute = run_dir_absolute.parent
+        if coprocess_manager is not None:
+            run_dir = coprocess_manager.workflow.RunManagement.get('RunDirectory','.')
+            run_dir_absolute = Path(run_dir).resolve() # added twice sometimes
+            if not run_dir_absolute.is_dir(): # HACK
+                run_dir_absolute = run_dir_absolute.parent
 
-        filename_as_tag = run_dir_absolute / Path(tag)
+            filename_as_tag = run_dir_absolute / Path(tag)
+        else:
+            filename_as_tag =  tag
+
         with open(filename_as_tag, 'w') as f: 
             f.write(tag)
+
 
 def write_extraction_log(extraction):
     def _check_data(extraction):

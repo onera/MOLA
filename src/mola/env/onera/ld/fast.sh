@@ -18,7 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-export MAIAVERSION=dev #1.4
+export MAIAVERSION=1.6.0 #dev #1.4
 
 export MACHINE=ld
 export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
@@ -27,7 +27,7 @@ source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 module load vscode/1.99.3
 
-export OPENMPIOVERSUBSCRIBE='--use-hwthread-cpus'
+export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 
 unset I_MPI_PMI_LIBRARY
 export OMPI_MCA_mca_base_component_show_load_errors=0

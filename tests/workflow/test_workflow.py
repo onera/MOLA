@@ -734,6 +734,16 @@ def test_prepare_workflow2(tmp_path):
     w.write_cfd_files()
 
 
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_prepare_workflow2_comp2(tmp_path):
+    params = get_workflow2_parameters()
+    params["RunManagement"]["RunDirectory"] = str(tmp_path)
+    params["RunManagement"]["NumberOfProcessors"] = 2
+    w = Workflow(**params)
+    w.prepare()
+    w.write_cfd_files()
+
 # @pytest.mark.integration
 # @pytest.mark.cost_level_1
 # @pytest.mark.mpi

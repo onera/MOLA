@@ -17,8 +17,9 @@
 
 from treelab import cgns
 from mola.cfd import apply_to_solver
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, MolaUserError
 from mola.cfd.preprocess.mesh.tools import to_partitioned
+from mola.cfd.preprocess.mesh.split import _assert_tree_has_good_distribution_assignment
 from .initialization_with_turbo import initialize_flow_with_turbo
 
 def apply(workflow):
@@ -54,6 +55,7 @@ def apply(workflow):
     compute_wall_distance_if_needed(workflow)
     
     apply_to_solver(workflow)
+
 
 
 def add_reference_state(workflow):
@@ -195,13 +197,21 @@ def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
             raise MolaException(f'{FlowSolution_name} is missing in zone {zone.name()}')
 
 def compute_wall_distance_if_needed(workflow):
+    init_opts = workflow.Initialization
     if workflow.Turbulence['Model'] == 'Euler':
-        workflow.Initialization['ComputeWallDistanceAtPreprocess'] = False
-    elif not workflow.Initialization['ComputeWallDistanceAtPreprocess'] and workflow.Solver.lower() == 'fast':
-        workflow.Initialization['ComputeWallDistanceAtPreprocess'] = True
+        init_opts['ComputeWallDistanceAtPreprocess'] = False
+    elif not init_opts['ComputeWallDistanceAtPreprocess'] and workflow.Solver.lower() == 'fast':
+        init_opts['ComputeWallDistanceAtPreprocess'] = True
 
-    if workflow.Initialization['ComputeWallDistanceAtPreprocess']:
-        workflow.tree = compute_wall_distance_with_maia(workflow.tree)
+    if init_opts['ComputeWallDistanceAtPreprocess']:
+        tool = init_opts['WallDistanceComputingTool']
+        if tool == 'maia':
+            workflow.tree = compute_wall_distance_with_maia(workflow.tree)
+        elif tool == 'cassiopee':
+            workflow.tree = compute_wall_distance_with_cassiopee(workflow.tree)
+        else:
+            raise MolaUserError(f"unsupported Initialization/WallDistanceComputingTool={tool}")
+        
     force_grid_location_as_first_sibling(workflow.tree) # HACK
 
 def compute_wall_distance_with_maia(tree: cgns.Tree):
@@ -229,6 +239,28 @@ def compute_wall_distance_with_maia(tree: cgns.Tree):
         WallDistance.remove()
 
     return tree
+
+def compute_wall_distance_with_cassiopee(tree: cgns.Tree):
+
+    import Converter.PyTree as C
+    import Converter.Mpi as Cmpi
+    import Converter.Internal as I
+    import Dist2Walls.PyTree as DTW
+
+    old_container = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = 'FlowSolution#Init'
+    walls = C.extractBCOfType(tree, 'BCWall')
+    walls = C.newPyTree(['Base', walls])
+    walls = Cmpi.allgatherTree(walls)
+    walls = I.getZones(walls)
+    if walls != []:
+        DTW._distance2Walls(tree, walls, loc='centers', type='ortho')
+    else: C._initVars(tree, 'centers:TurbulentDistance', 1000000.0)
+    I.__FlowSolutionCenters__ = old_container
+    tree = cgns.castNode(tree)
+
+    return tree
+
 
 def force_grid_location_as_first_sibling( tree : cgns.Tree ):
     

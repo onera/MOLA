@@ -15,6 +15,28 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from mola.logging import mola_logger
+
 def apply_to_solver(workflow):
     groupOfNodes = workflow.tree.group(Name='FlowSolution#Init')
     for node in groupOfNodes: node.setName('FlowSolution#Centers')
+
+
+def adapt_workflow_for_fast(workflow):
+    split_opts = workflow.SplittingAndDistribution
+    _must_split_at_preprocess(split_opts)
+    _must_distribute_with_cassiopee(split_opts)
+
+def _must_split_at_preprocess(split_opts):
+    strategy = split_opts['Strategy']
+    if strategy != 'AtPreprocess':
+        msg = f'fast solver requires splitting in preprocess, switching strategy from "{strategy}" to "AtPreprocess"'
+        mola_logger.warning(msg)
+        split_opts['Strategy'] = 'Cassiopee'
+
+def _must_distribute_with_cassiopee(split_opts):
+    if split_opts['Distributor'].lower() != 'cassiopee':
+        distributor = split_opts['Distributor']
+        msg = f'fast solver requires to pre-assign mpi ranks in preprocess, for doing this switching distributor from distributor "{distributor}" to "Cassiopee"'
+        mola_logger.warning(msg)
+        split_opts['Distributor'] = 'Cassiopee'
