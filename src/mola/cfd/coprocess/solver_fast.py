@@ -41,6 +41,8 @@ from mola.cfd.coprocess.probes import extract_probe
 import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
+from mola.cfd.postprocess.signals.tree_manipulation import update_zones_shape_using_iteration_number
+
 # https://fast.onera.fr/FastS.html#FastS.PyTree._computeVariables
 post_fields_using_fast = ['QCriterion', 'Enstrophy'] 
 
@@ -264,6 +266,7 @@ def extract_integral(output_tree, extraction, workflow) -> None:
     else: 
         extraction['Data'] = current_iteration_signals
 
+    update_zones_shape_using_iteration_number(extraction['Data'], Container="FlowSolution")
 
 
 def deduce_container_for_slicing(IsoSurfaceField):

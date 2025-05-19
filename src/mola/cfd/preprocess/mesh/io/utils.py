@@ -37,7 +37,7 @@ def get_io_tool(w, src):
     else:
         if not is_cgns: 
             return MolaUserError('parallel file load/write requires mesh in cgns format')
-        io_tool = 'maia' if w.Solver != 'fasts' else 'cassiopee_mpi'
+        io_tool = 'maia' if w.Solver != 'fast' else 'cassiopee_mpi'
 
     return io_tool
 

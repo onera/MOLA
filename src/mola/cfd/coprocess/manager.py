@@ -22,7 +22,7 @@ from pprint import pformat as pretty
 
 from treelab import cgns
 from mola.logging import (MolaException, MolaAssertionError, MolaUserError,
-                          MolaLogger, CYAN, ENDC, GREEN)
+                          MolaLogger, MolaNotImplementedError, CYAN, ENDC, GREEN)
 import mola.naming_conventions as names
 import mola.server as SV
 from mola.cfd import call_solver_specific_function
@@ -227,16 +227,19 @@ class CoprocessManager():
         self.after_compute()
 
         self.status = 'COMPLETED'
+        
+
         move_log_files()
         try:
             call_solver_specific_function(self.workflow, 'move_log_files', 3)
-        except MolaException:
+        except MolaNotImplementedError:
             pass
         
         check_stderr()
+
         if not SV.is_file(names.FILE_NEWJOB_REQUIRED):
             write_tagfile(names.FILE_JOB_COMPLETED, self)
-
+    
     def after_compute(self):
         if hasattr(self.workflow, 'after_compute'):
             self.workflow.after_compute(self.mola_logger)

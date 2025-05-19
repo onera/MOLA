@@ -295,7 +295,7 @@ def test_compressor_example_local_stage(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa  
 @pytest.mark.sonics
-@pytest.mark.fast
+# @pytest.mark.fast # FIXME solve https://github.com/onera/Fast/issues/89
 @pytest.mark.cost_level_4
 def test_compressor_example_local_rotor_only(tmp_path):
     w = get_compressor_example_rotor_only(tmp_path)
@@ -309,3 +309,6 @@ def test_compressor_example_local_rotor_only(tmp_path):
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()
+
+if __name__ == '__main__':
+    test_compressor_example_local_rotor_only("mytest_compressor_example_local_rotor_only")

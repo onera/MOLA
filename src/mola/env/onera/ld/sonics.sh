@@ -20,7 +20,8 @@ source $SCRIPT_DIR/../network.sh
 
 # Cassiopee
 export MACHINE=ld
-export CASSIOPEE=/stck/cassiope/git/Cassiopee/ 
+export CASSIOPEE_VERSION=main
+export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 
