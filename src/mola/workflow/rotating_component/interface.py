@@ -25,6 +25,10 @@ from .. import WorkflowInterface
 
 class WorkflowRotatingComponentInterface(WorkflowInterface):
 
+    def __init__(self, workflow, tree=None, **kwargs):
+        super().__init__(workflow, tree, **kwargs)
+
+
     def set_ApplicationContext(self,
             ShaftAxis : Union[list,
                             tuple,
@@ -108,15 +112,7 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
         self.ApplicationContext['Rows'][_Key].pop('_Key')
 
     def set_Initialization(self,
-            Method    : str  = 'uniform',
-            Source    : Union[     str,
-                                  cgns.Tree,
-                                  cgns.Base,
-                                  cgns.Zone ]  = None,
-            SourceContainer : str = None,
-            ComputeWallDistanceAtPreprocess : bool = False,
-            KeepWallDistance : bool = False,
-            ParametrizeWithHeight : str = None, # parameter specific to that workflow
+            ParametrizeWithHeight : str = None, # parameter specific to this workflow
+            **kwargs,
             ):
-        self.Initialization = self._get_comp(
-            self.set_Initialization, self.get_default_values_from_local_signature())
+        super().set_Initialization(**kwargs)
