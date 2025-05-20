@@ -1044,7 +1044,9 @@ def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20.,
         stage_choro_hyb(workflow, Family, LinkedFamily)
     else:
         stage_choro(workflow, Family, LinkedFamily)
+    workflow.tree = cgns.castNode(workflow.tree)
     convert_periodic_to_chorochrono(workflow.tree)
+    workflow.tree = cgns.castNode(workflow.tree)
     row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
     row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
     choroParamsRow1, choroParamsRow2 = compute_choro_parameters(workflow.ApplicationContext, row1, row2, Nharm_Row1=NumberOfHarmonicsForFamily, Nharm_Row2=NumberOfHarmonicsForLinkedFamily)
@@ -1133,15 +1135,18 @@ def convert_periodic_to_chorochrono(t):
     '''
     import etc.transform as trf
     gcnodes = []
-    for gc_node in t.group(Type='GridConnectivity*'):
-        if gc_node.get(Type='Perdiodic'):
+    for gc_node in t.group(Type='GridConnectivity1to1'):
+        if gc_node.get(Type='Periodic'):
             gcnodes.append(gc_node)
 
     for gcnode in gcnodes:
-        gc = trf.BCChoroChrono(t, gcnode, choro_file = 'None')
-        gc.choro_file   = 'None'
-        gc.file   = None
-        gc.format = 'CGNS'
+        mola_logger.warning(f'{gcnode.path()}')
+        # Force RotationAngle to be [X, 0, 0], else error
+        RotationAngle = gcnode.get(Name='RotationAngle').value()
+        for i, angle in enumerate(RotationAngle):
+            if abs(angle) < 1e-10:
+                RotationAngle[i] = 0.
+        gc = trf.BCChoroChrono(t, gcnode, choro_file='None')
         gc.create()
 
 def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_Row2, relax=1.0):

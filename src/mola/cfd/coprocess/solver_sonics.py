@@ -188,23 +188,31 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
     for IntegralDataNode in output_tree.group(Name='*:*', Type='ConvergenceHistory', Depth=2):
-        family, suffix = IntegralDataNode.name().split(':')
+        IntegralDataNode = IntegralDataNode.copy(deep=True)
+        IntegralDataNode_name = IntegralDataNode.name()
+        family = IntegralDataNode.get(Name='Family').value()
 
         if family not in families_to_extract: 
             continue
 
-        IntegralDataNode.dettach()
+        # IntegralDataNode.dettach()
         IntegralDataNode.setName('FlowSolution')
         IntegralDataNode.setType('FlowSolution_t')
         IntegralDataNode.setValue(None)
         for n in IntegralDataNode.children(): 
             n.setType('DataArray_t')
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
-        cgns.Node(Name='Iteration', Type='DataArray', Value=np.arange(0, NumberOfIterations, extraction['ExtractionPeriod'], dtype=float), Parent=IntegralDataNode)
-        if suffix != 'VALVE':
-            cgns.Zone(Name=family, Parent=base, Children=[IntegralDataNode])
+        renumber_iterations_for_mola(IntegralDataNode)
+
+        # HACK for now, cgns_node_pattern has no effect on miles IntegralDataExtractor
+        # we must split the IntegralDataNode by keeping only the variables required for this extraction
+        remove_not_required_fields(extraction, IntegralDataNode)
+
+        if IntegralDataNode_name.endswith('VALVE'):
+            cgns.Zone(Name=IntegralDataNode_name, Parent=base, Children=[IntegralDataNode])
         else:
-            cgns.Zone(Name=f'{family}:{suffix}', Parent=base, Children=[IntegralDataNode])
+            cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+            
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
@@ -213,6 +221,22 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
         update_signals_using(current_iteration_signals, previous_signals_to_be_updated)
     else: 
         extraction['Data'] = current_iteration_signals
+
+def remove_not_required_fields(extraction, IntegralDataNode: cgns.Node):
+
+    required_fields = extraction.get('Fields', [])
+    if isinstance(required_fields, str):
+        required_fields = [required_fields]
+
+    required_fields.append('Iteration')
+    if 'Force' in required_fields:
+        required_fields += ['ForceX', 'ForceY', 'ForceZ']
+    if 'Torque' in required_fields:
+        required_fields += ['TorqueX', 'TorqueY', 'TorqueZ']
+
+    for node in IntegralDataNode.group(Type='DataArray', Depth=1):
+        if node.name() not in required_fields:
+            node.remove()
 
 def extract_residuals(extraction, output_tree):
 
@@ -226,6 +250,7 @@ def extract_residuals(extraction, output_tree):
         residuals.setType('FlowSolution_t')
         residuals.setName('FlowSolution')
         residuals.setValue(None)
+        renumber_iterations_for_mola(residuals)
         cgns.Zone(Name=base.name(), Parent=base, Children=[residuals])
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
@@ -260,9 +285,19 @@ def move_log_files(w):
                 pass
     comm.barrier()
 
+def renumber_iterations_for_mola(flowsolution_node: cgns.Node):
+    node = flowsolution_node.get(Name='Iteration')
+    iterations = node.value()
+    # for now sonics starts at iteration 0. For consistency with other solvers, 
+    # MOLA iteration is one more than sonics
+    iterations[:] += 1 
+
 def get_iteration(workflow):
-    return workflow.Numerics['NumberOfIterations']-1 # TODO
-    # return workflow._iterators.initial + workflow._iterators.niter - 1
+    iter_sonics = workflow._iterators.initial + workflow._iterators.niter - 1
+    # for now sonics starts at iteration 0. For consistency with other solvers, 
+    # MOLA iteration is one more than sonics
+    iter_mola = iter_sonics + 1
+    return iter_mola
 
 def get_status(workflow):
     return 'RUNNING_BEFORE_ITERATION' # TODO: implement this (using elsaXdt?)

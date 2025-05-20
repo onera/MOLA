@@ -80,6 +80,8 @@ def check_existance_of_coprocess_files_and_directories_by_removing_them(path):
 
 
 @pytest.mark.unit
+@pytest.mark.elsa
+@pytest.mark.fast  # sonics needs the attribute coprocess._iterators
 @pytest.mark.cost_level_0
 def test_update_iteration(tmp_path):
 

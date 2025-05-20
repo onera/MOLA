@@ -205,23 +205,40 @@ class Workflow(object):
         write_cfd_files.write_info_for_data_retrieval(self.RunManagement)
 
         def write_job_prepare(RunManagement, scheduler_options, solver):
-            from mola import naming_conventions as names
             from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text
 
             if RunManagement['Scheduler'] == 'SLURM':
                 scheduler_options['time'] = '00:30:00'
+                # FIXME allow parallel preprocessing
+                scheduler_options['ntasks'] = 1
 
             job_text = get_job_text(solver, RunManagement, scheduler_options)+'\n\n'
-            job_text += 'mola_prepare workflow.cgns\n'
-            SV.save_file_maybe_remote("prepare_job.sh", job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'], force_copy=True)
+            job_text += f'mola_prepare {names.FILE_INPUT_WORKFLOW}\n'
+            SV.save_file_maybe_remote(names.FILE_JOB_PREPARE, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'], force_copy=True)
 
         write_job_prepare(self.RunManagement, self.RunManagement['SchedulerOptions'], self.Solver)
 
+        run_directory = self.RunManagement['RunDirectory']
+        machine = self.RunManagement['Machine']
+        user = self.RunManagement.get('User')
+
         mola_logger.info(f"Preparing job on machine {self.RunManagement['Machine']}...")
         SV.submit_command(
-            f"cd {self.RunManagement['RunDirectory']}; sbatch --wait prepare_job.sh", 
-            machine=self.RunManagement['Machine']
+            f"cd {run_directory}; sbatch --wait {names.FILE_JOB_PREPARE}", 
+            machine=machine, 
+            user=user
             )
+        
+        error_file_path = os.path.join(run_directory, names.FILE_ERROR_PREPARING_WORKFLOW)
+        if SV.is_existing_path(error_file_path, machine=machine, user=user, file_only=True):
+            try:
+                SV.copy_remote(
+                    source_path=error_file_path, source_machine=machine, source_user=user,
+                    destination_path=names.FILE_ERROR_PREPARING_WORKFLOW, destination_machine='localhost'
+                    )
+            except:  
+                pass
+            raise MolaException(f'Error preparing workflow: see file {names.FILE_ERROR_PREPARING_WORKFLOW}')
         
         self.submit()
 

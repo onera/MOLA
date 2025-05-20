@@ -36,6 +36,7 @@ FILE_LOG_REMOTE_DIRECTORY = '.mola_run_directory'
 # JOB
 FILE_JOB = 'job.sh'
 FILE_JOB_SEQUENCE = 'job_sequence.sh'
+FILE_JOB_PREPARE = 'job_prepare.sh'
 FILE_COMPUTE = 'compute.py'
 FILE_COPROCESS = 'coprocess.py'
 FILE_COLOG = 'coprocess.log'

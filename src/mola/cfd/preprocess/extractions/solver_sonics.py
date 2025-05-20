@@ -15,9 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from fnmatch import fnmatch
 from treelab import cgns
-from mola.logging import mola_logger, MolaException, MolaUserError
+from mola.logging import mola_logger, MolaUserError
 from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract
 from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics
 
@@ -25,7 +24,6 @@ def apply_to_solver(workflow):
 
     add_extractions_for_restart(workflow)
     add_AllZones_family(workflow.tree)
-    # process_extractions(workflow)
     adapt_extractions(workflow.Extractions)
 
 def adapt_extractions(Extractions):
@@ -33,10 +31,6 @@ def adapt_extractions(Extractions):
         if ext['Type'] in  ['BC', 'Residuals']:
             ext['ExtractionPeriod'] = 1000000000 # Only done at the end of the simulation
             ext['SavePeriod'] = 1000000000 # Only done at the end of the simulation
-            ext['ExtractAtEndOfRun'] = True
-        elif ext['Type'] in  ['Integral']:
-            ext['ExtractionPeriod'] = 10
-            ext['SavePeriod'] = 100
             ext['ExtractAtEndOfRun'] = True
         elif ext['Type'] == '3D':
             mola_logger.warning('output container for extraction 3D is changed to Fields@Vertex@End')
@@ -60,25 +54,6 @@ def add_extractions_for_restart(workflow):
         # Container='FlowSolution#EndOfRun', 
         Fields=['conservatives'],
         )
-
-# def process_extractions(workflow):
-#     import sonics.toolkit.triggers as triggers
-
-#     extractions_merged = []
-#     for extraction in workflow.Extractions:
-#         family = extraction.get('Family', '*')
-#         if family not in extractions_merged:
-#             extractions_merged[family] = extraction['Fields']
-#         else:
-#             extractions_merged[family] += extraction['Fields']
-
-#     trigger = triggers.ExtractTrigger(
-#         workflow.SolverParameters['configuration']['conf'], 
-#         extractions_merged, 
-#         workflow.SolverParameters['configuration']['hpc_conf']['hardware_target']
-#         ) 
-    
-#     workflow._pytriggers += trigger
 
 def add_fields_and_bc_extractions(workflow):
     import sonics
@@ -129,30 +104,3 @@ def add_fields_and_bc_extractions(workflow):
         return extracts
     
     return compute_extracts_from_terms
-
-def add_integral_extractions(workflow):
-    from sonics.toolkit.graph_utils import DataFactory
-
-    familiesBC = get_familiesBC_nodes(workflow.tree)
-
-    def compute_extracts_from_terms_monitor(conf, solver, topology):
-        treg = solver.terms
-        df = DataFactory(solver, topology)
-
-        extracts = []
-        for extraction in workflow.Extractions:
-            if extraction['Type'] != 'Integral':
-                continue
-
-            families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
-            fields = translate_extraction_variables_to_sonics(extraction['Fields'], solver)
-            for family in families:
-                for field in fields:
-                    extracts += df.create_families(field, 
-                                                treg.face, 
-                                                family_type=treg.family_value, 
-                                                predicate=lambda n,v : v['name'] == family)
-
-        return extracts
-    
-    return compute_extracts_from_terms_monitor

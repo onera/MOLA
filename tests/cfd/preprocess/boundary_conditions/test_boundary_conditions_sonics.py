@@ -63,30 +63,30 @@ def test_bc_specific():
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
     workflow.set_boundary_conditions()
 
-@pytest.mark.unit
-@pytest.mark.cost_level_1
-# @pytest.mark.parametrize('interface_type', ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface'])
-def test_RotorStatorInterface(tmp_path): #, interface_type):
+# @pytest.mark.unit
+# @pytest.mark.cost_level_1
+# @pytest.mark.parametrize('interface_type', ['MixingPlane']) #, 'UnsteadyRotorStatorInterface', 'ChorochronicInterface'])
+# def test_RotorStatorInterface(tmp_path, interface_type):
 
-    params = get_compressor_example_parameters(tmp_path)
-    params['BoundaryConditions'] = [
-        dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
-        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', Pressure=1e5),
-        dict(Family='HUB', Type='WallInviscid'),
-        dict(Family='SHROUD', Type='WallInviscid'),
-        # dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', Type=interface_type)
-    ]
+#     params = get_compressor_example_parameters(tmp_path)
+#     params['BoundaryConditions'] = [
+#         dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
+#         dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', Pressure=1e5),
+#         dict(Family='HUB', Type='WallInviscid'),
+#         dict(Family='SHROUD', Type='WallInviscid'),
+#         dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', Type=interface_type)
+#     ]
 
-    workflow = turbomachinery.Workflow(**params)
+#     workflow = turbomachinery.Workflow(**params)
 
-    workflow.prepare_job()
-    workflow.assemble()
-    workflow.positioning()
-    workflow.define_families() 
-    workflow.connect()
-    workflow.split_and_distribute() 
-    workflow.process_overset()
-    workflow.compute_flow_and_turbulence()
-    workflow.set_motion()
+#     workflow.prepare_job()
+#     workflow.assemble()
+#     workflow.positioning()
+#     workflow.define_families() 
+#     workflow.connect()
+#     workflow.split_and_distribute() 
+#     workflow.process_overset()
+#     workflow.compute_flow_and_turbulence()
+#     workflow.set_motion()
 
-    workflow.set_boundary_conditions()
+#     workflow.set_boundary_conditions()

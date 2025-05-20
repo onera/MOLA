@@ -26,7 +26,7 @@ NumberOfProcessors = comm.Get_size()
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.cfd.compute.read_cfd_files import read_cfd_files
-from mola.cfd.preprocess.extractions.solver_sonics import add_fields_and_bc_extractions, add_integral_extractions
+from mola.cfd.preprocess.extractions.solver_sonics import add_fields_and_bc_extractions
 from mola.cfd.preprocess.cfd_parameters.solver_sonics import get_cfl_function
 
 def apply_to_solver(workflow):
@@ -55,7 +55,7 @@ def apply_to_solver(workflow):
     iterators = get_iterators(workflow, config, hardware_target)
     workflow._iterators = iterators
 
-    sonics.solver.run(dist_tree, comm, 
+    sonics.run(dist_tree, comm, 
                 iterators = iterators, 
                 additional_parameters = dict(
                     output_folder = names.DIRECTORY_LOG,
@@ -63,6 +63,7 @@ def apply_to_solver(workflow):
                     )
                 )
 
+    # Create NFaceElements for visualization
     coprocess_manager.output_tree = cgns.castNode(dist_tree)
     if not coprocess_manager.output_tree.get(Name='NFaceElements'):
         maia.algo.pe_to_nface(dist_tree, comm)
@@ -74,7 +75,6 @@ def apply_to_solver(workflow):
     del workflow._coprocess_manager
  
 def get_iterators(workflow, config, hardware_target='cpu'): 
-    from pathlib import Path
     import sonics.toolkit.triggers as triggers
     from sonics.toolkit.iterators import SteadyIterators
     
@@ -87,22 +87,19 @@ def get_iterators(workflow, config, hardware_target='cpu'):
     ]
 
     if any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
-        residuals_trigger = triggers.ResidualTrigger(
-            config, 
-            workflow.Numerics['NumberOfIterations'],
-            output_folder=Path(names.DIRECTORY_LOG),
-            check_convergence=triggers.convergence_per_subsystem({0:{0:1.e-14}}, normalize=False), 
-            )
-        pytriggers.append(residuals_trigger)
-
         # TODO
-        # import miles
-        # ext = miles.ResidualExtractor(config, period=2, start_iter=5, output_folder=names.DIRECTORY_LOG)
+        import miles
+        ext = miles.ResidualExtractor(
+            config, 
+            period=1, 
+            # start_iter=workflow.Numerics['IterationAtInitialState'], 
+            output_folder=names.DIRECTORY_LOG
+            )
         # ext.add_matplotlib_callback(names.DIRECTORY_LOG+"/residuals_at_{it}.png",start_iter=1,period=1,
         #     separate_systems=True,legend=True,grid={"ls":":"},
         #     yscale="log",xlabel="Iterations",ylabel="Residual")
-        # residuals_trigger = ext.apply(niter=workflow.Numerics['NumberOfIterations'])
-        # pytriggers.append(residuals_trigger)
+        residuals_trigger = ext.apply(niter=workflow.Numerics['NumberOfIterations'])
+        pytriggers.append(residuals_trigger)
 
     if any([ext['Type'] in ['Restart', '3D', 'BC'] for ext in workflow.Extractions]):
         if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
@@ -120,46 +117,7 @@ def get_iterators(workflow, config, hardware_target='cpu'):
         pytriggers.append(fields_and_bc_extraction_trigger)
 
     if any([ext['Type'] == 'Integral' for ext in workflow.Extractions]):
-        periods = [ext['ExtractionPeriod'] for ext in workflow.Extractions if ext['Type'] == 'Integral']
-        
-        sonics_version = Version(os.getenv('SONICSVERSION', '1.0.0'))
-        if sonics_version < Version('0.5.35'):
-            integral_extraction_trigger = triggers.MonitoringIntegralData( 
-                config, 
-                add_integral_extractions(workflow), 
-                workflow.Numerics['NumberOfIterations'], 
-                hardware_target, 
-                period=np.gcd.reduce(periods)
-                ) 
-            pytriggers.append(integral_extraction_trigger)
-
-        else:
-            # HACK for sonics >= 0.5.35
-            # Different triggers must be defined for each family
-            # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
-            from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract
-            from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics_function
-
-            familiesBC = get_familiesBC_nodes(workflow.tree)
-            for extraction in workflow.Extractions: 
-                if extraction['Type'] != 'Integral':
-                    continue
-
-                families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
-                for family in families:
-                    from miles.trigger import IntegralDataExtractor
-                    extractor = IntegralDataExtractor(config, period=extraction['ExtractionPeriod'])
-                    extractor.add_extraction(
-                        translate_extraction_variables_to_sonics_function(extraction['Fields']), 
-                        family=family)
-                    # pattern_png = "{output_folder}/fig_{it}.png"
-                    # pattern_csv = "{output_folder}/out.csv"
-                    # extractor.add_csv_callback(pattern_csv,delimiter=";")
-                    # extractor.add_matplotlib_callback(pattern_png,legend=True,grid={"ls":":"},
-                    #     yscale="log",xlabel="Iterations",period=10,start_iter=100)
-                    # extractor.add_print_callback(period=50)
-                    integral_extraction_trigger = extractor.apply(niter=workflow.Numerics['NumberOfIterations'])
-                    pytriggers.append(integral_extraction_trigger)
+        pytriggers += get_integral_triggers(workflow, config, hardware_target)
 
     if any([bc['Type'] == 'OutflowRadialEquilibrium' for bc in workflow.BoundaryConditions]):
         for bc in workflow.BoundaryConditions:
@@ -187,7 +145,50 @@ def get_iterators(workflow, config, hardware_target='cpu'):
     time_record_trigger = triggers.HookPbSizeTrigger(config, workflow.tree, execution_trigger)
     pytriggers.append(time_record_trigger)
 
-    iterators = SteadyIterators(pytriggers, workflow.Numerics['NumberOfIterations'], comm)
+    iterators = SteadyIterators(
+        pytriggers, 
+        niter=workflow.Numerics['NumberOfIterations'], 
+        comm=comm,
+        # initial=workflow.Numerics['IterationAtInitialState']
+        )
 
     return iterators
 
+def get_integral_triggers(workflow, config, hardware_target):
+    pytriggers = []
+
+    # HACK for sonics >= 0.5.35
+    # Different triggers must be defined for each family
+    # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
+    from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract
+    from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics_function
+
+    familiesBC = get_familiesBC_nodes(workflow.tree)
+    for extraction in workflow.Extractions: 
+        if extraction['Type'] != 'Integral':
+            continue
+
+        families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
+        for family in families:
+            from miles.trigger import IntegralDataExtractor
+            extractor = IntegralDataExtractor(
+                config, 
+                # FIXME cgns_node_pattern does nothing for now (sonics 0.6.2)
+                # cgns_node_pattern="{family_name}:"+extraction['Name'],  # {family_name} is mandatory in name, FIXME in miles 
+                period=extraction['ExtractionPeriod'],
+                # start_iter=workflow.Numerics['IterationAtInitialState']
+                )
+            extractor.add_extraction(
+                translate_extraction_variables_to_sonics_function(extraction['Fields']), 
+                family=family
+                )
+            # pattern_png = "{output_folder}/fig_{it}.png"
+            # pattern_csv = "{output_folder}/out.csv"
+            # extractor.add_csv_callback(pattern_csv,delimiter=";")
+            # extractor.add_matplotlib_callback(pattern_png,legend=True,grid={"ls":":"},
+            #     yscale="log",xlabel="Iterations",period=10,start_iter=100)
+            # extractor.add_print_callback(period=50)
+            integral_extraction_trigger = extractor.apply(niter=workflow.Numerics['NumberOfIterations'])
+            pytriggers.append(integral_extraction_trigger)
+
+    return pytriggers
