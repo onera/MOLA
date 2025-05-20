@@ -29,39 +29,70 @@ def add_aerodynamic_coefficients_to( integral_extraction : dict, ApplicationCont
             
     for zone in t.zones():
         for container_name in [n.name() for n in zone.group(Type='FlowSolution_t')]:
-            fx, fy, fz, tx, ty, tz = _get_forces_and_moments_from(zone, container_name)
             coefs = _new_coefficients_from(zone, container_name)
-            
+
+            fx, fy, fz = _get_forces_from(zone, container_name)
             _update_force_coefficients(coefs, fx, fy, fz, ApplicationContext)
-            _update_torque_coefficients(coefs, tx, ty, tz, ApplicationContext)
+            
+            try:
+                tx, ty, tz = _get_moments_from(zone, container_name)
+                _update_torque_coefficients(coefs, tx, ty, tz, ApplicationContext)
+            except MolaMissingFieldsError:
+                pass # HACK relaxing until TODO https://gitlab.onera.net/numerics/solver/sonics/-/issues/83
 
 
 def _new_coefficients_from(zone : cgns.Zone, container_name : str,
     field_names = ['CL','CD','CS','CX','CY','CZ','CmL','CmD','CmS','CmX','CmY','CmZ']):
 
     zone.removeFields(field_names, Container=container_name)
+
     try:
         coefs = zone.newFields(field_names, Container=container_name,
             GridLocation='Vertex', return_type='dict')
-    except:
-        zone.save('debug.cgns')
-        exit()
+
+    except Exception as e:
+        _handle_exception_when_unable_to_create_fields(zone,e)
+
     return coefs
 
+def _handle_exception_when_unable_to_create_fields(zone,e):
+    msg = f'could not add fields to zone "{zone.path()}"'
+    try:
+        zone.save('debug.cgns')
+        msg += ', check debug.cgns.'
+    except:
+        msg += ' and could NOT write it into debug.cgns.'
 
-def _get_forces_and_moments_from(zone : cgns.Zone, container_name : str,
-    field_names = [ 'ForceX', 'ForceY', 'ForceZ', 'TorqueX','TorqueY','TorqueZ']):
+    msg += ' Check full Traceback.'
+    
+    raise Exception(msg) from e
+
+def _get_forces_from(zone : cgns.Zone, container_name : str,
+                     field_names = [ 'ForceX', 'ForceY', 'ForceZ']):
 
     try:
         existing = zone.fields(field_names, Container=container_name,
                         BehaviorIfNotFound='raise', return_type='dict')
     except ValueError as e:
-        raise MolaMissingFieldsError(f"missing required forces and moments, will skip zone {zone.path()}") from e
+        raise MolaMissingFieldsError(f"missing required forces at {zone.path()}") from e
 
     fx, fy, fz = [existing[n] for n in ['ForceX','ForceY','ForceZ']]
+    
+    return fx, fy, fz
+
+
+def _get_moments_from(zone : cgns.Zone, container_name : str,
+                      field_names = ['TorqueX','TorqueY','TorqueZ']):
+
+    try:
+        existing = zone.fields(field_names, Container=container_name,
+                        BehaviorIfNotFound='raise', return_type='dict')
+    except ValueError as e:
+        raise MolaMissingFieldsError(f"missing required moments at {zone.path()}") from e
+
     tx, ty, tz = [existing[n] for n in ['TorqueX','TorqueY','TorqueZ']]
     
-    return fx, fy, fz, tx, ty, tz
+    return tx, ty, tz
 
 def _update_force_coefficients(coefs : dict, fx, fy, fz, ApplicationContext : dict):
     flux_coef      = ApplicationContext["FluxCoef"]

@@ -33,6 +33,13 @@ def test_workflow_airplane_init():
     w.print_interface()
     assert w.Name == 'WorkflowAirplane'
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_workflow_airplane_cart_init(workflow_cart_monoproc_params):
+    w = WorkflowAirplane(**workflow_cart_monoproc_params)
+    w.print_interface()
+    assert w.Name == 'WorkflowAirplane'
+
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -48,6 +55,17 @@ def test_compute_aerodynamic_coefficients(small_workflow):
     assert_coefficients_correctly_added_to_extraction_data(extraction,
                                             small_workflow.ApplicationContext)
 
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_workflow_airplane_cart_full_pre1_comp1(tmp_path, workflow_cart_monoproc_params):
+    w = WorkflowAirplane(**workflow_cart_monoproc_params)
+    w.RunManagement['RunDirectory'] = str(tmp_path)
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+
+    w.assert_completed_without_errors()
 
 
 # --------------------------------- fixtures --------------------------------- #
@@ -72,4 +90,60 @@ def small_workflow(zone_with_loads,application_context):
 
     return w
 
+@pytest.fixture
+def workflow_cart_monoproc_params():
+    mesh = get_cart_block()
 
+    params = dict(
+        RawMeshComponents=[
+            dict(
+                Name='cart',
+                Source=mesh,
+                Families=[
+                    dict(Name='Ground',
+                         Location='kmin'),
+                    dict(Name='Inlet',
+                         Location='imin'),
+                    dict(Name='Farfield',
+                         Location='remaining'),
+                ],
+                )
+        ],
+
+        Flow=dict(
+            Density = 0.2,
+            Temperature = 100.,
+            Velocity = 50.,
+                 ),
+
+        Turbulence = dict(
+            Model = 'SA',
+        ),
+
+        Numerics = dict(
+            NumberOfIterations=2,
+            CFL=1.0,
+        ),
+
+        BoundaryConditions=[
+            dict(Family='Ground',   Type='Wall'),
+            dict(Family='Inlet',    Type='Farfield'),
+            dict(Family='Farfield', Type='Farfield'),
+        ],
+
+        RunManagement=dict(
+            NumberOfProcessors=1,
+            RunDirectory='.',
+            Scheduler = 'local',
+            ),
+        )
+
+    return params
+
+def get_cart_block(n_pts_dir = 14):
+    assert n_pts_dir > 13 # otherwise RSD_L2_rh == 0 and elsa stops at it=1
+    x, y, z = np.meshgrid( np.linspace(0,1,n_pts_dir),
+                           np.linspace(0,1,n_pts_dir),
+                           np.linspace(0,1,n_pts_dir), indexing='ij')
+    block = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+    return block

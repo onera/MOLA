@@ -39,7 +39,7 @@ from mola.cfd.coprocess.tools import (
 )
 from mola.cfd.coprocess.probes import extract_probe
 import mola.cfd.postprocess as POST
-from mola.cfd.preprocess.mesh.tools import ravel_BCDataSet, ravel_FlowSolution, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
+from mola.cfd.preprocess.mesh.tools import ravel_FlowSolution, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_elsa_CGNS_field_names_to_MOLA
 
@@ -114,9 +114,8 @@ def get_elsa_output_tree(skeleton):
     '''
     import elsAxdt
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
-    t = cgns.castNode(t)
+    t = cgns.castNode(t)   
     t.merge(skeleton)
-    ravel_BCDataSet(t) # HACK https://elsa.onera.fr/issues/11219
     ravel_FlowSolution(t)
     remove_empty_BCDataSet(t)
     # force_FamilyBC_as_FamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928

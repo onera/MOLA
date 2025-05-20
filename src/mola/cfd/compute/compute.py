@@ -25,7 +25,12 @@ def apply(workflow):
         remove_status_files()
         apply_to_solver(workflow)
     except BaseException as e:
-        write_tagfile(names.FILE_JOB_FAILED, workflow._coprocess_manager)
+        try: 
+            comanager = workflow._coprocess_manager
+        except AttributeError:
+            # becase it may fail also before instantiating coprocess manager
+            comanager = None 
+        write_tagfile(names.FILE_JOB_FAILED, comanager)
         raise BaseException(e)
 
 def remove_status_files():

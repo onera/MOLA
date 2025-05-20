@@ -19,6 +19,7 @@ from treelab import cgns
 
 from mola.logging import mola_logger, MolaException, MolaUserError
 from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
+from mola.cfd.preprocess.mesh.split import _assert_tree_has_good_distribution_assignment
 
 
 def apply_to_solver(workflow):
@@ -26,12 +27,12 @@ def apply_to_solver(workflow):
     workflow.tree = to_full_tree_at_rank_0(workflow.tree)
     check_consistency(workflow) # TODO put in a more relevant place, such as at assembly
     add_reynolds_to_reference_state(workflow)
-    add_Rok_to_reference_state(workflow) # CAVEAT, not even CGNS standard name
-    add_RoOmega_to_reference_state(workflow) # CAVEAT, not even CGNS standard name
+    add_Rok_to_reference_state(workflow) # CAVEAT, not CGNS standard name
+    add_RoOmega_to_reference_state(workflow) # CAVEAT, not CGNS standard name
     add_ghost_cells(workflow) # TODO is it multi-container ? What happens with FlowSolution#Height ?
     create_cell_center_tree(workflow) # TODO is it multi-container ? What happens with FlowSolution#Height ?
     set_multibloc_transfer_data(workflow)
-
+    _assert_tree_has_good_distribution_assignment(workflow)
 
 def add_ghost_cells(workflow):
     

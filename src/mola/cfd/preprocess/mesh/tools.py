@@ -18,6 +18,8 @@
 import numpy as np
 from fnmatch import fnmatch
 from mola.logging import mola_logger, MolaException
+from mola.pytree.user.checker import (is_partitioned_for_use_in_maia,
+                                      is_distributed_for_use_in_maia)
 from treelab import cgns
 
 def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='Vertex'):
@@ -111,21 +113,43 @@ def to_partitioned(tree : cgns.Tree):
     from mpi4py import MPI
     import maia
     
-    is_dist = bool(tree.get(':CGNS#Distribution'))
-    is_part = bool(tree.get(':CGNS#GlobalNumbering')) \
-        or bool(tree.get(Type='Zone', Depth=2).getAtPath('.Solver#Param/proc'))
+    is_maia_dist = is_distributed_for_use_in_maia(tree)
+    distrib = extract_cassiopee_distribution(tree)
+    is_cass_part = bool(distrib)
+    
+    is_maia_part = is_partitioned_for_use_in_maia(tree)
 
-    if is_part:
+    if is_maia_part: 
         return tree
+    
     else:
         _apply_all_maia_check(tree)
-        if not is_dist:
+        if not is_maia_dist:
             tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
         tree = cgns.castNode(tree)
-        return to_partitioned_if_distributed(tree)
+        return to_partitioned_if_distributed(tree, cassiopee_distribution=distrib)
 
-def to_partitioned_if_distributed(tree : cgns.Tree):
-    is_dist = bool(tree.get(':CGNS#Distribution'))
+def extract_cassiopee_distribution(tree : cgns.Tree) -> dict:
+    distribution = {}
+    for base in tree.bases():
+        for zone in base.zones():
+            base_name_plus_zone_name = base.name() + "/" + zone.name()
+
+            solver_param = zone.get(Name='.Solver#Param', Depth=1)
+            if not solver_param: continue
+            
+            proc_node = solver_param.get(Name='proc', Depth=1)
+            if not proc_node: continue
+            
+            proc = int(proc_node.value())
+            
+            distribution[base_name_plus_zone_name] = proc
+
+    return distribution
+
+
+def to_partitioned_if_distributed(tree : cgns.Tree, cassiopee_distribution={}):
+    is_dist = is_distributed_for_use_in_maia(tree)
     if not is_dist: return tree
 
     from mpi4py import MPI
@@ -134,12 +158,24 @@ def to_partitioned_if_distributed(tree : cgns.Tree):
     t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
 
     t = cgns.castNode(t)
-    for zone in t.zones():
-        zone.setParameters('.Solver#Param', proc=int(MPI.COMM_WORLD.Get_rank()))
-        if zone.isStructured(): 
-            reshape_DataArray(zone)
+    for base in t.bases():
+        for zone in base.zones():
+            rank = int(MPI.COMM_WORLD.Get_rank())
+            base_name_plus_zone_name = base.name() + "/" + remove_maia_part_zone_suffix(zone.name())
+            proc = cassiopee_distribution.get(base_name_plus_zone_name, rank)
+
+            zone.setParameters('.Solver#Param', proc=proc)
+
+            if zone.isStructured(): 
+                reshape_DataArray(zone)
         
     return t
+
+import re
+
+def remove_maia_part_zone_suffix(zone_name : str) -> str:
+    import re
+    return re.sub(r'\.P\d+\.N\d+$', '', zone_name)
 
 def to_full_tree_at_rank_0(tree : cgns.Tree):
     from mpi4py import MPI
@@ -217,14 +253,6 @@ def reshape_DataArray(zone):
         elif nfield == ncell:
             field.shape = cell_shape
 
-def ravel_BCDataSet(t):
-    # HACK https://elsa.onera.fr/issues/11219
-    # HACK https://elsa-e.onera.fr/issues/10750
-    for bcd in t.group(Type='BCData'):
-        for da in bcd.group(Type='DataArray'):
-            value = da.value()
-            if value is not None:
-                da.setValue(value.ravel(order='K'))
 
 def ravel_FlowSolution(t):
     for fs in t.group(Type='FlowSolution'):

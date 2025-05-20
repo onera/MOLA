@@ -65,7 +65,7 @@ def assert_file_with_relevant_zone_and_fields(filename, basename, zonename, fiel
         if expected_number_of_items is not None:
             assert len(field_value) == expected_number_of_items
 
-def assert_file_with_relevant_surface_and_fields(filename, basename: str, fieldnames: list,
+def assert_file_containing_expected_field_surface(filename, basename: str, fieldnames: list,
         path: str=None):
     
     if path:
@@ -269,12 +269,11 @@ def test_bc_one_run(tmp_path, niter=10):
     w.Numerics['NumberOfIterations'] = niter
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
-    
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
-    assert_file_with_relevant_surface_and_fields(separated_filename, basename, 
+    assert_file_containing_expected_field_surface(separated_filename, basename, 
                                                  ['Pressure'], tmp_path)
     
 @pytest.mark.integration

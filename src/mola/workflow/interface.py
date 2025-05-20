@@ -519,6 +519,7 @@ class WorkflowInterface(object):
                                   Zone ]  = None,
             SourceContainer : str = None,
             ComputeWallDistanceAtPreprocess : bool = False,
+            WallDistanceComputingTool : str = 'maia',
             KeepWallDistance : bool  = False):
         '''
         Set workflow attribute **Initialization**

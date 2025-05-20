@@ -37,8 +37,10 @@ w = WorkflowAirplane(
         Model = 'SA',
     ),
 
+    Initialization = dict(WallDistanceComputingTool='cassiopee'),
+
     Numerics = dict(
-        NumberOfIterations=10000,
+        NumberOfIterations=5,
         MinimumNumberOfIterations=2,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
@@ -64,9 +66,10 @@ w = WorkflowAirplane(
     ],
 
     RunManagement = dict(
-        NumberOfProcessors = 8,
+        NumberOfProcessors = 2,
         RunDirectory = f'example_{solver}',
         Scheduler = 'local',
+        TimeLimit = '3:00:00',
     ),
 )
 

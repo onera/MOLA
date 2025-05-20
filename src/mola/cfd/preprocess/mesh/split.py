@@ -81,6 +81,7 @@ def _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts
 
     ProcPointsLoad = TotalNPts / NumberOfParts
     basesToSplit, basesNotToSplit = _getBasesBasedOnSplitPolicy(tRef, workflow)
+    if not basesToSplit: raise ValueError('fatal') # FIXME remove
     remainingNProcs = NumberOfParts * 1
     baseName2NProc = dict()
 
@@ -361,8 +362,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=48):
 
 
 def _getComponentsNamesBasedOnSplitPolicy(workflow):
-    splitUserData = workflow.SplittingAndDistribution
-    splitCompsUserData = splitUserData.get('ComponentsToSplit', [])
+    splitCompsUserData = workflow.SplittingAndDistribution["ComponentsToSplit"]
     ComponentsToSplit = []
     ComponentsNotToSplit = []
     for component in workflow.RawMeshComponents:
@@ -407,3 +407,32 @@ def getProc(t):
 def get_mpi_size():
     from mpi4py import MPI
     return MPI.COMM_WORLD.Get_size()
+
+
+def _assert_tree_has_good_distribution_assignment(workflow):
+    expected_nb_rank = workflow.RunManagement['NumberOfProcessors']
+    unasigned_ranks = list(range(expected_nb_rank))
+
+    for zone in workflow.tree.zones():
+        solver_param = zone.get(Name='.Solver#Param')
+        if not solver_param:
+            raise MolaException(f'zone {zone.path()} did not have .Solver#Param node')
+
+        proc_node = solver_param.get(Name='proc')
+        if not proc_node:
+            raise MolaException(f'no node named "proc" under {solver_param.path()}')
+
+        try:
+            assigned_rank = int(proc_node.value())
+        except BaseException as e:
+            raise MolaException(f'could not retrieve proc value on {proc_node}') from e
+
+        if assigned_rank > (expected_nb_rank - 1):
+            raise MolaException(f'assigned rank "{assigned_rank}" to zone {zone.path()} is higher than NumberOfProcessors-1 ({expected_nb_rank - 1}) ')
+
+        if assigned_rank in unasigned_ranks:
+            unasigned_ranks.remove(assigned_rank)
+
+    if unasigned_ranks:
+        raise MolaException(f'distribution failed, since got unassigned ranks: {str(unasigned_ranks)}')
+    

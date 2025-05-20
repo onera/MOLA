@@ -18,12 +18,15 @@
 from treelab import cgns
 
 from mola.logging import mola_logger
+from mola.cfd.preprocess.mesh.split import _assert_tree_has_good_distribution_assignment
 
 def apply_to_solver(workflow):
 
     add_elsaHybrid_nodes_if_needed(workflow.tree)  # in elsA v5.3.01, it seems to be still mandatory for some hybrid meshes
     if hasattr(workflow, '_FULL_CGNS_MODE'):
         add_elsa_keys_to_cgns(workflow)
+    if workflow.SplittingAndDistribution['Strategy'] == 'AtPreprocess':
+        _assert_tree_has_good_distribution_assignment(workflow)
 
 def add_elsaHybrid_nodes_if_needed(t):
     if not t.isStructured():
