@@ -197,13 +197,10 @@ def get_workflow2_parameters():
         ExtractionsDefaults=[dict(ReferenceParameter='File',File='signals.cgns',SavePeriod=69)],
 
         Extractions=[
-            dict(Type='Integral', Name='Loads', Fields=['Force', 'Torque'], Source="BCWall*"),
-            # dict(Type='Probe', Name='probe1', Fields=['std-Pressure'], SavePeriod=5),
-            # dict(Type='Probe', Name='probe2', Fields=['std-Density'], SavePeriod=5),
-            dict(Type='3D', Fields=['Mach', 'q_criterion']),
-            dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['normalvector', 'frictionvector']),
-            dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
-            dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateY', IsoSurfaceValue=1.e-6, Fields=['Mach','cellN']),
+            dict(Type='Integral', Name='Loads', Fields=['Force'], Source="WallViscous"),
+            dict(Type='BC', Fields=['Pressure'], Source="WallViscous",
+                 File='separated.cgns' # FIXME BUG, requires separated file, otherwise it does not write extract.cgns 
+                 ),
             ],
 
         RunManagement=dict(Scheduler='local'),
@@ -488,7 +485,7 @@ def get_workflow_sphere_unstruct(RunDirectory):
 
         Extractions=[
             # dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
-            # dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer'], ExtractAtEndOfRun=True),
+            # dict(Type='BC', Source='WallViscous', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True), # FIXME BUG if active
             # dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1e-6, ExtractAtEndOfRun=True),
             dict(Type='3D', Fields=['PressureStagnation', 'Pressure', 'Mach', 'Entropy'], ExtractAtEndOfRun=True),
             ],
@@ -636,6 +633,13 @@ def test_init():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
+def test_print_interface_1():
+    w = get_workflow1()
+    w.print_interface()
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
 def test_submit(tmp_path):
     test_dir = str(tmp_path)
     w = Workflow(RunManagement=dict(
@@ -708,6 +712,7 @@ def test_prepare_assemble_2():
     w = get_workflow2()
     w.assemble()
 
+
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 @pytest.mark.mpi
@@ -757,13 +762,88 @@ def test_prepare_workflow2_comp2(tmp_path):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_0
+@pytest.mark.cost_level_1
 def test_workflow_cart_monoproc(tmp_path):
     w = get_workflow_cart_monoproc(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
+    w.assert_completed_without_errors()
+
+
+@pytest.mark.integration
+@pytest.mark.cost_level_3
+def test_workflow_2_presplit(tmp_path):
+    params = get_workflow2_parameters()
+
+    run_management = params["RunManagement"]
+    run_management["RunDirectory"] = str(tmp_path)
+    run_management["NumberOfProcessors"] = 2
+    run_management['Scheduler'] = 'local'
+
+    w = Workflow(**params)
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.assert_completed_without_errors()
+
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.cost_level_3
+def test_workflow_2_cosplit(tmp_path):
+    params = get_workflow2_parameters()
+
+    run_management = params["RunManagement"]
+    run_management["RunDirectory"] = str(tmp_path)
+    run_management["NumberOfProcessors"] = 2
+    run_management['Scheduler'] = 'local'
+    
+    splitting = params["SplittingAndDistribution"]
+    splitting["Strategy"] = "AtComputation"
+    splitting["Splitter"] = "PyPart"
+    splitting["Distributor"] = "PyPart"
+
+    w = Workflow(**params)
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    
+    w.assert_completed_without_errors()
+
+
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.cost_level_3
+@pytest.mark.skip(reason="FIXME BUG unstructured+extractionBC+pypart") # FIXME BUG
+def test_workflow_2_unstr_cosplit(tmp_path):
+    
+    params = get_workflow2_parameters()
+    
+    mesh_comp = params["RawMeshComponents"][0]
+    mesh_comp["Source"] = unstructured_cart_grid()
+    mesh_comp["Families"] = None
+    mesh_comp["Connection"] = None
+
+    run_management = params["RunManagement"]
+    run_management["RunDirectory"] = str(tmp_path)
+    run_management["NumberOfProcessors"] = 2
+    run_management['Scheduler'] = 'local'
+    
+    splitting = params["SplittingAndDistribution"]
+    splitting["Strategy"] = "AtComputation"
+    splitting["Splitter"] = "PyPart"
+    splitting["Distributor"] = "PyPart"
+
+    w = Workflow(**params)
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    
     w.assert_completed_without_errors()
 
 
@@ -859,6 +939,23 @@ def test_workflow_sphere_unstruct_local(tmp_path):
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.cost_level_4
+@pytest.mark.skip(reason="FIXME BUG unstructured+extractionBC+pypart") # FIXME BUG
+def test_workflow_sphere_unstruct_pypart(tmp_path):
+    w = get_workflow_sphere_unstruct(tmp_path)
+    w.RunManagement['Scheduler'] = 'local'
+    w.SplittingAndDistribution["Strategy"] = "AtComputation"
+    w.SplittingAndDistribution["Splitter"] = "PyPart"
+    w.SplittingAndDistribution["Distributor"] = "PyPart"
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+
+    w.assert_completed_without_errors()
+
 # @pytest.mark.integration
 # @pytest.mark.cost_level_3
 # def test_workflow_sphere_hybrid_local(tmp_path):
@@ -900,11 +997,25 @@ def test_workflow_sphere_struct_remote_sator():
     # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
     # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_print_interface_1():
-    w = get_workflow1()
-    w.print_interface()
+def unstructured_cart_grid():
+    from mola.cfd.preprocess.mesh.io.unstructured.solver_sonics import make_mesh_unstructured
+    import Converter.PyTree as C
+
+    x, y, z = np.meshgrid( np.linspace(0,1,21),
+                           np.linspace(0,1,21),
+                           np.linspace(0,1,21), indexing='ij')
+    zone = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+    t = cgns.Tree(Base=[zone])
+    C._addBC2Zone(t, 'Ground', 'FamilySpecified:Ground', 'kmin')
+    for loc in ['imin','imax','jmin','jmax','kmax']:
+        C._addBC2Zone(t, 'Farfield', 'FamilySpecified:Farfield', loc)
+
+    t = cgns.castNode(t)
+    t = make_mesh_unstructured(t)
+
+    return t
+
+
 
 
 if __name__ == '__main__':

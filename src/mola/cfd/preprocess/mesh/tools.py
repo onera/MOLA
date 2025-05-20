@@ -253,14 +253,6 @@ def reshape_DataArray(zone):
         elif nfield == ncell:
             field.shape = cell_shape
 
-def ravel_BCDataSet(t):
-    # HACK https://elsa.onera.fr/issues/11219
-    # HACK https://elsa-e.onera.fr/issues/10750
-    for bcd in t.group(Type='BCData'):
-        for da in bcd.group(Type='DataArray'):
-            value = da.value()
-            if value is not None:
-                da.setValue(value.ravel(order='K'))
 
 def ravel_FlowSolution(t):
     for fs in t.group(Type='FlowSolution'):

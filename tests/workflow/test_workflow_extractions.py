@@ -235,11 +235,13 @@ def test_bc_one_run(tmp_path, niter=10):
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
 
-    
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
-    
+
+    # TODO assert_file_containing_expected_field_surface
+    # TODO assert_file_containing_expected_field_surface
+
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.fast
