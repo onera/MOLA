@@ -41,6 +41,10 @@ def apply_to_solver(workflow):
     '''
 
     import miles
+
+    # HACK error miles: Target Fluid matched invalid CGNS node(s): 'WorkflowParameters/Fluid'.
+    WorkflowParameters = workflow.tree.get(Name='WorkflowParameters', Depth=1)
+    WorkflowParameters.dettach()
   
     for family, MotionOnFamily in workflow.Motion.items():
         mola_logger.debug(f'set motion on {family}: {MotionOnFamily}')
@@ -49,6 +53,7 @@ def apply_to_solver(workflow):
         miles.set_motion(workflow.tree, family, **motion)
 
     workflow.tree = cgns.castNode(workflow.tree)
+    WorkflowParameters.attachTo(workflow.tree)
 
 
 def translate_motion_to_sonics(Motion):
