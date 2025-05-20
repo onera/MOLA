@@ -814,6 +814,7 @@ def test_workflow_2_cosplit(tmp_path):
     w.assert_completed_without_errors()
 
 
+# FIXME BUG
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.cost_level_3
@@ -822,7 +823,7 @@ def test_workflow_2_unstr_cosplit(tmp_path):
     params = get_workflow2_parameters()
     
     mesh_comp = params["RawMeshComponents"][0]
-    mesh_comp["Source"] = "/stck/lbernard/MOLA/Dev/tests/unstructured_cart.cgns"
+    mesh_comp["Source"] = unstructured_cart_grid()
     mesh_comp["Families"] = None
     mesh_comp["Connection"] = None
 
@@ -1010,7 +1011,6 @@ def unstructured_cart_grid():
 
     t = cgns.castNode(t)
     t = make_mesh_unstructured(t)
-    t.save('unstructured_cart.cgns')
 
     return t
 
