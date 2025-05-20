@@ -93,13 +93,15 @@ def write_with_maia(w, tree, dst):
         tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
         tree = cgns.castNode(tree)
 
-    links = get_links_for_maia(tree)
-
     if maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
+        links = get_links_for_maia(tree)
         maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
     else:
-        dist_tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-        maia.io.dist_tree_to_file(dist_tree, dst, MPI.COMM_WORLD, links=links)
+        # The tree is nor partitioned neither distributed.
+        # It is then considered as full on rank 0
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            links = tree.getLinks()
+            maia.io.write_tree(tree, dst, links=links)
     MPI.COMM_WORLD.barrier()
 
 def write_with_pypart(w, tree, dst):
