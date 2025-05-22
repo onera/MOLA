@@ -1015,7 +1015,7 @@ def compute_RNA_ref_time(workflow, Family, LinkedFamily):
 
     return SectorPassagePeriod
 
-def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20., NumberOfHarmonicsForLinkedFamily=20., hybrid=True):
+def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20, NumberOfHarmonicsForLinkedFamily=20, hybrid=True):
     '''
     Compute the parameters to run a chorochronic computation.
     
@@ -1050,8 +1050,8 @@ def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20.,
     row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
     row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
     choroParamsRow1, choroParamsRow2 = compute_choro_parameters(workflow.ApplicationContext, row1, row2, Nharm_Row1=NumberOfHarmonicsForFamily, Nharm_Row2=NumberOfHarmonicsForLinkedFamily)
-    add_choro_data(workflow.tree, Family, **choroParamsRow1) 
-    add_choro_data(workflow.tree, LinkedFamily, **choroParamsRow2) 
+    add_choro_data(workflow.tree, row1, **choroParamsRow1) 
+    add_choro_data(workflow.tree, row2, **choroParamsRow2) 
 
 @mute_stdout
 def stage_choro(workflow, Family, LinkedFamily):
@@ -1140,7 +1140,6 @@ def convert_periodic_to_chorochrono(t):
             gcnodes.append(gc_node)
 
     for gcnode in gcnodes:
-        mola_logger.warning(f'{gcnode.path()}')
         # Force RotationAngle to be [X, 0, 0], else error
         RotationAngle = gcnode.get(Name='RotationAngle').value()
         for i, angle in enumerate(RotationAngle):
@@ -1161,15 +1160,15 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
     gcd = np.gcd(Nblade_Row1,Nblade_Row2)
     if Nharm_Row1 < Nblade_Row1/gcd:
         mola_logger.warning(f'The number of chorochronic harmonics for the first row is too low ({Nharm_Row1}). Recomputing...\n ')
-        Nharm_Row1 = float(Nblade_Row2)
+        Nharm_Row1 = Nblade_Row2
 
     if Nharm_Row2 < Nblade_Row2/gcd:
         mola_logger.warning(f'The number of chorochronic harmonics for the first row is too low ({Nharm_Row2}). Recomputing...\n ')
-        Nharm_Row2 = float(Nblade_Row1)
+        Nharm_Row2 = Nblade_Row1
         mola_logger.warning(f'New number of harmonics for row 2 : {Nharm_Row2}')
 
-    mola_logger.info(f'Number of harmonics for {row1} : {Nharm_Row1}')
-    mola_logger.info(f'Number of harmonics for {row2} : {Nharm_Row2}')
+    mola_logger.info(f'      {Nharm_Row1} harmonics for {row1} family')
+    mola_logger.info(f'      {Nharm_Row2} harmonics for {row2} family')
 
     choroParamsRow1 = dict(
         f_freq = Nblade_Row2*np.abs(omega_Row1-omega_Row2)/(2*np.pi), 
@@ -1177,7 +1176,7 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
         f_harm = float(Nharm_Row1), 
         f_relax = float(relax), 
         axis_ang_1 = Nblade_Row1, 
-        axis_ang_2 = 1
+        axis_ang_2 = ApplicationContext['Rows'][row1]['NumberOfBladesSimulated']
         )
     choroParamsRow2 = dict(
         f_freq = Nblade_Row1*np.abs(omega_Row1-omega_Row2)/(2*np.pi), 
@@ -1185,7 +1184,7 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
         f_harm = float(Nharm_Row2), 
         f_relax = float(relax), 
         axis_ang_1 = Nblade_Row2, 
-        axis_ang_2 = 1
+        axis_ang_2 = ApplicationContext['Rows'][row2]['NumberOfBladesSimulated']
         )
     
     return choroParamsRow1, choroParamsRow2
@@ -1223,7 +1222,11 @@ def add_choro_data(t, rowName, f_freq, f_omega, f_harm, f_relax, axis_ang_1, axi
 
     ''' 
     fam_node = t.get(Name=rowName, Type='Family', Depth=2)
-    motion_node = fam_node.setParameters('.Solver#Motion', axis_ang_1=axis_ang_1, axis_ang_2=axis_ang_2)
+    motion_node = fam_node.get(Name='.Solver#Motion')
+    if motion_node is None:
+        raise MolaException(f'Motion has not been defined for family {rowName} (cannot found the node .Solver#Motion)')
+    cgns.Node(Name='axis_ang_1', Value=axis_ang_1, Type='DataArray', Parent=motion_node)
+    cgns.Node(Name='axis_ang_2', Value=axis_ang_2, Type='DataArray', Parent=motion_node)
 
     for zone in t.zones():
         if not zone.get(Type='*FamilyName', Value=rowName):
