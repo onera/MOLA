@@ -101,8 +101,11 @@ def translate_extraction_variables_to_sonics_function(Variables):
         # NormalVector = treg.SurfaceNormal,
         yPlus = lambda treg: treg.XYZPlusMeshSize,
         Friction = lambda treg: treg.SkinFriction,
-        Force = lambda treg: treg.conv_flux(treg.Momentum), 
-        MassFlow = lambda treg: treg.conv_flux(treg.Density),
+
+        # HACK for integral outputs, need treg.dummy
+        # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
+        Force = lambda treg: treg.dummy(treg.conv_flux(treg.Momentum)), 
+        MassFlow = lambda treg: treg.dummy(treg.conv_flux(treg.Density)),
     )
     
     sonics_var = []
@@ -121,5 +124,7 @@ def translate_sonics_CGNS_field_names_to_MOLA(container_node : cgns.Node):
 
     for node in container_node.children():
         node_name = node.name()
+        if node_name.startswith('dummy'):
+            node_name = node_name.replace('dummy(', '')[:-1]  # remove final )
         if node_name in SonicsCGNS2MOLA:
             node.setName( SonicsCGNS2MOLA[node_name] )

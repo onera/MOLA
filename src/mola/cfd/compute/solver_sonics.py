@@ -26,8 +26,9 @@ NumberOfProcessors = comm.Get_size()
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.cfd.compute.read_cfd_files import read_cfd_files
-from mola.cfd.preprocess.extractions.solver_sonics import add_fields_and_bc_extractions
+from mola.cfd.preprocess.extractions.solver_sonics import add_fields_and_bc_extractions, get_familiesBC_nodes, get_bc_families_names_to_extract
 from mola.cfd.preprocess.cfd_parameters.solver_sonics import get_cfl_function
+from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics_function
 
 def apply_to_solver(workflow):
 
@@ -155,13 +156,12 @@ def get_iterators(workflow, config, hardware_target='cpu'):
     return iterators
 
 def get_integral_triggers(workflow, config, hardware_target):
+    from miles.trigger import IntegralDataExtractor
     pytriggers = []
 
     # HACK for sonics >= 0.5.35
     # Different triggers must be defined for each family
     # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
-    from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract
-    from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics_function
 
     familiesBC = get_familiesBC_nodes(workflow.tree)
     for extraction in workflow.Extractions: 
@@ -170,7 +170,7 @@ def get_integral_triggers(workflow, config, hardware_target):
 
         families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
         for family in families:
-            from miles.trigger import IntegralDataExtractor
+            
             extractor = IntegralDataExtractor(
                 config, 
                 # FIXME cgns_node_pattern does nothing for now (sonics 0.6.2)
