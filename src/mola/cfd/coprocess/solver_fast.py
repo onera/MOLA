@@ -93,7 +93,6 @@ def perform_extractions(workflow, coprocess_manager):
             remove_not_needed_fields(extraction)
 
         elif extraction['Type'] == 'Residuals':
-            coprocess_manager.mola_logger.warn('extract residuals requires solving https://github.com/onera/Fast/issues/13')
             extract_residuals(output_tree, extraction)
         
         elif extraction['Type'] == 'Integral':

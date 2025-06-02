@@ -41,13 +41,17 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
             ShaftRotationSpeed : Union[float, int] = None,
             Rows : dict = dict(),
             ):
+
+        ShaftAxis = np.array(ShaftAxis,dtype=float)
+        ShaftAxis /= np.linalg.norm(ShaftAxis)
+
         kwargs = self.get_default_values_from_local_signature()
         self.ApplicationContext = self._get_comp(self.set_ApplicationContext, kwargs)
 
         for key, row_parameters in Rows.items():
             self.add_Row_to_ApplicationContext(_Key=key, **row_parameters)
         
-        self.ApplicationContext['ShaftAxis'] = np.array(self.ApplicationContext['ShaftAxis'],dtype=float)
+
         self.apply_ShaftRotationSpeedUnit(default_ShaftRotationSpeedUnit=kwargs["ShaftRotationSpeedUnit"])
         if 'HubRotationIntervals' in self.ApplicationContext:
             self.set_HubRotationIntervals()

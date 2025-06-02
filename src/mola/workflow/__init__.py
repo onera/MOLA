@@ -25,7 +25,8 @@ from .manager import WorkflowManager
 from .fixed import airplane
 from .fixed import airfoil
 from .fixed import linear_cascade
-from . import rotating_component
+from .rotating_component import turbomachinery
+from .rotating_component import propeller
 
 # This list must be updated when a new workflow is added to mola
 AVAILABLE_WORKFLOWS_CLASSES = [
@@ -34,8 +35,8 @@ AVAILABLE_WORKFLOWS_CLASSES = [
     airfoil.Workflow,
     linear_cascade.Workflow,
     rotating_component.Workflow,
-    rotating_component.propeller.Workflow,
-    rotating_component.turbomachinery.Workflow,
+    propeller.Workflow,
+    turbomachinery.Workflow,
 ]
 AVAILABLE_WORKFLOWS = dict((w.__name__, w) for w in AVAILABLE_WORKFLOWS_CLASSES)
 

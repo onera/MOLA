@@ -17,8 +17,14 @@
 
 from treelab import cgns
 import maia
+from mola.logging import MolaException
+from mola.pytree.user.checker import is_partitioned_for_use_in_maia
 
 def extract_bc_from_family(tree, Family, comm):
+    if not is_partitioned_for_use_in_maia(tree):
+        raise MolaException('cannot extract a bc from a cgns tree that is not partitioned for use in maia')
+
+    # CAVEAT cannot extract surface grid only, raises error if no BCDataSet found
     surface = maia.algo.part.extract_part_from_family(tree, Family, comm, containers_name=['BCDataSet'])
     return surface
 

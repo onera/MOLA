@@ -25,6 +25,7 @@ from .interface import WorkflowTurbomachineryInterface
 class WorkflowTurbomachinery(WorkflowRotatingComponent):
 
     def __init__(self, **kwargs):
+        super().__init__(_skip_interface=True) # used to recover the private attributes of WorkflowRotatingComponent
         self._interface = WorkflowTurbomachineryInterface(self, **kwargs)
 
     def postprocess(self, **kwargs):     
