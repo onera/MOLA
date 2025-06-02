@@ -15,200 +15,97 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import numpy as np
-
-import mola.cfd.preprocess as PRE
+from mola.logging import MolaUserError, MolaException
 from ..workflow import WorkflowRotatingComponent
-
+from .interface import WorkflowPropellerInterface
+from mola.cfd.postprocess import extract_bc
+from treelab import cgns
+from mola.pytree.user.checker import is_partitioned_for_use_in_maia, is_distributed_for_use_in_maia
+import numpy as np
 
 class WorkflowPropeller(WorkflowRotatingComponent):
 
-    def __init__(self, RPM=0., AxialVelocity=0., ReferenceTurbulenceSetAtRelativeSpan=0.75, **UserParameters):
-        super(WorkflowPropeller, self).__init__(**UserParameters)
+    def __init__(self, **kwargs):
+        super().__init__(_skip_interface=True) # used to recover the private attributes of WorkflowRotatingComponent
+        self._interface = WorkflowPropellerInterface(self, **kwargs)
+        self._blade_radius = None
 
-        self.Splitter = 'PyPart'
-        self.TurboConfiguration = dict()
-        self.BodyForceInputData = None
+        # CAVEAT
+        # since extract_bc does not verify the Dependency Rule by polymorphism,
+        # we need to violate the Rule at this high-level by explicitly choosing
+        # the default tool depending on the Solver context. This should have been
+        # prevented by automatically using polymorphism. Alternatively, choosing
+        # the default tool could have been done in a low-level factory step.
+        # TODO review design of extract_bc in order to use DIP and avoid Solver
+        # filtering inside the Workflow
 
-        self.BCExtractions = UserParameters.get('BCExtractions', 
-            dict(
-                BCWall    = ['NormalVector', 'Friction', 'Pressure', 'BoundaryLayer', 'yPlus'],
-                BCInflow  = ['MassFlow'],
-                BCOutflow = ['MassFlow']
-            )
-        )
+        self._extract_bc_default_tool = 'cassiopee'
 
-        self.ReferenceValues.update(
-            dict(
-            FieldsAdditionalExtractions=['q_criterion'],
-            CoprocessOptions=dict(
-                RequestedStatistics=['std-Thrust','std-Power'],
-                ConvergenceCriteria=[dict(Family='BLADE',
-                                        Variable='std-Thrust',
-                                        Threshold=1e-3)],
-                AveragingIterations = 1000,
-                ItersMinEvenIfConverged = 1000,
-                UpdateArraysFrequency = 100,
-                UpdateSurfacesFrequency = 500,
-                UpdateFieldsFrequency = 2000)
-                )
-        )
+        # # CAVEAT see _compute_maximum_blade_radius
+        # if self.Solver == 'sonics':
+        #     self._extract_bc_default_tool = 'maia' 
+        # else: 
+        #     self._extract_bc_default_tool = 'cassiopee'
 
+    def compute_flow_and_turbulence(self):
+        self.set_velocity_for_scaling_and_turbulence()
+        super().compute_flow_and_turbulence()
 
-    def prepare(self):
+    def set_velocity_for_scaling_and_turbulence(self):
         
-        PRE.mesh.read_mesh(Mesher='Autogrid')
+        omega_units = self.ApplicationContext["ShaftRotationSpeedUnit"]
+        if omega_units == 'rpm':
+            omega = (np.pi / 30.0) * self.ApplicationContext["ShaftRotationSpeed"]
+        elif omega_units == 'rad/s':
+            omega = self.ApplicationContext["ShaftRotationSpeed"]
+        else:
+            raise MolaUserError(f'got wrong ShaftRotationSpeedUnit "{omega_units}", shall be "rpm" or "rad/s"')
 
-        self.prepare_mesh(**kwargs)
+        r_max = self.blade_radius()
+        r_rel_ref = self.ApplicationContext["ReferenceTurbulenceSetAtRelativeRadius"]
+        axial_velocity = self.Flow['Velocity']
+        tangential_velocity = omega * r_rel_ref * r_max
 
-        self.prepare_configuration()
+        turb_velocity = np.sqrt( axial_velocity**2 + tangential_velocity**2 )
 
-        PRE.compute_fluid_properties()
-        IntFlow.compute_reference_values()
-        
-        PRE.get_solver_parameters(self)  # Must return dict(cfdpb=dict(), models=dict(), numerics=())
+        self.Flow['VelocityForScalingAndTurbulence'] = turb_velocity
 
-        self.initializeFlowSolution(self)
+    def blade_radius(self):
+        if self._blade_radius is None:
+            if self.tree is None:
+                raise MolaUserError('did not find a tree, hence cannot retrieve blade radius. Maybe you forgot to process_mesh?')
+            return self._compute_maximum_blade_radius()
+        return self._blade_radius
 
-        self.addTiggerReferenceStateGoverningEquations()
-        PRE.addExtractions(self)
-        self.save_main()
+    def _compute_maximum_blade_radius(self, imposed_tool : str = None):
+        if imposed_tool:
+            tool = imposed_tool
+        else: 
+            tool = self._extract_bc_default_tool
 
-        nb_blades, Dir = self.getPropellerKinematic()
-        span = self.maximumSpan()
-        omega = -Dir * RPM * np.pi / 30.
-        TangentialVelocity = abs(omega)*span*ReferenceTurbulenceSetAtRelativeSpan
-        VelocityForScalingAndTurbulence = np.sqrt(TangentialVelocity**2 + AxialVelocity**2)
-        self.ReferenceValues['Velocity'] = UserParameters['AxialVelocity']
-        self.ReferenceValues['VelocityForScalingAndTurbulence'] = VelocityForScalingAndTurbulence
-        
-        RowTurboConfDict = {}
-        for b in I.getBases(t):
-            RowTurboConfDict[b[0]+'Zones'] = {'RotationSpeed':omega,
-                                            'NumberOfBlades':nb_blades,
-                                            'NumberOfBladesInInitialMesh':nb_blades}
-        SpinnerRotationInterval=(-1e6,+1e6)
-        TurboConfiguration = WC.getTurboConfiguration(t, ShaftRotationSpeed=omega,
-                                    HubRotationIntervals=[SpinnerRotationInterval],
-                                    Rows=RowTurboConfDict)
-        FluidProperties = PRE.computeFluidProperties()
-        if not 'Surface' in ReferenceValuesParams:
-            ReferenceValuesParams['Surface'] = 1.0
+        # CAVEAT
+        if tool != 'cassiopee': 
+            raise MolaException('must use cassiopee for extract_bc, since maia requires being unstructured partitioned with BCDataSet')
 
-        MainDirection = np.array([1,0,0]) # Strong assumption here
-        YawAxis = np.array([0,0,1])
-        PitchAxis = np.cross(YawAxis, MainDirection)
-        self.ReferenceValues.update(dict(PitchAxis=PitchAxis, YawAxis=YawAxis))
+        tree = self.tree
+        if tool == 'maia':
+            tree = self._get_partitioned_tree_for_use_in_maia()
 
-        self.ReferenceValues = PRE.computeReferenceValues(FluidProperties, **self.ReferenceValues)
-        self.ReferenceValues['RPM'] = RPM
-        self.ReferenceValues['NumberOfBlades'] = nb_blades
-        self.ReferenceValues['AxialVelocity'] = AxialVelocity
-        self.ReferenceValues['MaximumSpan'] = span
-
-
- 
-        WC.setMotionForRowsFamilies(t, TurboConfiguration)
-        WC.setBC_Walls(t, TurboConfiguration)
-
-        WC.computeFluxCoefByRow(t, ReferenceValues, TurboConfiguration)
-
-        allowed_override_objects = ['cfdpb','numerics','model']
-        for v in OverrideSolverKeys:
-            if v == 'cfdpb':
-                elsAkeysCFD.update(OverrideSolverKeys[v])
-            elif v == 'numerics':
-                elsAkeysNumerics.update(OverrideSolverKeys[v])
-            elif v == 'model':
-                elsAkeysModel.update(OverrideSolverKeys[v])
-            else:
-                raise AttributeError('OverrideSolverKeys "%s" must be one of %s'%(v,
-                                                    str(allowed_override_objects)))
-
-        AllSetupDicts = dict(Workflow='Propeller',
-                            Splitter=Splitter,
-                            JobInformation=JobInformation,
-                            TurboConfiguration=TurboConfiguration,
-                            FluidProperties=FluidProperties,
-                            ReferenceValues=ReferenceValues,
-                            elsAkeysCFD=elsAkeysCFD,
-                            elsAkeysModel=elsAkeysModel,
-                            elsAkeysNumerics=elsAkeysNumerics,
-                            Extractions=Extractions)
-
-        PRE.addTrigger(t)
-        PRE.addExtractions(t, AllSetupDicts['ReferenceValues'],
-                            AllSetupDicts['elsAkeysModel'], extractCoords=False,
-                            BCExtractions=ReferenceValues['BCExtractions'])
-
-        if elsAkeysNumerics['time_algo'] != 'steady':
-            PRE.addAverageFieldExtractions(t, AllSetupDicts['ReferenceValues'],
-                AllSetupDicts['ReferenceValues']['CoprocessOptions']['FirstIterationForAverage'])
-
-        PRE.addReferenceState(t, AllSetupDicts['FluidProperties'],
-                            AllSetupDicts['ReferenceValues'])
-        dim = int(AllSetupDicts['elsAkeysCFD']['config'][0])
-        PRE.addGoverningEquations(t, dim=dim)
-        AllSetupDicts['ReferenceValues']['NumberOfProcessors'] = int(max(PRE.getProc(t))+1)
-        PRE.writeSetup(AllSetupDicts)
-
-        if FULL_CGNS_MODE:
-            PRE.addElsAKeys2CGNS(t, [AllSetupDicts['elsAkeysCFD'],
-                                    AllSetupDicts['elsAkeysModel'],
-                                    AllSetupDicts['elsAkeysNumerics']])
-
-        PRE.saveMainCGNSwithLinkToOutputFields(t,writeOutputFields=writeOutputFields)
-
-
-    def prepare_mesh(self, splitOptions={'maximum_allowed_nodes':3},
-                     match_tolerance=1e-7, periodic_match_tolerance=1e-7):
-        blade_number, _ = self.getPropellerKinematic(self.tree)
-        InputMeshes = [dict(file='mesh.cgns',
-                            baseName='Base',
-                            SplitBlocks=True,
-                            BoundaryConditions=[
-                                dict(name='blade_wall',
-                                    type='FamilySpecified:BLADE',
-                                    familySpecifiedType='BCWall'),
-                                dict(name='spinner_wall',
-                                    type='FamilySpecified:SPINNER',
-                                    familySpecifiedType='BCWall'),
-                                dict(name='farfield',
-                                    type='FamilySpecified:FARFIELD',
-                                    familySpecifiedType='BCFarfield',
-                                    location='special',
-                                    specialLocation='fillEmpty')],
-                            Connection=[
-                                dict(type='Match',
-                                    tolerance=match_tolerance),
-                                dict(type='PeriodicMatch',
-                                    tolerance=periodic_match_tolerance,
-                                    rotationCenter=[0.,0.,0.],
-                                    rotationAngle=[360./float(blade_number),0.,0.])])]
-
-        return super().prepareMesh4ElsA(InputMeshes, splitOptions=splitOptions)
+        blade_family_name = self.get_blade_family_names(must_be_unique=True)[0]
+        blade_surface = extract_bc(tree, blade_family_name, tool=tool)
+        self.blade_radius = self._compute_maximum_distance_to_axis_from(blade_surface)
+        return self.blade_radius
     
-    def getPropellerKinematic(self):
-        mesh_params = I.getNodeFromName(self.tree,'.MeshingParameters')
-        if mesh_params is None:
-            raise ValueError(J.FAIL+'node .MeshingParameters not found in tree'+J.ENDC)
+    def _get_partitioned_tree_for_use_in_maia(self):
+        tree = self.tree.copy()
+        if not is_partitioned_for_use_in_maia(tree):
+            from mpi4py import MPI
+            import maia
+            
+            if not is_distributed_for_use_in_maia(tree):
+                tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
 
-        try:
-            nb_blades = int(I.getValue(I.getNodeFromName(mesh_params,'blade_number')))
-        except:
-            ERRMSG = 'could not find .MeshingParameters/blade_number in tree'
-            raise ValueError(J.FAIL+ERRMSG+J.ENDC)
-
-        try:
-            Dir = int(I.getValue(I.getNodeFromName(mesh_params,'RightHandRuleRotation')))
-            Dir = +1 if Dir else -1
-        except:
-            ERRMSG = 'could not find .MeshingParameters/RightHandRuleRotation in tree'
-            raise ValueError(J.FAIL+ERRMSG+J.ENDC)
-
-        return nb_blades, Dir
-    
-    def getMaximumSpan(self):
-        zones = C.extractBCOfName(self.tree,'FamilySpecified:BLADE')
-        W.addDistanceRespectToLine(zones, [0,0,0],[-1,0,0], FieldNameToAdd='span')
-        return C.getMaxValue(zones, 'span')
+            tree = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD)
+            tree = cgns.castNode(tree)
+        
+        return tree

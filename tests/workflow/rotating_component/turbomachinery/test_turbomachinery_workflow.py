@@ -258,7 +258,7 @@ def test_extractions_definition_coherency(tmp_path):
     params["Extractions"] += [ dict(
             Type='Integral',
             Name='WALL_LOADS',
-            Source='BCWallViscous',
+            Source='WallInviscid',
             Fields=['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'],
             ExtractAtEndOfRun=True,
             PostprocessOperations = [dict(Type="TOTO_OPERATION")],

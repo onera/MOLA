@@ -1062,7 +1062,7 @@ class WorkflowInterface(object):
         for name in list(signature.parameters):
             if name == 'self': 
                 continue
-            elif name == 'kwargs':
+            elif name == 'kwargs' and kwargs:
                 # last possible parameters in the signature
                 # --> update new_component with all that remains in kwargs
                 new_component.update(kwargs['kwargs'])

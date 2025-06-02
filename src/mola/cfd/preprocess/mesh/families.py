@@ -261,16 +261,34 @@ def get_zone_family_from_bc_or_gc_family(tree: cgns.Tree, bc_family: str) -> str
     
     raise MolaUserError(f'Cannot find a zone Family from the BC or GC Family {bc_family}. Check the input tree and family names.')
 
-def get_family_nodes_from_patterns(tree, patterns):
+def get_bc_family_nodes_from_patterns(tree, patterns):
     # TODO Put this function (and others that are associated) in treelab ? 
+    bc_family_names = get_bc_family_names_from_patterns(tree, patterns)
     nodes = []
-    for pattern in generate_case_variations(patterns):
-        nodes += tree.group(Type='Family', Name=f'*{pattern}*')
+    for name in bc_family_names:
+        family_node = tree.get(Type='Family_t', Name=name, Depth=2)
+        if not family_node:
+            raise MolaException(f'could not find CGNSBase_t/Family_t named "{name}"')
+        nodes += [ family_node ]
     return nodes
-    
-def get_family_names_from_patterns(tree, patterns):
-    nodes = get_family_nodes_from_patterns(tree, patterns)
-    return [n.name() for n in nodes]
+
+def get_bc_family_names_from_patterns(tree, patterns) -> set:
+    nodes = get_bc_family_name_nodes_from_patterns(tree, patterns)
+    family_names = set()
+    for n in nodes:
+        family_names.add(n.value())
+    return list(family_names)
+
+def get_bc_family_name_nodes_from_patterns(tree, patterns):
+    family_name_nodes = []
+    for pattern in generate_case_variations(patterns):
+        for zone in tree.zones():
+            zone_bc = zone.get(Type='ZoneBC_t', Depth=1)
+            nodes = zone_bc.group(Name='FamilyName', Value=f'*{pattern}*')
+            for family_name_node in nodes:
+                family_name_nodes += [ family_name_node ]
+
+    return family_name_nodes
 
 def generate_case_variations(patterns):
     '''
