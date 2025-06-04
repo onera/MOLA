@@ -121,6 +121,11 @@ class Workflow(object):
 
     def compute_flow_and_turbulence(self):
         # mola-generic set of parameters
+
+        # CAVEAT weird way of passing data, excessively relying on direct members
+        # access(publicly, which is dangerous). Should redesign the flow of data,
+        # for instance using constructor's arguments and dedicated accessors
+        # (getters/setters)
         FlowGen = flow_generators.get_flow_generator(self.Flow['Generator'])(self)
         FlowGen.generate()
         self.Fluid = FlowGen.Fluid
@@ -150,7 +155,6 @@ class Workflow(object):
     
     def check_preprocess(self):
         check.apply(self)
-        # self.set_workflow_parameters_in_tree()
 
     def finalize_preprocess(self):
         finalization.apply(self)

@@ -818,7 +818,7 @@ def test_workflow_2_cosplit(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.cost_level_3
-@pytest.mark.skip(reason="FIXME BUG unstructured+extractionBC+pypart") # FIXME BUG
+@pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
 def test_workflow_2_unstr_cosplit(tmp_path):
     
     params = get_workflow2_parameters()
@@ -942,7 +942,7 @@ def test_workflow_sphere_unstruct_local(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.cost_level_4
-@pytest.mark.skip(reason="FIXME BUG unstructured+extractionBC+pypart") # FIXME BUG
+@pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
 def test_workflow_sphere_unstruct_pypart(tmp_path):
     w = get_workflow_sphere_unstruct(tmp_path)
     w.RunManagement['Scheduler'] = 'local'

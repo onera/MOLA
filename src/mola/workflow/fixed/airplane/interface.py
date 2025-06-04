@@ -25,9 +25,9 @@ class WorkflowAirplaneInterface(WorkflowInterface):
     def __init__(self, workflow, tree=None, **kwargs):
         super().__init__(workflow, tree, **kwargs)
         if tree is None:
-            self.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
+            self.add_to_Extractions_BC(Source='Wall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
             self.add_to_Extractions_Integral(
-                Source='BCWall*',
+                Source='Wall*',
                 Fields=['Force', 'Torque'],
                 PostprocessOperations=[
                     dict(Type="compute_aerodynamic_coefficients", AtEndOfRunOnly=False),

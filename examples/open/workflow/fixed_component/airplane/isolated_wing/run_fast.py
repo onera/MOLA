@@ -66,7 +66,8 @@ w = WorkflowAirplane(
     ],
 
     RunManagement = dict(
-        NumberOfProcessors = 8,
+        NumberOfProcessors = 1, # CAVEAT cannot be >1 until solved https://github.com/onera/Fast/issues/90 
+        NumberOfThreads = 8,
         RunDirectory = f'example_{solver}',
         Scheduler = 'local',
         TimeLimit = '3:00:00',

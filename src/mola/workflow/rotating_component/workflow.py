@@ -22,7 +22,7 @@ from treelab import cgns
 
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, redirect_streams_to_logger
 from mola.cfd.preprocess.mesh import duplicate
-from mola.cfd.preprocess.mesh.families import get_family_nodes_from_patterns, get_family_names_from_patterns
+from mola.cfd.preprocess.mesh.families import get_bc_family_nodes_from_patterns, get_bc_family_names_from_patterns
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height
 
 from .. import Workflow
@@ -58,8 +58,23 @@ class WorkflowRotatingComponent(Workflow):
 
     '''
 
-    def __init__(self, **kwargs):
-        self._interface = WorkflowRotatingComponentInterface(self, **kwargs)
+    def __init__(self,
+            
+            # CAVEAT required for making accessible private attributes of
+            # RotatingComponent to lower-level (inherited) workflows, without
+            # suffering from the inconvenience of instantiating RotatingComponent
+            # interface, and requiring to provide mandatory inputs to RotatingComponent
+            # that will be overriden (or incompatible) to inherited workflow inputs.
+            # This should be redesigned, for exemple, by never requiring mandatory
+            # inputs on intermediary workflows.
+            _skip_interface=False, 
+
+            **kwargs):
+        if not _skip_interface:
+            self._interface = WorkflowRotatingComponentInterface(self, **kwargs)
+        self._hub_patterns = ['hub', 'moyeu', 'spinner']
+        self._blade_patterns = ['blade', 'aube', 'propeller', 'rotor', 'stator']
+        self._shroud_patterns = ['shroud', 'carter']
 
     def duplicate(self):
         # duplicate.duplicate_workflow_with_cassiopee(self)
@@ -121,55 +136,58 @@ class WorkflowRotatingComponent(Workflow):
         self.set_hub_boundary_conditions()
         self.set_blade_boundary_conditions()
 
-        super().set_boundary_conditions()  
+        super().set_boundary_conditions()
 
-    def set_shroud_boundary_conditions(self, families=['shroud', 'carter']):
-        for famNode in get_family_nodes_from_patterns(self.tree, families):
-            FamilyBoundary = famNode.name()
-            if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
-                continue
+    def set_shroud_boundary_conditions(self):
+        for famNode in get_bc_family_nodes_from_patterns(self.tree, self._shroud_patterns):
+            bc_family_name = famNode.name()
             
+            if self._is_boundary_already_defined(bc_family_name) or self._is_boundary_to_skip(bc_family_name):
+                continue
+
             self.BoundaryConditions.append(
                 # Careful, it is mandatory to impose a null Motion on the shroud, 
                 # otherwise the frame of reference of the BC will be inheritated 
                 # from the zone with a FoR in rotation 
-                dict(Family=FamilyBoundary, Type='Wall', Motion=dict(RotationSpeed=[0.,0.,0.]))  
+                dict(Family=bc_family_name, Type='Wall', Motion=dict(RotationSpeed=[0.,0.,0.]))  
                 )
     
-    def set_blade_boundary_conditions(self, families=['blade', 'aube']):
-        for famNode in get_family_nodes_from_patterns(self.tree, families):
-            FamilyBoundary = famNode.name()
-            if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
+    def set_blade_boundary_conditions(self):
+        for famNode in get_bc_family_nodes_from_patterns(self.tree, self._blade_patterns):
+            bc_family_name = famNode.name()
+            
+            if self._is_boundary_already_defined(bc_family_name) or self._is_boundary_to_skip(bc_family_name):
                 continue
             
-            row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
+            row_family = self._get_row_from_BC_Family(self.tree, bc_family_name)
 
             try:
                 self.BoundaryConditions.append(
-                    dict(Family=FamilyBoundary, Type='Wall', Motion=self.Motion[row_family])
+                    dict(Family=bc_family_name, Type='Wall', Motion=self.Motion[row_family])
                     )
             except KeyError:
-                self.BoundaryConditions.append(dict(Family=FamilyBoundary, Type='Wall'))
+                self.BoundaryConditions.append(dict(Family=bc_family_name, Type='Wall'))
     
-    def set_hub_boundary_conditions(self, families=['hub', 'moyeu']):
-        for famNode in get_family_nodes_from_patterns(self.tree, families):
-            FamilyBoundary = famNode.name()
-            if self._is_boundary_already_defined(FamilyBoundary) or self._is_boundary_to_skip(FamilyBoundary):
+    def set_hub_boundary_conditions(self):
+        for famNode in get_bc_family_nodes_from_patterns(self.tree, self._hub_patterns):
+            bc_family_name = famNode.name()
+            
+            if self._is_boundary_already_defined(bc_family_name) or self._is_boundary_to_skip(bc_family_name):
                 continue
 
             if not 'HubRotationIntervals' in self.ApplicationContext:
                 # Assume that hub rotates at the same speed that the zone family
-                mola_logger.warning(f'Assume that motion is uniform on Family {FamilyBoundary}.')
-                row_family = self._get_row_from_BC_Family(self.tree, FamilyBoundary)
+                mola_logger.warning(f'Assume that motion is uniform on bc family "{bc_family_name}".')
+                row_family = self._get_row_from_BC_Family(self.tree, bc_family_name)
                 try:
                     self.BoundaryConditions.append(
-                        dict(Family=FamilyBoundary, Type='Wall', Motion=self.Motion[row_family])
+                        dict(Family=bc_family_name, Type='Wall', Motion=self.Motion[row_family])
                         )
                 except KeyError:
-                    self.BoundaryConditions.append(dict(Family=FamilyBoundary, Type='Wall'))
+                    self.BoundaryConditions.append(dict(Family=bc_family_name, Type='Wall'))
             else:
                 self.BoundaryConditions.append(
-                    dict(Family=FamilyBoundary, Type='Wall', Motion=dict(RotationSpeed=self._get_hub_rotation_function()))
+                    dict(Family=bc_family_name, Type='Wall', Motion=dict(RotationSpeed=self._get_hub_rotation_function()))
                     )
 
     def _is_boundary_already_defined(self, FamilyBoundary):
@@ -182,7 +200,7 @@ class WorkflowRotatingComponent(Workflow):
     @staticmethod
     def _is_boundary_to_skip(FamilyBoundary):
         # TODO Is it possible to remove this condition ?
-        return FamilyBoundary.startswith('F_OV_') or FamilyBoundary.endswith('Zones')  
+        return FamilyBoundary.startswith('F_OV_') or FamilyBoundary.endswith('Zones')
     
     @staticmethod
     def _get_row_from_BC_Family(tree, FamilyBoundary):
@@ -274,6 +292,7 @@ class WorkflowRotatingComponent(Workflow):
         import Post.PyTree as P
 
         if list(axis) != [1.0, 0.0, 0.0]:
+            # CAVEAT
             raise MolaAssertionError('For now, this function only handles axis=[1., 0., 0.]')
 
         # Extract zones in family
@@ -326,14 +345,57 @@ class WorkflowRotatingComponent(Workflow):
                 mola_logger.debug(f'fluxcoeff on Family {Family} is {fluxcoeff}')
                 self.ApplicationContext['NormalizationCoefficient'][Family] = dict(FluxCoef=fluxcoeff)
 
-    def parametrize_with_height(self, hub_families=['hub', 'moyeu'], 
-                                shroud_families=['shroud', 'carter'], GridLocation='Vertex'):
+    def parametrize_with_height(self, GridLocation='Vertex'):
         self.tree = parametrize_with_height(
             self.tree, 
-            hub_families=get_family_names_from_patterns(self.tree, hub_families), 
-            shroud_families=get_family_names_from_patterns(self.tree, shroud_families), 
+            hub_families = self.get_hub_family_names(), 
+            shroud_families = self.get_shroud_family_names(), 
             GridLocation=GridLocation
             )
+
+    def get_hub_family_names(self, must_be_unique=False, must_exist=False)  -> list:
+        names = get_bc_family_names_from_patterns(self.tree, self._hub_patterns)
+        
+        if must_be_unique:
+            must_exist = True
+
+        if must_exist and len(names)==0:
+            raise MolaException('did not find any family associated to hub')
+        
+        elif must_be_unique and len(names)!=1:
+            raise MolaException(f"expected a unique family name for hub but got: {names}")
+        
+        return names
+
+
+    def get_blade_family_names(self, must_be_unique=False, must_exist=False)  -> list:
+        names = get_bc_family_names_from_patterns(self.tree, self._blade_patterns)
+        
+        if must_be_unique:
+            must_exist = True
+
+        if must_exist and len(names)==0:
+            raise MolaException('did not find any family associated to blade')
+        
+        elif must_be_unique and len(names)!=1:
+            raise MolaException(f"expected a unique family name for blade but got: {names}")
+        
+        return names
+
+    def get_shroud_family_names(self, must_be_unique=False, must_exist=False) -> list:
+        names = get_bc_family_names_from_patterns(self.tree, self._shroud_patterns)
+        
+        if must_be_unique:
+            must_exist = True
+
+        if must_exist and len(names)==0:
+            raise MolaException('did not find any family associated to shroud')
+        
+        elif must_be_unique and len(names)!=1:
+            raise MolaException(f"expected a unique family name for shroud but got: {names}")
+        
+        return names
+
 
     def parametrize_with_height_with_turbo(self, method=2):
         '''
@@ -434,6 +496,26 @@ class WorkflowRotatingComponent(Workflow):
         if MPI.COMM_WORLD.Get_rank() == 0:
             from mola.visu import plot_radial_profiles
             plot_radial_profiles(*args, **kwargs)
+
+    @staticmethod
+    def _compute_maximum_distance_to_axis_from(tree : cgns.Tree, 
+            axis = np.array([1.0,0.0,0.0]), center = np.array([0.0,0.0,0.0]) ):
+        
+        c = center
+        a = axis
+        max_squared_distance = 0.0
+        zone : cgns.Zone
+        for zone in tree.zones():
+            x, y, z = zone.xyz(ravel=True)
+            for i in range(len(x)):
+                p = np.array([x[i], y[i], z[i]])
+                v = (c-p)- ((c-p).dot(a))*a
+                squared_distance = v.dot(v)
+                max_squared_distance = np.maximum(max_squared_distance, squared_distance)
+        
+        # FIXME in the current state, this is not MPI-compliant, must gather all maxima
+        return np.sqrt(max_squared_distance)
+
 
     @staticmethod
     def remove_row(tree, row, interface_family=None, new_interface_family=None):

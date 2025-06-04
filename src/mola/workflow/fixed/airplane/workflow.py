@@ -17,7 +17,6 @@
 
 import numpy as np
 
-from treelab import cgns
 from ... import Workflow
 from .interface import WorkflowAirplaneInterface
 from ..flow_direction_calculator import from_two_angles_and_aircraft_yaw_pitch_axis
