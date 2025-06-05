@@ -829,6 +829,8 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     for FamilyName_node in workflow.tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
+    _fix_point_range_in_gc(workflow.tree)
+
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, Family, LinkedFamily)
 
@@ -836,6 +838,7 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     stage.create()
 
     workflow.tree = cgns.castNode(workflow.tree)
+    _restore_point_range_in_gc(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
     I._correctPyTree(workflow.tree, level=4)
@@ -853,7 +856,8 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
 
     import etc.transform as trf
 
-    SectorPassagePeriod = stage_red_interface(workflow, Family, LinkedFamily, SectorPassagePeriod)
+    if SectorPassagePeriod is None:
+        SectorPassagePeriod = compute_RNA_ref_time(workflow, Family, LinkedFamily)
 
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
@@ -861,12 +865,15 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     for FamilyName_node in workflow.tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
+    _fix_point_range_in_gc(workflow.tree)
+
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageRedFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
 
     stage.create()
 
     workflow.tree = cgns.castNode(workflow.tree)
+    _restore_point_range_in_gc(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
     I._correctPyTree(workflow.tree, level=4)
@@ -1071,6 +1078,8 @@ def stage_choro(workflow, Family, LinkedFamily):
     for FamilyName_node in workflow.tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
+    _fix_point_range_in_gc(workflow.tree)
+
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageChoroFromFamily(workflow.tree, Family, LinkedFamily)
 
@@ -1087,6 +1096,7 @@ def stage_choro(workflow, Family, LinkedFamily):
     stage.create()
 
     workflow.tree = cgns.castNode(workflow.tree)
+    _restore_point_range_in_gc(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
     I._correctPyTree(workflow.tree, level=4)
@@ -1102,6 +1112,8 @@ def stage_choro_hyb(workflow, Family, LinkedFamily):
         raise MolaUserError(f'The boundary condition "stage_choro" on families {Family} and {LinkedFamily} is available only for structured mesh.')
 
     import etc.transform as trf
+
+    mola_logger.warning('These condition has not been validated yet in MOLA.')
 
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
@@ -1241,7 +1253,6 @@ def add_choro_data(t, rowName, f_freq, f_omega, f_harm, f_relax, axis_ang_1, axi
         for node in motion_node.group(Name='axis_*'):
             solver_param.addChild(node)
     
-
 def set_turbomachinery_interface_FamilyBC(t, left, right):
     for gc in t.group(Type='GridConnectivity'):
         gc.findAndRemoveNodes(Type='FamilyBC')
@@ -1251,3 +1262,34 @@ def set_turbomachinery_interface_FamilyBC(t, left, right):
     cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCOutflow', Parent=leftFamily)
     cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCInflow', Parent=rightFamily)
 
+def _fix_point_range_in_gc(t):
+    # The algorithm to build a structured globborder
+    # does not work when a point range is "reversed", 
+    # although it fits the CGNS standard (for this reason, it could be reversed by maia)
+    # The function _restore_point_range_in_gc will reverse the ranges back to their original values
+    # TODO Create an issue for etc
+    for gc in t.group(Type='GridConnectivity1to1'):
+        for ptr_node in gc.group(Type='IndexRange'):
+            ptr = ptr_node.value()
+            has_been_swapped = False
+            old_ptr_node = ptr_node.copy(deep=True)
+            for i, interval in enumerate(ptr):
+                if interval[0] > interval[1]:
+                    ptr[i][0], ptr[i][1] = ptr[i][1], ptr[i][0]
+                    has_been_swapped = True
+            if has_been_swapped:
+                mola_logger.debug(f'swap node {gc.path()}')
+                old_ptr_node.setName(f'{old_ptr_node.name()}_before_swap')
+                old_ptr_node.setType('UserDefinedData')
+                old_ptr_node.attachTo(gc)
+
+def _restore_point_range_in_gc(t):
+    # return to the previous state before function _fix_point_range_in_gc
+    for gc in t.group(Type='GridConnectivity1to1'):
+        for node in gc.group(Name='*_before_swap'):
+            node.setName(node.name().replace('_before_swap', ''))
+            swapped_node = gc.get(Name=node.name())
+            assert swapped_node is not None
+            node.setType(swapped_node.type())
+            swapped_node.dettach()
+            node.attachTo(gc)
