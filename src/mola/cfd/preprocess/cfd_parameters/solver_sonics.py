@@ -22,6 +22,7 @@ from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.cfd_parameters.cfd_parameters import deep_update
+from mola.cfd.preprocess.motion.motion import all_families_are_fixed
 
 TURBULENCE_SONICS_KEYS = {
 
@@ -137,8 +138,11 @@ def get_sonics_config(workflow):
     time_features, time_parameters = get_time_marching_template(workflow.Numerics)
 
     my_config = miles.Configuration(pure_cgns_mode=True)
+    if all_families_are_fixed(workflow):
+        my_config.update("motion/fixed")
+    else:
+        my_config.update("motion/mobile")
     my_config.update(
-        "motion/mobile",
         *fluid_features,
         *turb_features,
         *flux_features,
