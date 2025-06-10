@@ -62,7 +62,6 @@ class WorkflowInterface(object):
             ):
             
         attributes = self.get_default_values_from_local_signature()
-        attributes["Solver"] = solver # special case (not list nor dict)
         self.workflow = workflow
         
     
@@ -158,7 +157,10 @@ class WorkflowInterface(object):
                 )
 
     def set_Solver(self, solver_name : str = solver):
-        self.Solver = solver_name.lower()
+        if solver_name is None or solver_name == '':
+            self.Solver = solver 
+        else:
+            self.Solver = solver_name.lower()
         
 
     def add_to_RawMeshComponents(self,
