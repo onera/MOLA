@@ -375,6 +375,7 @@ class WorkflowRotatingComponent(Workflow):
             must_exist = True
 
         if must_exist and len(names)==0:
+            self.tree.save('debug.cgns')
             raise MolaException('did not find any family associated to blade')
         
         elif must_be_unique and len(names)!=1:

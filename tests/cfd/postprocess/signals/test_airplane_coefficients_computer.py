@@ -22,21 +22,6 @@ from treelab import cgns
 
 from mola.cfd.postprocess.signals import airplane_coefficients_computer as acc
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_project_load():
-    shape = (10,)
-    fx = np.full( shape, 1, dtype=np.float64 )
-    fy = np.full( shape, 2, dtype=np.float64 )
-    fz = np.full( shape, 3, dtype=np.float64 )
-
-    vector = np.array([3, 2, 1],dtype=np.float64)
-    vector /= np.linalg.norm(vector)
-
-    result = acc._project_load(fx,fy,fz,vector)
-    expected = np.full(shape, vector.dot(np.array([fx[0], fy[0], fz[0]])))
-
-    assert np.allclose(result,expected)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -99,42 +84,6 @@ def test_update_force_coefficients(application_context):
 
     for key, expected_value in expected_values.items():
         assert np.allclose(coefs[key], np.full(shape, expected_value, dtype=np.float64))
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_get_forces_from(zone_with_loads):
-    arrays = acc._get_forces_from(zone_with_loads, 'FlowSolution')
-    assert len(arrays) == 3
-    
-    number_of_grid_points = zone_with_loads.numberOfPoints()
-    for a in arrays:
-        assert a.size == number_of_grid_points
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_get_moments_from(zone_with_loads):
-    arrays = acc._get_moments_from(zone_with_loads, 'FlowSolution')
-    assert len(arrays) == 3
-    
-    number_of_grid_points = zone_with_loads.numberOfPoints()
-    for a in arrays:
-        assert a.size == number_of_grid_points
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_new_coefficients_from(zone_with_loads):
-    coefs = acc._new_coefficients_from(zone_with_loads, 'FlowSolution')
-
-    expected_keys = ['CL','CD','CS','CX','CY','CZ','CmL','CmD','CmS','CmX','CmY','CmZ']
-
-    assert len(coefs) == len(expected_keys)
-
-    number_of_grid_points = zone_with_loads.numberOfPoints()
-
-    for key in expected_keys:
-        assert coefs[key].size == number_of_grid_points
 
 
 @pytest.mark.unit

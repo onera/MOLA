@@ -122,27 +122,35 @@ def test_raise_undefined_bc_error_saving_undefined_bc_surfaces(tree_dispatcher):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_is_included_in_range():
-    x = np.array([[1, 10], [1, 10]])
-    y = np.array([[2, 7], [1, 10]])
-    z = np.array([[2, 7], [1, 11]])
+def test_are_point_ranges_overlapping():
+    x = np.array([[1, 10], [1, 10],[1,1]])
+    y = np.array([[2, 7],  [1, 10],[1,1]])
+    z = np.array([[2, 7],  [1, 11],[2,2]])
 
-    assert check.is_included_in_range(y, x)
-    assert not check.is_included_in_range(x, y)
-    assert not check.is_included_in_range(z, x)
-    assert not check.is_included_in_range(x, z)
-    assert check.is_included_in_range(y, z)
-    assert not check.is_included_in_range(z, y)
+    assert check.are_point_ranges_overlapping(y, x)
+    assert check.are_point_ranges_overlapping(x, y) 
+    assert not check.are_point_ranges_overlapping(z, x)
+    assert not check.are_point_ranges_overlapping(x, z)
+    assert not check.are_point_ranges_overlapping(y, z)
+    assert not check.are_point_ranges_overlapping(z, y)
 
     a = np.array([[1,4], [1,1], [3,5]])
     b = np.array([[1,4], [5,5], [3,5]])
-    c = np.array([[1,4], [1,1], [3, 1]])
-    assert not check.is_included_in_range(a, b)
-    assert not check.is_included_in_range(b, a)
-    assert not check.is_included_in_range(a, c)
-    assert not check.is_included_in_range(c, a)
-    assert not check.is_included_in_range(b, c)
-    assert not check.is_included_in_range(c, b)
+    c = np.array([[1,4], [1,1], [3,1]])
+    assert not check.are_point_ranges_overlapping(a, b)
+    assert not check.are_point_ranges_overlapping(b, a)
+    assert not check.are_point_ranges_overlapping(a, c)
+    assert not check.are_point_ranges_overlapping(c, a)
+    assert not check.are_point_ranges_overlapping(b, c)
+    assert not check.are_point_ranges_overlapping(c, b)
+
+    d = np.array([[3,6], [1,1], [2,7]])
+    assert check.are_point_ranges_overlapping(a, d)
+
+    e = np.array([[1,71], [1,1], [1, 2]])
+    f = np.array([[1,71], [1,41], [1, 1]])
+    assert not check.are_point_ranges_overlapping(e, f)
+
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

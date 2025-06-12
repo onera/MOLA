@@ -15,13 +15,16 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
+from treelab import cgns
+
 from mola.logging import MolaUserError, MolaException
 from ..workflow import WorkflowRotatingComponent
 from .interface import WorkflowPropellerInterface
 from mola.cfd.postprocess import extract_bc
-from treelab import cgns
+from mola import solver
 from mola.pytree.user.checker import is_partitioned_for_use_in_maia, is_distributed_for_use_in_maia
-import numpy as np
+from mola.cfd.postprocess.signals.propeller_coefficients_computer import add_aerodynamic_coefficients_to
 
 class WorkflowPropeller(WorkflowRotatingComponent):
 
@@ -93,8 +96,8 @@ class WorkflowPropeller(WorkflowRotatingComponent):
 
         blade_family_name = self.get_blade_family_names(must_be_unique=True)[0]
         blade_surface = extract_bc(tree, blade_family_name, tool=tool)
-        self.blade_radius = self._compute_maximum_distance_to_axis_from(blade_surface)
-        return self.blade_radius
+        self._blade_radius = self._compute_maximum_distance_to_axis_from(blade_surface)
+        return self._blade_radius
     
     def _get_partitioned_tree_for_use_in_maia(self):
         tree = self.tree.copy()
@@ -109,3 +112,10 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             tree = cgns.castNode(tree)
         
         return tree
+
+    def compute_propeller_coefficients(self, extraction : dict, **operation):
+        add_aerodynamic_coefficients_to(extraction, self.ApplicationContext,
+                                        self.get_blade_family_names(must_be_unique=True)[0],
+                                        2*self.blade_radius(),
+                                        self.Flow['Density'],
+                                        self.Flow['Velocity'])

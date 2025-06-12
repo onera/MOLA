@@ -21,6 +21,7 @@ from ... import Workflow
 from .interface import WorkflowAirplaneInterface
 from ..flow_direction_calculator import from_two_angles_and_aircraft_yaw_pitch_axis
 from mola.cfd.postprocess.signals.airplane_coefficients_computer import add_aerodynamic_coefficients_to
+from mola import solver
 
 class WorkflowAirplane(Workflow):
 

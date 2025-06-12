@@ -42,6 +42,10 @@ def test_workflow_propeller_init():
 
     assert allclose_dict(w.ApplicationContext, expected_application_context)
 
+    assert w.SplittingAndDistribution["Strategy"] == 'AtComputation'
+    assert w.SplittingAndDistribution["Splitter"] == 'PyPart'
+    assert w.SplittingAndDistribution["Distributor"] == 'PyPart'
+
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_compute_flow_and_turbulence(tmp_path, workflow_sector_params):

@@ -57,6 +57,8 @@ def write_with_cassiopee_mpi(w, tree, dst):
     links = tree.getLinks()
     for l in links: l[0] = '.' # HACK treelab 0.1.1
     empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree)
+
+    Cmpi.barrier()    
     Cmpi.convertPyTree2File(tree,dst,links=links)
     Cmpi.barrier()
     restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes)        
