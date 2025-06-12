@@ -19,6 +19,7 @@ from treelab import cgns
 from mola.logging import mola_logger
 
 SonicsCGNS2MOLA = {
+    'IterationValues': 'Iteration',  # HACK ValveLawRadialEquilibrium writes a node IterationValues instead Iteration like other Triggers
     'conv_flux(Momentum)X': 'ForceX',
     'conv_flux(Momentum)Y': 'ForceY',
     'conv_flux(Momentum)Z': 'ForceZ',
@@ -57,6 +58,7 @@ def translate_extraction_variables_to_sonics(Variables, solver):
         # NormalVector = treg.SurfaceNormal,
         yPlus = treg.XYZPlusMeshSize,
         Friction = treg.SkinFriction,
+
         Force = treg.conv_flux(treg.Momentum), 
         MassFlow = treg.conv_flux(treg.Density),
     )
@@ -104,8 +106,8 @@ def translate_extraction_variables_to_sonics_function(Variables):
 
         # HACK for integral outputs, need treg.dummy
         # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
-        Force = lambda treg: treg.dummy(treg.conv_flux(treg.Momentum)), 
-        MassFlow = lambda treg: treg.dummy(treg.conv_flux(treg.Density)),
+        Force = lambda treg: treg.conv_flux(treg.Momentum), 
+        MassFlow = lambda treg: treg.conv_flux(treg.Density),
     )
     
     sonics_var = []
@@ -124,7 +126,12 @@ def translate_sonics_CGNS_field_names_to_MOLA(container_node : cgns.Node):
 
     for node in container_node.children():
         node_name = node.name()
-        if node_name.startswith('dummy'):
-            node_name = node_name.replace('dummy(', '')[:-1]  # remove final )
+        if node_name.startswith('dummy('):
+            node_name = node_name.replace('dummy(', '')
+            if node_name.endswith(')'):
+                # remove final ")" that is expected
+                # NOTE that if test is performed because if the name is too long, the final parenthesis may be not present
+                node_name = node_name[:-1]  
+
         if node_name in SonicsCGNS2MOLA:
             node.setName( SonicsCGNS2MOLA[node_name] )

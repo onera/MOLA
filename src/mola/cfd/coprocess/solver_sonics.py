@@ -190,7 +190,13 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
     for IntegralDataNode in output_tree.group(Name='*:*', Type='ConvergenceHistory', Depth=2):
         IntegralDataNode = IntegralDataNode.copy(deep=True)
         IntegralDataNode_name = IntegralDataNode.name()
-        family = IntegralDataNode.get(Name='Family').value()
+        try:
+            family = IntegralDataNode.get(Name='Family').value()
+        except:
+            # TODO this is a hack, make it cleaner
+            # The IntegralDataNode for ValveLawRadialEquilibrium does not contain the node Family
+            # Fix that in SoNICS
+            family = IntegralDataNode_name.split(':')[0]
 
         if family not in families_to_extract: 
             continue
@@ -209,9 +215,14 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
         remove_not_required_fields(extraction, IntegralDataNode)
 
         if IntegralDataNode_name.endswith('VALVE'):
-            cgns.Zone(Name=IntegralDataNode_name, Parent=base, Children=[IntegralDataNode])
+            zone = cgns.Zone(Name=IntegralDataNode_name, Parent=base, Children=[IntegralDataNode])
         else:
-            cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+            zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+
+        # multiply integrated data by the FluxCoef
+        for node in zone.group(Type='DataArray'):
+            if node.name() != 'Iteration':
+                node.setValue(node.value() * extraction['FluxCoef'])
             
 
     current_iteration_signals = mpi_allgather_and_merge_trees(t)

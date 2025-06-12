@@ -203,12 +203,66 @@ def get_valve_law_trigger(workflow, config, bc, hardware_target='cpu'):
 
     valve_params = valve_law_interface(workflow, **bc)
 
+    #########################################################################################################
+    # HACK MONKEY PATCHING. Solved in MR https://gitlab.onera.net/numerics/solver/sonics/-/merge_requests/253
+    from sonics.toolkit.triggers.valve_law_trigger import DataFactory, guards
+    def fextracts(self, conf, solver, topology):
+        treg = solver.terms
+        df = DataFactory(solver, topology)
+        elt_location  = treg.cell if guards.cell_center in self.conf else treg.vertex
+        dual_location = treg.face if guards.cell_center in self.conf else treg.edge
+        bc_location   = treg.face if guards.cell_center in self.conf else treg.dual_facet
+
+        extracts = []
+        extracts += df.create_zones(treg.dummy(treg.conservatives(treg.full)), elt_location) # ADDED LINE FOR CORRECTION
+        extracts += df.create_families(treg.conv_flux(treg.Density), treg.face, family_type=treg.family_value, predicate=lambda n,v : v['name'] == self.family)
+        return extracts
+    
+    import numpy as np
+    from sonics.toolkit.triggers.valve_law_trigger import SCE, SDB, CGL, utils, ComputeAndExtractDataInGraphTrigger
+    def pre(self):
+        ComputeAndExtractDataInGraphTrigger.pre(self)
+
+        args = SCE.extract_term_to_key(self.sonics,
+                                    self.initial_part_trees,
+                                    self.all_extracts,
+                                    setup_solution_name=lambda z : self.setup_solution_name(z, self._iteration))
+
+        for arg in args:
+            name, array, node_path, pid, value, label, gid, location, dtype, memalloc = arg
+            dtype = utils.term2dtype[str(dtype)]
+            key   = node_path+"/"+name+"/"+str(value)
+            # print(" ooooooooo ", node_path+"/"+name, node_path, array, pid, value, label, gid, location, dtype, memalloc)
+            
+            if(label != CGL.Family_t): # ADDED LINE FOR CORRECTION
+                continue               # ADDED LINE FOR CORRECTION
+
+            assert(key not in self.mf_history)
+            self.mf_history  [key] = np.empty( self.array_size, order='F', dtype=dtype)
+            self.mf_arrays   [key] = array
+            self.mf_data_info[key] = (node_path, name, value, pid, label)
+            self.iter_history[key] = np.empty( self.array_size, order='F', dtype=dtype)
+
+        ### self.keys = self.__get_parameter(self.var_name, CGL.BC_t, self.family) # can be useful for valve law with outpres BC
+        self.keys = self._ValveLawRadialEquilibrium__get_parameter_family(self.var_name, CGL.Family_t, self.family)
+        # --- len(self.keys) = 1 for concerned core, 0 otherwise
+        for key in self.keys:
+            self.ps_history[key] = np.empty( self.array_size, order='F', dtype=dtype)
+            md_array = SDB.at(self.sonics.db.buffers,key)
+            self.ps_arrays[key] = np.asarray(md_array)
+
+    VLT.ValveLawRadialEquilibrium.fextracts = fextracts
+    VLT.ValveLawRadialEquilibrium.pre = pre
+
+    # END OF MONKEY PATCHING
+    #########################################################################################################
+
     valve_law_trigger = VLT.ValveLawRadialEquilibrium(
         config, 
         hardware_target, 
-        bc['Family'], 
-        valve_params['valve_ref_pres'], 
-        valve_params['valve_ref_mflow'], 
+        family=bc['Family'], 
+        valve_ref_pressure=valve_params['valve_ref_pres'], 
+        valve_ref_massflow=valve_params['valve_ref_mflow'], 
         niter=workflow.Numerics['NumberOfIterations'], 
         valve_law=valve_params['valve_type'], 
         valve_relax=valve_params['valve_relax'], 
