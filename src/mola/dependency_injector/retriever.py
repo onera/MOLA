@@ -71,12 +71,18 @@ def get_wrap_module_path(backend : str,
         interface_switch=["user", "wrap/<backend>"]):
 
     previous_module_path = get_caller_path()
-    # previous_module_path is like '/<root_path>/src/mola/folder/user/module.py'
-    # In the floowing lines, it is split to prevent unwanted modification of '/<root_path>/' if it contains 'user'
-    root_path, previous_module_path = previous_module_path.split('src/mola/')
-    wrap_path = previous_module_path.replace(interface_switch[0],
+    try:
+        # previous_module_path is like '/<root_path>/src/mola/folder/user/module.py'
+        # In the floowing lines, it is split to prevent unwanted modification of '/<root_path>/' if it contains 'user'
+        root_path, previous_module_path = previous_module_path.split('src/mola/')
+        wrap_path = previous_module_path.replace(interface_switch[0],
                                interface_switch[1].replace('<backend>',f'{backend}'))
-    wrap_path = os.path.join(root_path,'src/mola', wrap_path)
+        wrap_path = os.path.join(root_path,'src/mola', wrap_path)
+    except ValueError:
+        # the pattern "src/mola/" is not in previous_module_path
+        # It appends to import modules from "test" for instance
+        wrap_path = previous_module_path.replace(interface_switch[0],
+                               interface_switch[1].replace('<backend>',f'{backend}'))
 
     return wrap_path
 
