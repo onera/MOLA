@@ -191,7 +191,7 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
 
         SurfacesTree.merge(data_tree)
     
-    if extraction['Name'] != 'ByFamily':
+    if extraction['Name'] != 'ByFamily' and len(SurfacesTree.bases()) > 0:
         POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
 
     return SurfacesTree
