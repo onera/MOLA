@@ -25,12 +25,11 @@ def apply(workflow):
     '''
     Distribute a PyTree **t**, with optional splitting.
     '''
-    if not workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess': 
+    if not workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess':
         return
     
     if workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee' and not workflow.tree.isStructured():
         raise MolaAssertionError('Incompatibility of SplittingAndDistribution with mesh: Cassiopee cannot be used to split unstructured mesh.')
-
 
     nproc = workflow.RunManagement['NumberOfProcessors']
     workflow.SplittingAndDistribution.setdefault('NumberOfParts',nproc)

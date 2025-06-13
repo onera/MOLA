@@ -34,7 +34,7 @@ w = WorkflowPropeller(
 
     Numerics = dict(
         NumberOfIterations=10,
-        MinimumNumberOfIterations=2,
+        MinimumNumberOfIterations=3,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
     ),
@@ -64,9 +64,16 @@ w = WorkflowPropeller(
     ],
 
     RunManagement = dict(
-        NumberOfProcessors = 1,
+        NumberOfProcessors = 8,
         RunDirectory = f'example_{solver}',
         Scheduler = 'local',
+    ),
+
+    # HINT if running in local LD, avoid using PyPart since it provokes huge overhead https://elsa.onera.fr/issues/11440
+    SplittingAndDistribution = dict(
+        Strategy='AtPreprocess',
+        Splitter='Cassiopee',
+        Distributor='Cassiopee',
     ),
 )
 

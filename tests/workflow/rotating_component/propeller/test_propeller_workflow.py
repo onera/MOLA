@@ -36,8 +36,8 @@ def test_workflow_propeller_init():
                                 'NumberOfBladesInInitialMesh': 1,
                                 'NumberOfBladesSimulated': 1}},
         'ShaftAxis': np.array([1., 0., 0.]),
-        'ShaftRotationSpeed': 60,
-        'ShaftRotationSpeedUnit': 'rpm',
+        'ShaftRotationSpeed': 2*np.pi,
+        'ShaftRotationSpeedUnit': 'rad/s',
         'Surface': 1.0}
 
     assert allclose_dict(w.ApplicationContext, expected_application_context)
@@ -54,7 +54,7 @@ def test_compute_flow_and_turbulence(tmp_path, workflow_sector_params):
     w = WorkflowPropeller(**workflow_sector_params)
     w.RunManagement['RunDirectory'] = str(tmp_path)
 
-    Ω = (np.pi/30.0) * w.ApplicationContext['ShaftRotationSpeed']
+    Ω = w.ApplicationContext['ShaftRotationSpeed']
     rmax = w._blade_radius = 0.1 # trick to avoid process_mesh (accelerates test)
     r_rel = w.ApplicationContext["ReferenceTurbulenceSetAtRelativeRadius"]
     V = Ω * rmax * r_rel
@@ -118,7 +118,27 @@ def test_workflow_propeller_sector_pre1_comp1(tmp_path, workflow_sector_params):
     w.prepare()
     w.write_cfd_files()
     w.submit()
+    w.assert_completed_without_errors()
 
+
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_workflow_propeller_sector_pre1_comp2(tmp_path, workflow_sector_params):
+    
+    workflow_sector_params["RunManagement"]["NumberOfProcessors"] = 2
+    w = WorkflowPropeller(**workflow_sector_params)
+    w.RunManagement['RunDirectory'] = str(tmp_path)
+
+    # TODO propose automatically, in order to avoid these lines
+    if w.Solver == 'fast':
+        w.Numerics.update(dict(
+            TimeMarching = 'Unsteady',
+            TimeStep = 1e-6))
+
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
     w.assert_completed_without_errors()
 
 
@@ -350,7 +370,8 @@ def workflow_sector_params():
         ),
 
         Numerics = dict(
-            NumberOfIterations=2,
+            NumberOfIterations=4,
+            MinimumNumberOfIterations=3,
             CFL=1.0,
         ),
 
@@ -358,6 +379,14 @@ def workflow_sector_params():
             dict(Family='BLADE',   Type='WallViscous'),
             dict(Family='HUB',    Type='WallInviscid'),
             dict(Family='FARFIELD', Type='Farfield'),
+        ],
+
+        ConvergenceCriteria = [
+            dict(
+                ExtractionName = 'BLADE',
+                Variable = "std-Thrust",
+                Threshold = 1.0,
+            )
         ],
 
         RunManagement=dict(
@@ -377,6 +406,4 @@ def write_mesh_and_read_it_again(workflow_sector_params, dir_path):
     workflow_sector_params["RawMeshComponents"][0]["Source"] = mesh_path
 
 # if __name__ == '__main__':
-#     mesh_builder = CylinderMeshBuilder()
-#     mesh = mesh_builder.get_tree()
-#     mesh.save('block.cgns')
+#     print("toto")

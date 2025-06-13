@@ -93,7 +93,7 @@ def test_update_torque_coefficients(application_context):
 
     thrust = coefs['Thrust']
     ct = coefs['CT']
-    torque = tx[0] * flux_coef
+    torque = -tx[0] * flux_coef
     power = torque * rpm * (np.pi/30)
     cp = power / (density * (rpm/60)**3 * diameter**5)
     fm = np.sqrt(2.0/np.pi) * np.sign(ct) * np.abs(ct)**1.5 / cp
@@ -185,7 +185,7 @@ def assert_coefficients_correctly_added_to_extraction_data(extraction : dict,
 
     thrust = fx * flux_coef
     ct = fx * flux_coef
-    torque = tx * flux_coef
+    torque = -tx * flux_coef
     power = torque * rpm * (np.pi/30)
     cp = power / (density * (rpm/60)**3 * diameter**5)
     fm = np.sqrt(2.0/np.pi) * np.sign(ct) * np.abs(ct)**1.5 / cp

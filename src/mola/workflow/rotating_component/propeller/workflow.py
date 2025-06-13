@@ -114,8 +114,22 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         return tree
 
     def compute_propeller_coefficients(self, extraction : dict, **operation):
+        if extraction["Type"] != "Integral" or not extraction.get("Data"):
+            return
+
+        try:
+            blade_name = self.get_blade_family_names(must_be_unique=True)[0]
+        except MolaException as e:
+            from mpi4py import MPI
+            rank = MPI.COMM_WORLD.Get_rank()
+            self.tree.save(f"debug_tree_{rank}.cgns")
+            extraction['Data'].save(f"debug_extraction_{rank}.cgns")
+            raise MolaException("check debug.cgns") from e
+
+        diameter = 2*self.blade_radius()
+
         add_aerodynamic_coefficients_to(extraction, self.ApplicationContext,
-                                        self.get_blade_family_names(must_be_unique=True)[0],
-                                        2*self.blade_radius(),
+                                        blade_name,
+                                        diameter,
                                         self.Flow['Density'],
                                         self.Flow['Velocity'])

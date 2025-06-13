@@ -354,7 +354,9 @@ class WorkflowRotatingComponent(Workflow):
             )
 
     def get_hub_family_names(self, must_be_unique=False, must_exist=False)  -> list:
-        names = get_bc_family_names_from_patterns(self.tree, self._hub_patterns)
+
+        tree= self.__choose_skeleton_tree_if_existent()
+        names = get_bc_family_names_from_patterns(tree, self._hub_patterns)
         
         if must_be_unique:
             must_exist = True
@@ -367,15 +369,24 @@ class WorkflowRotatingComponent(Workflow):
         
         return names
 
+    def __choose_skeleton_tree_if_existent(self):
+        # this is relevant in the context of parallel computation using PyPart,
+        # since Skeleton is not merged into tree and information on relevant may
+        # be missing in main tree
+        if hasattr(self,"_Skeleton") and bool(self._Skeleton):
+            return self._Skeleton
+        return self.tree
+
 
     def get_blade_family_names(self, must_be_unique=False, must_exist=False)  -> list:
-        names = get_bc_family_names_from_patterns(self.tree, self._blade_patterns)
+
+        tree= self.__choose_skeleton_tree_if_existent()
+        names = get_bc_family_names_from_patterns(tree, self._blade_patterns)
         
         if must_be_unique:
             must_exist = True
 
         if must_exist and len(names)==0:
-            self.tree.save('debug.cgns')
             raise MolaException('did not find any family associated to blade')
         
         elif must_be_unique and len(names)!=1:
@@ -384,7 +395,9 @@ class WorkflowRotatingComponent(Workflow):
         return names
 
     def get_shroud_family_names(self, must_be_unique=False, must_exist=False) -> list:
-        names = get_bc_family_names_from_patterns(self.tree, self._shroud_patterns)
+
+        tree= self.__choose_skeleton_tree_if_existent()
+        names = get_bc_family_names_from_patterns(tree, self._shroud_patterns)
         
         if must_be_unique:
             must_exist = True

@@ -76,6 +76,7 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
         for key, row_parameters in Rows.items():
             self.add_Row_to_ApplicationContext(_Key=key, **row_parameters)
 
+        self.apply_ShaftRotationSpeedUnit(default_ShaftRotationSpeedUnit=kwargs["ShaftRotationSpeedUnit"])
         if 'HubRotationIntervals' in self.ApplicationContext:
             self.set_HubRotationIntervals()
 

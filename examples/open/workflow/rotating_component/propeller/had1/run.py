@@ -35,7 +35,7 @@ w = WorkflowPropeller(
 
     Numerics = dict(
         NumberOfIterations=3000,
-        MinimumNumberOfIterations=2,
+        MinimumNumberOfIterations=3,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
     ),

@@ -124,7 +124,9 @@ def write_with_pypart(w, tree, dst):
     w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'), cgns_standard=True)
     Cmpi.barrier()
 
-    # Read PyPart files in parallel 
+    # Read PyPart files in parallel using Cassiopee
+    # NOTE since mpi size may be > nb of zones, we have warnings (unnallocated zones)
+    # but this is not an issue for the scope of this function
     t = Cmpi.convertFile2SkeletonTree(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'))
     t, stats = D2.distribute(t, w.RunManagement['NumberOfProcessors'], useCom=0, algorithm='fast')
     t = Cmpi.readZones(t, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'), rank=Cmpi.rank)
