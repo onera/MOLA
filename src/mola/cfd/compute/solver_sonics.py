@@ -26,8 +26,9 @@ NumberOfProcessors = comm.Get_size()
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.cfd.compute.read_cfd_files import read_cfd_files
-from mola.cfd.preprocess.extractions.solver_sonics import add_fields_and_bc_extractions
+from mola.cfd.preprocess.extractions.solver_sonics import add_fields_and_bc_extractions, get_familiesBC_nodes, get_bc_families_names_to_extract
 from mola.cfd.preprocess.cfd_parameters.solver_sonics import get_cfl_function
+from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics, translate_extraction_variables_to_sonics_function
 
 def apply_to_solver(workflow):
 
@@ -155,13 +156,14 @@ def get_iterators(workflow, config, hardware_target='cpu'):
     return iterators
 
 def get_integral_triggers(workflow, config, hardware_target):
+    from miles.trigger import IntegralDataExtractor
+    import sonics.toolkit.triggers as triggers
+
     pytriggers = []
 
     # HACK for sonics >= 0.5.35
     # Different triggers must be defined for each family
     # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
-    from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, get_bc_families_names_to_extract
-    from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics_function
 
     familiesBC = get_familiesBC_nodes(workflow.tree)
     for extraction in workflow.Extractions: 
@@ -169,26 +171,95 @@ def get_integral_triggers(workflow, config, hardware_target):
             continue
 
         families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
+
+        def get_extract_funtion_for_trigger(family, fields):
+
+            def compute_extracts_from_terms_monitor_conv(conf, solver, topology):
+                from sonics.toolkit.graph_utils import DataFactory
+                from sonics.spl import guards
+
+                extracts = []
+                treg = solver.terms
+                df = DataFactory(solver, topology)
+
+                # THIS LINE IS MANDATORY, else NaN or deadlock
+                elt_location = treg.cell if guards.cell_center in conf else treg.vertex
+                extracts += df.create_zones(treg.dummy(treg.conservatives(treg.full)), elt_location)
+
+                elt_location = treg.face if guards.cell_center in conf else treg.dual_facet
+                sonics_fields = translate_extraction_variables_to_sonics(fields, solver)
+                for field in sonics_fields:
+                    extracts += df.create_families(
+                        field, 
+                        elt_location, 
+                        family_type=treg.family_value, 
+                        predicate=lambda n,v : v['name'] == family 
+                    )
+                return extracts
+            
+            return compute_extracts_from_terms_monitor_conv
+
         for family in families:
-            from miles.trigger import IntegralDataExtractor
-            extractor = IntegralDataExtractor(
-                config, 
-                # FIXME cgns_node_pattern does nothing for now (sonics 0.6.2)
-                # cgns_node_pattern="{family_name}:"+extraction['Name'],  # {family_name} is mandatory in name, FIXME in miles 
-                period=extraction['ExtractionPeriod'],
-                # start_iter=workflow.Numerics['IterationAtInitialState']
+
+            integral_extraction_trigger = triggers.MonitoringIntegralData(
+                config,
+                get_extract_funtion_for_trigger(family, extraction['Fields']),
+                niter=workflow.Numerics['NumberOfIterations'],
+                # hardware_target=hardware_target,
                 )
-            extractor.add_extraction(
-                translate_extraction_variables_to_sonics_function(extraction['Fields']), 
-                family=family
-                )
-            # pattern_png = "{output_folder}/fig_{it}.png"
-            # pattern_csv = "{output_folder}/out.csv"
-            # extractor.add_csv_callback(pattern_csv,delimiter=";")
-            # extractor.add_matplotlib_callback(pattern_png,legend=True,grid={"ls":":"},
-            #     yscale="log",xlabel="Iterations",period=10,start_iter=100)
-            # extractor.add_print_callback(period=50)
-            integral_extraction_trigger = extractor.apply(niter=workflow.Numerics['NumberOfIterations'])
+
             pytriggers.append(integral_extraction_trigger)
+
+            # def _generate_setup_closure(self):
+            #     import fnmatch
+            #     from sonics.toolkit.graph_utils import DataFactory
+            #     from sonics.spl import guards
+            #     if not len(self._extractions):
+            #         raise ParsingError(f"No extractions provided to IntegralDataExtractor.")
+            #     def compute_extracts_from_terms_monitor(conf,solver,topology):
+            #         treg = solver.terms
+            #         df = DataFactory(solver, topology)
+            #         elt_location = treg.cell if guards.cell_center in conf else treg.vertex
+            #         extracts = []
+
+            #         # THESE LINES ARE MANDATORY, else NaN or deadlock
+            #         print("I have hacked IntegralDataExtractor!")
+            #         elt_location_zone = treg.cell if guards.cell_center in conf else treg.vertex
+            #         extracts += df.create_zones(treg.dummy(treg.conservatives(treg.full)), elt_location_zone)
+                    
+            #         for treg_lambda, family_patterns in self._extractions:
+            #             terms = treg_lambda(treg)
+            #             # TODO: checking typing better
+            #             if isinstance(terms,(list,tuple,set)): pass
+            #             else: terms = [terms]
+
+            #             pred = lambda n,v : any(fnmatch.fnmatch(v['name'],pat) for pat in family_patterns)
+
+            #             for term in terms:
+            #                 extracts.extend(df.create_families(term,elt_location,predicate=pred))
+            #         return extracts
+            #     return compute_extracts_from_terms_monitor
+
+            # IntegralDataExtractor._generate_setup_closure = _generate_setup_closure
+            
+            # extractor = IntegralDataExtractor(
+            #     config, 
+            #     # FIXME cgns_node_pattern does nothing for now (sonics 0.6.2)
+            #     # cgns_node_pattern="{family_name}:"+extraction['Name'],  # {family_name} is mandatory in name, FIXME in miles 
+            #     period=extraction['ExtractionPeriod'],
+            #     # start_iter=workflow.Numerics['IterationAtInitialState']
+            #     )
+            # extractor.add_extraction(
+            #     translate_extraction_variables_to_sonics_function(extraction['Fields']), 
+            #     family=family
+            #     )
+            # # pattern_png = "{output_folder}/fig_{it}.png"
+            # # pattern_csv = "{output_folder}/out.csv"
+            # # extractor.add_csv_callback(pattern_csv,delimiter=";")
+            # # extractor.add_matplotlib_callback(pattern_png,legend=True,grid={"ls":":"},
+            # #     yscale="log",xlabel="Iterations",period=10,start_iter=100)
+            # # extractor.add_print_callback(period=50)
+            # integral_extraction_trigger = extractor.apply(niter=workflow.Numerics['NumberOfIterations'])
+            # pytriggers.append(integral_extraction_trigger)
 
     return pytriggers

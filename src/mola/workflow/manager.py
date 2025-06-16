@@ -612,7 +612,8 @@ for case in $SEQUENCE_OF_PATHS; do
 
         NUMBER_OF_ATTEMPTS=$((NUMBER_OF_ATTEMPTS+1))
 
-        echo "compute case $case at $SECONDS s"
+        export ELAPSED_TIME_MOLA_MANAGER=$SECONDS
+        echo "compute case $case at $ELAPSED_TIME_MOLA_MANAGER s"
         ./{names.FILE_JOB}
 
         if [ -f "{names.FILE_NEWJOB_REQUIRED}" ]; then

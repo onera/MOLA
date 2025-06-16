@@ -17,6 +17,7 @@
 
 from treelab import cgns
 from mola.logging import mola_logger
+from mola.cfd.preprocess.motion.motion import all_families_are_fixed
 
 def apply_to_solver(workflow):
     '''
@@ -41,6 +42,9 @@ def apply_to_solver(workflow):
     '''
 
     import miles
+
+    if all_families_are_fixed(workflow):
+        return
 
     # HACK error miles: Target Fluid matched invalid CGNS node(s): 'WorkflowParameters/Fluid'.
     WorkflowParameters = workflow.tree.get(Name='WorkflowParameters', Depth=1)

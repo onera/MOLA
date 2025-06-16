@@ -22,6 +22,7 @@ from mola.logging.exceptions import MolaMissingFieldsError
 def new_coefficients_from(zone : cgns.Zone, container_name : str,
     field_names = ['CL','CD','CS','CX','CY','CZ','CmL','CmD','CmS','CmX','CmY','CmZ']):
 
+
     zone.removeFields(field_names, Container=container_name)
 
     try:

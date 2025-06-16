@@ -52,7 +52,7 @@ def add_AllZones_family(tree):
 def add_extractions_for_restart(workflow):
     workflow._interface.add_to_Extractions_Restart(
         # Container='FlowSolution#EndOfRun', 
-        Fields=['conservatives'],
+        Fields=['Conservatives'],
         )
 
 def add_fields_and_bc_extractions(workflow):

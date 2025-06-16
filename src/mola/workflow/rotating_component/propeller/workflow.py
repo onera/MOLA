@@ -26,6 +26,10 @@ from mola import solver
 from mola.pytree.user.checker import is_partitioned_for_use_in_maia, is_distributed_for_use_in_maia
 from mola.cfd.postprocess.signals.propeller_coefficients_computer import add_aerodynamic_coefficients_to
 
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+
 class WorkflowPropeller(WorkflowRotatingComponent):
 
     def __init__(self, **kwargs):
@@ -41,8 +45,8 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         # the default tool could have been done in a low-level factory step.
         # TODO review design of extract_bc in order to use DIP and avoid Solver
         # filtering inside the Workflow
-
         self._extract_bc_default_tool = 'cassiopee'
+
 
         # # CAVEAT see _compute_maximum_blade_radius
         # if self.Solver == 'sonics':
@@ -75,10 +79,27 @@ class WorkflowPropeller(WorkflowRotatingComponent):
 
     def blade_radius(self):
         if self._blade_radius is None:
-            if self.tree is None:
+            if self.is_blade_radius_in_application_context():
+                return self.set_blade_radius_from_application_context()
+
+            elif self.tree is None:
                 raise MolaUserError('did not find a tree, hence cannot retrieve blade radius. Maybe you forgot to process_mesh?')
-            return self._compute_maximum_blade_radius()
-        return self._blade_radius
+            
+            else:
+                return self._compute_maximum_blade_radius()
+        
+        else:
+            return self._blade_radius
+
+    def is_blade_radius_in_application_context(self):
+        return '_BladeRadius' in self.ApplicationContext
+
+    def set_blade_radius_from_application_context(self):
+        blade_radius = self.ApplicationContext['_BladeRadius']
+        self._blade_radius = blade_radius
+        return blade_radius
+         
+
 
     def _compute_maximum_blade_radius(self, imposed_tool : str = None):
         if imposed_tool:
@@ -97,6 +118,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         blade_family_name = self.get_blade_family_names(must_be_unique=True)[0]
         blade_surface = extract_bc(tree, blade_family_name, tool=tool)
         self._blade_radius = self._compute_maximum_distance_to_axis_from(blade_surface)
+        self.ApplicationContext['_BladeRadius'] = self._blade_radius
         return self._blade_radius
     
     def _get_partitioned_tree_for_use_in_maia(self):
@@ -114,6 +136,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         return tree
 
     def compute_propeller_coefficients(self, extraction : dict, **operation):
+
         if extraction["Type"] != "Integral" or not extraction.get("Data"):
             return
 
@@ -127,7 +150,6 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             raise MolaException("check debug.cgns") from e
 
         diameter = 2*self.blade_radius()
-
         add_aerodynamic_coefficients_to(extraction, self.ApplicationContext,
                                         blade_name,
                                         diameter,

@@ -25,17 +25,22 @@ from . import fields_manipulator as fields
 def add_aerodynamic_coefficients_to( integral_extraction : dict, ApplicationContext : dict,
         blade_name : str, diameter : float, density : float, axial_velocity : float):
     
-    if integral_extraction["Type"] != "Integral": return
+    if integral_extraction["Type"] != "Integral":
+        integral_type = integral_extraction["Type"]
+        return
 
     t : cgns.Tree = integral_extraction["Data"] 
     zone : cgns.Zone
             
+
     for zone in t.zones():
+
         for container_name in [n.name() for n in zone.group(Type='FlowSolution_t')]:
             coefs = fields.new_coefficients_from(zone, container_name,
                 field_names = ['Thrust','Torque','Power','CT','CP','FigureOfMeritHover','PropulsiveEfficiency'])
 
             fx, fy, fz = fields.get_forces_from(zone, container_name)
+
             _update_force_coefficients(coefs, fx, fy, fz,
                 ApplicationContext, blade_name, diameter, density)
             

@@ -135,13 +135,16 @@ def update_restart_fields(workflow, output_tree):
     NodesToUpdate = output_tree.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
     NodesToUpdate += output_tree.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
     NodesToUpdate += output_tree.group(Name='BCDataSet#Average') 
+    NodesToUpdate += output_tree.group(Name='ChoroData') 
 
-    for node in NodesToUpdate:
-        path = node.path()
-        node_to_update = workflow.tree.getAtPath(path)
-        parent = node_to_update.Parent
-        node_to_update.remove()
-        parent.addChild(node)
+    for node in NodesToUpdate:        
+        parent = node.Parent
+        parent_in_main_tree = workflow.tree.getAtPath(parent.path())
+        node_to_update = parent_in_main_tree.get(Name=node.name(), Depth=1)
+        # This node could not exist previously, for instance ChoroData, FlowSolution#Average or BCDataSet#Average
+        if node_to_update is not None:
+            node_to_update.remove()
+        parent_in_main_tree.addChild(node)
     
     workflow.tree = cgns.castNode(workflow.tree)
 
@@ -188,8 +191,8 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
 
         SurfacesTree.merge(data_tree)
     
-    # if extraction['Name'] != 'ByFamily':
-    #     POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
+    if extraction['Name'] != 'ByFamily' and len(SurfacesTree.bases()) > 0:
+        POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
 
     return SurfacesTree
 

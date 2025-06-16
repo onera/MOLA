@@ -28,7 +28,9 @@ from mola.cfd.preprocess.mesh.tools import parametrize_with_height
 from .. import Workflow
 from .interface import WorkflowRotatingComponentInterface
 
-
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 class WorkflowRotatingComponent(Workflow):
 
     '''
@@ -506,7 +508,6 @@ class WorkflowRotatingComponent(Workflow):
     #             cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=node.Parent)
             
     def plot_radial_profiles(self, *args, **kwargs):
-        from mpi4py import MPI
         if MPI.COMM_WORLD.Get_rank() == 0:
             from mola.visu import plot_radial_profiles
             plot_radial_profiles(*args, **kwargs)
@@ -527,8 +528,14 @@ class WorkflowRotatingComponent(Workflow):
                 squared_distance = v.dot(v)
                 max_squared_distance = np.maximum(max_squared_distance, squared_distance)
         
-        # FIXME in the current state, this is not MPI-compliant, must gather all maxima
-        return np.sqrt(max_squared_distance)
+        comm.barrier()
+        each_rank_max_squared_distances = comm.gather(max_squared_distance, 0)
+        if rank ==0:
+            absolute_max_squared_distance = max(each_rank_max_squared_distances)
+            radius = np.sqrt(absolute_max_squared_distance)
+        comm.barrier()
+        radius = comm.bcast(radius,0)
+        return radius
 
 
     @staticmethod

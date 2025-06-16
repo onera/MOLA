@@ -114,7 +114,6 @@ def test_workflow_propeller_sector_pre1_comp1(tmp_path, workflow_sector_params):
             TimeMarching = 'Unsteady',
             TimeStep = 1e-6))
 
-
     w.prepare()
     w.write_cfd_files()
     w.submit()
@@ -136,7 +135,10 @@ def test_workflow_propeller_sector_pre1_comp2(tmp_path, workflow_sector_params):
             TimeStep = 1e-6))
 
 
+    w.RunManagement["SkipDebugRaise"] = True
     w.prepare()
+    del w.RunManagement["SkipDebugRaise"]
+    w.tree.findAndRemoveNode(Name="SkipDebugRaise")
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()
