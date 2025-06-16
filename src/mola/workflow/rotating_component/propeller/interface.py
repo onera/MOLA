@@ -29,14 +29,14 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
             self.add_to_Extractions_Integral(
                 Source='Wall*',
                 Fields=['Force', 'Torque'],
-                # TODO implement post-process
-                # PostprocessOperations=[
-                #     dict(Type="compute_propeller_coefficients", AtEndOfRunOnly=False),
-                #     dict(Type='avg', Variable='Thrust'),
-                #     dict(Type='std', Variable='Thrust'),
-                #     dict(Type='avg', Variable='Power'),
-                #     dict(Type='std', Variable='Power'),
-                # ]
+                PostprocessOperations=[
+                    dict(Type="compute_propeller_coefficients", AtEndOfRunOnly=False),
+                    dict(Type='avg', Variable='Thrust', AtEndOfRunOnly=False),
+                    dict(Type='std', Variable='Thrust', AtEndOfRunOnly=False),
+                    # TODO https://gitlab.onera.net/numerics/solver/sonics/-/issues/83
+                    # dict(Type='avg', Variable='Power'),
+                    # dict(Type='std', Variable='Power'),
+                ]
             )
             self.add_to_Extractions_Residuals(Type='Residuals')
 
@@ -76,6 +76,7 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
         for key, row_parameters in Rows.items():
             self.add_Row_to_ApplicationContext(_Key=key, **row_parameters)
 
+        self.apply_ShaftRotationSpeedUnit(default_ShaftRotationSpeedUnit=kwargs["ShaftRotationSpeedUnit"])
         if 'HubRotationIntervals' in self.ApplicationContext:
             self.set_HubRotationIntervals()
 
@@ -86,4 +87,6 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
             Distributor : str = 'PyPart',
             **kwargs):
 
-        super().set_SplittingAndDistribution(**kwargs)
+        super().set_SplittingAndDistribution(
+            **self.get_default_values_from_local_signature(),
+            **kwargs)

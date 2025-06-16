@@ -24,15 +24,16 @@ def apply_to_solver(workflow):
 
 def adapt_workflow_for_fast(workflow):
     split_opts = workflow.SplittingAndDistribution
-    _must_split_at_preprocess(split_opts)
+    _must_split_at_preprocess_with_cassiopee(split_opts)
     _must_distribute_with_cassiopee(split_opts)
 
-def _must_split_at_preprocess(split_opts):
+def _must_split_at_preprocess_with_cassiopee(split_opts):
     strategy = split_opts['Strategy']
     if strategy != 'AtPreprocess':
         msg = f'fast solver requires splitting in preprocess, switching strategy from "{strategy}" to "AtPreprocess"'
         mola_logger.warning(msg)
-        split_opts['Strategy'] = 'Cassiopee'
+        split_opts['Strategy'] = 'AtPreprocess'
+        split_opts['Splitter'] = 'Cassiopee'
 
 def _must_distribute_with_cassiopee(split_opts):
     if split_opts['Distributor'].lower() != 'cassiopee':

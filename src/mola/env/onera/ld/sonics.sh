@@ -39,6 +39,8 @@ export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 unset I_MPI_PMI_LIBRARY
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
+source /stck/sonics/LD8/sonics/0.6.4/source.sh
+
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
@@ -49,7 +51,34 @@ export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
-source /stck/sonics/LD8/sonics/$SONICSVERSION/source.sh &>/dev/null
+# # maia
+# module use --append /home/sonics/LD8/modules/
+# module load maia/$MAIAVERSION-dsi-ompi405
+
+# turbo 
+export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/local-os8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
+
+# ErstaZ
+export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
+export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
+
+# VPM
+export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld/$ARCH
+export PATH=$VPMPATH:$VPMPATH/lib:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
+export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=$VPMPATH:$PYTHONPATH
+export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
+# replaces module load intel/21.2.0 since this module
+# brakes MPI https://elsa.onera.fr/issues/10933#note-16
+export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBRARY_PATH
+
+
+# external python dependencies
+# export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
+# export PATH=$MOLAext/ld8/bin:$PATH
+export LD_LIBRARY_PATH=$MOLAext/ld8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
 pdf()

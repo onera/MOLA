@@ -33,6 +33,11 @@ def test_workflow_airplane_init():
     w.print_interface()
     assert w.Name == 'WorkflowAirplane'
 
+    assert w.SplittingAndDistribution["Strategy"] == 'AtComputation'
+    assert w.SplittingAndDistribution["Splitter"] == 'PyPart'
+    assert w.SplittingAndDistribution["Distributor"] == 'PyPart'
+
+
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_workflow_airplane_cart_init(workflow_cart_monoproc_params):

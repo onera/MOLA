@@ -28,7 +28,9 @@ from mola.cfd.preprocess.mesh.tools import parametrize_with_height
 from .. import Workflow
 from .interface import WorkflowRotatingComponentInterface
 
-
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 class WorkflowRotatingComponent(Workflow):
 
     '''
@@ -354,7 +356,9 @@ class WorkflowRotatingComponent(Workflow):
             )
 
     def get_hub_family_names(self, must_be_unique=False, must_exist=False)  -> list:
-        names = get_bc_family_names_from_patterns(self.tree, self._hub_patterns)
+
+        tree= self.__choose_skeleton_tree_if_existent()
+        names = get_bc_family_names_from_patterns(tree, self._hub_patterns)
         
         if must_be_unique:
             must_exist = True
@@ -367,9 +371,19 @@ class WorkflowRotatingComponent(Workflow):
         
         return names
 
+    def __choose_skeleton_tree_if_existent(self):
+        # this is relevant in the context of parallel computation using PyPart,
+        # since Skeleton is not merged into tree and information on relevant may
+        # be missing in main tree
+        if hasattr(self,"_Skeleton") and bool(self._Skeleton):
+            return self._Skeleton
+        return self.tree
+
 
     def get_blade_family_names(self, must_be_unique=False, must_exist=False)  -> list:
-        names = get_bc_family_names_from_patterns(self.tree, self._blade_patterns)
+
+        tree= self.__choose_skeleton_tree_if_existent()
+        names = get_bc_family_names_from_patterns(tree, self._blade_patterns)
         
         if must_be_unique:
             must_exist = True
@@ -383,7 +397,9 @@ class WorkflowRotatingComponent(Workflow):
         return names
 
     def get_shroud_family_names(self, must_be_unique=False, must_exist=False) -> list:
-        names = get_bc_family_names_from_patterns(self.tree, self._shroud_patterns)
+
+        tree= self.__choose_skeleton_tree_if_existent()
+        names = get_bc_family_names_from_patterns(tree, self._shroud_patterns)
         
         if must_be_unique:
             must_exist = True
@@ -492,7 +508,6 @@ class WorkflowRotatingComponent(Workflow):
     #             cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=node.Parent)
             
     def plot_radial_profiles(self, *args, **kwargs):
-        from mpi4py import MPI
         if MPI.COMM_WORLD.Get_rank() == 0:
             from mola.visu import plot_radial_profiles
             plot_radial_profiles(*args, **kwargs)
@@ -513,8 +528,14 @@ class WorkflowRotatingComponent(Workflow):
                 squared_distance = v.dot(v)
                 max_squared_distance = np.maximum(max_squared_distance, squared_distance)
         
-        # FIXME in the current state, this is not MPI-compliant, must gather all maxima
-        return np.sqrt(max_squared_distance)
+        comm.barrier()
+        each_rank_max_squared_distances = comm.gather(max_squared_distance, 0)
+        if rank ==0:
+            absolute_max_squared_distance = max(each_rank_max_squared_distances)
+            radius = np.sqrt(absolute_max_squared_distance)
+        comm.barrier()
+        radius = comm.bcast(radius,0)
+        return radius
 
 
     @staticmethod

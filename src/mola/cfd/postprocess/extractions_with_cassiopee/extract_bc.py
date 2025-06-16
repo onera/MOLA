@@ -48,6 +48,8 @@ def extract_bc(t, Family=None, Name=None, Type=None):
             list of surfaces (zones) with multi-containers (including *BCData_t* 
             transformed into *FlowSolution_t* nodes)    
     '''
+    # CAVEAT BUG https://elsa.onera.fr/issues/12070
+
     # HACK https://elsa.onera.fr/issues/10641
     t = Cmpi.convert2PartialTree(t, rank=Cmpi.rank)
 
@@ -76,6 +78,7 @@ def extract_bc(t, Family=None, Name=None, Type=None):
     
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
+
 
     bases_children_except_zones = []
     for base in I.getBases(t):

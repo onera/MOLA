@@ -159,15 +159,15 @@ def check_no_overlap_between_bcs(tree):
             PointRange = bc.get(Name='PointRange', Depth=1).value()
 
             for pt, name in zip(PointRanges, names):
-                if is_included_in_range(PointRange, pt):
-                    raise Exception(f"In {zone.name()}, {bc.name()} is included in {name}")
-                elif is_included_in_range(pt, PointRange):
+                if are_point_ranges_overlapping(PointRange, pt):
+                    raise Exception(f"In {zone.name()}, {bc.name()} is included in {name}, because {PointRange} lies in {pt}")
+                elif are_point_ranges_overlapping(pt, PointRange):
                     raise Exception(f"In {zone.name()}, {name} is included in {bc.name()}")
 
             PointRanges.append(PointRange)
             names.append(bc.name())
 
-def is_included_in_range(PointRange1, PointRange2):
+def are_point_ranges_overlapping(PointRange1, PointRange2):
 
     def _build_indices_from_PointRange(PointRange):
         # return [np.arange(*range_i) for range_i in PointRange]
@@ -188,3 +188,23 @@ def is_included_in_range(PointRange1, PointRange2):
         if not np.all(np.isin(range1, range2)):
             return False
     return True
+
+
+def are_point_ranges_overlapping(pr1, pr2):
+
+    if len(pr1) != len(pr2):
+        return False
+
+    overlapping_mask = len(pr1) * [False]
+
+    for i in range(len(pr1)):
+
+        row1 = pr1[i,:]
+        row2 = pr2[i,:]
+        if (min(row1) < max(row2) and max(row1) > min(row2)) or \
+            (row1[0] == row1[1] == row2[0] == row2[1]):
+            overlapping_mask[i] = True
+    
+    return all(overlapping_mask)
+
+    

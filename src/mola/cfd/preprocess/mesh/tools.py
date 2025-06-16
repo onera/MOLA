@@ -290,7 +290,6 @@ def get_empty_FlowSolution_nodes(tree, remove=False):
     # (with DataArray nodes that store None). We need to remove these nodes, 
     # keep its path, and restore them later in the final file.
 
-    import Converter.Mpi as Cmpi
     import copy
 
     empty_FlowSolution_nodes = []
@@ -308,18 +307,12 @@ def get_empty_FlowSolution_nodes(tree, remove=False):
     return empty_FlowSolution_nodes
 
 def restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes):
-    import Converter.Mpi as Cmpi
-
-    empty_FlowSolution_nodes = Cmpi.gather(empty_FlowSolution_nodes, root=0)
-
-    if Cmpi.rank == 0:
-        empty_FlowSolution_nodes = [FS for listFS in empty_FlowSolution_nodes for FS in listFS]
-        for FS in empty_FlowSolution_nodes:
-            saved_FS = cgns.readNode(dst, FS.path()) 
-            if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
-                FS.saveThisNodeOnly(dst) 
-                for child in FS.children():
-                    child.saveThisNodeOnly(dst) 
+    for FS in empty_FlowSolution_nodes:
+        saved_FS = cgns.readNode(dst, FS.path()) 
+        if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
+            FS.saveThisNodeOnly(dst) 
+            for child in FS.children():
+                child.saveThisNodeOnly(dst) 
 
 def restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes):
     for fs_node in empty_FlowSolution_nodes:

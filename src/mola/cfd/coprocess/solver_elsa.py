@@ -243,22 +243,6 @@ def extract_integral(output_tree, extraction) -> None:
         family = full_name_parts[0]
         suffix = full_name_parts[1][:-1]  # name of IntegralData ends with ":"
         return family, suffix
-    
-    def remove_iteration_zero(fs_node : cgns.Node):
-        # Check if 'Iteration' starts by 0
-        try:
-            Iteration = fs_node.get(Name='Iteration', Depth=1).value()
-        except:
-            return None
-
-        if Iteration[0] == 0:
-            if Iteration.size == 1:
-                return None
-
-            # remove the first element of each array 
-            for node in fs_node.group(Type='DataArray', Depth=1):
-                node.setValue(node.value()[1:])
-        return fs_node
 
     IntegralDataTree = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=IntegralDataTree)
@@ -272,9 +256,6 @@ def extract_integral(output_tree, extraction) -> None:
             for n in IntegralDataNode.children(): 
                 n.setType('DataArray_t')
             translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
-            IntegralDataNode = remove_iteration_zero(IntegralDataNode)
-            if IntegralDataNode is None: 
-                break
             zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
 
             # multiply integrated data by the FluxCoef
@@ -291,7 +272,22 @@ def extract_integral(output_tree, extraction) -> None:
     else: 
         extraction['Data'] = current_iteration_signals
     
+    remove_iteration_zero_from_integrals(extraction['Data'])
     update_zones_shape_using_iteration_number(extraction['Data'], Container="FlowSolution")
+
+
+def remove_iteration_zero_from_integrals(extraction_tree : cgns):
+
+    for zone in extraction_tree.zones():
+        for container in zone.group(Type="FlowSolution_t", Depth=1):
+            iteration = zone.fields(['Iteration'], container.name(), 'raise')
+
+            if iteration[0] >= 0.9 or iteration.size == 1:
+                continue
+
+            for field_node in container.group(Type='DataArray_t', Depth=1):
+                field = field_node.value()
+                field_node.setValue(field[1:])
 
 
 def extract_time_monitoring(extraction, coprocess_manager):

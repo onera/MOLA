@@ -1,5 +1,5 @@
-from mola.workflow.fixed.airplane.workflow import WorkflowAirplane
-from mola import solver
+from mola.workflow.fixed.airplane.workflow import WorkflowAirplane, solver
+import numpy as np
 
 # WorkflowAirplane().print_interface();exit()
 
@@ -41,7 +41,7 @@ w = WorkflowAirplane(
 
     Numerics = dict(
         NumberOfIterations=3000,
-        MinimumNumberOfIterations=2,
+        MinimumNumberOfIterations=3,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
     ),
@@ -61,13 +61,13 @@ w = WorkflowAirplane(
         dict(
             ExtractionName = 'WING',
             Variable = "CL",
-            Threshold = -1e9, # HINT just for showing Variable progress in coprocess.log
+            Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
         )
     ],
 
     RunManagement = dict(
         NumberOfProcessors = 8,
-        RunDirectory = f'example_{solver}',
+        RunDirectory = f'example_{solver}_test3',
         Scheduler = 'local',
         TimeLimit = '3:00:00',
     ),

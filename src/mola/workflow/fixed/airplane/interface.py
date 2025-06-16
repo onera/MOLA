@@ -55,4 +55,6 @@ class WorkflowAirplaneInterface(WorkflowInterface):
             Distributor : str = 'PyPart',
             **kwargs):
 
-        super().set_SplittingAndDistribution(**kwargs)
+        super().set_SplittingAndDistribution(
+            **self.get_default_values_from_local_signature(),
+            **kwargs)
