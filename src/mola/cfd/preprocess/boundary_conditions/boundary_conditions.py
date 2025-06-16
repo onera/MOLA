@@ -316,3 +316,62 @@ def _instantiate_bc_dispatcher(workflow):
     workflow._bc_dispatcher = dispatcher()
 
     return workflow._bc_dispatcher
+
+def OutflowRadialEquilibrium_interface(workflow, bcparams):
+    ### EXAMPLES
+    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
+    #         PressureAtHub=...,
+    #         # Or 
+    #         PressureAtSpecifiedLocation=...,
+    #         Location=...,
+    #         ),
+    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
+    #         MassFlow=...,
+    #         ),
+    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
+    #         ValveLaw=dict(
+    #             Type='Quadratic',
+    #             ValveCoefficient=0.8, # to be multiplied by Pt latter, to be homogeneous to a pressure
+    #         )
+    #         ),
+    
+    # Check minimal information is given
+    possible_arguments = ['PressureAtHub', 'PressureAtSpecifiedLocation', 'MassFlow', 'ValveLaw']
+    if sum(1 for arg in possible_arguments if arg in bcparams) != 1:
+        raise MolaUserError((
+            'For BC of Type "OutflowRadialEquilibrium", exactly one of the following '
+            f'arguments must be provided: {possible_arguments}'
+        ))
+
+    # Check that both PressureAtSpecifiedLocation and Location are specified together
+    if 'PressureAtSpecifiedLocation' in bcparams and not 'Location' in bcparams:
+        raise MolaUserError((
+            'For BC of Type "OutflowRadialEquilibrium", if "PressureAtSpecifiedLocation", '
+            'then "Location" must also be specified.'
+        ))
+    
+    if 'ValveLaw' in bcparams:
+        possible_valve_types = ['Linear', 'Quadaratic']
+        if not isinstance(bcparams['ValveLaw'], dict):
+            raise MolaUserError('For BC of Type "OutflowRadialEquilibrium", parameter ValveLaw must be a dict')
+        if not 'Type' in bcparams['ValveLaw'] or bcparams['ValveLaw']['Type'] not in possible_valve_types:
+            raise MolaUserError(f'For BC of Type "OutflowRadialEquilibrium", ValveLaw["Type"] must be defined out of {possible_valve_types}')
+    
+        if bcparams['ValveLaw']['Type'] == 'Linear':
+            bcparams['ValveLaw'].setdefault('RelaxationCoefficient', 0.1)
+            bcparams['ValveLaw'].setdefault('PressureRef', workflow.Flow['Pressure'])
+            bcparams['ValveLaw'].setdefault('MassFlowRef', workflow.Flow['MassFlow'])
+
+        elif bcparams['ValveLaw']['Type'] == 'Quadratic':
+            bcparams['ValveLaw'].setdefault('PressureRef', 0.75 * workflow.Flow['PressureStagnation'])
+            bcparams['ValveLaw'].setdefault('MassFlowRef', workflow.Flow['MassFlow'])
+
+            if not 'ValveCoefficient' in bcparams['ValveLaw'] \
+                or not isinstance(bcparams['ValveLaw']['ValveCoefficient'], float):
+                raise MolaUserError((
+                    'For BC of Type "OutflowRadialEquilibrium" with ValveLaw of '
+                    f'Type={bcparams["ValveLaw"]["Type"]}, parameter ValveCoefficient must be defined and must be a float.'
+                ))
+
+            bcparams['ValveLaw'].setdefault('RelaxationCoefficient', 0.1)
+

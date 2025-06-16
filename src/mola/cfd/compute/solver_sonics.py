@@ -122,10 +122,7 @@ def get_iterators(workflow, config, hardware_target='cpu'):
 
     if any([bc['Type'] == 'OutflowRadialEquilibrium' for bc in workflow.BoundaryConditions]):
         for bc in workflow.BoundaryConditions:
-            try:
-                # Just to check if a valve lax if used or not
-                valve_type = bc['valve_type']
-            except:
+            if not is_a_bc_with_valve_law(bc):
                 continue
 
             # TODO handle the fact that OUTFLOW family can be extracted twice: 
@@ -154,6 +151,12 @@ def get_iterators(workflow, config, hardware_target='cpu'):
         )
 
     return iterators
+
+def is_a_bc_with_valve_law(bc):
+    if 'valve_type' in bc:
+        return True
+    else:
+        False
 
 def get_integral_triggers(workflow, config, hardware_target):
     from miles.trigger import IntegralDataExtractor
