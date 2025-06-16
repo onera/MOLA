@@ -69,3 +69,10 @@ def is_translating(Motion):
         return False
     else:
         return True
+    
+def all_families_are_fixed(workflow):
+    if any([is_mobile(MotionOnFamily) for MotionOnFamily in workflow.Motion.values()]):
+        return False
+    else:
+        return True
+    

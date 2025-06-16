@@ -54,7 +54,12 @@ class CoprocessManager():
         self.iteration = self.workflow.Numerics['IterationAtInitialState'] - 1
         self.time = self.workflow.Numerics['TimeAtInitialState']
 
-        self.launch_time = timeit.default_timer()
+        self.launch_time = timeit.default_timer() 
+        # In the case where a WorkflowManager is used, take into account elapsed time 
+        # since the submission of the job_sequence.sh file
+        ELAPSED_TIME_MOLA_MANAGER = float(os.getenv('ELAPSED_TIME_MOLA_MANAGER', 0.))
+        self.launch_time += ELAPSED_TIME_MOLA_MANAGER
+
         if self.workflow.Numerics['NumberOfIterations'] == 0:
             err_msg = 'NumberOfIterations=0 => simulation cannot begin. Please change this value and submit again.'
             self.mola_logger.error(err_msg, rank=0)

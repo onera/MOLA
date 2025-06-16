@@ -22,6 +22,7 @@ import numpy as np
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 import mola.server as SV
 from mola.workflow.rotating_component import turbomachinery
+from mola import solver
 
 def get_compressor_example_parameters(RunDirectory):
     params = dict( 
@@ -293,9 +294,7 @@ def test_compressor_example_local_stage(tmp_path):
     w.assert_completed_without_errors()
 
 @pytest.mark.integration
-@pytest.mark.elsa  
-@pytest.mark.sonics
-# @pytest.mark.fast # FIXME solve https://github.com/onera/Fast/issues/89
+@pytest.mark.skipif(solver=='fast', reason="FIXME BUG solve https://github.com/onera/Fast/issues/89")
 @pytest.mark.cost_level_4
 def test_compressor_example_local_rotor_only(tmp_path):
     w = get_compressor_example_rotor_only(tmp_path)

@@ -40,7 +40,7 @@ def apply_to_solver(workflow):
         workflow : Workflow object
 
     '''
-    if all([not motion.is_mobile(MotionOnFamily) for MotionOnFamily in workflow.Motion.values()]):
+    if motion.all_families_are_fixed(workflow):
         return
     
     for family, MotionOnFamily in workflow.Motion.items():

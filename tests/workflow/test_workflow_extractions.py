@@ -60,7 +60,7 @@ def assert_file_with_relevant_zone_and_fields(filename, basename, zonename, fiel
         assert field_node 
         field_value = field_node.value()
 
-        # assert not np.any(np.isnan(field_value)), f'nan found in {fieldname} in {basename}/{zonename}'
+        assert not np.any(np.isnan(field_value)), f'nan found in {fieldname} in {basename}/{zonename}'
 
         if expected_number_of_items is not None:
             assert len(field_value) == expected_number_of_items
@@ -207,7 +207,7 @@ def test_integrals_one_run(tmp_path, niter=10):
 
 @pytest.mark.integration
 @pytest.mark.elsa
-@pytest.mark.fast
+@pytest.mark.fast  # FIXME allow restart runs with sonics
 @pytest.mark.cost_level_3
 def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
 
@@ -251,6 +251,8 @@ def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
 
 
 @pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.sonics # FIXME there are NaN in Pressure and other variables on BC for Fast
 @pytest.mark.cost_level_2
 def test_bc_one_run(tmp_path, niter=10):
     
@@ -274,12 +276,10 @@ def test_bc_one_run(tmp_path, niter=10):
     w.assert_completed_without_errors()
 
     # FIXME
-    # assert_file_containing_expected_field_surface(separated_filename, basename, 
-    #                                              ['Pressure'], tmp_path)
+    assert_file_containing_expected_field_surface(separated_filename, basename, 
+                                                 ['Pressure'], tmp_path)
     
 @pytest.mark.integration
-@pytest.mark.elsa
-@pytest.mark.fast
 @pytest.mark.cost_level_2
 def test_integral_with_postprocess(tmp_path, niter=10):
     

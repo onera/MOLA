@@ -18,6 +18,9 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+# ONLY ONE VERSION AVAILABLE FOR THE MOMENT
+export SONICSVERSION=0.6.4
+
 # Cassiopee
 export MACHINE=ld
 export CASSIOPEE_VERSION=main
@@ -36,7 +39,7 @@ export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 unset I_MPI_PMI_LIBRARY
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
-source /stck/sonics/dist/ld8/source.sh # dev environment, see https://gitlab.onera.net/numerics/solver/sonics/-/issues/82#note_36112
+source /stck/sonics/LD8/sonics/0.6.4/source.sh
 
 # Treelab
 # NOTE installation hint:
@@ -73,8 +76,8 @@ export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBR
 
 
 # external python dependencies
-export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
-export PATH=$MOLAext/ld8/bin:$PATH
+# export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
+# export PATH=$MOLAext/ld8/bin:$PATH
 export LD_LIBRARY_PATH=$MOLAext/ld8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052

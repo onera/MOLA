@@ -40,8 +40,9 @@ def apply_to_solver(workflow):
     # Zones may be moved. After warmup, all operations on the trees must be in-place
     t, tc, metrics = FastS.warmup(t, tc, graph, infos_ale=get_infos_ale(workflow))
 
-    workflow.tree = t
-    workflow._treeAtCenters = tc 
+    workflow.tree = cgns.castNode(t)
+    workflow._treeAtCenters = cgns.castNode(tc)
+    workflow._Skeleton = cgns.load(names.FILE_INPUT_SOLVER, only_skeleton=True)
     workflow._fast_metrics = metrics
     workflow._fast_graph = graph
 
