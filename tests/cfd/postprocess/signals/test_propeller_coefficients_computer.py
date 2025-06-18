@@ -37,18 +37,15 @@ def test_update_force_coefficients(application_context):
     fy = np.full(shape, 2, dtype=np.float64)
     fz = np.full(shape, 1, dtype=np.float64)
 
-    blade_name = 'BLADE'
     diameter = 1
     density = 1
 
     pcc._update_force_coefficients(coefs, fx, fy, fz, application_context,
-        blade_name, diameter, density)
-
-    flux_coef = application_context["NormalizationCoefficient"][blade_name]["FluxCoef"]
+        diameter, density)
 
     expected_values = {
-        "Thrust": fx[0] * flux_coef,
-        "CT":     fx[0] * flux_coef,
+        "Thrust": fx[0],
+        "CT":     fx[0],
     }
 
     for key, expected_value in expected_values.items():
@@ -74,26 +71,24 @@ def test_update_torque_coefficients(application_context):
     fx = np.full(shape, 3, dtype=np.float64)
     fy = np.full(shape, 2, dtype=np.float64)
     fz = np.full(shape, 1, dtype=np.float64)
-    blade_name = 'BLADE'
     diameter = 1.0
     density = 1.0
     axial_velocity = 1.0
     pcc._update_force_coefficients(coefs, fx, fy, fz, application_context,
-        blade_name, diameter, density)
+        diameter, density)
 
     tx = np.full(shape, 1, dtype=np.float64)
     ty = np.full(shape, 2, dtype=np.float64)
     tz = np.full(shape, 3, dtype=np.float64)
 
     pcc._update_torque_coefficients(coefs, tx, ty, tz, application_context,
-        blade_name, diameter, density, axial_velocity)
+        diameter, density, axial_velocity)
 
-    flux_coef = application_context["NormalizationCoefficient"][blade_name]["FluxCoef"]
     rpm = application_context['ShaftRotationSpeed']
 
     thrust = coefs['Thrust']
     ct = coefs['CT']
-    torque = -tx[0] * flux_coef
+    torque = -tx[0]
     power = torque * rpm * (np.pi/30)
     cp = power / (density * (rpm/60)**3 * diameter**5)
     fm = np.sqrt(2.0/np.pi) * np.sign(ct) * np.abs(ct)**1.5 / cp
@@ -116,12 +111,10 @@ def test_update_torque_coefficients(application_context):
 def test_add_aerodynamic_coefficients_to(zone_with_loads, application_context):
     tree = cgns.Tree(Base=zone_with_loads)
     extraction = dict(Data=tree, Type='Integral')
-    blade_name = 'BLADE'
     diameter = 1.0
     density = 1.0
     axial_velocity = 1.0
-    pcc.add_aerodynamic_coefficients_to(extraction, application_context,
-        blade_name, diameter, density, axial_velocity)
+    pcc.add_aerodynamic_coefficients_to(extraction, application_context, diameter, density, axial_velocity)
 
     assert_coefficients_correctly_added_to_extraction_data(extraction, application_context)
 
@@ -179,13 +172,11 @@ def assert_coefficients_correctly_added_to_extraction_data(extraction : dict,
     diameter = 1.0
     density = 1.0
     axial_velocity = 1.0
-    blade_name = 'BLADE'
-    flux_coef = application_context["NormalizationCoefficient"][blade_name]["FluxCoef"]
     rpm = application_context['ShaftRotationSpeed']
 
-    thrust = fx * flux_coef
-    ct = fx * flux_coef
-    torque = -tx * flux_coef
+    thrust = fx
+    ct = fx
+    torque = -tx
     power = torque * rpm * (np.pi/30)
     cp = power / (density * (rpm/60)**3 * diameter**5)
     fm = np.sqrt(2.0/np.pi) * np.sign(ct) * np.abs(ct)**1.5 / cp

@@ -257,6 +257,12 @@ def extract_integral(output_tree, extraction, workflow) -> None:
     zone = cgns.utils.newZoneFromDict( extraction['Name'], fields )
     zone.attachTo(base)
 
+    # multiply integrated data by the FluxCoef
+    for node in zone.group(Type='DataArray'):
+        if node.name() != 'Iteration':
+            node.setValue(node.value() * extraction['FluxCoef'])
+
+
     current_iteration_signals = mpi_allgather_and_merge_trees(t)
 
     if 'Data' in extraction and extraction['Data'] is not None:

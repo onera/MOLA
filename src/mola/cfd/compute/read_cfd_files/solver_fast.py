@@ -78,6 +78,6 @@ def _split_global_and_local_parameters(parameters: dict, prefix_local: str = 'Lo
 
 def get_infos_ale(workflow):
 
-    if is_any_family_mobile(workflow):
+    if is_any_family_mobile(workflow.Motion):
         theta, omega = get_theta_and_omega(workflow, workflow.Numerics['IterationAtInitialState'])
         return [theta, omega]

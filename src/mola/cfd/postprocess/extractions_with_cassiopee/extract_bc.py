@@ -51,7 +51,8 @@ def extract_bc(t, Family=None, Name=None, Type=None):
     # CAVEAT BUG https://elsa.onera.fr/issues/12070
 
     # HACK https://elsa.onera.fr/issues/10641
-    t = Cmpi.convert2PartialTree(t, rank=Cmpi.rank)
+    if Cmpi.size > 1:
+        t = Cmpi.convert2PartialTree(t, rank=Cmpi.rank)
 
     args = [Family, Name, Type]
     if args.count(None) != len(args)-1:
@@ -101,6 +102,11 @@ def extract_bc(t, Family=None, Name=None, Type=None):
     base = I.getBases(t_merged)[0]
     base[2].extend( bases_children_except_zones )
     zones = I.getZones(t_merged)
+
+    if Cmpi.size == 0: 
+        # we allow no zones in MPI?
+        if not zones:
+            raise TypeError("extract_bc produced no zones")
 
     return zones
 

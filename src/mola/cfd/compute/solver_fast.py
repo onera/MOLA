@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 # ----------------------- IMPORT SYSTEM MODULES ----------------------- #
-import os
+import numpy as np
 from mpi4py import MPI
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
@@ -45,7 +45,7 @@ def apply_to_solver(workflow):
         workflow._status = 'RUNNING_BEFORE_ITERATION'
         workflow._coprocess_manager.run_iteration()
 
-        if is_any_family_mobile(workflow):
+        if is_any_family_mobile(workflow.Motion):
             apply_motion(workflow)
 
         FastS._compute(workflow.tree,
@@ -78,12 +78,15 @@ def get_range_of_iterations(workflow):
     return inititer, niter
 
 def apply_motion(workflow):
-    import Fast.Internal as FastI
+    import FastC.PyTree as FastC
     theta, omega = get_theta_and_omega(workflow, workflow._iteration)
-    FastI._motionlaw(workflow.tree, theta, omega)
+    FastC._motionlaw(workflow.tree, theta, omega)
 
 def get_theta_and_omega(workflow, iteration):
-    omega = workflow.Motion['ShaftRotationSpeed']
+    from mola.cfd.preprocess.motion.solver_fast import get_first_found_rotation_speed_vector_at_motion
+
+    omega_vector = get_first_found_rotation_speed_vector_at_motion(workflow.Motion)
+    omega = np.linalg.norm(omega_vector)
     time = workflow.Numerics['TimeAtInitialState'] + (iteration - workflow.Numerics['IterationAtInitialState']) * workflow.Numerics['TimeStep']
     # Motion is applied at iteration n + 1/2
     time_ale = time + 0.5*workflow.Numerics['TimeStep']

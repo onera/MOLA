@@ -69,6 +69,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             raise MolaUserError(f'got wrong ShaftRotationSpeedUnit "{omega_units}", shall be "rpm" or "rad/s"')
 
         r_max = self.blade_radius()
+        assert r_max > 0
         r_rel_ref = self.ApplicationContext["ReferenceTurbulenceSetAtRelativeRadius"]
         axial_velocity = self.Flow['Velocity']
         tangential_velocity = omega * r_rel_ref * r_max
@@ -140,18 +141,8 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         if extraction["Type"] != "Integral" or not extraction.get("Data"):
             return
 
-        try:
-            blade_name = self.get_blade_family_names(must_be_unique=True)[0]
-        except MolaException as e:
-            from mpi4py import MPI
-            rank = MPI.COMM_WORLD.Get_rank()
-            self.tree.save(f"debug_tree_{rank}.cgns")
-            extraction['Data'].save(f"debug_extraction_{rank}.cgns")
-            raise MolaException("check debug.cgns") from e
-
         diameter = 2*self.blade_radius()
         add_aerodynamic_coefficients_to(extraction, self.ApplicationContext,
-                                        blade_name,
                                         diameter,
                                         self.Flow['Density'],
                                         self.Flow['Velocity'])
