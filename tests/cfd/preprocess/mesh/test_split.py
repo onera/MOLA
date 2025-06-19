@@ -43,6 +43,37 @@ def test_splitAndDistributeUsingNPartsAndNProcsWithCassiopee():
     nb_aimed_procs = 2
     split._splitAndDistributeUsingNPartsAndNProcsWithCassiopee(
         w, nb_parts, nb_aimed_procs, raise_error=True)
+    
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_distribute_with_cassiopee():
+    tree = get_cart_block(10,10,10)
+    nb_aimed_procs = 1
+    cores_per_node = 1
+    split._distribute_with_cassiopee(tree, nb_aimed_procs, cores_per_node)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_splitAndDistributeUsingNPartsAndNProcsWithCassiopee_only_distribute():
+
+    class FakeWorkflow():
+        def __init__(self) -> None:
+            self.tree = get_cart_block(10,10,10)
+
+            self.RawMeshComponents = [dict(Name='Base')]
+
+            self.SplittingAndDistribution = dict(
+                Splitter='cassiopee',
+                Distributor='cassiopee',
+                CoresPerNode=1,
+                ComponentsToSplit=[]
+            )
+
+    w = FakeWorkflow()
+    nb_parts = 2  # won't be used
+    nb_aimed_procs = 1
+    split._splitAndDistributeUsingNPartsAndNProcsWithCassiopee(
+        w, nb_parts, nb_aimed_procs, raise_error=True)
 
 
 # --------------------------- fixtures and helpers --------------------------- #

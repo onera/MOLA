@@ -72,15 +72,26 @@ def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
             if n[3] != 'Zone_t': 
                 bases_children_except_zones.append( n )
     if not t or not I.getNodeFromType3(t,'Zone_t'): return
-    tPrev = I.copyRef(t)
 
     if fieldname in ['Radius', 'radius', 'CoordinateR']:
         # FIXME only if axis is the X-axis
         compute_radius(t, axis='x', fieldname=fieldname, container=I.__FlowSolutionNodes__)
 
+    tPrev = I.copyRef(t)
     t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
                            FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
 
+    isosurfs = _iso_surface_on_merge_containers(t, fieldname, value, container, tPrev)
+
+    t_merged = C.newPyTree(['Base', isosurfs])
+    base = I.getBases(t_merged)[0]
+    base[2].extend( bases_children_except_zones )
+    surfs = I.getZones(t_merged)
+    
+    return surfs
+
+
+def _iso_surface_on_merge_containers(t, fieldname=None, value=None, container='FlowSolution#Init', tPrev=None):
     isosurfs = []
     for zone in I.getZones(t):
 
@@ -154,10 +165,4 @@ def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
             surf[2] += [ tags_containers ]
             isosurfs += [ recoverContainers(surf) ]
 
-    t_merged = C.newPyTree(['Base', isosurfs])
-    base = I.getBases(t_merged)[0]
-    base[2].extend( bases_children_except_zones )
-    surfs = I.getZones(t_merged)
-    
-    return surfs
-
+    return isosurfs

@@ -33,6 +33,7 @@ def apply(workflow):
 
     nproc = workflow.RunManagement['NumberOfProcessors']
     workflow.SplittingAndDistribution.setdefault('NumberOfParts',nproc)
+    workflow.SplittingAndDistribution.setdefault('ComponentsToSplit', [])
 
     is_partitioned = bool(workflow.tree.get(':CGNS#GlobalNumbering'))
     if is_partitioned:
@@ -57,7 +58,7 @@ def split_with_imposed_mode(workflow):
         return
     splitter = workflow.SplittingAndDistribution['Splitter'].lower()
     if splitter == 'cassiopee':
-        tRef = _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts, NumberOfProcessors, raise_error=True)[0]
+        tRef = _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts, NumberOfProcessors, raise_error=True)
     elif splitter == 'maia':
         tRef = _splitAndDistributeUsingNPartsWithMaia(workflow)
     tRef.setUniqueZoneNames()
@@ -70,17 +71,35 @@ def _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts
     if MPI.COMM_WORLD.Get_size() > 1:
         raise MolaException('cannot use Splitter="cassiopee" in MPI parallel mode. Use maia or relaunch in sequential mode.')
 
-    import Converter.PyTree as C
-    import Distributor2.PyTree as D2
-    import Transform.PyTree as T
+    # Checks on splitter and distributor
+    splitter = workflow.SplittingAndDistribution['Splitter']
+    if splitter.lower() != 'cassiopee':
+        raise MolaException(f'splitter {splitter} not implemented yet')
+    distributor = workflow.SplittingAndDistribution['Distributor']
+    if distributor.lower() != 'cassiopee':
+        raise MolaException(f'distributor {distributor} not implemented yet')
+
 
     t = workflow.tree
     tRef = t.copy()
-    TotalNPts = t.numberOfCells()
 
+    TotalNPts = tRef.numberOfCells()
     ProcPointsLoad = TotalNPts / NumberOfParts
     basesToSplit, basesNotToSplit = _getBasesBasedOnSplitPolicy(tRef, workflow)
-    if not basesToSplit: raise ValueError('fatal') # FIXME remove
+
+    if basesToSplit: 
+        tRef = _split_with_cassiopee(tRef, basesToSplit, basesNotToSplit, ProcPointsLoad, NumberOfParts, NumberOfProcessors, raise_error)
+
+    tRef = _distribute_with_cassiopee(tRef, NumberOfProcessors, workflow.SplittingAndDistribution['CoresPerNode'])
+    
+    tRef = cgns.castNode(tRef)
+    return tRef
+
+def _split_with_cassiopee(tRef, basesToSplit, basesNotToSplit, ProcPointsLoad, NumberOfParts, NumberOfProcessors, raise_error=False):
+
+    import Converter.PyTree as C
+    import Transform.PyTree as T
+    
     remainingNProcs = NumberOfParts * 1
     baseName2NProc = dict()
 
@@ -90,11 +109,9 @@ def _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts
         baseName2NProc[base[0]] = baseNProc
         remainingNProcs -= baseNProc
 
-
     if basesToSplit:
 
         tToSplit = cgns.add([b.copy() for b in basesToSplit])
-        splitter = workflow.SplittingAndDistribution['Splitter']
         C.registerAllNames(tToSplit) # HACK https://gitlab.onera.net/numerics/mola/-/issues/143
         tSplit = T.splitSize(tToSplit, 0, type=0, R=remainingNProcs,
                              minPtsPerDir=5)
@@ -104,12 +121,9 @@ def _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts
         HasDegeneratedZones = False
         if NbOfZonesAfterSplit < remainingNProcs:
             mola_logger.warning(f'Number of zones after split ({NbOfZonesAfterSplit}) is less than expected procs ({remainingNProcs})')
-            if splitter.lower() == 'cassiopee':
-                mola_logger.debug('attempting T.splitNParts()...')
-                tSplit = T.splitNParts(tToSplit, remainingNProcs)
-                tSplit = cgns.castNode(tSplit)
-            else:
-                raise MolaException(f'splitter {splitter} not implemented yet')
+            mola_logger.debug('attempting T.splitNParts()...')
+            tSplit = T.splitNParts(tToSplit, remainingNProcs)
+            tSplit = cgns.castNode(tSplit)
 
             splitZones = tSplit.zones()
             if len(splitZones) < remainingNProcs:
@@ -144,7 +158,7 @@ def _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts
                        ' - Reduce the number of procs\n'
                        ' - increase the number of grid points'))
             tRef = cgns.castNode(tRef)
-            return tRef, 0, np.inf, np.inf, np.inf, np.inf
+            return tRef  #, 0, np.inf, np.inf, np.inf, np.inf
 
     NZones = tRef.numberOfZones()
     if NumberOfProcessors > NZones:
@@ -155,34 +169,31 @@ def _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts
                    ' - Reduce the number of procs\n'
                    ' - increase the number of grid points'))
         else:
-            return tRef, 0, np.inf, np.inf, np.inf, np.inf
+            return tRef  #, 0, np.inf, np.inf, np.inf, np.inf
+    
+    return tRef
 
-    distributor = workflow.SplittingAndDistribution['Distributor']
+def _distribute_with_cassiopee(tree, NumberOfProcessors:int, cores_per_node: int, raise_error=True):
+    
+    import Distributor2.PyTree as D2
+
     stats = dict()
-    if distributor.lower() == 'cassiopee':
-        # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
-        with redirect_streams_to_null():
-            tRef, stats = D2.distribute(tRef, NumberOfProcessors, algorithm='fast', useCom='all')
-            tRef = cgns.castNode(tRef)
-        stats.update(stats)
-    else: 
-        raise MolaException(f'distributor {distributor} not implemented yet')
+    # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
+    with redirect_streams_to_null():
+        tree, stats = D2.distribute(tree, NumberOfProcessors, algorithm='fast', useCom='all')
+        tree = cgns.castNode(tree)
+    stats.update(stats)
    
     behavior = 'raise' if raise_error else 'silent'
+    if hasAnyEmptyProc(tree, NumberOfProcessors, behavior=behavior):
+        tree = cgns.castNode(tree)
+        return tree  #, 0, np.inf, np.inf, np.inf, np.inf
 
-    if hasAnyEmptyProc(tRef, NumberOfProcessors, behavior=behavior):
-        tRef = cgns.castNode(tRef)
-        return tRef, 0, np.inf, np.inf, np.inf, np.inf
+    HighestLoad = getNbOfPointsOfHighestLoadedNode(tree, cores_per_node)
+    HighestLoadProc = getNbOfPointsOfHighestLoadedProc(tree)
 
-    splitAndDistribUser = workflow.SplittingAndDistribution
-
-    cores_per_node = splitAndDistribUser['CoresPerNode']
-
-    HighestLoad = getNbOfPointsOfHighestLoadedNode(tRef, cores_per_node)
-    HighestLoadProc = getNbOfPointsOfHighestLoadedProc(tRef)
-
-    tRef = cgns.castNode(tRef)
-    return tRef, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad, HighestLoadProc
+    # return tree, NZones, stats['varMax'], stats['meanPtsPerProc'], HighestLoad, HighestLoadProc
+    return tree
 
 def _splitAndDistributeUsingNPartsWithMaia(workflow):
     from mola.cfd.preprocess.mesh.tools import to_partitioned_if_distributed
@@ -233,7 +244,7 @@ def getNbOfPointsOfHighestLoadedProc(t):
 
     return HighestLoad
 
-def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
+def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise'):
     '''
     Check the proc distribution of a tree and raise an error (or print message)
     if there are any empty proc.
@@ -260,10 +271,6 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
             * ``'silent'``
                 No error, no print; execution continues
 
-        debug_filename : str
-            if given, then writes the input tree **t** before the designed
-            exceptions are raised or in case some proc is empty.
-
     Returns
     -------
 
@@ -278,6 +285,7 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
 
     for z in t.zones():
         proc = int(getProc(z))
+        print(f'{proc=}')
 
         if proc < 0:
             raise ValueError('zone %s is not distributed'%z[0])
@@ -295,7 +303,12 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise', debug_filename=''):
         hasAnyEmptyProc = True
         MSG = 'THERE ARE UNAFFECTED PROCS IN DISTRIBUTION!!\n'
         MSG+= 'Empty procs: %s'%str(UnaffectedProcs)
-        raise MolaException(MSG, exit=(behavior == 'raise'))
+        if behavior == 'silent':
+            pass
+        elif behavior == 'print':
+            mola_logger.error(MSG)
+        else:
+            raise MolaException(MSG)
     else:
         hasAnyEmptyProc = False
 
