@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
+
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException
 
@@ -56,7 +58,7 @@ def is_rotating(Motion):
     if callable(Motion) or any([callable(v) for v in Motion.values()]):
         # complex motion given as a function
         return True
-    if sum(Motion['RotationSpeed']) == 0:
+    if np.linalg.norm(Motion['RotationSpeed']) < 1e-12:
         return False
     else:
         return True
