@@ -182,15 +182,17 @@ def get_time_marching_setup(Numerics):
 
 def get_motion(Motion):
     from mola.cfd.preprocess.motion.motion import is_mobile
-    from mola.cfd.preprocess.motion.solver_fast import get_rotation_parameter
+    from mola.cfd.preprocess.motion.solver_fast import get_rotation_parameter, check_unique_motion
 
     Num2Zones = dict()
-    for family, MotionOnFamily in Motion.items():
-        if is_mobile(MotionOnFamily):
-            Num2Zones[f'Local@{family}'] = dict(
-                motion = 'rigid',
-                rotation = get_rotation_parameter(MotionOnFamily),
-            )
+    if check_unique_motion(Motion): 
+        rotation_parameter = get_rotation_parameter(Motion) # CAVEAT must be same for all Motion dicts
+        for family, MotionOnFamily in Motion.items():
+            if is_mobile(MotionOnFamily):
+                Num2Zones[f'Local@{family}'] = dict(
+                    motion = 'rigid',
+                    rotation = rotation_parameter,
+                )
     
     Parameters = dict(Num2Zones=Num2Zones)
     return Parameters

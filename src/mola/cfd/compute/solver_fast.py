@@ -25,7 +25,7 @@ NumberOfProcessors = comm.Get_size()
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.cfd.compute.read_cfd_files import read_cfd_files
-from mola.cfd.preprocess.motion.solver_fast import is_any_family_mobile
+from mola.cfd.preprocess.motion.motion import any_mobile
 
 def apply_to_solver(workflow):
 
@@ -45,7 +45,7 @@ def apply_to_solver(workflow):
         workflow._status = 'RUNNING_BEFORE_ITERATION'
         workflow._coprocess_manager.run_iteration()
 
-        if is_any_family_mobile(workflow.Motion):
+        if any_mobile(workflow.Motion):
             apply_motion(workflow)
 
         FastS._compute(workflow.tree,
@@ -83,7 +83,7 @@ def apply_motion(workflow):
     FastC._motionlaw(workflow.tree, theta, omega)
 
 def get_theta_and_omega(workflow, iteration):
-    from mola.cfd.preprocess.motion.solver_fast import get_first_found_rotation_speed_vector_at_motion
+    from mola.cfd.preprocess.motion.motion import get_first_found_rotation_speed_vector_at_motion
 
     omega_vector = get_first_found_rotation_speed_vector_at_motion(workflow.Motion)
     omega = np.linalg.norm(omega_vector)

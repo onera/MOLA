@@ -58,13 +58,13 @@ def get_timestep_based_on_azimutal_step(Motion, delta_psi):
     return dt
 
 def get_rpm(Motion):
-    omega = np.linalg.norm(get_first_found_rotation_speed_vector_at_motion(Motion))
+    omega = np.linalg.norm(motion.get_first_found_rotation_speed_vector_at_motion(Motion))
     return omega * 30 / np.pi
 
 
 def get_rotation_parameter(Motion):
-    RotationAxis = get_rotation_axis_from_first_found_motion(Motion)
-    RotationAxisOrigin = get_first_found_rotation_axis_origin_vector_at_motion(Motion)
+    RotationAxis = motion.get_rotation_axis_from_first_found_motion(Motion)
+    RotationAxisOrigin = motion.get_first_found_rotation_axis_origin_vector_at_motion(Motion)
 
     rotation = [
         RotationAxis[0], 
@@ -77,30 +77,4 @@ def get_rotation_parameter(Motion):
         0.  # amplitude
     ]
     return rotation
-
-def get_rotation_axis_from_first_found_motion(Motion):
-    RotationVector = get_first_found_rotation_speed_vector_at_motion(Motion) 
-    RotationAxis = RotationVector / np.linalg.norm(RotationVector)
-    return RotationAxis
-
-
-def get_first_found_rotation_speed_vector_at_motion(Motion):
-    for family_name, motion_of_family in Motion.items():
-        if 'RotationSpeed' in motion_of_family:
-            return np.array(motion_of_family['RotationSpeed'])
-    raise MolaException("no RotationSpeed attribute found in Motion")
-
-
-def get_first_found_rotation_axis_origin_vector_at_motion(Motion):
-    for family_name, motion_of_family in Motion.items():
-        if 'RotationSpeed' in motion_of_family:
-            return np.array(motion_of_family['RotationAxisOrigin'])
-    raise MolaException("no RotationSpeed attribute found in Motion")
-
-
-def is_any_family_mobile(Motion):
-    for family_name, motion_of_family in Motion.items():
-        if 'RotationSpeed' in motion_of_family:
-            return True
-    return False
 

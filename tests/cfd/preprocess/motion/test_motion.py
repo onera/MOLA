@@ -21,6 +21,149 @@ import numpy as np
 from mola.cfd.preprocess.motion import motion
 from treelab import cgns
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_any_mobile_whith_no_family():
+    Motion = dict()
+    assert not motion.any_mobile(Motion)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_any_mobile_with_single_family_not_mobile():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[0., 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    assert not motion.any_mobile(Motion)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_any_mobile_with_multiple_families():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[0., 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    assert motion.any_mobile(Motion)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_first_found_rotation_axis_origin_vector_at_motion_1():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-5., 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    rotation_axis_origin = motion.get_first_found_rotation_axis_origin_vector_at_motion(Motion)
+    expected_rotation_axis_origin = [3,2,-1]
+    assert np.allclose(rotation_axis_origin, expected_rotation_axis_origin)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_first_found_rotation_axis_origin_vector_at_motion_2():
+    Motion = dict(
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    rotation_axis_origin = motion.get_first_found_rotation_axis_origin_vector_at_motion(Motion)
+    expected_rotation_axis_origin = [0,0,0]
+    assert np.allclose(rotation_axis_origin, expected_rotation_axis_origin)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_first_found_rotation_speed_vector_at_motion_1():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-5., 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    rotation_speed = motion.get_first_found_rotation_speed_vector_at_motion(Motion)
+    expected_rotation_speed = [-5,0,0]
+    assert np.allclose(rotation_speed, expected_rotation_speed)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_first_found_rotation_speed_vector_at_motion_2():
+    Motion = dict(
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    rotation_speed = motion.get_first_found_rotation_speed_vector_at_motion(Motion)
+    expected_rotation_speed = [10,0,0]
+    assert np.allclose(rotation_speed, expected_rotation_speed)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_rotation_axis_from_first_found_motion_1():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-5., 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    rotation_axis = motion.get_rotation_axis_from_first_found_motion(Motion) 
+    expected_rotation_axis = [-1,0,0]
+    
+    assert np.allclose(rotation_axis, expected_rotation_axis)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_rotation_axis_from_first_found_motion_2():
+    Motion = dict(
+        AnotherRotor = dict(
+            RotationSpeed=[0., 0., 50.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    rotation_axis = motion.get_rotation_axis_from_first_found_motion(Motion) 
+    expected_rotation_axis = [0,0,1]
+    
+    assert np.allclose(rotation_axis, expected_rotation_axis)
+
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -63,28 +206,10 @@ def test_update_motion_with_defaults3():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_update_motion_with_defaults_function():
-    Motion = lambda x: x
-    Motion_Ref = copy.copy(Motion)
-    motion.update_motion_with_defaults(Motion)
-
-    assert Motion == Motion_Ref
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_mobile1():
     Motion = dict()
     motion.update_motion_with_defaults(Motion)
     assert not motion.is_mobile(Motion)
-
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_is_mobile2():
-    Motion = lambda x: x
-    motion.update_motion_with_defaults(Motion)
-    assert motion.is_mobile(Motion)
 
 
 

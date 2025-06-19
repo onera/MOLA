@@ -19,7 +19,7 @@ from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import MolaAssertionError
 from mola.cfd.preprocess.extractions.solver_fast import add_convergence_history
-from mola.cfd.preprocess.motion.solver_fast import is_any_family_mobile
+from mola.cfd.preprocess.motion.motion import any_mobile
 from mola.cfd.compute.solver_fast import get_theta_and_omega
 
 def apply_to_solver(workflow):
@@ -78,6 +78,6 @@ def _split_global_and_local_parameters(parameters: dict, prefix_local: str = 'Lo
 
 def get_infos_ale(workflow):
 
-    if is_any_family_mobile(workflow.Motion):
+    if any_mobile(workflow.Motion):
         theta, omega = get_theta_and_omega(workflow, workflow.Numerics['IterationAtInitialState'])
         return [theta, omega]
