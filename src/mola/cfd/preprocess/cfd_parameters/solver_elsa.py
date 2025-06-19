@@ -403,9 +403,10 @@ def get_spatial_fluxes(Numerics, tree, Flow):
     SchemeSetup['t_harten'] = 0.01
 
     # Viscous flux
-    # TODO Put in CHANGELOG: parameters for unstructured meshes are now used for structured meshes
-    SchemeSetup['viscous_fluxes']  = '5p_cor2' # adapted to unstructured mesh
-    SchemeSetup['implconvectname'] = 'vleer' # only available for unstructured mesh, see https://elsa-e.onera.fr/issues/6492
+    SchemeSetup['viscous_fluxes']  = '5p_cor'
+    if not tree.isStructured():
+        SchemeSetup['viscous_fluxes']  = '5p_cor2'
+        SchemeSetup['implconvectname'] = 'vleer' # only available option for unstructured mesh https://elsa-e.onera.fr/issues/6492
 
     SchemeSetup['extrap_grad_mean'] = 1
     SchemeSetup['extrap_grad_tur'] = 1
@@ -481,6 +482,7 @@ def get_miscellaneous_setup(workflow):
     MiscellaneousSetup = dict(
         multigrid        = 'none',
         misc_source_term = 'inactive',
+        muratiomax = 1.0e20,
     )
 
     # TODO Check implementation for BodyForce and Chimera

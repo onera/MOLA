@@ -23,10 +23,9 @@ from . import fields_manipulator as fields
 
 
 def add_aerodynamic_coefficients_to( integral_extraction : dict, ApplicationContext : dict,
-        blade_name : str, diameter : float, density : float, axial_velocity : float):
+        diameter : float, density : float, axial_velocity : float):
     
     if integral_extraction["Type"] != "Integral":
-        integral_type = integral_extraction["Type"]
         return
 
     t : cgns.Tree = integral_extraction["Data"] 
@@ -42,35 +41,33 @@ def add_aerodynamic_coefficients_to( integral_extraction : dict, ApplicationCont
             fx, fy, fz = fields.get_forces_from(zone, container_name)
 
             _update_force_coefficients(coefs, fx, fy, fz,
-                ApplicationContext, blade_name, diameter, density)
+                ApplicationContext, diameter, density)
             
             try:
                 tx, ty, tz = fields.get_moments_from(zone, container_name)
                 _update_torque_coefficients(coefs, tx, ty, tz, 
-                    ApplicationContext, blade_name, diameter, density, axial_velocity)
+                    ApplicationContext, diameter, density, axial_velocity)
             except MolaMissingFieldsError:
                 pass # HACK relaxing until TODO https://gitlab.onera.net/numerics/solver/sonics/-/issues/83
 
 def _update_force_coefficients(coefs : dict, fx, fy, fz, ApplicationContext : dict,
-        blade_name : str, diameter : float, density : float):
+        diameter : float, density : float):
     axis = ApplicationContext["ShaftAxis"]
     axis /= np.linalg.norm(axis)
 
-    flux_coef = ApplicationContext["NormalizationCoefficient"][blade_name]["FluxCoef"]
     RPS = getRPS(ApplicationContext)
 
-    Thrust = fields.project_load(fx,fy,fz, np.sign(RPS)*axis ) * flux_coef
+    Thrust = fields.project_load(fx,fy,fz, np.sign(RPS)*axis )
 
     coefs["Thrust"][:] = Thrust
     coefs["CT"][:] = Thrust / (density * RPS**2 * diameter**4)
 
 
 def _update_torque_coefficients(coefs : dict, tx, ty, tz, ApplicationContext : dict,
-        blade_name : str, diameter : float, density : float, axial_velocity : float):
+        diameter : float, density : float, axial_velocity : float):
     axis = ApplicationContext["ShaftAxis"]
     axis /= np.linalg.norm(axis)
 
-    flux_coef      = ApplicationContext["NormalizationCoefficient"][blade_name]["FluxCoef"]
     rotation_center = ApplicationContext.get('RotationCenter',np.array([0.0,0.0,0.0]))
     
     if np.linalg.norm(rotation_center) != 0:
@@ -79,7 +76,7 @@ def _update_torque_coefficients(coefs : dict, tx, ty, tz, ApplicationContext : d
     RPS = getRPS(ApplicationContext)
     RPM = 60 * RPS
 
-    Torque = fields.project_load(tx,ty,tz,-axis) * flux_coef
+    Torque = fields.project_load(tx,ty,tz,-axis)
     Power = Torque * RPM * np.pi/30
 
     Thrust = coefs['Thrust']

@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
+
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException
 
@@ -49,23 +51,30 @@ def update_motion_with_defaults(Motion):
     Motion.setdefault('RotationAxisOrigin', [0., 0., 0.])
     Motion.setdefault('TranslationSpeed', [0., 0., 0.])
 
+def any_mobile(MotionDictOfDicts):
+    for family_name, motion_of_family in MotionDictOfDicts.items():
+        if is_mobile(motion_of_family):
+            return True
+    return False
+
+
 def is_mobile(Motion):
     return is_rotating(Motion) or is_translating(Motion)
 
 def is_rotating(Motion):
-    if callable(Motion) or any([callable(v) for v in Motion.values()]):
-        # complex motion given as a function
-        return True
-    if sum(Motion['RotationSpeed']) == 0:
+    if 'RotationSpeed' not in Motion:
+        return False
+
+    if np.linalg.norm(Motion['RotationSpeed']) < 1e-12:
         return False
     else:
         return True
 
 def is_translating(Motion):
-    if callable(Motion) or any([callable(v) for v in Motion.values()]):
-        # complex motion given as a function
-        return True
-    if all([v==0 for v in Motion['TranslationSpeed']]):
+    if 'TranslationSpeed' not in Motion:
+        return False
+
+    if np.linalg.norm(Motion['TranslationSpeed']) < 1e-12:
         return False
     else:
         return True
@@ -76,3 +85,23 @@ def all_families_are_fixed(workflow):
     else:
         return True
     
+def get_rotation_axis_from_first_found_motion(Motion):
+    RotationVector = get_first_found_rotation_speed_vector_at_motion(Motion) 
+    RotationAxis = RotationVector / np.linalg.norm(RotationVector)
+    return RotationAxis
+
+
+def get_first_found_rotation_speed_vector_at_motion(Motion):
+    for family_name, motion_of_family in Motion.items():
+        if 'RotationSpeed' in motion_of_family:
+            return np.array(motion_of_family['RotationSpeed'])
+    raise MolaException("no RotationSpeed attribute found in Motion")
+
+
+def get_first_found_rotation_axis_origin_vector_at_motion(Motion):
+    for family_name, motion_of_family in Motion.items():
+        if 'RotationSpeed' in motion_of_family:
+            return np.array(motion_of_family['RotationAxisOrigin'])
+    raise MolaException("no RotationSpeed attribute found in Motion")
+
+

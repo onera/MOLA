@@ -437,7 +437,8 @@ def test_extract_integral(tmp_path):
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'laminar')
     
     extraction = dict(Type='Integral', Source='WALL', Name='WALL_LOADS',
-                      Fields=['Force','Torque','MassFlow'])
+                      Fields=['Force','Torque','MassFlow'],
+                      FluxCoef=1.0)
     workflow._coprocess_manager.Extractions = [ extraction ]
     workflow.Extractions = workflow._coprocess_manager.Extractions
 

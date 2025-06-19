@@ -21,3 +21,4 @@ from mola.workflow import WorkflowManager
 
 from . import propeller
 from . import turbomachinery
+from mola import solver
