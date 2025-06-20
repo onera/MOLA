@@ -33,18 +33,18 @@ def apply_to_solver(workflow):
     if not hasattr(workflow, '_FULL_CGNS_MODE'):  # FIXME Full CGNS mode cannot work well because niter et al. must be taken in workflow.Numerics
         set_parameters_in_elsa_objects(workflow.SolverParameters, workflow.Numerics)
 
-    e = read_cfd_files.apply(workflow)
+    elsa_parser = read_cfd_files.apply(workflow)
 
     from mola.cfd.coprocess.manager import CoprocessManager
     coprocess_manager = CoprocessManager(workflow)
     workflow._coprocess_manager = coprocess_manager
 
-    e.action = elsAxdt.COMPUTE
-    e.mode = elsAxdt.READ_ALL
-    e.compute()
+    elsa_parser.action = elsAxdt.COMPUTE
+    elsa_parser.mode = elsAxdt.READ_ALL
+    elsa_parser.compute()
 
     if rank==0:
-        table = e.symboltable()
+        table = elsa_parser.symboltable()
         with open(os.path.join(names.DIRECTORY_LOG, f'symbol_table.log'), 'w') as f:
             import pprint
             f.write(pprint.pformat(table))

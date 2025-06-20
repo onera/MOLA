@@ -2,13 +2,13 @@
 Workflow linear cascade
 #######################
 
-.. py:currentmodule::  mola.workflow.linear_cascade
+.. py:currentmodule::  mola.workflow.fixed.linear_cascade
 
 The Workflow linear cascade can be imported with:
 
 .. code-block:: python
 
-    from mola.workflow import linear_cascade
+    from mola.workflow.fixed import linear_cascade
     workflow = linear_cascade.Workflow(...)
 
 It is adapted to configurations with a periodicity by translation.

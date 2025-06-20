@@ -535,6 +535,7 @@ class WorkflowInterface(object):
                 * `'copy'`: initialize flow by copying the flow in the file given by **Source**.
                   Both meshes must be exactly the same.
                 * `'interpolate'`: initialize flow by interpolating the flow from the file given by **Source**.
+
             By default 'uniform'
         Source : Union[     str, Tree, Base, Zone ], optional
             Source mesh, given as a file name or as a treelab Tree.
@@ -899,6 +900,7 @@ class WorkflowInterface(object):
             If not providing, the default value 'auto' corresponds to:
                 * with `Scheduler='bash'`:  cd <RunDirectory>; sbatch :mola_name:`FILE_JOB`
                 * with `Scheduler='SLURM'`: cd <RunDirectory>; sbatch :mola_name:`FILE_JOB`
+
             It is possible to run a more sophisticated command if needed with this attribute **LauncherCommand**.            
         FilesAndDirectories : list, optional
             Files and directories to copy in **RunDirectory**, by default []
