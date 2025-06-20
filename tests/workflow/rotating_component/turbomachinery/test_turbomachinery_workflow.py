@@ -267,11 +267,6 @@ def test_extractions_definition_coherency(tmp_path):
 
     w = turbomachinery.Workflow(**params)
 
-    if w.Solver == 'fast':
-        w.Numerics.update(dict(
-            TimeMarching = 'Unsteady',
-            TimeStep = 1e-6))
-
     w.prepare()
 
     found_requested_extraction = False

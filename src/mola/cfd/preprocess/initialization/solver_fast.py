@@ -26,6 +26,7 @@ def adapt_workflow_for_fast(workflow):
     split_opts = workflow.SplittingAndDistribution
     _must_split_at_preprocess_with_cassiopee(split_opts)
     _must_distribute_with_cassiopee(split_opts)
+    
 
 def _must_split_at_preprocess_with_cassiopee(split_opts):
     strategy = split_opts['Strategy']
@@ -41,3 +42,4 @@ def _must_distribute_with_cassiopee(split_opts):
         msg = f'fast solver requires to pre-assign mpi ranks in preprocess, for doing this switching distributor from distributor "{distributor}" to "Cassiopee"'
         mola_logger.warning(msg)
         split_opts['Distributor'] = 'Cassiopee'
+

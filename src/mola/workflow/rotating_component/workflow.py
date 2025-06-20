@@ -520,7 +520,13 @@ class WorkflowRotatingComponent(Workflow):
         a = axis
         max_squared_distance = 0.0
         zone : cgns.Zone
-        for zone in tree.zones():
+        zones = tree.zones()
+
+        if not zones:
+            tree.save(f'debug_tree_rank_{rank}.cgns')
+            raise TypeError("no zones contained in tree, check debug file")
+
+        for zone in zones:
             x, y, z = zone.xyz(ravel=True)
             for i in range(len(x)):
                 p = np.array([x[i], y[i], z[i]])
@@ -534,6 +540,7 @@ class WorkflowRotatingComponent(Workflow):
             absolute_max_squared_distance = max(each_rank_max_squared_distances)
             radius = np.sqrt(absolute_max_squared_distance)
         comm.barrier()
+        assert radius > 0, max_squared_distance
         radius = comm.bcast(radius,0)
         return radius
 

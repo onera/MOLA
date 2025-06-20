@@ -1,7 +1,9 @@
-from mola.workflow.rotating_component.propeller.workflow import WorkflowPropeller, solver
+from mola.workflow.rotating_component import propeller, solver
 import numpy as np
 
-w = WorkflowPropeller(
+w = propeller.Workflow(
+    
+    Solver='elsa', 
 
     RawMeshComponents=[
         dict(
@@ -12,13 +14,13 @@ w = WorkflowPropeller(
 
 
     Flow = dict(
-        Velocity = 1.0,
+        Velocity = 10.0,
         Density = 1.225,
         Temperature = 288.15,
     ),
 
     ApplicationContext = dict(
-        ShaftRotationSpeed = 2000.0,
+        ShaftRotationSpeed = -2000.0, # please NOTE the minus sign
         NumberOfBlades = 5,
         Surface = 1.0,
         Length = 1.0
@@ -27,13 +29,14 @@ w = WorkflowPropeller(
     Turbulence = dict(
         Level = 0.1 * 0.01,
         Viscosity_EddyMolecularRatio = 0.1,
+        TurbulenceCutOffRatio = 1e-8,
         Model = 'SA',
     ),
 
     # Initialization = dict(WallDistanceComputingTool='cassiopee'),
 
     Numerics = dict(
-        NumberOfIterations=10,
+        NumberOfIterations=2000,
         MinimumNumberOfIterations=3,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
@@ -69,7 +72,8 @@ w = WorkflowPropeller(
         Scheduler = 'local',
     ),
 
-    # HINT if running in local LD, avoid using PyPart since it provokes huge overhead https://elsa.onera.fr/issues/11440
+    # HINT if running in local LD, avoid using PyPart since it provokes huge overhead
+    # https://elsa.onera.fr/issues/11440
     SplittingAndDistribution = dict(
         Strategy='AtPreprocess',
         Splitter='Cassiopee',
@@ -80,4 +84,3 @@ w = WorkflowPropeller(
 w.prepare()
 w.write_cfd_files()
 w.submit()
-w.assert_completed_without_errors()

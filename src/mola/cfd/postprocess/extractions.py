@@ -75,7 +75,7 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
 
     else:
         raise MolaException(f'extract_bc is available only with cassiopee (now tool={tool})')
-    
+
     return extraction
     
 def get_renamed_tree(zones, basename, CellDimension=3, PhysicalDimension=3):

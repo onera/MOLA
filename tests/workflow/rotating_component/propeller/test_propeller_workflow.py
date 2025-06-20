@@ -108,12 +108,6 @@ def test_workflow_propeller_sector_pre1_comp1(tmp_path, workflow_sector_params):
     w = WorkflowPropeller(**workflow_sector_params)
     w.RunManagement['RunDirectory'] = str(tmp_path)
 
-    # TODO propose automatically, in order to avoid these lines
-    if w.Solver == 'fast':
-        w.Numerics.update(dict(
-            TimeMarching = 'Unsteady',
-            TimeStep = 1e-6))
-
     w.prepare()
     w.write_cfd_files()
     w.submit()
@@ -127,13 +121,6 @@ def test_workflow_propeller_sector_pre1_comp2(tmp_path, workflow_sector_params):
     workflow_sector_params["RunManagement"]["NumberOfProcessors"] = 2
     w = WorkflowPropeller(**workflow_sector_params)
     w.RunManagement['RunDirectory'] = str(tmp_path)
-
-    # TODO propose automatically, in order to avoid these lines
-    if w.Solver == 'fast':
-        w.Numerics.update(dict(
-            TimeMarching = 'Unsteady',
-            TimeStep = 1e-6))
-
 
     w.RunManagement["SkipDebugRaise"] = True
     w.prepare()
@@ -153,13 +140,6 @@ def test_wall_slip_extraction(tmp_path, workflow_sector_params):
     ]
     w = WorkflowPropeller(**workflow_sector_params)
     w.RunManagement['RunDirectory'] = str(tmp_path)
-
-
-    if w.Solver == 'fast':
-        w.Numerics.update(dict(
-            TimeMarching = 'Unsteady',
-            TimeStep = 1e-6))
-
 
     w.prepare()
     w.write_cfd_files()

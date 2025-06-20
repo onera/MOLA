@@ -17,15 +17,12 @@
 
 import numpy as np
 from mola.cfd.preprocess.motion import motion
-from mola.logging import mola_logger, MolaAssertionError
+from mola.logging import mola_logger, MolaAssertionError, MolaException
 
 def apply_to_solver(workflow):
-    mola_logger.warning("motion to be implemented for FAST solver")
-
     unique_motion = check_unique_motion(workflow.Motion)
     if unique_motion is not None:
-        if workflow.Numerics['TimeMarching'] == 'Steady':
-            raise MolaAssertionError('FastS simulation with motion required to be unsteady')
+        _must_be_unsteady_if_has_motion(workflow.Motion, workflow.Numerics)
         
 def check_unique_motion(Motion):
     '''
@@ -42,27 +39,42 @@ def check_unique_motion(Motion):
     
     return unique_motion
 
+def _must_be_unsteady_if_has_motion(Motion, Numerics, DefaultAzimutalStepInDegrees=1.0):
+
+    DefaultTimeStep = get_timestep_based_on_azimutal_step(Motion, DefaultAzimutalStepInDegrees)
+
+    if Numerics['TimeMarching'] == 'Steady':
+        Numerics["TimeMarching"] = "Unsteady"
+        if not 'TimeStep' in Numerics or Numerics['TimeStep'] is None:
+            msg = f'fast solver requires unsteady simulation if it has Motion. Using TimeStep={DefaultTimeStep} (ΔΨ={DefaultAzimutalStepInDegrees}°)'
+            mola_logger.warning(msg)
+            Numerics["TimeStep"] = DefaultTimeStep
+
+
+def get_timestep_based_on_azimutal_step(Motion, delta_psi):
+
+    rpm = get_rpm(Motion)
+    dt = delta_psi / ( 6 * rpm)
+    return dt
+
+def get_rpm(Motion):
+    omega = np.linalg.norm(motion.get_first_found_rotation_speed_vector_at_motion(Motion))
+    return omega * 30 / np.pi
+
+
 def get_rotation_parameter(Motion):
-    RotationAxis = np.array(Motion['RotationSpeed'])
-    assert RotationAxis[1] == RotationAxis[2] == 0
-    RotationSpeed = RotationAxis[0]
-    # RotationSpeed = np.sqrt(RotationAxis.dot(RotationAxis)) # not working, the sign is always positive!
-    if RotationSpeed != 0:
-        RotationAxis = np.absolute(RotationAxis / RotationSpeed)
-    else:
-        RotationAxis = [1., 0., 0.]    
+    RotationAxis = motion.get_rotation_axis_from_first_found_motion(Motion)
+    RotationAxisOrigin = motion.get_first_found_rotation_axis_origin_vector_at_motion(Motion)
 
     rotation = [
         RotationAxis[0], 
         RotationAxis[1], 
         RotationAxis[2], 
-        Motion['RotationAxisOrigin'][0], 
-        Motion['RotationAxisOrigin'][1], 
-        Motion['RotationAxisOrigin'][2],
+        RotationAxisOrigin[0], 
+        RotationAxisOrigin[1], 
+        RotationAxisOrigin[2],
         0., # freq
         0.  # amplitude
     ]
     return rotation
 
-def is_any_family_mobile(workflow):
-    return 'RotationSpeed' in workflow.Motion

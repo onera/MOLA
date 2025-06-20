@@ -93,9 +93,13 @@ def write_job_launcher(RunManagement, scheduler_options):
 
     job_text = get_job_text('fast', RunManagement, scheduler_options)+'\n\n'
     job_text += 'export KMP_WARNINGS=FALSE\n'
-    job_text += 'export OMP_PLACES=cores\n'
-    argcmd = '-a $OPENMPIOVERSUBSCRIBE' if bool(os.environ.get("OPENMPIOVERSUBSCRIBE")) else ''
-    job_text += f'kpython -n {nranks} -t {nthreads} {argcmd} {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}'
+    if nranks == 1:
+        job_text += f'export OMP_NUM_THREADS={nthreads}\n'
+        job_text += f'python3 {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}'
+    else:
+        job_text += 'export OMP_PLACES=cores\n'
+        argcmd = '-a $OPENMPIOVERSUBSCRIBE' if bool(os.environ.get("OPENMPIOVERSUBSCRIBE")) else ''
+        job_text += f'kpython -n {nranks} -t {nthreads} {argcmd} {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}'
 
     SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 

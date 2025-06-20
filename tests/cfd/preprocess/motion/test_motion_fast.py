@@ -36,6 +36,183 @@ class FakeWorkflow():
         self.Numerics = dict(TimeMarching=TimeMarching)
 
 
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_rotation_parameter_1():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+
+    fast_parameter = solver_fast.get_rotation_parameter(Motion)
+
+    expected_parameter = [ 1.0, 0.0, 0.0, 3.0, 2.0, -1.0, 0.0, 0.0 ]
+    
+    assert np.allclose(fast_parameter, expected_parameter)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_rotation_parameter_2():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[0., 0., -5.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+
+    fast_parameter = solver_fast.get_rotation_parameter(Motion)
+
+    expected_parameter = [ 0.0, 0.0,-1.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]
+    
+    assert np.allclose(fast_parameter, expected_parameter)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_rpm():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-2*np.pi/60.0, 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    
+    rpm = solver_fast.get_rpm(Motion)
+    expected_rpm = 1
+    
+    assert np.allclose(rpm,expected_rpm)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_get_timestep_based_on_azimutal_step():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-2*np.pi/60.0, 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+
+    delta_psi = 6.0
+    dt = solver_fast.get_timestep_based_on_azimutal_step(Motion, delta_psi)
+    expected_dt = 1
+
+    assert np.allclose(dt, expected_dt)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_must_be_unsteady_if_has_motion_when_steady_no_timestep():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-2*np.pi/60.0, 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    Numerics = dict(TimeMarching='Steady')
+
+    solver_fast._must_be_unsteady_if_has_motion(Motion, Numerics)
+    dt = Numerics["TimeStep"]
+    assert Numerics["TimeMarching"] == "Unsteady"
+
+    excepted_dt = 1/6
+    assert np.allclose(dt,excepted_dt)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_must_be_unsteady_if_has_motion_when_steady_with_timestep():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-2*np.pi/60.0, 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+    Numerics = dict(TimeMarching='Steady', TimeStep=1.0)
+
+    solver_fast._must_be_unsteady_if_has_motion(Motion, Numerics)
+    dt = Numerics["TimeStep"]
+    assert Numerics["TimeMarching"] == "Unsteady"
+
+    excepted_dt = 1
+    assert np.allclose(dt,excepted_dt)
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_check_unique_motion_when_it_is_not():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-2*np.pi/60.0, 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[10., 0., 0.],
+            RotationAxisOrigin=[0., 0., 0.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+
+    try:
+        unique_motion = solver_fast.check_unique_motion(Motion)
+    except AssertionError:
+        return
+
+    raise AssertionError("should have catched error, meaning motion is not unique")
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_check_unique_motion_when_it_is_true():
+    Motion = dict(
+        Rotor = dict(
+            RotationSpeed=[-2*np.pi/60.0, 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        ),
+        AnotherRotor = dict(
+            RotationSpeed=[-2*np.pi/60.0, 0., 0.],
+            RotationAxisOrigin=[3., 2., -1.],
+            TranslationSpeed=[0., 0., 0.],
+        )
+    )
+
+    unique_motion = solver_fast.check_unique_motion(Motion)
+    assert unique_motion
+
+
+
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_apply_to_solver_steady_fix():
@@ -49,19 +226,6 @@ def test_apply_to_solver_steady_fix():
     workflow = FakeWorkflow(Motion, 'Steady')
     solver_fast.apply_to_solver(workflow)
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_apply_to_solver_steady_mobile():
-    Motion = dict(
-        Rotor = dict(
-            RotationSpeed=[500., 0., 0.],
-            RotationAxisOrigin=[3., 2., -1.],
-            TranslationSpeed=[5., 0., 8.],
-        )
-    )
-    workflow = FakeWorkflow(Motion, 'Steady')
-    with pytest.raises(MolaAssertionError):
-        solver_fast.apply_to_solver(workflow)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
