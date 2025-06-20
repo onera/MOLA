@@ -27,9 +27,8 @@ def extract_bc_from_family(tree, Family, comm):
         else:
             raise MolaException('cannot extract a bc from a cgns tree that is not partitioned (or partitionable) for use in maia')
 
-    # CAVEAT cannot extract surface grid only, raises error if no BCDataSet found
-    # surface = maia.algo.part.extract_part_from_family(tree, Family, comm, containers_name=['BCDataSet'])
-    surface = maia.algo.part.extract_part_from_family(tree, Family, comm, containers_name=[])
+    # CAVEAT cannot extract surface grid only, raises error if no BCDataSet found ?
+    surface = maia.algo.part.extract_part_from_family(tree, Family, comm, containers_name=['BCDataSet'])
     return surface
 
 def extract_bc_from_zsr(tree, Family, comm):

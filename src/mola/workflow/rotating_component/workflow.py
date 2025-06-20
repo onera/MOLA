@@ -115,9 +115,9 @@ class WorkflowRotatingComponent(Workflow):
                 rowParams['NumberOfBladesInInitialMesh'] = 1
                 mola_logger.info(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
 
-            elif "NumberOfBladesInInitialMesh" not in rowParams:
+            if "NumberOfBladesInInitialMesh" not in rowParams:
                 n = self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades'])
-                rowParams["NumberOfBladesInInitialMesh"] = n
+                rowParams.setdefault('NumberOfBladesInInitialMesh', n)     
 
     def set_motion(self):
         for row, rowParams in self.ApplicationContext['Rows'].items():
@@ -291,29 +291,19 @@ class WorkflowRotatingComponent(Workflow):
                 Azimuthal extension in radians
 
         '''
-
         import Converter.PyTree as C
-        import Converter.Internal as I
         import Post.PyTree as P
 
         if list(axis) != [1.0, 0.0, 0.0]:
             # CAVEAT
             raise MolaAssertionError('For now, this function only handles axis=[1., 0., 0.]')
 
-        # CAUTION https://elsa.onera.fr/issues/12076
-        if not t.isStructured():
-            t = I.adaptNGon42NGon3(t)
-            I._adaptPE2NFace(t)
-            t = cgns.castNode(t)
-
         # Extract zones in family
         zonesInFamily = [z for z in t.zones() if z.get(Type='FamilyName', Value=FamilyName)]
-        # Slice in x direction near inflow
+        # Slice in x direction at middle range
         xmin = np.amin([np.amin(zone.x()) for zone in zonesInFamily])
         xmax = np.amax([np.amax(zone.x()) for zone in zonesInFamily])
-        x_slice_value = xmin+0.05*(xmax-xmin)
-        sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=x_slice_value)
-        assert sliceX
+        sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
         # Compute Radius
         C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
         Rmin = C.getMinValue(sliceX, 'Radius')
