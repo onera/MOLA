@@ -24,6 +24,7 @@ from treelab import cgns
 
 import mola.naming_conventions as names
 from mola import server as SV 
+from mola import solver
 from mola.logging import (mola_logger,
                        MolaException,
                        MolaUserError,
@@ -48,7 +49,7 @@ from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
 
 from mola.workflow.interface import WorkflowInterface
-
+from mola.pytree.user import checker 
 
 class Workflow(object):
 
@@ -67,11 +68,13 @@ class Workflow(object):
         self.set_extractions()
         self.check_preprocess() # empty BCs... maybe solver-specific
         self.finalize_preprocess() # solver-specific
+        mola_logger.info('PREPROCESS FINALIZED', rank=0)
 
     def process_mesh(self):
+        mola_logger.info("processing mesh", rank=0)
         if self.Solver == 'sonics': # CAVEAT specifically verifying sonics, should reverse dependency properly
             from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-            adapt_workflow_for_sonics(self)            
+            adapt_workflow_for_sonics(self)
 
         elif self.Solver == 'fast': # CAVEAT specifically verifying fast, should reverse dependency properly
             from mola.cfd.preprocess.initialization.solver_fast import adapt_workflow_for_fast
@@ -94,25 +97,31 @@ class Workflow(object):
         run_manager.apply(self)
 
     def assemble(self):
+        mola_logger.info(" - assembling meshes", rank=0)
         self.read_meshes()
         self.set_workflow_parameters_in_tree()
 
     def positioning(self):
+        mola_logger.info(" - positioning meshes", rank=0)
         positioning.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def connect(self):
+        mola_logger.info(" - connecting meshes", rank=0)
         connect.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def define_families(self):
+        mola_logger.info(" - defining tags", rank=0)
         families.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def read_meshes(self):
+        mola_logger.info(" - reading meshes", rank=0)
         io.apply(self)
 
     def split_and_distribute(self):
+        mola_logger.info(" - splitting and distributing meshes", rank=0)
         split.apply(self)
         self.set_workflow_parameters_in_tree()
 
@@ -120,6 +129,7 @@ class Workflow(object):
         self.set_workflow_parameters_in_tree()
 
     def compute_flow_and_turbulence(self):
+        mola_logger.info("setting flow and turbulence parameters", rank=0)
         # mola-generic set of parameters
 
         # CAVEAT weird way of passing data, excessively relying on direct members
@@ -134,29 +144,36 @@ class Workflow(object):
         self.set_workflow_parameters_in_tree()
 
     def initialize_flow(self):
+        mola_logger.info("processing mesh")
         initialization.apply(self)
         self.set_workflow_parameters_in_tree()
     
     def set_boundary_conditions(self):
+        mola_logger.info("setting boundary conditions", rank=0)
         boundary_conditions.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def set_motion(self):
+        mola_logger.info("setting motion parameters", rank=0)
         motion.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def set_cfd_parameters(self):
+        mola_logger.info("setting cfd modeling and numerical parameters", rank=0)
         cfd_parameters.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def set_extractions(self):
+        mola_logger.info("setting extractions", rank=0)
         extractions.apply(self)
         self.set_workflow_parameters_in_tree()
     
     def check_preprocess(self):
+        mola_logger.info("checking preprocess consistency", rank=0)
         check.apply(self)
 
     def finalize_preprocess(self):
+        mola_logger.info("finalizing preprocess", rank=0)
         finalization.apply(self)
 
     def write_cfd_files(self):

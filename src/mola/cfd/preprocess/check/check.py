@@ -18,16 +18,17 @@
 import numpy as np
 import pprint
 from mola.cfd import apply_to_solver
-from mola.logging import mola_logger, MolaException, GREEN, ENDC
+from mola.logging import mola_logger, MolaException, GREEN, YELLOW, ENDC
 from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
 
 def apply(workflow):
     check_empty_bc(workflow)
     check_no_overlap_between_bcs(workflow.tree)
+    mola_logger.info(" - making solver-specific checkings")
     apply_to_solver(workflow)
 
 def check_empty_bc(workflow):
-
+    mola_logger.info(" - checking if there is any undefined BC")
     def isEmpty(emptyBC):
         if isinstance(emptyBC, list) or isinstance(emptyBC, np.ndarray):
             for i in emptyBC:
@@ -69,7 +70,15 @@ def check_empty_bc(workflow):
         assert_bc_and_connectivity_coherency(t)
     
     _ignore_undefined_periodic_boundaries_in_2D_structured_grids(t)
+
+    # CAUTION BUG https://elsa.onera.fr/issues/12076#note-5
+    if workflow.Solver == 'sonics': 
+        mola_logger.warn(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
+        return
+    
+    I._adaptNGon42NGon3(t)
     I._adaptPE2NFace(t)
+    mola_logger.info("getEmptyBC", rank=0)
     emptyBC = C.getEmptyBC(t, dim=3)
     empty_bcs = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
     
@@ -103,6 +112,7 @@ def _ignore_undefined_periodic_boundaries_in_2D_structured_grids(t):
 
 
 def assert_bc_and_connectivity_coherency(tree):
+    mola_logger.info(' -- checking BC and connectivity coherency',rank=0)
     import Converter.Internal as I
     import Converter.PyTree as C
     
@@ -148,6 +158,7 @@ def check_no_empty_Family_of_BC(tree):
             raise MolaException(f'Undefined BC Family {Family.name()}: a FamilyBC node is missing.')
 
 def check_no_overlap_between_bcs(tree):
+    mola_logger.info(" - checking if there is no overlapping BC")
     for zone in tree.zones():
         if zone.isUnstructured():
             # TODO develop the function for unstructured zones

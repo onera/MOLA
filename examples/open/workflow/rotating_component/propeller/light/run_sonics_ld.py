@@ -1,7 +1,7 @@
 from mola.workflow.rotating_component import propeller, solver
 import numpy as np
 
-assert solver == 'fast'
+assert solver == 'sonics'
 
 w = propeller.Workflow(
     
@@ -63,9 +63,9 @@ w = propeller.Workflow(
     ],
 
     RunManagement = dict(
-        NumberOfProcessors = 1,
-        NumberOfThreads = 8,
-        RunDirectory = f'example_{solver}_2',
+        NumberOfProcessors = 8,
+        NumberOfThreads = 1,
+        RunDirectory = f'example_{solver}',
         Scheduler = 'local',
     ),
 )

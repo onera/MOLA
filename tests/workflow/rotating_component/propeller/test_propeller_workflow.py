@@ -30,7 +30,7 @@ def test_workflow_propeller_init():
         'NumberOfBlades': 3,
         'NumberOfBladesInInitialMesh': 1,
         'NumberOfBladesSimulated': 1,
-        'ReferenceTurbulenceSetAtRelativeRadius': 0.75,
+        'TurbulenceSetAtRelativeRadius': 0.75,
         'Rows': {'Propeller': {'IsRotating': True,
                                 'NumberOfBlades': 3,
                                 'NumberOfBladesInInitialMesh': 1,
@@ -56,7 +56,7 @@ def test_compute_flow_and_turbulence(tmp_path, workflow_sector_params):
 
     Ω = w.ApplicationContext['ShaftRotationSpeed']
     rmax = w._blade_radius = 0.1 # trick to avoid process_mesh (accelerates test)
-    r_rel = w.ApplicationContext["ReferenceTurbulenceSetAtRelativeRadius"]
+    r_rel = w.ApplicationContext["TurbulenceSetAtRelativeRadius"]
     V = Ω * rmax * r_rel
     Tu = w.Turbulence['Level']
     ρ = 1.0

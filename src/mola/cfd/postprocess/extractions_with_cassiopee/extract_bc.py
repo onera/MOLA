@@ -19,7 +19,9 @@ import Converter.PyTree as C
 import Converter.Internal as I
 import Converter.Mpi as Cmpi
 
-from .tools import *
+from .tools import * # BAD PRACTICE !!
+
+from mola.pytree.user.checker import is_distributed_for_use_in_maia, assert_zones_have_zone_type_node
 
 def extract_bc(t, Family=None, Name=None, Type=None):
     '''
@@ -48,11 +50,23 @@ def extract_bc(t, Family=None, Name=None, Type=None):
             list of surfaces (zones) with multi-containers (including *BCData_t* 
             transformed into *FlowSolution_t* nodes)    
     '''
-    # CAVEAT BUG https://elsa.onera.fr/issues/12070
+    # CAUTION https://elsa.onera.fr/issues/12070
+    # CAUTION https://elsa.onera.fr/issues/12076
+    # HACK    https://elsa.onera.fr/issues/10641
 
-    # HACK https://elsa.onera.fr/issues/10641
+    t = I.copyRef(t)
+    
     if Cmpi.size > 1:
+        if is_distributed_for_use_in_maia(t):
+            raise TypeError("Cannot use Cassiopee for extracting a BC using a maia-distributed tree in a MPI parallel context https://elsa.onera.fr/issues/12070")
         t = Cmpi.convert2PartialTree(t, rank=Cmpi.rank)
+
+    t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                           FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
+
+    # CAUTION https://elsa.onera.fr/issues/12076
+    t = I.adaptNGon42NGon3(t)
+    I._adaptPE2NFace(t)
 
     args = [Family, Name, Type]
     if args.count(None) != len(args)-1:
@@ -77,8 +91,6 @@ def extract_bc(t, Family=None, Name=None, Type=None):
         extractBCarg = Type
         extractBCfun = C.extractBCOfType
     
-    t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
-                           FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
 
 
     bases_children_except_zones = []
@@ -89,7 +101,9 @@ def extract_bc(t, Family=None, Name=None, Type=None):
 
     bcs = []
     for zone in I.getZones(t):
-        extracted_bcs = I.getZones( extractBCfun(zone, extractBCarg))
+
+        extraction_output = extractBCfun(zone, extractBCarg)
+        extracted_bcs = I.getZones( extraction_output )
         if not extracted_bcs: continue
         I._adaptZoneNamesForSlash(extracted_bcs)
         for surf in extracted_bcs:
