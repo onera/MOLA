@@ -76,7 +76,6 @@ def check_empty_bc(workflow):
         mola_logger.warn(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
         return
     
-    I._adaptNGon42NGon3(t)
     I._adaptPE2NFace(t)
     mola_logger.info("getEmptyBC", rank=0)
     emptyBC = C.getEmptyBC(t, dim=3)
