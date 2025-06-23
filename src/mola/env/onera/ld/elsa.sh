@@ -31,14 +31,12 @@ unset I_MPI_PMI_LIBRARY
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
 # Treelab
-# NOTE installation hint:
-# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export DIST="ld"
 MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export DIST="visung"; fi
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
-export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
+# export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # # maia
 # module use --append /home/sonics/LD8/modules/
