@@ -19,7 +19,8 @@ while the higher-level API wraps these objects in a functional fashion.
 
    environment
    workflow/introduction
-   workflow/workflows_by_application/index
    workflow/inputs
+   workflow/boundary_conditions
+   workflow/workflows_by_application/index
    workflow/manager
    commands

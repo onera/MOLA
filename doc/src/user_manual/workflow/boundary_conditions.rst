@@ -1,6 +1,6 @@
-###################
-Boundary conditions
-###################
+#############################
+Available boundary conditions
+#############################
 
 On this page, all boundary condition types are listed, with their corresponding dictionary structure.
 For each, an example is given. The ``Type`` keyword is always required, and identifies the type of boundary condition.
@@ -37,7 +37,7 @@ An adiabatic, no-slip condition at wall:
 >>> dict(Type='WallViscous', Family='myFamily')
 
 SymmetryPlane
-============
+=============
 
 >>> dict(Type='SymmetryPlane', Family='myFamily')
 
@@ -116,6 +116,7 @@ OutflowRadialEquilibrium
 ========================
 
 .. code-block:: python
+
     dict(Type='OutflowRadialEquilibrium', Family='myFamily', 
         valve_type=4, valve_ref_pres=0.75*Pt, valve_ref_mflow=5., valve_relax=0.3*Pt
         )

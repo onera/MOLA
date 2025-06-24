@@ -29,7 +29,6 @@ def call_backend_function(function_name : str, backend : str, *args, **kwargs):
     '''
 
     module_path = get_wrap_module_path(backend)
-    print(module_path)
     backend_module = get_backend_module_from(module_path)
     fun = get_function_at_backend_from(backend_module, function_name)
 
