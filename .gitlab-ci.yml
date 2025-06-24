@@ -179,7 +179,7 @@ compile_doc:    # Name to use for doc deployment
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # only for a commit on the default branch
   before_script:
-    - source $MOLA_ENV_DEFAULT
+    - source $MOLA_ENV_ELSA
   script: 
     - cd doc
     - make install_theme
@@ -194,6 +194,7 @@ pages:    # Name to use for doc deployment
   stage: doc
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # only for a commit on the default branch
+  needs: ["compile_doc"]
   dependencies:
     - compile_doc
   before_script:
