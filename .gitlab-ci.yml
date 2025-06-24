@@ -188,7 +188,7 @@ pages:    # Name to use for doc deployment
     # compile doc
     - cd doc
     - make install_theme
-    - export $PYTHONPATH=./theme:$PYTHONPATH
+    - export PYTHONPATH=./theme:$PYTHONPATH
     - make doc
     - cd ..
     # copy doc of current version in public directory
