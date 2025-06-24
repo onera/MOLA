@@ -29,7 +29,7 @@ w = turbomachinery.Workflow(
     Turbulence = dict(
         Level = 0.03,
         Viscosity_EddyMolecularRatio = 0.1,
-        Model = 'SA',
+        Model = 'smith',
     ),
 
     Numerics = dict(
@@ -43,7 +43,7 @@ w = turbomachinery.Workflow(
              valve_type=4, #'BCValveLawQHyperbolic',
              valve_ref_pres=0.75*101325., 
              Pressure=0.75*101325., 
-             valve_relax=0.1#*101325.
+             valve_relax=0.1*101325.
              )
     ],
 
@@ -61,25 +61,27 @@ w = turbomachinery.Workflow(
         ),
     ],
 
-    # Initialization = dict(
-    #     ParametrizeWithHeight = 'turbo'
-    # ),
+    Initialization = dict(
+        ParametrizeWithHeight = 'turbo'
+    ),
 
     RunManagement=dict(
         JobName='rotor37',
         NumberOfProcessors=24,
-        RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37',
-        #RemovePreviousRunDirectory = True,
-        # AER='34790003F', # PDEV MOLA 2025
-        #TimeLimit = '00:30:00',
+        # RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37',
+        RunDirectory='/tmp_user/juno/tbontemp/.test_user_case/rotor37',
+        RemovePreviousRunDirectory = True,
+        AER='34790003F', # PDEV MOLA 2025
+        # TimeLimit = '00:30:00',
         ),
 
     )
 
-w.prepare()
-w.write_cfd_files()
-w.submit()
-w.assert_completed_without_errors()
+# w.prepare()
+# w.write_cfd_files()
+# w.submit()
+
+w.prepare_and_submit_remotely()
 
 # import numpy as np
 # manager = turbomachinery.WorkflowManager(w, root_directory='/tmp_user/sator/tbontemp/rotor37_multi_elsa_none_cf_v5.3.03')

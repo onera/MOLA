@@ -77,7 +77,7 @@ def apply_with_cassiopee(workflow):
             try: 
                 tolerance = operation['Tolerance']
             except KeyError:
-                tolerance = 1e-8
+                tolerance = component['DefaultToleranceForConnection']
                 mola_logger.warning(f'    connection tolerance not defined. Using tolerance={tolerance}')
             
             if ConnectionType == 'Match':

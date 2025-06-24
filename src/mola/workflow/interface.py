@@ -170,6 +170,7 @@ class WorkflowInterface(object):
         Families         : list = None,
         Positioning      : list = None,
         Connection       : list = None,
+        DefaultToleranceForConnection : float = 1e-8,
         OversetOptions   : dict = None,
         *,
         Name             : str,
@@ -200,6 +201,8 @@ class WorkflowInterface(object):
             _description_, by default None
         Connection : list, optional
             _description_, by default None
+        DefaultToleranceForConnection : float, optional
+            1e-8 by default
         OversetOptions : dict, optional
             :fas:`person-digging;sd-text-warning`
         '''

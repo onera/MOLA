@@ -64,7 +64,6 @@ def reader(w, component):
     component.setdefault('CleaningMacro', 'Autogrid_joinBC') 
 
     # Defaults for Connection
-    component.setdefault('DefaultToleranceForConnection', 1e-8)
     component.setdefault('Connection', [])
 
     # Defaults for Positioning
