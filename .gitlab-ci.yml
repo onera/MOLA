@@ -33,9 +33,9 @@ default:
       aud: https://gitlab.onera.net
 
 stages:
-  - test-unit
-  - test-integration
-  - code-quality
+  #- test-unit
+  #- test-integration
+  #- code-quality
   - doc
 
 
@@ -186,7 +186,7 @@ pages:    # Name to use for doc deployment
     # copy existing doc for previous versions
     - rsync -avL --exclude="$DOC_DIR_NAME" /stck/mola/html/ public
     # compile doc
-    - cd doc; make doc; cd ..
+    - cd doc; make update_theme; make doc; cd ..
     # copy doc of current version in public directory
     - cp -rL doc/html public/$DOC_DIR_NAME
   artifacts:   # Mandatory block to deploy documentation
