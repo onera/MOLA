@@ -129,7 +129,7 @@ def get_output_tree(workflow, coprocess_manager):
     
     output_tree = cgns.castNode(workflow.tree)
     for extraction in coprocess_manager.Extractions:
-        if extraction['Type'] == '3D' or extraction['Type'] == 'IsoSurface':
+        if extraction['Type'] == '3D' or extraction['Type'] == 'IsoSurface' and 'Fields' in extraction:
             compute_missing_fields_at_cell_centers( workflow, output_tree, extraction['Fields'])
     output_tree = cgns.castNode(output_tree)
 
