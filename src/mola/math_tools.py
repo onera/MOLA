@@ -105,24 +105,7 @@ def secant(fun, x0=None, x1=None, ftol=1e-6, bounds=None, maxiter=20, args=()):
         Xroot = roots[closestRoot]
         return Xroot, p
 
-
-    # -------------- ROOT SEARCH ALGORITHM -------------- #
-    GoodProgressSamplesCriterion = 5
-    CheckIts = np.arange(GoodProgressSamplesCriterion)
-
-    # Initialization
-    xguess[0] = x0
-    xguess[1] = x1
-    fval[0]   = fun(x0,*args)
-    fval[1]   = fun(x1,*args)
-    bestInitialGuess = np.argmin(np.abs(fval[:2]))
-    root[0] = bestInitialGuess
-    iters[0] = 2
-
-    for it in range(2,maxiter):
-
-        iters[0] = it
-
+    def make_new_guess(xguess, fval, it, bounds):
         # Make new guess based on linear and parabolic fit
         rootL, pL = linearRootGuess(xguess[:it],fval[:it])
         rootP = rootL if it==2 else parabolicRootGuess(xguess[:it],fval[:it])[0]
@@ -162,17 +145,40 @@ def secant(fun, x0=None, x1=None, ftol=1e-6, bounds=None, maxiter=20, args=()):
                     # a large linear fit on all iterations
                     rootL, pL = linearRootGuess(np.hstack((xguess[:it+1],xguessNew)),np.hstack((fval[:it+1],fvalNew)),it)
                     newguess = rootL
-                    inBounds = newguess >= bounds[0] and newguess <= bounds[1]
-                    if not inBounds:
-                        # Ok, I give up now
-                        # store current best guess
-                        indBestGuess = np.argmin(np.abs(fval[:it+1]))
-                        root[0]  = xguess[indBestGuess]
-                        froot[0] = fval[indBestGuess]
+        
+        return newguess
+    
+    # -------------- ROOT SEARCH ALGORITHM -------------- #
+    GoodProgressSamplesCriterion = 5
+    CheckIts = np.arange(GoodProgressSamplesCriterion)
 
-                        sol['message'] = 'Out of bounds guess (%g). If your problem has a solution, try increasing the bounds and/or xtol.'%newguess
-                        sol['converged'] = False
-                        return sol
+    # Initialization
+    xguess[0] = x0
+    xguess[1] = x1
+    fval[0]   = fun(x0,*args)
+    fval[1]   = fun(x1,*args)
+    bestInitialGuess = np.argmin(np.abs(fval[:2]))
+    root[0] = bestInitialGuess
+    iters[0] = 2
+
+    for it in range(2,maxiter):
+
+        iters[0] = it
+
+        newguess = make_new_guess(xguess, fval, it, bounds)
+
+        # Check if new guess is within bounds
+        inBounds = newguess >= bounds[0] and newguess <= bounds[1]
+        if not inBounds:
+            # Ok, I give up now
+            # store current best guess
+            indBestGuess = np.argmin(np.abs(fval[:it+1]))
+            root[0]  = xguess[indBestGuess]
+            froot[0] = fval[indBestGuess]
+
+            sol['message'] = 'Out of bounds guess (%g). If your problem has a solution, try increasing the bounds and/or xtol.'%newguess
+            sol['converged'] = False
+            return sol
 
         # new guess may be acceptable
         if newguess == xguess[it-1]:
@@ -188,11 +194,9 @@ def secant(fun, x0=None, x1=None, ftol=1e-6, bounds=None, maxiter=20, args=()):
         froot[0] = fval[indBestGuess]
 
         # Check if solution falls within tolerance
-        converged = np.abs(fval[it]) < ftol
-        sol['converged'] = converged
-        if converged:
+        sol['converged'] = np.abs(fval[it]) < ftol
+        if sol['converged']:
             sol['message'] = 'Solution converged within tolerance (ftol=%g)'%ftol
-            sol['converged'] = converged
             break
 
         # Check if algorithm is making good progress
@@ -209,7 +213,7 @@ def secant(fun, x0=None, x1=None, ftol=1e-6, bounds=None, maxiter=20, args=()):
                 GoodProgress = False
                 sol['message'] = 'Algorithm is not making good enough progress. Convergence would be obtained after %d iters, which is greater than user-provided maxiters (%d).'%(FinalIt,maxiter)
 
-    if not converged:
+    if not sol['converged']:
         sol['message'] += '\nMaximum number of iterations reached.'
 
     return sol

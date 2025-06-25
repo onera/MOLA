@@ -88,7 +88,7 @@ Once you have imported the right module, you may instanciate a Workflow with the
 
 .. code-block:: python
 
-    from mola.workflow import airfoil
+    from mola.workflow.fixed import airfoil
     workflow = airfoil.Workflow(...)  # same with all the workflow modules
 
 The following sections are common for all workflows.

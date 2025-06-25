@@ -29,3 +29,4 @@ doc/theme
 ext
 DOCUMENTATION
 .mola_run_directory
+examples/restricted

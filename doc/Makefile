@@ -5,7 +5,11 @@ doc:
 	cd src && python3 conf.py -r 
 
 update_theme: 
-	pip install https://gitlab.onera.net/onera/onera-sphinx-theme/-/raw/master/versions/onera_sphinx_theme-0.0.1-py3-none-any.whl --target theme --upgrade --no-deps
+	pip3 install https://gitlab.onera.net/onera/onera-sphinx-theme/-/raw/master/versions/onera_sphinx_theme-0.0.1-py3-none-any.whl --target theme --upgrade --no-deps
     
+install_theme:
+	pip3 install sphinx==6.2 --target theme --upgrade
+	pip3 install https://gitlab.onera.net/onera/onera-sphinx-theme/-/raw/master/versions/onera_sphinx_theme-0.0.1-py3-none-any.whl --target theme --upgrade
+
 archive_doc:
 	tar -cvzf html.tar.gz html/

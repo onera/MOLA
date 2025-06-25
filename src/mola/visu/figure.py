@@ -57,7 +57,7 @@ class Figure():
         
         self.fig = None
 
-    def plotSurfaces(self, surfaces, filename=None, Elements=None,
+    def plot_surfaces(self, surfaces, filename=None, Elements=None,
             default_vertex_container='FlowSolution#InitV',
             default_centers_container='BCDataSet',
             offscreen=5 # https://elsa.onera.fr/issues/10948#note-14
@@ -65,7 +65,7 @@ class Figure():
         
         if filename:
             self.filename = filename
-            self.fig = None  # init fig to call createOverlap next time
+            self.fig = None  # init fig to call _create_overlap next time
         if Elements is not None:
             no_blending_elts = []
             blending_elts = []
@@ -111,11 +111,51 @@ class Figure():
                 return False
             return blend and not mesh
 
+        def get_zones_for_element(t, elt):
+            field_name = elt['color'].replace('Iso:','')
+            if elt['color'].startswith('Iso:'):
+                zones = [z for z in t.get(Type='CGNSBase', Name=elt['extraction_name'], Depth=1).zones() if 
+                    _fieldExistsAtNodesOrCentersAtZone(z, field_name, elt['vertex_container'], elt['centers_container'])]                    
+            else:
+                zones = t.get(Type='CGNSBase', Name=elt['extraction_name'], Depth=1).zones() 
+
+            if not zones:
+                if elt['color'].startswith('Iso:'):
+                    warning_msg = (
+                        f'visualization element [{i}]: '
+                        f'field "{field_name}" does not exist in container {elt["vertex_container"]} nor {elt["centers_container"]} for extraction_name {elt["extraction_name"]}. '
+                        'Please adjust the vertex_container and centers_container options'
+                    )
+                    mola_logger.warning(warning_msg)
+                    return None
+                else:
+                    t.save('debug.cgns')
+                    raise ValueError(f'could not find extraction_name={elt["extraction_name"]}, check debug.cgns')
+
+            if hasBlending(elt): 
+                zones = [cgns.castNode(z) for z in C.convertArray2Hexa(zones)] # see cassiopee #8740
+
+            for z in zones:
+                CPlot._addRender2Zone(z, material=elt['material'],
+                    color=elt['color'], blending=elt['blending'],
+                    meshOverlay=elt['meshOverlay'], shaderParameters=elt['shaderParameters'])
+            
+            # Add iso lines if required
+            for value in elt['iso_line']: 
+                isoLine = P.isoLine(zones, field_name, value)
+                isoLine = cgns.castNode(isoLine)
+                CPlot._addRender2Zone(isoLine, material='Solid', color=elt['iso_line_color'])
+                zones.append(isoLine)
+        
+            return zones
+
 
         Trees = []
         TreesBlending = []
         baseName2elt = {}
         for i, elt in enumerate(self.Elements):
+
+            # set default values
             elt.setdefault('extraction_name', None)
             elt.setdefault('blending', 1)
             elt.setdefault('material', 'Solid')
@@ -132,40 +172,9 @@ class Figure():
             I.__FlowSolutionNodes__ = elt['vertex_container']
             I.__FlowSolutionCenters__ = elt['centers_container']
 
-            field_name = elt['color'].replace('Iso:','')
-            if elt['color'].startswith('Iso:'):
-                zones = [z for z in t.get(Type='CGNSBase', Name=elt['extraction_name'], Depth=1).zones() if 
-                    _fieldExistsAtNodesOrCentersAtZone(z, field_name, elt['vertex_container'], elt['centers_container'])]
-                if not zones:
-                    warning_msg = (
-                        f'visualization element [{i}]: '
-                        f'field "{field_name}" does not exist in container {elt["vertex_container"]} nor {elt["centers_container"]} for extraction_name {elt["extraction_name"]}. '
-                        'Please adjust the vertex_container and centers_container options'
-                    )
-                    mola_logger.warning(warning_msg)
-                    continue
-            else:
-                zones = t.get(Type='CGNSBase', Name=elt['extraction_name'], Depth=1).zones() 
-
-            if not zones:
-                t.save('debug.cgns')
-                raise ValueError(f'could not find extraction_name={elt["extraction_name"]}, check debug.cgns')
-
-            if hasBlending(elt): 
-                zones = [cgns.castNode(z) for z in C.convertArray2Hexa(zones)] # see cassiopee #8740
-
-            for z in zones:
-                CPlot._addRender2Zone(z, material=elt['material'],
-                    color=elt['color'], blending=elt['blending'],
-                    meshOverlay=elt['meshOverlay'], shaderParameters=elt['shaderParameters'])
-            
-            # Add iso lines if required
-            for value in elt['iso_line']: 
-                isoLine = P.isoLine(zones, field_name, value)
-                isoLine = cgns.castNode(isoLine)
-                CPlot._addRender2Zone(isoLine, material='Solid', color=elt['iso_line_color'])
-                zones.append(isoLine)
-
+            zones = get_zones_for_element(t, elt)
+            if zones is None:
+                continue
 
             if hasBlending(elt):
                 base_name = f'blend.{i}'
@@ -188,67 +197,74 @@ class Figure():
 
         isoScales = extract_isoscales(Trees, baseName2elt)
 
-        # Get default background
+        backgroundFile = self._get_backgroud_file()
+
+        for i in range(len(Trees)):
+            increment_offscreen = len(Trees)==1 or (i>0 and i == len(Trees)-1 and offscreen > 1)
+            if increment_offscreen: 
+                offscreen += 1
+            self._display_element(Trees[i], DisplayOptions, backgroundFile, offscreen, 
+                                  cmap2int, isoScales, default_vertex_container, default_centers_container)
+        
+        I.__FlowSolutionCenters__ = external_centers_container
+        I.__FlowSolutionNodes__ = external_vertex_container
+
+    def _get_backgroud_file(self):
         backgroundFile = None
         MOLAloc = os.getenv('MOLA')
         path_background = os.path.join(MOLAloc,'mola', 'visu', 'backgrounds',f'background_{self.background}.png')
         if os.path.exists(path_background):
             backgroundFile = path_background
+        return backgroundFile
 
-        for i in range(len(Trees)):
-            tree = Trees[i]
-            prefix = 'elt.'
+    def _display_element(self, tree, DisplayOptions, backgroundFile, offscreen, 
+                         cmap2int, isoScales, default_vertex_container, default_centers_container):
+        prefix = 'elt.'
+        try:
+            elt_base = tree.get(Name=f'{prefix}*', Depth=1)
+        except IndexError:
+            prefix = 'blend.'
             try:
                 elt_base = tree.get(Name=f'{prefix}*', Depth=1)
-            except IndexError:
-                prefix = 'blend.'
-                try:
-                    elt_base = tree.get(Name=f'{prefix}*', Depth=1)
-                except:
-                    tree.save('debug.cgns')
-                    raise ValueError('FATAL: expected bases starting with "elt.*" or "blend.*", check debug.cgns')
-            elt_index = int(elt_base.name().replace(prefix, ''))
-            elt = self.Elements[elt_index]
+            except:
+                tree.save('debug.cgns')
+                raise ValueError('FATAL: expected bases starting with "elt.*" or "blend.*", check debug.cgns')
+        elt_index = int(elt_base.name().replace(prefix, ''))
+        elt = self.Elements[elt_index]
 
-            try: vertex_container = elt['vertex_container']
-            except KeyError: vertex_container = default_vertex_container
-            try: centers_container = elt['centers_container']
-            except KeyError: centers_container = default_centers_container
-            I.__FlowSolutionNodes__ = vertex_container
-            I.__FlowSolutionCenters__ = centers_container
+        try: vertex_container = elt['vertex_container']
+        except KeyError: vertex_container = default_vertex_container
+        try: centers_container = elt['centers_container']
+        except KeyError: centers_container = default_centers_container
+        I.__FlowSolutionNodes__ = vertex_container
+        I.__FlowSolutionCenters__ = centers_container
 
-            increment_offscreen = len(Trees)==1 or (i>0 and i == len(Trees)-1 and offscreen > 1)
-            if increment_offscreen: offscreen += 1
+        try: additionalDisplayOptions = elt['additionalDisplayOptions']
+        except: additionalDisplayOptions = {}
+        DisplayOptions.update(additionalDisplayOptions)
 
-            try: additionalDisplayOptions = elt['additionalDisplayOptions']
-            except: additionalDisplayOptions = {}
-            DisplayOptions.update(additionalDisplayOptions)
-
-            if  backgroundFile and \
-                'backgroundFile' not in additionalDisplayOptions and \
-                'bgColor' not in additionalDisplayOptions:
-                DisplayOptions['backgroundFile'] = backgroundFile
-                DisplayOptions['bgColor'] = 13
+        if  backgroundFile and \
+            'backgroundFile' not in additionalDisplayOptions and \
+            'bgColor' not in additionalDisplayOptions:
+            DisplayOptions['backgroundFile'] = backgroundFile
+            DisplayOptions['bgColor'] = 13
 
 
-            try: cmap = cmap2int[elt['colormap']]
-            except KeyError: cmap=0
-            try:
-                if 'shadow' not in elt: elt['shadow'] = True
-                if not elt['shadow']: cmap -= 1
-            except: pass
-            
-            DisplayOptions['offscreen'] = offscreen
-            DisplayOptions['colormap'] = cmap
-            DisplayOptions['isoScales'] = isoScales
-
-            CPlot.display(tree, **DisplayOptions)
-            CPlot.finalizeExport(offscreen)
+        try: cmap = cmap2int[elt['colormap']]
+        except KeyError: cmap=0
+        try:
+            if 'shadow' not in elt: elt['shadow'] = True
+            if not elt['shadow']: cmap -= 1
+        except: pass
         
-        I.__FlowSolutionCenters__ = external_centers_container
-        I.__FlowSolutionNodes__ = external_vertex_container
+        DisplayOptions['offscreen'] = offscreen
+        DisplayOptions['colormap'] = cmap
+        DisplayOptions['isoScales'] = isoScales
 
-    def createOverlap(self):
+        CPlot.display(tree, **DisplayOptions)
+        CPlot.finalizeExport(offscreen)
+
+    def _create_overlap(self):
         img = plt.imread(self.filename)
 
         fig, ax = plt.subplots(figsize=(img.shape[1]/float(self.dpi),
@@ -257,7 +273,7 @@ class Figure():
         self.fig = fig
         self.axes = [ax]
         
-        self._buildCPlotColormaps()
+        self._build_CPlot_colormaps()
 
         ax.imshow(img)
         ax.plot([],[])
@@ -265,18 +281,18 @@ class Figure():
         plt.subplots_adjust(left=0., bottom=0., right=1., top=1., wspace=0., hspace=0.)
         return img
 
-    def _buildCPlotColormaps(self):
+    def _build_CPlot_colormaps(self):
         from .colormaps import COLORMAPS
         self.colormaps = COLORMAPS
 
-    def addColorbar(self, field_name='', orientation='vertical', center=(0.90,0.5),
+    def add_colorbar(self, field_name='', orientation='vertical', center=(0.90,0.5),
                           width=0.025, length=0.8, number_of_ticks=5, extend='neither',
                           font_color='black', colorbar_title='',
                           ticks_opposed_side=False, ticks_format='%g', 
                           ticks_size='medium', title_size='large'):
         # ticks_size and title_size can be: float or {'xx-small', 'x-small', 'small', 'medium', 'large', 'x-large', 'xx-large'}
         if not self.fig: 
-            self.createOverlap()
+            self._create_overlap()
         
         levels = None
         cmap = None
@@ -337,13 +353,13 @@ class Figure():
         
         return cbar
 
-    def _loadSignals(self, signals: Union[str, cgns.Tree]):
+    def _load_signals(self, signals: Union[str, cgns.Tree]):
         if isinstance(signals, str):
             self.signals = cgns.load(signals)
         else:
             self.signals = signals
 
-    def plotSignals(self, signals: Union[str, cgns.Tree, None], left=0.05, right=0.5, bottom=0.05, top=0.4,
+    def plot_signals(self, signals: Union[str, cgns.Tree, None], left=0.05, right=0.5, bottom=0.05, top=0.4,
             xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
             background_opacity=1.0, font_color='black', 
             curves=[dict(zone_name='BLADES',x='Iteration',y='MomentumXFlux',
@@ -351,10 +367,10 @@ class Figure():
             iterationTracer=None):
         
         if not self.fig: 
-            self.createOverlap()
+            self._create_overlap()
 
         if not self.signals or (signals is not None): 
-            self._loadSignals(signals)
+            self._load_signals(signals)
         
         ax = self.fig.add_axes([left,bottom,right-left,top-bottom])
 
@@ -421,7 +437,7 @@ class Figure():
 
     def plot(self, x, y, z, *args, **kwargs):
         if not self.fig: 
-            self.createOverlap()
+            self._create_overlap()
 
         x = np.array(x, ndmin=1)
         if isinstance(y, (float, int)):
@@ -437,7 +453,7 @@ class Figure():
 
     def save(self, output_filename=''):
         if not self.fig: 
-            self.createOverlap()
+            self._create_overlap()
             
         if not output_filename:
             output_filename = self.filename
@@ -569,20 +585,20 @@ if __name__ == '__main__':
             )
 
         # generate the CPlot image of the field elements (will write an image)
-        fig.plotSurfaces('OUTPUT/surfaces_AfterIter%d.cgns'%i)
+        fig.plot_surfaces('OUTPUT/surfaces_AfterIter%d.cgns'%i)
 
         # include matplotlib components, such as colorbar and a 2D curve plot
-        ax = fig.addColorbar(field_name='Mach', orientation='vertical', center=(0.87,0.5),
+        ax = fig.add_colorbar(field_name='Mach', orientation='vertical', center=(0.87,0.5),
                     width=0.025, length=0.8, font_color='black',
                     colorbar_title=r'$\bf{Mach}$')
 
-        ax = fig.addColorbar(field_name='Pressure', orientation='horizontal', center=(0.45,0.9),
+        ax = fig.add_colorbar(field_name='Pressure', orientation='horizontal', center=(0.45,0.9),
                     width=0.025, length=0.7, font_color='black',
                     colorbar_title=r'$\bf{Pressure}$ (Pa)')
 
         # # plot the sphere drag coefficient
         # signals = cgns.load('OUTPUT/signals.cgns')
-        # ax = fig.plotSignals(signals, left=0.10, right=0.40, bottom=0.08, top=0.28,
+        # ax = fig.plot_signals(signals, left=0.10, right=0.40, bottom=0.08, top=0.28,
         #         xlabel='iteration', ylabel=r'$\bf{C_D}$',
         #         xlim=(first_iteration, i), ylim=(0,0.8),
         #         background_opacity=0.0, font_color='black',
@@ -591,7 +607,7 @@ if __name__ == '__main__':
         # for b in 'top', 'right': ax.spines[b].set_visible(False)
 
         # # plot the probe pressure
-        # ax = fig.plotSignals(signals, left=0.55, right=0.85, bottom=0.08, top=0.28,
+        # ax = fig.plot_signals(signals, left=0.55, right=0.85, bottom=0.08, top=0.28,
         #         xlabel='iteration', ylabel=r'$\bf{Pressure}$ at Probe (Pa)',
         #         xlim=(first_iteration, i),
         #         background_opacity=0.0, font_color='black',

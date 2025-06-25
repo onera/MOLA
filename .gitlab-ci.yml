@@ -174,14 +174,40 @@ radon_complexity:
         fi
     - if $COMPLEXITY_WARNING; then false; fi
 
+compile_doc:
+  stage: doc
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # only for a commit on the default branch
+  before_script:
+    - source $MOLA_ENV_ELSA
+  script: 
+    - cd doc
+    - make install_theme
+    - export PYTHONPATH=./theme:$PYTHONPATH
+    - make doc
+  artifacts:   
+    paths:
+      - doc/html
+    expire_in: 1 hour
+
 pages:    # Name to use for doc deployment
   stage: doc
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # only for a commit on the default branch
-  script:
-    - cp -rL /stck/mola/html public  # doc directory has to moved to the working directory and be renamed "public"
+  needs: ["compile_doc"]
+  dependencies:
+    - compile_doc
+  before_script:
+    - source $MOLA_ENV_DEFAULT
+    - MOLA_VERSION=$(python3 -c "import mola; print(mola.__version__)")
+    - DOC_DIR_NAME=Dev  #"v${MOLA_VERSION}"
+  script: # doc directory has to be moved to the working directory and be renamed "public" 
+    # copy existing doc for previous versions
+    - rsync -avL --exclude="$DOC_DIR_NAME" /stck/mola/html/ public
+    # copy doc of current version in public directory
+    - cp -rL doc/html public/$DOC_DIR_NAME
   artifacts:   # Mandatory block to deploy documentation
     paths:
       - public
-    expire_in: 10 seconds
+    expire_in: 30 seconds
 

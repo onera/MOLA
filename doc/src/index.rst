@@ -2,7 +2,7 @@
 MOLA documentation
 ##################
 
-Welcome to **MO**\ dular workf\ **L**\ ows for **A**\ erodynamics (MOLA)
+Welcome to **MOLA** (Modular Orchestration Library for Aerodynamics)
 documentation website.
 
 Current documentation version is: |version|.
