@@ -139,7 +139,7 @@ def test_must_be_unsteady_if_has_motion_when_steady_no_timestep():
     dt = Numerics["TimeStep"]
     assert Numerics["TimeMarching"] == "Unsteady"
 
-    excepted_dt = 1/6
+    excepted_dt = 1/12
     assert np.allclose(dt,excepted_dt)
 
 

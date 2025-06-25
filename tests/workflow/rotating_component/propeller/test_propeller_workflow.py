@@ -104,7 +104,6 @@ def test_blade_radius(tmp_path, workflow_sector_params):
 
 @pytest.mark.integration
 @pytest.mark.cost_level_1
-# @pytest.mark.skipif(solver=='sonics', reason="https://gitlab.onera.net/numerics/solver/sonics/-/issues/180") # FIXME BUG
 def test_workflow_propeller_sector_pre1_comp1(tmp_path, workflow_sector_params):
 
     w = WorkflowPropeller(**workflow_sector_params)
@@ -118,17 +117,13 @@ def test_workflow_propeller_sector_pre1_comp1(tmp_path, workflow_sector_params):
 
 @pytest.mark.integration
 @pytest.mark.cost_level_1
-@pytest.mark.skipif(solver=='sonics', reason="https://gitlab.onera.net/numerics/solver/sonics/-/issues/180") # FIXME BUG
 def test_workflow_propeller_sector_pre1_comp2(tmp_path, workflow_sector_params):
     
     workflow_sector_params["RunManagement"]["NumberOfProcessors"] = 2
     w = WorkflowPropeller(**workflow_sector_params)
     w.RunManagement['RunDirectory'] = str(tmp_path)
 
-    w.RunManagement["SkipDebugRaise"] = True
     w.prepare()
-    del w.RunManagement["SkipDebugRaise"]
-    w.tree.findAndRemoveNode(Name="SkipDebugRaise")
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()
