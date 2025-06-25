@@ -21,15 +21,22 @@ source $SCRIPT_DIR/../network.sh
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-# export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
-export TREELABPATH=/tmp_user/juno/lbernard/treelab/dev/juno_elsA # ONLY DURING DEV (replaces stable version)
+export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_fast
+# export TREELABPATH=/stck/lbernard/treelab/dev/ # ONLY DURING DEV (replaces stable version)
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
+# main version. 24/06/2025 to be avoided because or random BUG https://github.com/onera/Fast/issues/89
+# export MACHINE=juno
+# export CASSIOPEE_VERSION=main
+# export CASSIOPEE=/tmp_user/juno/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+# source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
+# dev version (CAVEAT very unstable)
 export MACHINE=juno
-export CASSIOPEE_VERSION=main
-export CASSIOPEE=/tmp_user/juno/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+export CASSIOPEE=/stck/cassiope/git/Cassiopee/
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
 
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/tools/netcdf/4.8.0-gnu831/lib

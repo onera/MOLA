@@ -38,7 +38,8 @@ def apply_to_solver(workflow):
 
     # The warmup function optimizes data storage in memory. 
     # Zones may be moved. After warmup, all operations on the trees must be in-place
-    t, tc, metrics = FastS.warmup(t, tc, graph, infos_ale=get_infos_ale(workflow))
+    infos_ale = get_infos_ale(workflow)
+    t, tc, metrics = FastS.warmup(t, tc, graph, infos_ale=infos_ale)
 
     workflow.tree = cgns.castNode(t)
     workflow._treeAtCenters = cgns.castNode(tc)

@@ -52,7 +52,7 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
         NumberOfBladesSimulated : int = 1,
         NumberOfBladesInInitialMesh : int = 1,
         IsRotating : bool = True,
-        ReferenceTurbulenceSetAtRelativeRadius : float = 0.75,
+        TurbulenceSetAtRelativeRadius : float = 0.75,
         Rows : dict = dict(),
         *,        
         NumberOfBlades : int,

@@ -20,7 +20,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 from treelab import cgns
 from mola.logging import MolaException
-
+from mola.pytree.user import checker
 
 def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, tool='cassiopee'):
     CellDimension = t.base().dim()
@@ -110,6 +110,8 @@ def get_renamed_tree_maia(zones, basename, CellDimension=3, PhysicalDimension=3)
         return tree
         
     for i, zone in enumerate(zones):
+        if len(zone) != 4:
+            raise TypeError(f"wrong zone: {str(zone)}")
         zone = cgns.castNode(zone)
         # The name of the parent zone is kept in a temporary node .parentZone, 
         # that will be removed before saving

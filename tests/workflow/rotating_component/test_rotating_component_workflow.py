@@ -237,7 +237,10 @@ def test_duplicate(tmp_path):
     w.connect()
     w.define_families()
     w.set_default_parameters_for_rows()
-    w.compute_fluxcoef_by_row() 
+    w.compute_fluxcoef_by_row()
+    # import maia
+    # from mpi4py import MPI
+    # maia.io.dist_tree_to_file(w.tree,'debug.cgns',MPI.COMM_WORLD)
     w.duplicate()
 
     if w.tree.isStructured():

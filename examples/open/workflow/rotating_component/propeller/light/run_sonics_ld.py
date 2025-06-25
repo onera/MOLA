@@ -1,12 +1,10 @@
 from mola.workflow.rotating_component import propeller, solver
 import numpy as np
 
-assert solver == 'elsa'
+assert solver == 'sonics'
 
 w = propeller.Workflow(
     
-    Solver='elsa', 
-
     RawMeshComponents=[
         dict(
             Name='LIGHT',
@@ -14,15 +12,14 @@ w = propeller.Workflow(
         )
     ],
 
-
     Flow = dict(
-        Velocity = 0.0,
+        Velocity = 10.0,
         Density = 1.225,
         Temperature = 288.15,
     ),
 
     ApplicationContext = dict(
-        ShaftRotationSpeed = -2000.0, # please NOTE the minus sign
+        ShaftRotationSpeed = 2000.0,
         NumberOfBlades = 5,
         Surface = 1.0,
         Length = 1.0
@@ -31,15 +28,12 @@ w = propeller.Workflow(
     Turbulence = dict(
         Level = 0.1 * 0.01,
         Viscosity_EddyMolecularRatio = 0.1,
-        TurbulenceCutOffRatio = 1e-8,
         Model = 'SA',
     ),
 
-    # Initialization = dict(WallDistanceComputingTool='cassiopee'),
-
     Numerics = dict(
         NumberOfIterations=2000,
-        MinimumNumberOfIterations=3,
+        MinimumNumberOfIterations=20,
         CFL=dict(StartIteration =    1, StartValue =  1.0,
                  EndIteration   = 1000,   EndValue = 10.0),
     ),
@@ -48,12 +42,6 @@ w = propeller.Workflow(
         dict(Family='SPINNER', Type='WallInviscid'),
         dict(Family='BLADE', Type='WallViscous'),
         dict(Family='FARFIELD', Type='Farfield')
-    ],
-
-    Extractions = [
-        dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
-        dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.45, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
-        dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
     ],
 
     ConvergenceCriteria = [
@@ -76,16 +64,9 @@ w = propeller.Workflow(
 
     RunManagement = dict(
         NumberOfProcessors = 8,
-        RunDirectory = f'example_{solver}_2',
+        NumberOfThreads = 1,
+        RunDirectory = f'example_{solver}',
         Scheduler = 'local',
-    ),
-
-    # HINT if running in local LD, avoid using PyPart since it provokes huge overhead
-    # https://elsa.onera.fr/issues/11440
-    SplittingAndDistribution = dict(
-        Strategy='AtPreprocess',
-        Splitter='Cassiopee',
-        Distributor='Cassiopee',
     ),
 )
 

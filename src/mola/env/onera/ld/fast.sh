@@ -20,10 +20,17 @@ source $SCRIPT_DIR/../network.sh
 
 export MAIAVERSION=1.6.0 #dev #1.4
 
+# main version. 24/06/2025 to be avoided because or random BUG https://github.com/onera/Fast/issues/89
+# export MACHINE=ld
+# export CASSIOPEE_VERSION=main #main #v4.0a
+# export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+# source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
+# dev version (CAVEAT very unstable)
 export MACHINE=ld
-export CASSIOPEE_VERSION=main #main #v4.0a
-export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+export CASSIOPEE=/stck/cassiope/git/Cassiopee/
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 module load vscode/1.99.3
@@ -34,14 +41,12 @@ unset I_MPI_PMI_LIBRARY
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
 # Treelab
-# NOTE installation hint:
-# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export DIST="ld"
 MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export DIST="visung"; fi
-export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA
+export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_fast
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
-export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
+# export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 
 # maia
 module use --append /home/sonics/LD8/modules/

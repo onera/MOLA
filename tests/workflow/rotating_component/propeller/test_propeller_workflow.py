@@ -30,7 +30,7 @@ def test_workflow_propeller_init():
         'NumberOfBlades': 3,
         'NumberOfBladesInInitialMesh': 1,
         'NumberOfBladesSimulated': 1,
-        'ReferenceTurbulenceSetAtRelativeRadius': 0.75,
+        'TurbulenceSetAtRelativeRadius': 0.75,
         'Rows': {'Propeller': {'IsRotating': True,
                                 'NumberOfBlades': 3,
                                 'NumberOfBladesInInitialMesh': 1,
@@ -56,7 +56,7 @@ def test_compute_flow_and_turbulence(tmp_path, workflow_sector_params):
 
     Ω = w.ApplicationContext['ShaftRotationSpeed']
     rmax = w._blade_radius = 0.1 # trick to avoid process_mesh (accelerates test)
-    r_rel = w.ApplicationContext["ReferenceTurbulenceSetAtRelativeRadius"]
+    r_rel = w.ApplicationContext["TurbulenceSetAtRelativeRadius"]
     V = Ω * rmax * r_rel
     Tu = w.Turbulence['Level']
     ρ = 1.0
@@ -105,6 +105,7 @@ def test_blade_radius(tmp_path, workflow_sector_params):
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 def test_workflow_propeller_sector_pre1_comp1(tmp_path, workflow_sector_params):
+
     w = WorkflowPropeller(**workflow_sector_params)
     w.RunManagement['RunDirectory'] = str(tmp_path)
 
@@ -122,10 +123,7 @@ def test_workflow_propeller_sector_pre1_comp2(tmp_path, workflow_sector_params):
     w = WorkflowPropeller(**workflow_sector_params)
     w.RunManagement['RunDirectory'] = str(tmp_path)
 
-    w.RunManagement["SkipDebugRaise"] = True
     w.prepare()
-    del w.RunManagement["SkipDebugRaise"]
-    w.tree.findAndRemoveNode(Name="SkipDebugRaise")
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()

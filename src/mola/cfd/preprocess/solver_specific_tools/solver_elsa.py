@@ -17,7 +17,7 @@
 
 from treelab import cgns
 
-CGNS2ElsaInCGNSNode = dict(
+cgns_to_elsa_bc_field_name = dict(
         PressureStagnation       = 'stagnation_pressure',
         EnthalpyStagnation       = 'stagnation_enthalpy',
         TemperatureStagnation    = 'stagnation_temperature',
@@ -37,10 +37,10 @@ CGNS2ElsaInCGNSNode = dict(
         VelocityCorrelationXZ    = 'inj_tur3',
         VelocityCorrelationYY    = 'inj_tur4', 
         VelocityCorrelationYZ    = 'inj_tur5', 
-        VelocityCorrelationZZ    = 'inj_tur6',
-    )
+        VelocityCorrelationZZ    = 'inj_tur6'
+)
 
-CGNS2ElsaInVarNode = dict(
+cgns_to_elsa_extraction_name = dict(
     CoordinateX = 'x',
     CoordinateY = 'y',
     CoordinateZ = 'z',
@@ -107,6 +107,7 @@ CGNS2ElsaInVarNode = dict(
     VelocityZ = 'w',
     ViscosityEddy = 'viscturb',
     ViscosityMolecular = 'visclam',
+    Viscosity_EddyMolecularRatio = 'viscrapp',
     VorticityX = 'vorticity_x',
     VorticityY = 'vorticity_y',
     VorticityZ = 'vorticity_z',
@@ -129,7 +130,7 @@ ElsaCGNS2MOLA = dict(
     convflux_ro   = 'MassFlow',
 )
 
-CGNS2ElsaInVarNode.update(dict(
+cgns_to_elsa_extraction_name.update(dict(
     BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue',
     NormalVector             = 'normalvector',
     Friction                 = 'frictionvector', 
@@ -178,12 +179,12 @@ def translate_to_elsa(Variables, type='node'):
 
     '''
     if type == 'node':
-        CGNS2ElsaDict = CGNS2ElsaInCGNSNode.copy()  # ensure not to modify the reference dict
+        CGNS2ElsaDict = cgns_to_elsa_bc_field_name.copy()  # ensure not to modify the reference dict
         if isinstance(Variables, (dict, list)) and 'VelocityCorrelationXX' in Variables:
             # For RSM models
             CGNS2ElsaDict['TurbulentDissipationRate'] = 'inj_tur7'
     else:
-        CGNS2ElsaDict = CGNS2ElsaInVarNode.copy()  # ensure not to modify the reference dict
+        CGNS2ElsaDict = cgns_to_elsa_extraction_name.copy()  # ensure not to modify the reference dict
 
     elsAVariables = CGNS2ElsaDict.values()
 

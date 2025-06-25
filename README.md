@@ -1,6 +1,6 @@
 # MOLA
 
-MOLA is an ONERA Python code that implements user-level workflows and tools for aerodynamic analysis. 
+MOLA (Modular Orchetration Library for Aerodyanmics) is an ONERA Python code that implements user-level workflows and tools for aerodynamic analysis. 
 
 [![Python 3](https://img.shields.io/static/v1?label=Python&logo=Python&color=3776AB&message=3)](https://www.python.org/)
 ![License-LGPL3](https://img.shields.io/badge/license-LGPLv3-blue.svg)

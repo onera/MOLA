@@ -18,6 +18,8 @@
 
 from mola.dependency_injector.backend_function_caller import call_backend_function
 
+
+
 default_backend = 'maia'
 possible_backends = ['maia', 'cassiopee', 'treelab']
 
@@ -27,4 +29,5 @@ def is_partitioned_for_use_in_maia(tree, backend=default_backend):
 def is_distributed_for_use_in_maia(tree, backend=default_backend):
     return call_backend_function('is_distributed_for_use_in_maia', backend, tree)
 
-
+def assert_zones_have_zone_type_node(tree, backend=default_backend):
+    return call_backend_function('assert_zones_have_zone_type_node', backend, tree)

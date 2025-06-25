@@ -18,6 +18,7 @@
 import os
 import glob
 import shutil
+import re
 import numpy as np
 from fnmatch import fnmatch
 import warnings
@@ -67,6 +68,10 @@ post_fields_using_cassiopee_computeExtraVariable = [
     'Vorticity',
     'VorticityMagnitude',
     'ShearStress']
+
+post_fields_combinations = {
+    'Viscosity_EddyMolecularRatio':'{ViscosityEddy}/{ViscosityMolecular}'
+}
 
 
 def perform_extractions(workflow, coprocess_manager):
@@ -124,7 +129,7 @@ def get_output_tree(workflow, coprocess_manager):
     
     output_tree = cgns.castNode(workflow.tree)
     for extraction in coprocess_manager.Extractions:
-        if extraction['Type'] == '3D':
+        if extraction['Type'] == '3D' or extraction['Type'] == 'IsoSurface' and 'Fields' in extraction:
             compute_missing_fields_at_cell_centers( workflow, output_tree, extraction['Fields'])
     output_tree = cgns.castNode(output_tree)
 
@@ -198,7 +203,7 @@ def extract_isosurface(output_tree, extraction):
         tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
         )
     
-    remove_spurious_data_from_output(isosurface)
+    # remove_spurious_data_from_output(isosurface)
     
     return isosurface
 
@@ -310,9 +315,12 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
                                mus   = workflow.Fluid['SutherlandViscosity'],
                                Ts    = workflow.Fluid['SutherlandTemperature'])
 
+    _add_ingredients_for_new_fields(field_names)
+
     for requested_field_name in field_names:
         
-        if requested_field_name in existing_field_names: continue
+        if requested_field_name in existing_field_names+list(post_fields_combinations):
+            continue
 
         if requested_field_name in post_fields_using_fast:
             FastS._computeVariables(t, workflow._fast_metrics, requested_field_name)
@@ -341,9 +349,29 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
         else:
             raise MolaUserError('cannot extract '+requested_field_name)
 
+    for requested_field_name in field_names:
+        if requested_field_name in post_fields_combinations:
+            equation = post_fields_combinations[requested_field_name]
+            equation = 'centers:'+requested_field_name+'='+equation.replace('{','{centers:')
+            C._initVars(t,equation)
+
     cgns.castNode(t)
 
     
+def _add_ingredients_for_new_fields(field_names):
+    ingredients = []
+
+    for field_name in field_names:
+        if field_name in post_fields_combinations:
+            equation = post_fields_combinations[field_name]
+            ingredients += re.findall(r"\{([^}]+)\}", equation)
+
+    field_names += ingredients
+
+    
+
+
+
 def remove_not_requested_fields( t : cgns.Tree, requested_field_names : list):
     
     if 'Vorticity' in requested_field_names:
