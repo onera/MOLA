@@ -1,6 +1,8 @@
 from mola.workflow.rotating_component import propeller, solver
 import numpy as np
 
+assert solver == 'elsa'
+
 w = propeller.Workflow(
     
     Solver='elsa', 
@@ -14,7 +16,7 @@ w = propeller.Workflow(
 
 
     Flow = dict(
-        Velocity = 10.0,
+        Velocity = 0.0,
         Density = 1.225,
         Temperature = 288.15,
     ),
@@ -48,6 +50,12 @@ w = propeller.Workflow(
         dict(Family='FARFIELD', Type='Farfield')
     ],
 
+    Extractions = [
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.45, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+    ],
+
     ConvergenceCriteria = [
         dict(
             ExtractionName = 'BLADE',
@@ -68,7 +76,7 @@ w = propeller.Workflow(
 
     RunManagement = dict(
         NumberOfProcessors = 8,
-        RunDirectory = f'example_{solver}',
+        RunDirectory = f'example_{solver}_2',
         Scheduler = 'local',
     ),
 

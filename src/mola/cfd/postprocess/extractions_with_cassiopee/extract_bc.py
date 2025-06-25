@@ -23,7 +23,7 @@ from .tools import * # BAD PRACTICE !!
 
 from mola.pytree.user.checker import is_distributed_for_use_in_maia, assert_zones_have_zone_type_node
 
-def extract_bc(t, Family=None, Name=None, Type=None):
+def extract_bc(tree, Family=None, Name=None, Type=None):
     '''
     This is a multi-container wrapper of Cassiopee C.extractBC* functions, 
     as requested in https://elsa.onera.fr/issues/10641. 
@@ -54,7 +54,7 @@ def extract_bc(t, Family=None, Name=None, Type=None):
     # CAUTION https://elsa.onera.fr/issues/12076
     # HACK    https://elsa.onera.fr/issues/10641
 
-    t = I.copyRef(t)
+    t = I.copyTree(tree)
     
     if Cmpi.size > 1:
         if is_distributed_for_use_in_maia(t):

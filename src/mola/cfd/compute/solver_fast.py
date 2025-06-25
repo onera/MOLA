@@ -45,8 +45,9 @@ def apply_to_solver(workflow):
         workflow._status = 'RUNNING_BEFORE_ITERATION'
         workflow._coprocess_manager.run_iteration()
 
-        if any_mobile(workflow.Motion):
-            apply_motion(workflow)
+        # LB: isn't it done through infos_ale at warmup call ?
+        # if any_mobile(workflow.Motion):
+        #     apply_motion(workflow)
 
         FastS._compute(workflow.tree,
                        workflow._fast_metrics,
@@ -83,8 +84,10 @@ def apply_motion(workflow):
     FastC._motionlaw(workflow.tree, theta, omega)
 
 def get_theta_and_omega(workflow, iteration):
-    from mola.cfd.preprocess.motion.motion import get_first_found_rotation_speed_vector_at_motion
+    from mola.cfd.preprocess.motion.motion import (get_first_found_rotation_speed_vector_at_motion,
+                                                   get_rotation_axis_from_first_found_motion)
 
+    rotation_vector = get_rotation_axis_from_first_found_motion(workflow.Motion)
     omega_vector = get_first_found_rotation_speed_vector_at_motion(workflow.Motion)
     omega = np.linalg.norm(omega_vector)
     time = workflow.Numerics['TimeAtInitialState'] + (iteration - workflow.Numerics['IterationAtInitialState']) * workflow.Numerics['TimeStep']

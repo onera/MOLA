@@ -19,7 +19,7 @@ w = propeller.Workflow(
     ),
 
     ApplicationContext = dict(
-        ShaftRotationSpeed = 2000.0,
+        ShaftRotationSpeed = -2000.0,
         NumberOfBlades = 5,
         Surface = 1.0,
         Length = 1.0
@@ -42,6 +42,12 @@ w = propeller.Workflow(
         dict(Family='SPINNER', Type='WallInviscid'),
         dict(Family='BLADE', Type='WallViscous'),
         dict(Family='FARFIELD', Type='Farfield')
+    ],
+
+    Extractions = [
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.45, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
     ],
 
     ConvergenceCriteria = [

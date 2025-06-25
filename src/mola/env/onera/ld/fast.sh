@@ -20,10 +20,17 @@ source $SCRIPT_DIR/../network.sh
 
 export MAIAVERSION=1.6.0 #dev #1.4
 
+# main version. 24/06/2025 to be avoided because or random BUG https://github.com/onera/Fast/issues/89
+# export MACHINE=ld
+# export CASSIOPEE_VERSION=main #main #v4.0a
+# export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+# source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
+# dev version (CAVEAT very unstable)
 export MACHINE=ld
-export CASSIOPEE_VERSION=main #main #v4.0a
-export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+export CASSIOPEE=/stck/cassiope/git/Cassiopee/
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 module load vscode/1.99.3

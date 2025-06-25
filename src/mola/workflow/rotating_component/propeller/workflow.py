@@ -69,7 +69,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             omega = self.ApplicationContext["ShaftRotationSpeed"]
         else:
             raise MolaUserError(f'got wrong ShaftRotationSpeedUnit "{omega_units}", shall be "rpm" or "rad/s"')
-
+        
         r_max = self.blade_radius()
         assert r_max > 0
         r_rel_ref = self.ApplicationContext["TurbulenceSetAtRelativeRadius"]

@@ -20,6 +20,7 @@ source $SCRIPT_DIR/../network.sh
 
 export MAIAVERSION=1.4
 
+# TODO use stable release
 export MACHINE=sator_sph
 export CASSIOPEE=/tmp_user/sator/cassiope/git/Cassiopee/ 
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
