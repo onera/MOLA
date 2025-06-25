@@ -54,7 +54,7 @@ def extract_bc(tree, Family=None, Name=None, Type=None):
     # CAUTION https://elsa.onera.fr/issues/12076
     # HACK    https://elsa.onera.fr/issues/10641
 
-    t = I.copyTree(tree)
+    t = I.copyTree(tree) # HACK https://gitlab.onera.net/numerics/solver/sonics/-/issues/180#note_51164
     
     if Cmpi.size > 1:
         if is_distributed_for_use_in_maia(t):
