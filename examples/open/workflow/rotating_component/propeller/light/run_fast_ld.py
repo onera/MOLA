@@ -68,11 +68,13 @@ w = propeller.Workflow(
         )
     ],
 
+    Initialization = dict(WallDistanceComputingTool='cassiopee'),
+    
     RunManagement = dict(
         NumberOfProcessors = 1,
         NumberOfThreads = 8,
-        RunDirectory = f'example_{solver}_2',
-        Scheduler = 'local',
+        RunDirectory = f'example_{solver}',
+        
     ),
 )
 

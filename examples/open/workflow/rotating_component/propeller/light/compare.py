@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 from treelab import cgns
 
 component_name = 'BLADE'
-y_name = 'Power'
+y_name = 'Thrust'
 x_name = 'Iteration'
 include_cost = True
 
 
-for case in ['elsa']:
+for case in ['elsa','fast','sonics']:
     tree = cgns.load(f'example_{case}/OUTPUT/signals.cgns')
     integrals = tree.get("Integral")
     component = integrals.get(component_name)

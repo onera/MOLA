@@ -3,9 +3,7 @@ import numpy as np
 
 assert solver == 'elsa'
 
-w = propeller.Workflow(
-    
-    Solver='elsa', 
+w = propeller.Workflow( 
 
     RawMeshComponents=[
         dict(
@@ -14,9 +12,8 @@ w = propeller.Workflow(
         )
     ],
 
-
     Flow = dict(
-        Velocity = 0.0,
+        Velocity = 10.0,
         Density = 1.225,
         Temperature = 288.15,
     ),
@@ -34,8 +31,6 @@ w = propeller.Workflow(
         TurbulenceCutOffRatio = 1e-8,
         Model = 'SA',
     ),
-
-    # Initialization = dict(WallDistanceComputingTool='cassiopee'),
 
     Numerics = dict(
         NumberOfIterations=2000,
@@ -76,7 +71,7 @@ w = propeller.Workflow(
 
     RunManagement = dict(
         NumberOfProcessors = 8,
-        RunDirectory = f'example_{solver}_2',
+        RunDirectory = f'example_{solver}',
         Scheduler = 'local',
     ),
 

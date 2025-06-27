@@ -33,6 +33,22 @@ def test_set_default():
 
     run_manager.set_default(RunManagement)
 
+
+    RunManagement = dict(
+        NumberOfProcessors = 1,
+        NumberOfThreads = 96,
+        RunDirectory = '.',
+        Machine='juno',
+        Scheduler = 'SLURM',
+        RemovePreviousRunDirectory = False,
+        QuitMarginBeforeTimeOutInSeconds = 300,
+    )
+    run_manager.set_default(RunManagement)
+
+    RunManagement['Scheduler'] = 'slurm' # wrong lower-case, shall raise MolaUserError
+    with pytest.raises(run_manager.MolaUserError):
+        run_manager.set_default(RunManagement)
+
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 @pytest.mark.parametrize('in_out', [
@@ -56,4 +72,7 @@ def test_time_margin():
     scheduler_options = dict(time='00:30:00')
     run_manager.set_time_margin(RunManagement, scheduler_options)
     assert RunManagement['TimeOutInSeconds'] == 1200.
+
+
+
 
