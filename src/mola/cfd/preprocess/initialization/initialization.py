@@ -202,8 +202,9 @@ def compute_wall_distance_if_needed(workflow):
     init_opts = workflow.Initialization
     if workflow.Turbulence['Model'] == 'Euler':
         init_opts['ComputeWallDistanceAtPreprocess'] = False
-    elif not init_opts['ComputeWallDistanceAtPreprocess'] and workflow.Solver.lower() == 'fast':
+    elif workflow.Solver.lower() == 'fast':
         init_opts['ComputeWallDistanceAtPreprocess'] = True
+        init_opts['WallDistanceComputingTool'] = 'cassiopee'
 
     if init_opts['ComputeWallDistanceAtPreprocess']:
         tool = init_opts['WallDistanceComputingTool']
