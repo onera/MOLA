@@ -7,8 +7,6 @@ documentation website.
 
 Current documentation version is: |version|.
 
-.. todo:: Make a link to Treelab documentation
-
 Please note the `GitLab page <https://gitlab.onera.net/numerics/mola>`_ of MOLA
 and its associated `Issues <https://gitlab.onera.net/numerics/mola/-/issues>`_ section where
 you can make suggestions or report bugs.

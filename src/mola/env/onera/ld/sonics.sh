@@ -39,7 +39,7 @@ export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 unset I_MPI_PMI_LIBRARY
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
-source /stck/sonics/LD8/sonics/0.6.4/source.sh
+source /stck/sonics/LD8/sonics/$SONICSVERSION/source.sh
 
 # Treelab
 # NOTE installation hint:

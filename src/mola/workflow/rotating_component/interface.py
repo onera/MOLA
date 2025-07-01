@@ -116,7 +116,15 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
         self.ApplicationContext['Rows'][_Key].pop('_Key')
 
     def set_Initialization(self,
-            ParametrizeWithHeight : str = None, # parameter specific to this workflow
-            **kwargs,
+            Method    : str  = 'uniform',
+            Source    : Union[     str,
+                                  cgns.Tree,
+                                  cgns.Base,
+                                  cgns.Zone ]  = None,
+            SourceContainer : str = None,
+            ComputeWallDistanceAtPreprocess : bool = False,
+            KeepWallDistance : bool = False,
+            ParametrizeWithHeight : str = None, # parameter specific to that workflow
             ):
-        super().set_Initialization(**kwargs)
+        self.Initialization = self._get_comp(
+            self.set_Initialization, self.get_default_values_from_local_signature())
