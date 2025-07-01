@@ -20,6 +20,7 @@ import pprint
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException, GREEN, YELLOW, ENDC
 from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
+from mola.cfd.preprocess.mesh.families import shall_define_overlap_type_directly
 
 def apply(workflow):
     check_empty_bc(workflow)
@@ -168,7 +169,13 @@ def check_no_overlap_between_bcs(tree):
         for bc in zone.group(Type='BC_t') + zone.group(Type='GridConnectivity1to1') + zone.group(Type='GridConnectivity'):
             PointRange = bc.get(Name='PointRange', Depth=1).value()
 
+
             for pt, name in zip(PointRanges, names):
+                accepted_overlapping = shall_define_overlap_type_directly(name) and shall_define_overlap_type_directly(bc.name())
+
+                if accepted_overlapping: 
+                    continue
+                
                 if are_point_ranges_overlapping(PointRange, pt):
                     raise Exception(f"In {zone.name()}, {bc.name()} is included in {name}, because {PointRange} lies in {pt}")
                 elif are_point_ranges_overlapping(pt, PointRange):

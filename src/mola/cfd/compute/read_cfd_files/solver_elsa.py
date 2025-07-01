@@ -53,7 +53,7 @@ def read_workflow_with_pypart(workflow):
     import elsAxdt
 
     part_tree, skeleton, PyPartBase = read_and_split_with_pypart(names.FILE_INPUT_SOLVER)
-    add_coordinates_in_skeleton(skeleton, part_tree)
+    add_data_in_skeleton(skeleton, part_tree)
 
     workflow.tree = cgns.castNode(part_tree)
     workflow._Skeleton = cgns.castNode(skeleton)
@@ -73,7 +73,7 @@ def read_workflow_with_cassiopee(workflow):
     
     skeleton = Cmpi.convertFile2SkeletonTree(workflow.tree)
     workflow.read_tree('cassiopee_mpi')
-    add_coordinates_in_skeleton(skeleton, workflow.tree)
+    add_data_in_skeleton(skeleton, workflow.tree)
     workflow._Skeleton = cgns.castNode(skeleton)
 
     e = elsAxdt.XdtCGNS(names.FILE_INPUT_SOLVER)
@@ -86,7 +86,7 @@ def read_workflow_with_cassiopee(workflow):
 
 #     skeleton = Cmpi.convertFile2SkeletonTree(workflow.tree)
 #     workflow.read_tree('cassiopee_mpi')
-#     add_coordinates_in_skeleton(skeleton, workflow.tree)
+#     add_data_in_skeleton(skeleton, workflow.tree)
 #     workflow._Skeleton = cgns.castNode(skeleton)
 
 #     Cmpi._convert2PartialTree(workflow.tree)
@@ -146,7 +146,7 @@ def read_workflow_with_maia(workflow):
 
     maia4elsA.add_renumbering_data(part_tree)
     skeleton_tree = maia4elsA.get_skeleton_tree(part_tree, comm)
-    add_coordinates_in_skeleton(skeleton_tree, part_tree)
+    add_data_in_skeleton(skeleton_tree, part_tree)
     distribution = maia4elsA.get_distribution(part_tree, comm)
     part_tree = maia.pytree.union(skeleton_tree, part_tree)  
     workflow.tree = cgns.castNode(part_tree)
@@ -161,7 +161,7 @@ def read_workflow_with_maia(workflow):
 
     return e
 
-def add_coordinates_in_skeleton(Skeleton, PartTree):
+def add_data_in_skeleton(Skeleton, PartTree):
     import Converter.Internal as I
     import Converter.Mpi as Cmpi
 

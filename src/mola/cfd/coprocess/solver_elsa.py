@@ -116,13 +116,40 @@ def get_elsa_output_tree(skeleton):
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     t = cgns.castNode(t)   
     t.merge(skeleton)
-    ravel_FlowSolution(t)
+    # ravel_FlowSolution(t) # don't ravel! this breaks multi-indexing!
     remove_empty_BCDataSet(t)
     # force_FamilyBC_as_FamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
     t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
     # HACK Pypart puts WorkflowParameters under the base... need to remove it
     t.findAndRemoveNodes(Name=names.CONTAINER_WORKFLOW_PARAMETERS, Type='UserDefinedData', Depth=2) 
+    rename_cellnf_fields(t)
+    replace_relative_coordinates_with_absolute(t)
     return t
+
+def rename_cellnf_fields(tree : cgns.Tree):
+    
+    for zone in tree.zones():
+        for container in zone.group(Type='FlowSolution_t'):
+            for field_node in container.children():
+                name = field_node.name()
+                if name == 'cellnf':
+                    field_node.setName("cellN")
+
+
+def replace_relative_coordinates_with_absolute(tree : cgns.Tree):
+    
+    for zone in tree.zones():
+
+        absolute_coordinates = zone.get(Name='FlowSolution#EndOfRun#Coords',Depth=1)
+        if not absolute_coordinates: continue
+
+        zone.findAndRemoveNodes(Name='GridCoordinates', Type='GridCoordinates_t', Depth=1)
+
+        absolute_coordinates.findAndRemoveNodes(Name='GridLocation',Depth=1)
+        
+        absolute_coordinates.setName('GridCoordinates')
+        absolute_coordinates.setType('GridCoordinates_t')
+        
 
 def update_restart_fields(workflow, output_tree):
     output_tree = cgns.castNode(output_tree)
@@ -208,6 +235,13 @@ def extract_isosurface(output_tree, extraction):
         Name = extraction['Name'],
         tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
         )
+    
+    # TODO shall not be solver-specific
+    if extraction['IsoSurfaceContainersToTransfer'] != 'all':
+        for zone in isosurface.zones():
+            for FS in zone.group(Type='FlowSolution', Depth=1):
+                if FS.name() not in extraction['IsoSurfaceContainersToTransfer']:
+                    FS.remove()
     
     return isosurface
 

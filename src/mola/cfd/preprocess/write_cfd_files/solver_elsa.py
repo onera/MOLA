@@ -45,6 +45,7 @@ def write_data_files(workflow):
             dst = os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER)
         else:
             dst = names.FILE_INPUT_SOLVER
+
         io.writer.write(workflow, t, dst)
     
     if not run_on_localhost:

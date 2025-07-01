@@ -34,7 +34,8 @@ from  mola.cfd.preprocess.mesh import (io,
                                     positioning,
                                     connect,
                                     split,
-                                    families)
+                                    families,
+                                    overset)
 from  mola.cfd.preprocess import (flow_generators,
                                boundary_conditions,
                                initialization,
@@ -126,6 +127,10 @@ class Workflow(object):
         self.set_workflow_parameters_in_tree()
 
     def process_overset(self):
+        mola_logger.info(" - adding overset data", rank=0)
+        self.tree = overset.addOversetData(self.tree, self.RawMeshComponents, 
+                        run_directory=self.RunManagement["RunDirectory"],
+                        **self.Overset)
         self.set_workflow_parameters_in_tree()
 
     def compute_flow_and_turbulence(self):

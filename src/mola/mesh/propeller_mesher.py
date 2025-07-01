@@ -38,11 +38,13 @@ import Connector.PyTree as X
 import Intersector.PyTree as XOR
 
 
+from mola.math_tools import interpolate__
 # Generative modules
-from . import InternalShortcuts as J
-from . import curve as W
-from . import surface as GSD
-from . import volume as GVD
+from mola.pytree import InternalShortcuts as J
+from mola.mesh import curve as W
+from mola.mesh import surface as GSD
+from mola.mesh import volume as GVD
+from mola.cfd.postprocess.interpolation.interpolation import migrateFields
 
 maxRadius = W.maxRadius
 
@@ -1473,7 +1475,7 @@ def _buildAndJoinCollarGrid(blade_surface, blade_root2trans_extrusion, transitio
     transition_sections = [supported_match]
     transition_sections.extend([T.subzone(extruded_blade_root2trans,(1,j+1,1),(Ni2,j+1,Nk2)) for j in range(Nj2)])
     transition_sections = discard_intersecting_sections(transition_sections)
-    transition_distribution = J.getDistributionFromHeterogeneousInput__(W.linelaw(
+    transition_distribution = W.getDistributionFromHeterogeneousInput__(W.linelaw(
                                    P2=(transition_distance,0,0), N=root_to_transition_number_of_points,
                                    Distribution=dict(kind='tanhTwoSides',
                                    FirstCellHeight=wall_cell_height,
@@ -2636,7 +2638,7 @@ def _putSmoothedNormalsAtSurfaces(surfaces, eps=0.9, niter=100, mode=0):
     C._normalize(uns, ['sx','sy','sz'])
     T._smoothField(uns, eps, niter, mode, ['sx','sy','sz']) # TODO externalize param?
     C._normalize(uns, ['sx','sy','sz'])
-    J.migrateFields(uns, surfaces)
+    migrateFields(uns, surfaces)
 
 def _extractWallAdjacentSectorFullProfile(wires_front, wires_rear, external_surfaces):
     profile_curves =      [c for c in wires_front if c[0]=='bulb_union_0']
@@ -3229,12 +3231,12 @@ def _buildFarfieldSector(sector_bnds, profile, blade_number, npts_azimut,
 
     I._rmNodesByType(tip_curves_topo,'FlowSolution_t')
     [C._initVars(tip_curves_topo,'s'+i,0) for i in ('x','y','z')]
-    J.migrateFields(support,tip_curves_topo)
+    migrateFields(support,tip_curves_topo)
     C._normalize(tip_curves_topo,['sx','sy','sz'])
 
     tip_sectors =  [ s for s in sector_bnds if s[0].startswith('tip')]
     _putSmoothedNormalsAtSurfaces(tip_sectors, eps=0.9, niter=100, mode=0)
-    J.migrateFields(tip_sectors,tip_curves)
+    migrateFields(tip_sectors,tip_curves)
     C._normalize(tip_curves,['sx','sy','sz'])
 
 
@@ -5321,7 +5323,7 @@ def designBlade(
         if not PitchAngle: return blade
         T._rotate(blade, (BladePitchAxisPositionInXaxis,0,0), (0,1,0), pitch_sign*PitchAngle)
     else:
-        twist_ref = J.interpolate__(ZeroPitchAngleRelativeRadius, TwistDistribution['RelativeSpan'],
+        twist_ref = interpolate__(ZeroPitchAngleRelativeRadius, TwistDistribution['RelativeSpan'],
                 TwistDistribution['Twist'], 'interp1d_linear')
         T._rotate(blade, (BladePitchAxisPositionInXaxis,0,0), (0,1,0), pitch_sign*(PitchAngle-twist_ref))
    
@@ -5972,17 +5974,17 @@ def rediscretizeBlade(blade,
 
         section = GSD.getBoundary(blade,'jmin',j)
 
-        TrailingEdgeSegmentLength = float(J.interpolate__(s[j],
+        TrailingEdgeSegmentLength = float(interpolate__(s[j],
             SectionsDistribution['RelativeAbscissa'],
             SectionsDistribution['TrailingEdgeSegmentLength'],
             Law=SectionsDistribution['InterpolationLaw']))
 
-        LeadingEdgeSegmentLength = float(J.interpolate__(s[j],
+        LeadingEdgeSegmentLength = float(interpolate__(s[j],
             SectionsDistribution['RelativeAbscissa'],
             SectionsDistribution['LeadingEdgeSegmentLength'],
             Law=SectionsDistribution['InterpolationLaw']))
 
-        LeadingEdgeAbscissa = float(J.interpolate__(s[j],
+        LeadingEdgeAbscissa = float(interpolate__(s[j],
             SectionsDistribution['RelativeAbscissa'],
             SectionsDistribution['LeadingEdgeAbscissa'],
             Law=SectionsDistribution['InterpolationLaw']))

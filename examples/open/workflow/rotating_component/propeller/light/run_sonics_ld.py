@@ -71,11 +71,11 @@ w = propeller.Workflow(
     RunManagement = dict(
         NumberOfProcessors = 8,
         NumberOfThreads = 1,
-        RunDirectory = f'example_{solver}',
+        RunDirectory = f'example_{solver}_test',
         Scheduler = 'local',
     ),
 )
 
 w.prepare()
 w.write_cfd_files()
-w.submit()
+# w.submit()

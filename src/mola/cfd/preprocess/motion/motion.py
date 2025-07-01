@@ -19,12 +19,18 @@ import numpy as np
 
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException
+from mola.cfd.preprocess.mesh.overset import hasAnyOversetMotion
 
 def apply(workflow):
     '''
     Set Motion for each families
     '''
-    set_default_motion_on_families(workflow)
+    
+    if not hasAnyOversetMotion(workflow.RawMeshComponents):
+        
+        # cannot avoid this in general? It is incompatible with overset motion
+        set_default_motion_on_families(workflow) 
+
     apply_to_solver(workflow)
 
 def set_default_motion_on_families(workflow):
@@ -40,9 +46,6 @@ def set_default_motion_on_families(workflow):
         update_motion_with_defaults(MotionOnFamily) 
 
 def update_motion_with_defaults(Motion):
-    if callable(Motion) or any([callable(v) for v in Motion.values()]):
-        # complex motion given as a function
-        return
 
     RotationSpeed = Motion.setdefault('RotationSpeed', [0., 0., 0.])
     if isinstance(RotationSpeed, (int, float)):

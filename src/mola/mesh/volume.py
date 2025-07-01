@@ -21,10 +21,10 @@ Creation by recycling GenerativeVolumeDesign.py of v1.18.1
 
 from mola.logging import mola_logger
 
-from . import InternalShortcuts as J
-from . import curve as W
-from . import surface as GSD
-from . import ExtractSurfacesProcessor as ESP
+from mola.pytree import InternalShortcuts as J
+from mola.mesh import curve as W
+from mola.mesh import surface as GSD
+from mola.mesh import ExtractSurfacesProcessor as ESP
 
 
 # System modules
@@ -2374,7 +2374,7 @@ def multiSections(ProvidedSections, SpineDiscretization,InterpolationData={'Inte
     SpineCurve  = D.polyline(reference)
     RelPositions= W.gets(SpineCurve)
 
-    span, s, zone_distr = J.getDistributionFromHeterogeneousInput__(SpineDiscretization)
+    span, s, zone_distr = W.getDistributionFromHeterogeneousInput__(SpineDiscretization)
     refined_spine = W.discretize(SpineCurve, Distribution=zone_distr)
     Ns = len(s)
 
@@ -2482,7 +2482,7 @@ def stackSurfacesWithFields(FirstSurface, LastSurface, Distribution):
     xF, yF, zF = J.getxyz(FirstSurface)
     xL, yL, zL = J.getxyz(LastSurface)
 
-    Spine = J.getDistributionFromHeterogeneousInput__(Distribution)[0]
+    Spine = W.getDistributionFromHeterogeneousInput__(Distribution)[0]
     RelativeDistribution = Spine/(Spine.max()-Spine.min())
 
     Layers = []
@@ -3298,7 +3298,7 @@ def buildCartesianBackground(t, InputMeshes):
             GenerationInfo['SplitBlocks'] = False
     if not GenerationInfo: return
 
-    from .UnsteadyOverset import _getRotorMotionParameters, _addAzimuthalGhostComponent    
+    from mola.cfd.preprocess.overset.UnsteadyOverset import _getRotorMotionParameters, _addAzimuthalGhostComponent    
 
     print('extracting offset surfaces...')
     baseName2body = dict()

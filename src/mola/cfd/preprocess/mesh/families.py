@@ -17,6 +17,7 @@
 
 import copy
 import treelab.cgns as cgns
+import Converter.Internal as I
 from mola.logging import mola_logger, MolaException, MolaUserError
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
@@ -66,15 +67,17 @@ def set_family_from_location(base, FamilyName, location):
 
     mola_logger.info(f'setting Family {FamilyName} in base {base.name()}')
                     
+    if shall_define_overlap_type_directly(FamilyName):
+        specification = 'BCOverlap'
+    else:
+        specification = 'FamilySpecified:'+FamilyName
+
     if location in structured_locations:
         for zone in base.zones():
-            C._addBC2Zone(zone, FamilyName,
-                        'FamilySpecified:'+FamilyName,
-                        location)
+            C._addBC2Zone(zone, FamilyName, specification, location)
 
     elif location == 'remaining':
-        C._fillEmptyBCWith(base, FamilyName,
-            'FamilySpecified:'+FamilyName,dim=base.dim())
+        C._fillEmptyBCWith(base, FamilyName, specification, dim=base.dim())
 
     elif location.startswith('plane'):
         if not base.isStructured():
@@ -86,8 +89,15 @@ def set_family_from_location(base, FamilyName, location):
         for zone in base.zones():
             WindowTags = getWindowTagsAtPlane(cgns.castNode(zone), planeTag=location)
             for winTag in WindowTags:
-                C._addBC2Zone(zone, FamilyName, 'FamilySpecified:'+FamilyName, winTag)
+                C._addBC2Zone(zone, FamilyName, specification, winTag)
 
+def shall_define_overlap_type_directly( family_name : str):
+    # HACK https://elsa.onera.fr/issues/7869
+    # HACK https://elsa.onera.fr/issues/7868
+    lower_case_family = family_name.lower()
+    if family_name.startswith('F_OV_') or 'overset' in lower_case_family or 'overlap' in lower_case_family:
+        return True
+    return False
 
 def getWindowTagsAtPlane(zone : cgns.Zone, planeTag='planeXZ', tolerance=1e-8):
     '''
@@ -303,3 +313,121 @@ def generate_case_variations(patterns):
             if name not in extended_patterns:
                 extended_patterns.append(name)
     return extended_patterns
+
+def _ungroupBCsByBCType(t, forced_starting=''):
+    for BC in I.getNodesFromType(t,'BC_t'):
+        BCvalue = I.getValue(BC)
+        if BCvalue == 'FamilySpecified':
+            FamilyBC = I.getValue(I.getNodeFromName1(BC,'FamilyName'))
+            BCType = getFamilyBCTypeFromFamilyBCName(t, FamilyBC)
+            if forced_starting:
+                if BCType.startswith(forced_starting):
+                    BCType = forced_starting
+            I.setValue(BC,BCType)
+
+def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
+    '''
+    Get the *BCType* of BCs defined by a given family BC name.
+
+    Parameters
+    ----------
+
+        t : PyTree
+            main CGNS tree
+
+        FamilyBCName : str
+            requested name of the *FamilyBC*
+
+    Returns
+    -------
+
+        BCType : str
+            the resulting *BCType*. Returns:py:obj:`None` if **FamilyBCName** is not
+            found
+    '''
+    FamilyNode = I.getNodeFromNameAndType(t, FamilyBCName, 'Family_t')
+    if not FamilyNode: return
+
+    FamilyBCNode = I.getNodeFromType1(FamilyNode, 'FamilyBC_t')
+    if not FamilyBCNode: return
+
+    FamilyBCNodeType = I.getValue(FamilyBCNode)
+    if FamilyBCNodeType != 'UserDefined': return FamilyBCNodeType
+
+    SolverBC = I.getNodeFromName1(FamilyNode,'.Solver#BC')
+    if SolverBC:
+        SolverBCType = I.getNodeFromName1(SolverBC,'type')
+        if SolverBCType:
+            BCType = I.getValue(SolverBCType)
+            return BCType
+
+    SolverOverlap = I.getNodeFromName1(FamilyNode,'.Solver#Overlap')
+    if SolverOverlap: return 'BCOverlap'
+
+    BCnodes = I.getNodesFromType(t, 'BC_t')
+    for BCnode in BCnodes:
+        FamilyNameNode = I.getNodeFromName1(BCnode, 'FamilyName')
+        if not FamilyNameNode: continue
+
+        FamilyNameValue = I.getValue( FamilyNameNode )
+        if FamilyNameValue == FamilyBCName:
+            BCType = I.getValue( BCnode )
+            if BCType != 'FamilySpecified': return BCType
+            break
+
+
+def joinFamilies(t, pattern):
+    '''
+    In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
+    Families <ROW_I>_<PATTERN>, so as many as rows.
+    Useful to join all the row_i_HUB* or (row_i_SHROUD*) together
+
+    Parameters
+    ----------
+
+        t : PyTree
+            A PyTree read by Cassiopee
+
+        pattern : str
+            The pattern used to gather CGNS families. Should be for example 'HUB' or 'SHROUD'
+    '''
+    fam2remove = []
+    fam2keep = []
+    # Loop on the BCs in the tree
+    for bc in I.getNodesFromType(t, 'BC_t'):
+        # Get BC family name
+        famBC_node = I.getNodeFromType(bc, 'FamilyName_t')
+        if not famBC_node: 
+            continue
+        famBC = I.getValue(famBC_node)
+        # Check if the pattern is present in FamilyBC name
+        if pattern not in famBC:
+            continue
+        # Split to get the short name based on pattern
+        split_fanBC = famBC.split(pattern)
+        assert len(split_fanBC) == 2, 'The pattern {} is present more than once in the FamilyBC {}. It must be more selective.'.format(
+            pattern, famBC)
+        preffix, suffix = split_fanBC
+        # Add the short name to the set fam2keep
+        short_name = '{}{}'.format(preffix, pattern)
+        if short_name not in fam2keep: 
+            fam2keep.append(short_name)
+        if suffix != '':
+            # Change the family name
+            I.setValue(famBC_node, '{}'.format(short_name))
+            if famBC not in fam2remove: 
+                fam2remove.append(famBC)
+
+    # Remove families
+    for fam in fam2remove:
+        print('Remove family {}'.format(fam))
+        I._rmNodesByNameAndType(t, fam, 'Family_t')
+
+    # Check that families to keep still exist
+    base = I.getNodeFromType(t, 'CGNSBase_t')
+    for fam in fam2keep:
+        fam_node = I.getNodeFromNameAndType(t, fam, 'Family_t')
+        if fam_node is None:
+            print('Add family {}'.format(fam))
+            I.newFamily(fam, parent=base)
+
