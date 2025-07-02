@@ -205,7 +205,14 @@ class Workflow(object):
             if component['OversetOptions']:
                 return True
         return False
-    
+
+    def has_moving_overset_component(self):
+        for component in self.RawMeshComponents:
+            if 'OversetMotion' in component and component['OversetMotion']:
+                return True
+        return False
+
+
     def submit(self, command=None):
         from mpi4py import MPI
         job_nb = None

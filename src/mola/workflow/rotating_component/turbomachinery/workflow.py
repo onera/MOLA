@@ -83,14 +83,20 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
             self.postprocess()
         except Exception as err:
             logger.error(f'  > postprocess failed', rank=0)
-            if rank == 0:
-                # Add error message to file stderr.log 
-                with open(names.FILE_STDERR, 'a') as f:
-                    f.write(str(err)+'\n')
-                # Write file FAILED
-                with open(names.FILE_JOB_FAILED, 'w') as f: 
-                    f.write(names.FILE_JOB_FAILED)
-            MPI.COMM_WORLD.Abort(1)
+
+            # TODO remove this redirect because it is not working since it does
+            # not show the error on stderr.log file. Just let Python fail as usual
+            # if rank == 0:
+            #     # Add error message to file stderr.log 
+            #     with open(names.FILE_STDERR, 'a') as f:
+            #         f.write(str(err)+'\n')
+            #     # Write file FAILED
+            #     with open(names.FILE_JOB_FAILED, 'w') as f: 
+            #         f.write(names.FILE_JOB_FAILED)
+            # MPI.COMM_WORLD.Abort(1)
+
+            raise ValueError('turbomachinery postprocess failed, see full traceback') from err
+
         else:
             logger.info(f'  > postprocess done.', rank=0)
 

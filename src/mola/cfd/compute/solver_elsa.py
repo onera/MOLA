@@ -43,7 +43,8 @@ def apply_to_solver(workflow):
     coprocess_manager = CoprocessManager(workflow)
     workflow._coprocess_manager = coprocess_manager
 
-    loadMotionForElsA(elsA_user, workflow._Skeleton, coprocess_manager.mola_logger)
+    if workflow.has_moving_overset_component():
+        loadMotionForElsA(elsA_user, workflow._Skeleton, coprocess_manager.mola_logger)
 
     e.mode  = elsAxdt.READ_MESH
     e.mode |= elsAxdt.READ_CONNECT
@@ -65,8 +66,11 @@ def apply_to_solver(workflow):
             import pprint
             f.write(pprint.pformat(table))
 
-    readStaticMasksForElsA(e, elsA_user, workflow._Skeleton, coprocess_manager.mola_logger)
-    loadUnsteadyMasksForElsA(e, elsA_user, workflow._Skeleton, coprocess_manager.mola_logger)
+    if workflow.has_overset_component():
+        readStaticMasksForElsA(e, elsA_user, workflow._Skeleton, coprocess_manager.mola_logger)
+
+    if workflow.has_moving_overset_component():
+        loadUnsteadyMasksForElsA(e, elsA_user, workflow._Skeleton, coprocess_manager.mola_logger)
 
     Cfdpb.compute()
     Cfdpb.extract()
@@ -235,12 +239,12 @@ def loadMotionForElsA(elsA_user, Skeleton, logger):
         motion = I.getNodeFromName2(base, '.Solver#Motion')
         if not motion:
             raise ValueError(f".Solver#Motion not found in {base[0]}")
-            continue
+
 
         function_name = I.getNodeFromName1(motion, 'function_name')
         if not function_name:
             raise ValueError(f"function_name not found in {motion[0]}")
-            continue
+
         function_name = I.getValue(function_name)
 
         MOLA_motion = I.getNodeFromName2(base, '.MOLA#Motion')

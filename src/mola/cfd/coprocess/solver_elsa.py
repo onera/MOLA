@@ -236,7 +236,7 @@ def extract_isosurface(output_tree, extraction):
         tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
         )
     
-    # TODO shall not be solver-specific
+    # TODO shall not be solver-specific, and shall be done also on BC
     if extraction['IsoSurfaceContainersToTransfer'] != 'all':
         for zone in isosurface.zones():
             for FS in zone.group(Type='FlowSolution', Depth=1):
