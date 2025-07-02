@@ -17,15 +17,23 @@
 
 from treelab import cgns
 import maia
-import maia.pytree.maia.check_tree as check
 from mola.logging import MolaException
 
 def extract_bc_from_family(tree, Family, comm):
     tree_ref = maia.pytree.shallow_copy(tree)
     
-    is_part = check.is_cgns_part_tree(tree_ref)
-    is_dist = check.is_cgns_dist_tree(tree_ref)
-    is_full = check.is_cgns_full_tree(tree_ref)
+    try:
+        import maia.pytree.maia.check_tree as check
+        is_part = check.is_cgns_part_tree(tree_ref)
+        is_dist = check.is_cgns_dist_tree(tree_ref)
+        is_full = check.is_cgns_full_tree(tree_ref)
+    
+    except ModuleNotFoundError:
+        import mola.pytree.user.checker as check
+        is_part = check.is_partitioned_for_use_in_maia(tree_ref)
+        is_dist = check.is_distributed_for_use_in_maia(tree_ref)
+        is_full = not is_part and not is_dist
+
     
     if is_part:
         part_tree = tree_ref
