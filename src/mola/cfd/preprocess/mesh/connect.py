@@ -22,7 +22,7 @@ from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd.preprocess.mesh.tools import to_distributed
 
 def apply(workflow):
-    if not all([('Connection' in component) for component in workflow.RawMeshComponents]):
+    if not any([('Connection' in component) for component in workflow.RawMeshComponents]):
         return
     
     reason_for_not_using_maia = get_reason_why_maia_cannot_connect(workflow)

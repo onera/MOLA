@@ -16,15 +16,20 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Creation by recycling ExtractSurfacesProcessor.py of v1.18.1
+ExtractSurfacesProcessor.py module
+15/07/2021 - L. Bernardos
 '''
 
 import numpy as np
+from timeit import default_timer as tic
 
 import Converter.PyTree as C
 import Converter.Internal as I
 import Transform.PyTree as T
 import Connector.PyTree as X
+import Intersector.PyTree as XOR
+import Post.PyTree as P
+import Geom.PyTree as D
 
 ijk2ind = {'i':0, 'j':1, 'k':2}
 
@@ -257,6 +262,7 @@ def windowsOfSurfaceTouchingGrid(surface, grid):
                 msg+= str(unr)
                 msg+= f'\nnodes=\n{nodes}'
                 C.convertPyTree2File([surface,block],'debug.cgns')
+
                 raise ValueError(msg)
 
         windows += [ np.array([[unr[0,0],unr[0,-1]],
@@ -356,7 +362,7 @@ def addSurfacesByWindowComposition(surfaces):
         if NbOfSplit == 1:
             w = I.getValue(I.getNodeFromName1(SplitWindows[0],'Window'))
             slice = (w[0,0],w[1,0],1),(w[0,1],w[1,1],1)
-
+            
         elif NbOfSplit == 2:
             w0 = I.getValue(I.getNodeFromName1(SplitWindows[0],'Window'))
             inwInd0 = I.getValue(I.getNodeFromName1(SplitWindows[0],'InwardIndex'))

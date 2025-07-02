@@ -19,8 +19,11 @@
 Creation by recycling GenerativeShapeDesign.py of v1.18.1
 '''
 
-from . import InternalShortcuts as J
-from . import curve as W
+from mola.pytree import InternalShortcuts as J
+from mola.mesh import curve as W
+from mola.math_tools import interpolate__
+from mola.cfd.postprocess.interpolation.interpolation import migrateFields
+
 
 import sys
 import pprint
@@ -354,7 +357,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     AllowedInterpolationLaws = ('interp1d_<KindOfInterpolation>', 'pchip', 'akima', 'cubic')
     GeometricalParameters    = kwargs.keys()
 
-    WingSpan,Abscissa,_ = J.getDistributionFromHeterogeneousInput__(Span)
+    WingSpan,Abscissa,_ = W.getDistributionFromHeterogeneousInput__(Span)
     RelWingSpan = WingSpan / WingSpan.max()
     Ns = len(WingSpan)
 
@@ -435,7 +438,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     SpineX, SpineY, SpineZ = J.getxyz(Spine)
 
     # STEP 1: Interpolate each airfoil: this step is mandatory.
-    order = J._inferOrderFromInterpLawName(kwargs['Airfoil']['InterpolationLaw'])
+    order = W._inferOrderFromInterpLawName(kwargs['Airfoil']['InterpolationLaw'])
     Airfoils = kwargs['Airfoil']['Airfoil']
     Positions = kwargs['Airfoil']['RelativeSpan']
 
@@ -457,7 +460,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
 
     for GeomParam in AirfoilParameters:
         if GeomParam in kwargs:
-            DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
+            DistributionResult[GeomParam] = interpolate__(RelWingSpan,
                 kwargs[GeomParam]['RelativeSpan'],
                 kwargs[GeomParam][GeomParam],
                 Law=kwargs[GeomParam]['InterpolationLaw'])
@@ -512,7 +515,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
     # STEP 4: Apply the Twist using a Rotation. Optional step.
     if 'Twist' in kwargs:
         GeomParam = 'Twist'
-        DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
+        DistributionResult[GeomParam] = interpolate__(RelWingSpan,
                                             kwargs[GeomParam]['RelativeSpan'],
                                             kwargs[GeomParam][GeomParam],
                                             Law=kwargs[GeomParam]['InterpolationLaw'])
@@ -535,7 +538,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         kwargs[GeomParam][GeomParam] = [0,0]
         kwargs[GeomParam]['InterpolationLaw'] = 'interp1d_linear'
 
-    DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
+    DistributionResult[GeomParam] = interpolate__(RelWingSpan,
                                         kwargs[GeomParam]['RelativeSpan'],
                                         kwargs[GeomParam][GeomParam],
                                         Law=kwargs[GeomParam]['InterpolationLaw'])
@@ -559,7 +562,7 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
         kwargs[GeomParam]['InterpolationLaw'] = 'interp1d_linear'
 
 
-    DistributionResult[GeomParam] = J.interpolate__(RelWingSpan,
+    DistributionResult[GeomParam] = interpolate__(RelWingSpan,
                                         kwargs[GeomParam]['RelativeSpan'],
                                         kwargs[GeomParam][GeomParam],
                                         Law=kwargs[GeomParam]['InterpolationLaw'])
@@ -2510,7 +2513,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
             WakeFarfieldCellHeight = cells['WakeFarfieldAspectRatio']*cells['Farfield']
             for i in range(1,pts['Wake']-1):
                 Hratio = cells['ClosedWakeAbscissaRatio']
-                CellHeight = J.interpolate__(sWake[i],
+                CellHeight = interpolate__(sWake[i],
                     [0.,cells['ClosedWakeAbscissaCtrl'] , 1.],
                     [WallCellHeight,
                      Hratio*WakeFarfieldCellHeight+(1-Hratio)*WallCellHeight,
@@ -3422,12 +3425,12 @@ def makeH(boundaries, inner_contour, inner_cell_size=0.1,
         raise ValueError(J.FAIL+'number of curves in outter_boundaries must be the same as inner_boundaries'+J.ENDC)
 
     if allHaveNormals( inner_contour ):
-        J.migrateFields(inner_contour, inner_boundaries)
+        migrateFields(inner_contour, inner_boundaries)
     else:
         W.addNormals(inner_boundaries, projection_support)
 
     if allHaveNormals( boundaries ):
-        J.migrateFields(boundaries, outter_boundaries)
+        migrateFields(boundaries, outter_boundaries)
     else:
         W.computeBarycenterDirectionalField(outter_boundaries, projection_support)
 

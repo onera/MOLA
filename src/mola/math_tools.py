@@ -258,7 +258,7 @@ def interpolate(AbscissaRequest, AbscissaData, ValuesData, Law='linear',
         return interp(AbscissaRequest)
 
     else:
-        raise AttributeError(RED+'Law %s not recognized.'%Law+ENDC)
+        raise AttributeError('Law %s not recognized.'%Law)
 
 def inverse_sinhXoverX(y):
     r'''
@@ -414,3 +414,107 @@ def normalize_numpy_vector(vector):
 
     norm = np.linalg.norm(vector)
     vector /= norm
+
+
+
+def interpolate__(AbscissaRequest, AbscissaData, ValuesData,
+                  Law='interp1d_linear', axis= -1, **kwargs):
+    """
+    This is a general-purpose interpolation macro for
+    N-dimensional data. This function conveniently wraps
+    a set of `scipy.interpolate <https://docs.scipy.org/doc/scipy/reference/interpolate.html>`_
+    functions. Future implementations may include other 3rd party libraries.
+
+    Interpolations (and extrapolations) are applied on the last
+    axis of **ValuesData**, based on the reference vector
+    **AbscissaData**, for the requested points contained in the
+    vector **AbscissaRequest**.
+
+    Parameters
+    ----------
+
+        AbscissaRequest : 1D numpy array
+            The user-requested points where inter/extrapolation will be
+            performed.
+
+        AbscissaData : 1D numpy array
+            Reference abscissa where **ValuesData** are coherent.
+
+            .. warning:: **AbscissaData** must be monotonically increasing.
+
+        ValuesData : N-d numpy array
+            Set of data to interpolate.
+
+            .. warning:: the last dimension of **ValuesData** must be equal to
+                the length of **AbscissaData**.
+
+        Law : str
+            Controls the algorithm of interpolation
+            to be employed. Current implementation includes:
+
+            ``'linear'`` : linear interpolation :math:`\mathcal{O}(1)` mode
+                Makes use of the function `numpy.interp() <https://numpy.org/doc/stable/reference/generated/numpy.interp.html>`_
+
+            ``'interp1d_<kind>'`` : one-dimensional interpolation (multiple orders)
+                Makes use of the function
+                `scipy.interpolate.interp1d <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html>`_,
+                where ``<kind>`` may be one of *(for scipy v1.4.1)*:
+                (``linear``, ``nearest``, ``zero``, ``slinear``, ``quadratic``,
+                ``cubic``, ``previous`` or ``next``).
+
+            ``'pchip'`` : Piecewise Cubic Hermite Interpolating Polynomial :math:`\mathcal{O}(3)`
+                Makes use of the function `scipy.interpolate.PchipInterpolator <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html>`_
+
+            ``'akima'`` : Akima interpolator :math:`\mathcal{O}(3)`
+                Makes use of the function `scipy.interpolate.Akima1DInterpolator <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.Akima1DInterpolator.html>`_
+
+            ``'cubic'`` : Cubic spline :math:`\mathcal{O}(3)`
+                Makes use of the function `scipy.interpolate.CubicSpline <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html>`_
+
+                In this case, an additional keyword is available for
+                specification of spline's *boundary conditions* in **kwargs**,
+                for example:
+
+                ::
+
+                    CubicSplineBoundaryConditions = ('clamped', 'not_a_knot')
+
+                The first element of the tupple indicates the boundary
+                condition of the spline at the start and the second one
+                indicates the boundary condition at the end.
+
+    Returns
+    -------
+
+        Result : N-dimension numpy array
+            Result of interpolation
+    """
+    import scipy.interpolate
+    LawLower = Law.lower()
+
+    if 'linear' == LawLower:
+        return np.interp(AbscissaRequest, AbscissaData, ValuesData)
+
+    elif 'interp1d' in LawLower:
+        ScipyLaw =  Law.split('_')[1]
+        interp = scipy.interpolate.interp1d( AbscissaData, ValuesData, axis=axis, kind=ScipyLaw, bounds_error=False, fill_value='extrapolate', assume_sorted=True, copy=False)
+        return interp(AbscissaRequest)
+
+    elif 'pchip' == LawLower:
+        interp = scipy.interpolate.PchipInterpolator(AbscissaData, ValuesData, axis=axis, extrapolate=True)
+        return interp(AbscissaRequest)
+
+    elif 'akima' == LawLower:
+        interp = scipy.interpolate.Akima1DInterpolator(AbscissaData, ValuesData, axis=axis)
+        return interp(AbscissaRequest, extrapolate=True)
+
+    elif 'cubic' == LawLower:
+        try: bc_type = kwargs['CubicSplineBoundaryConditions']
+        except KeyError: bc_type = 'not-a-knot'
+
+        interp = scipy.interpolate.CubicSpline(AbscissaData, ValuesData, axis=axis, extrapolate=True, **kwargs)
+        return interp(AbscissaRequest)
+
+    else:
+        raise AttributeError('interpolate__(): Law %s not recognized.'%Law)
+

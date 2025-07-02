@@ -46,3 +46,5 @@ def assert_zones_have_zone_type_node(tree):
             zone_type_value = I.getValue(zone_type)
             if zone_type_value not in ['Structured', 'Unstructured']:
                 raise MolaException(f"zone {path} has value {zone_type_value} which is not recognized")
+
+

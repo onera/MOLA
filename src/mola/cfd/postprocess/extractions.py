@@ -40,7 +40,7 @@ def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, 
 
     else:
         raise MolaException(f'iso_surface is available only with cassiopee (now tool={tool})')
-    
+
     return extraction
     
     
@@ -58,10 +58,8 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
     
     elif tool == 'maia':
         from .extractions_with_maia import extract_bc_from_family
-        zones = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
-        extraction = get_renamed_tree_maia(zones, BaseName, CellDimension=CellDimension)
-        extraction = cgns.castNode(extraction)
-        restore_families(extraction, t)
+        tree = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
+        extraction = cgns.castNode(tree)
     
     elif tool == 'maia_zsr':
         from .extractions_with_maia import extract_bc_from_zsr
@@ -101,8 +99,9 @@ def get_renamed_tree(zones, basename, CellDimension=3, PhysicalDimension=3):
     return tree
 
 def get_renamed_tree_maia(zones, basename, CellDimension=3, PhysicalDimension=3):
-    tree = cgns.Tree()
-    base = cgns.Base(Parent=tree, Name=basename)
+    tree = cgns.Tree(basename=[])
+    base = tree.bases()[0]
+    base.setName(basename)
     base.setCellDimension(CellDimension-1)
     base.setPhysicalDimension(PhysicalDimension)
 
@@ -112,6 +111,7 @@ def get_renamed_tree_maia(zones, basename, CellDimension=3, PhysicalDimension=3)
     for i, zone in enumerate(zones):
         if len(zone) != 4:
             raise TypeError(f"wrong zone: {str(zone)}")
+
         zone = cgns.castNode(zone)
         # The name of the parent zone is kept in a temporary node .parentZone, 
         # that will be removed before saving
@@ -130,7 +130,10 @@ def get_maia_suffix(name):
     # regular expression to find a pattern ".P*.N*", with * a number with 1 to 5 figures
     maia_pattern = r'\.P(\d{1,5})\.N(\d{1,5})'
     match = re.search(maia_pattern, name)
-    pattern_found = match.group(0) 
+    if match:
+        pattern_found = match.group(0) 
+    else:
+        pattern_found = ''
     return pattern_found
 
 def restore_families(surfaces, skeleton):

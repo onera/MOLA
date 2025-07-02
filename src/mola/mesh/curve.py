@@ -20,7 +20,9 @@ Creation by recycling Wireframe.py of v1.18.1
 '''
 
 
-from . import InternalShortcuts as J
+from mola.pytree import InternalShortcuts as J
+from mola.math_tools import interpolate__
+from mola.cfd.postprocess.interpolation.interpolation import migrateFields
 
 import sys
 import os
@@ -1060,10 +1062,10 @@ def discretize(curve, N=None, Distribution=None, MappingLaw='Generator.map'):
             OldAbscissa = gets(curve)
 
         # Get the newly user-defined abscissa
-        _,NewAbscissa,_ = J.getDistributionFromHeterogeneousInput__(curve_Distri)
+        _,NewAbscissa,_ = getDistributionFromHeterogeneousInput__(curve_Distri)
 
         # Perform remapping (interpolation)
-        VarsArrays = [J.interpolate__(NewAbscissa,OldAbscissa,OldVar, Law=MappingLaw) for OldVar in OldVars]
+        VarsArrays = [interpolate__(NewAbscissa,OldAbscissa,OldVar, Law=MappingLaw) for OldVar in OldVars]
 
         # Invoke newly remapped curve
         new_curve = J.createZone(curve[0],VarsArrays,VarsNames)
@@ -1347,9 +1349,9 @@ def polyDiscretize(curve, Distributions, MappingLaw='Generator.map'):
         curveMap = D.line((0,0,0),(1,0,0),len(sMap))
         curveMap[0] = curve[0]+'.mapped'
         xMap, yMap, zMap = J.getxyz(curveMap)
-        xMap[:] = J.interpolate__(sMap, s, x, Law=MappingLaw, axis=-1)
-        yMap[:] = J.interpolate__(sMap, s, y, Law=MappingLaw, axis=-1)
-        zMap[:] = J.interpolate__(sMap, s, z, Law=MappingLaw, axis=-1)
+        xMap[:] = interpolate__(sMap, s, x, Law=MappingLaw, axis=-1)
+        yMap[:] = interpolate__(sMap, s, y, Law=MappingLaw, axis=-1)
+        zMap[:] = interpolate__(sMap, s, z, Law=MappingLaw, axis=-1)
 
         return curveMap
 
@@ -2223,7 +2225,7 @@ def putAirfoilClockwiseOrientedAndStartingFromTrailingEdge( airfoil, tol=1e-10,
     airfoil_with_TE = concatenate( [TE, airfoil_with_TE, TE] )
     gets( airfoil_with_TE )
 
-    J.migrateFields( airfoil_with_TE, airfoil, keepMigrationDataForReuse=False )
+    migrateFields( airfoil_with_TE, airfoil, keepMigrationDataForReuse=False )
     s, = J.getVars(airfoil, ['s'])
     s[0] = 0
     s[-1] = 1
@@ -3771,7 +3773,7 @@ def buildCamber(AirfoilCurve, MaximumControlPoints=100, StepControlPoints=10,
     # s_fine = gets(CamberFine)
     # slope = 5
     # for field_coarse, field_fine in zip(fields_coarse, fields_fine):
-    #     field_fine[:] = J.interpolate__(s_fine,s_coarse,field_coarse, Law='cubic',
+    #     field_fine[:] = interpolate__(s_fine,s_coarse,field_coarse, Law='cubic',
     #                                     bc_type=((1,slope),'not-a-knot'))
 
     CamberFine[0] = CamberPolyline[0]+'.camber'
@@ -4323,7 +4325,7 @@ def modifyThicknessOfCamberLine(CamberCurve, NormalDirection, MaxThickness=None,
         AuxRelativeThickness, = J.getVars(AuxCamberLine, ['RelativeThickness'])
 
         AuxS = gets(AuxCamberLine)
-        RelativeThickness[:] = J.interpolate__(s, AuxS, AuxRelativeThickness,
+        RelativeThickness[:] = interpolate__(s, AuxS, AuxRelativeThickness,
                                                Law=InterpolationLaw)
 
     if MinThickness:
@@ -4507,7 +4509,7 @@ def modifyCamberOfCamberLine(CamberCurve, NormalDirection,
             AuxRelativeCamber = J.gety(AuxCamberLine)
             AuxX = J.getx(AuxCamberLine)
 
-            RelativeCamber[:] = J.interpolate__(x, AuxX, AuxRelativeCamber,
+            RelativeCamber[:] = interpolate__(x, AuxX, AuxRelativeCamber,
                                                    Law=InterpolationLaw)
 
     # replicated from here for Min
@@ -4556,7 +4558,7 @@ def modifyCamberOfCamberLine(CamberCurve, NormalDirection,
             AuxRelativeCamber = J.gety(AuxCamberLine)
             AuxX = J.getx(AuxCamberLine)
 
-            RelativeCamber[:] = J.interpolate__(x, AuxX, AuxRelativeCamber,
+            RelativeCamber[:] = interpolate__(x, AuxX, AuxRelativeCamber,
                                                    Law=InterpolationLaw)
 
 
@@ -5443,7 +5445,7 @@ def addNormals(curves, support=None, smoothing_iterations=0,
     I._rmNodesByType(closed_contour, 'FlowSolution_t')
     getCurveNormalMap(closed_contour)
     I._rmNodesByName(closed_contour, I.__FlowSolutionCenters__)
-    J.migrateFields(closed_contour, curves, False)
+    migrateFields(closed_contour, curves, False)
     if reverse_normals: reverseNormals( curves )
     for c in curves:
         projectNormals(c, support, smoothing_iterations=smoothing_iterations,
@@ -7855,3 +7857,144 @@ def getOrientedBoundingBoxLengthsAndDirections(zone):
                                                          [i_dir, j_dir, k_dir])
     
     return lengths, dirs
+
+
+
+def getDistributionFromHeterogeneousInput__(InputDistrib):
+    """
+    This function accepts a polymorphic object **InputDistrib** and
+    conveniently translates it into 1D numpy distributions
+    and ``D.getDistribution()``-compliant distribution zone.
+
+    Parameters
+    ----------
+
+        InputDistrib : polymorphic
+            One of the following objects are accepted:
+
+            * numpy 1D vector
+                for example,
+                ::
+
+                    np.array([15., 20., 25., 30.])
+
+            * Python list of float
+                for example,
+                ::
+
+                    [15., 20., 25., 30.]
+
+            * Python dictionary
+                A ``W.linelaw()``-compliant dictionary which must
+                include, at least, the following keys:
+
+                ``'P1'``, ``'P2'`` and ``'N'``.
+
+                Other possible keys are the
+                ``distrib`` possible keys and values of ``W.linelaw()``.
+
+                For example,
+                ::
+
+                    dict(P1=(15,0,0), P2=(20,0,0),
+                         N=100, kind='tanhOneSide',
+                         FirstCellHeight=0.01)
+
+    Returns
+    -------
+
+        Span : 1D numpy
+            vector monotonically increasing. **Absolute length** dimensions.
+
+        Abscissa : 1D numpy
+            corresponding curvilinear abscissa (from 0 to 1) **dimensionless**.
+
+        Distribution : zone
+            ``G.map()``-compliant 1D PyTree curve as got from
+            ``D.getDistribution()``
+    """
+    import Geom.PyTree as D
+
+    def buildResultFromNode__(n):
+        x,y,z = J.getxyz(n)
+        xIsNone = x is None
+        yIsNone = y is None
+        zIsNone = z is None
+        if (xIsNone and yIsNone and zIsNone):
+            ErrMsg = "Input argument was a PyTree node (named %s), but no coordinates were found.\nPerhaps you forgot GridCoordinates nodes?"%n[0]
+            raise AttributeError(ErrMsg)
+        else:
+            if xIsNone:
+                if not yIsNone: x = y*0
+                else:           x = z*0
+            if yIsNone: y = x*0
+            if zIsNone: z = x*0
+        zone = J.createZone('distribution',[x,y,z],['CoordinateX', 'CoordinateY', 'CoordinateZ'])
+        D._getCurvilinearAbscissa(zone)
+        Abscissa, = J.getVars(zone,['s'])
+        Distribution = D.getDistribution(zone)
+        x,y,z = J.getxyz(zone)
+        # Span = np.sqrt(x*x+y*y+z*z) # wrong
+
+        return x, Abscissa, Distribution
+
+
+    typeInput=type(InputDistrib)
+    NodeKind = I.isStdNode(InputDistrib)
+    if NodeKind == -1: # It is a node
+        return buildResultFromNode__(InputDistrib)
+    elif NodeKind == 0: # List of Nodes
+        return buildResultFromNode__(InputDistrib[0])
+    elif typeInput is np.ndarray: # It is a numpy array
+        s  = InputDistrib
+        if len(s.shape)>1:
+            ErrMsg = "Input argument was detected as a numpy array of dimension %g!\nInput distribution MUST be a monotonically increasing VECTOR (1D numpy array)."%len(s.shape)
+            raise AttributeError(ErrMsg)
+        if any( np.diff(s)<0):
+            ErrMsg = "Input argument was detected as a numpy array.\nHowever, it was NOT monotonically increasing. Input distribution MUST be monotonically increasing. Check that, please."
+            raise AttributeError(ErrMsg)
+
+        zone = J.createZone('distribution',[s,s*0,s*0],['CoordinateX', 'CoordinateY', 'CoordinateZ'])
+        return buildResultFromNode__(zone)
+
+    elif isinstance(InputDistrib, list): # It is a list
+        try:
+            s = np.array(InputDistrib,dtype=np.float64)
+        except:
+            raise AttributeError('Could not transform InputDistrib argument into a numpy array.\nCheck your InputDistrib argument.')
+        if len(s.shape)>1:
+            ErrMsg = "InputDistrib argument was converted from list to a numpy array of shape %s!\nSpan MUST be a monotonically increasing VECTOR (1D numpy array)."%(str(s.shape))
+            raise AttributeError(ErrMsg)
+        if any( np.diff(s)<0):
+            ErrMsg = "Input argument was detected as a numpy array.\nHowever, it was NOT monotonically increasing. Input distribution MUST be monotonically increasing. Check that, please."
+            raise AttributeError(ErrMsg)
+
+        zone = J.createZone('distribution',[s,s*0,s*0],['CoordinateX', 'CoordinateY', 'CoordinateZ'])
+        return buildResultFromNode__(zone)
+
+    elif isinstance(InputDistrib,dict):
+        from . import curve as W
+        try: P1 = InputDistrib['P1']
+        except KeyError: P1 = (0,0,0)
+        try: P2 = InputDistrib['P2']
+        except KeyError: P2 = (1,0,0)
+        try: N = InputDistrib['N']
+        except KeyError: raise AttributeError('distribution requires number of pts "N"')
+        zone = W.linelaw(P1=P1, P2=P2, N=InputDistrib['N'],Distribution=InputDistrib)
+        return buildResultFromNode__(zone)
+
+    else:
+        raise AttributeError('Type of Span argument not recognized. Check your input.')
+
+def _inferOrderFromInterpLawName(InterpolationLaw):
+    InterpLaw = InterpolationLaw.lower()
+    if InterpLaw == 'interp1d_linear':
+        InterpLaw = 'rectbivariatespline_1'
+    elif InterpLaw == 'interp1d_quadratic':
+        InterpLaw = 'rectbivariatespline_2'
+    elif InterpLaw in ['interp1d_cubic', 'pchip', 'akima', 'cubic']:
+        InterpLaw = 'rectbivariatespline_3'
+    elif not InterpLaw.startswith('rectbivariatespline'):
+        raise AttributeError(f'unknown law "{InterpLaw}"')
+    order = int(InterpLaw.split('_')[-1])
+    return order

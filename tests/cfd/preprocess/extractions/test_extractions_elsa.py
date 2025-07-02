@@ -48,8 +48,8 @@ def test_add_extractions_for_overset_components():
 
     last_extraction = workflow.Extractions[-1]
     assert last_extraction['Type'] == '3D'
-    assert last_extraction['Fields'] == list(workflow.Flow['Conservatives'])
-    assert last_extraction['Container'] == 'FlowSolution#Overset'
+    assert last_extraction['Fields'] == ['CoordinateX', 'CoordinateY', 'CoordinateZ']
+    assert last_extraction['Container'] == 'FlowSolution#EndOfRun#Coords'
     assert last_extraction['Frame'] == 'absolute'
     assert last_extraction['File'] == names.FILE_OUTPUT_3D
 

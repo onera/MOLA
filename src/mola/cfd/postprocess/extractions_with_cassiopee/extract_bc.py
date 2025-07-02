@@ -15,13 +15,15 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import mola.mesh.ExtractSurfacesProcessor as ESP
+
 import Converter.PyTree as C
 import Converter.Internal as I
 import Converter.Mpi as Cmpi
-
 from .tools import * # BAD PRACTICE !!
 
 from mola.pytree.user.checker import is_distributed_for_use_in_maia, assert_zones_have_zone_type_node
+from mola.cfd.preprocess.mesh.families import _ungroupBCsByBCType
 
 def extract_bc(tree, Family=None, Name=None, Type=None):
     '''
@@ -123,4 +125,35 @@ def extract_bc(tree, Family=None, Name=None, Type=None):
             raise TypeError("extract_bc produced no zones")
 
     return zones
+
+
+
+def getWalls(t, SuffixTag=None):
+    '''
+    Get closed watertight surfaces from walls (defined using ``BCWall*``)
+
+    Parameters
+    ----------
+
+        t : PyTree
+            assembled tree
+
+        SuffixTag : str
+            if provided, include a tag on newly created zone names
+
+    Returns
+    -------
+
+        walls - list
+            
+    '''
+
+
+    if SuffixTag:
+        walls = extract_bc(t, Family=SuffixTag)
+        for w in I.getZones(walls): w[0] = SuffixTag
+    else:
+        walls = extract_bc(t, Type='BCWall')
+    
+    return walls
 

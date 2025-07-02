@@ -26,8 +26,8 @@ import os
 @pytest.mark.cost_level_0
 def test_getDistribution_and_copyDistribution():
 
-    import mola.legacy.surface as GSD
-    import mola.legacy.InternalShortcuts as J
+    import mola.mesh.surface as GSD
+    import mola.pytree.InternalShortcuts as J
     import Generator.PyTree as G
     import Geom.PyTree as D
 

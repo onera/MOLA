@@ -49,7 +49,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
 
 
         self._extract_bc_default_tool = 'cassiopee'
-        # BUG in get_renamed_tree_maia 
+        # requires being more general https://gitlab.onera.net/numerics/mesh/maia/-/issues/201
         # if self.Solver == 'sonics':
         #     self._extract_bc_default_tool = 'maia' 
         # else: 

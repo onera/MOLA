@@ -119,7 +119,8 @@ cgns_to_elsa_extraction_name = dict(
     v8 = 'rotur3',
     v9 = 'rotur4',
     q_criterion = 'q_criterion',
-    cellN = 'cellN',
+    cellN = 'cellnf', # does not seem official
+    ChimeraCellType = 'cellnf', # does not seem official
 )
 
 ElsaCGNS2MOLA = dict(

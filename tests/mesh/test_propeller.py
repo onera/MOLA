@@ -26,7 +26,7 @@ import os
 @pytest.mark.cost_level_1
 def test_designBlade(tmp_path):
 
-    import mola.legacy.propeller_mesher as RW
+    import mola.mesh.propeller_mesher as RW
     blade = RW.designBlade(RightHandRuleRotation=False)
 
 
@@ -36,7 +36,7 @@ def test_designBlade(tmp_path):
 @pytest.mark.cost_level_0
 def test_rediscretizeBlade():
 
-    import mola.legacy.propeller_mesher as RW
+    import mola.mesh.propeller_mesher as RW
     blade = RW.J.selectZoneWithHighestNumberOfPoints( RW.designBlade() )
     new_blade = RW.rediscretizeBlade(blade)
     
@@ -47,7 +47,7 @@ def test_rediscretizeBlade():
 @pytest.mark.cost_level_1
 def test_getBladesORAS_ONERA_SE(tmp_path):
 
-    import mola.legacy.propeller_mesher as RW
+    import mola.mesh.propeller_mesher as RW
     rotor, stator = RW.getBladesORAS_ONERA_SE()
 
 
@@ -57,8 +57,8 @@ def test_getBladesORAS_ONERA_SE(tmp_path):
 @pytest.mark.cost_level_3
 def test_oras_mesher_single(tmp_path):
 
-    import mola.legacy.InternalShortcuts as J
-    import mola.legacy.propeller_mesher as RW
+    import mola.pytree.InternalShortcuts as J
+    import mola.mesh.propeller_mesher as RW
 
     test_mode_else_debug = True # True:testing False:debugging
 
@@ -119,8 +119,8 @@ def test_oras_mesher_single(tmp_path):
 @pytest.mark.cost_level_3
 def test_oras_mesher_ultracoarse(tmp_path):
 
-    import mola.legacy.InternalShortcuts as J
-    import mola.legacy.propeller_mesher as RW
+    import mola.pytree.InternalShortcuts as J
+    import mola.mesh.propeller_mesher as RW
 
     test_mode_else_debug = True # True:testing False:debugging
 
@@ -220,8 +220,8 @@ def test_oras_mesher_ultracoarse(tmp_path):
 @pytest.mark.cost_level_3
 def test_oras_mesher_designer_ultracoarse(tmp_path):
 
-    import mola.legacy.InternalShortcuts as J
-    import mola.legacy.propeller_mesher as RW
+    import mola.pytree.InternalShortcuts as J
+    import mola.mesh.propeller_mesher as RW
 
     test_mode_else_debug = True # True:testing (no file write) False:debugging (file write)
 
@@ -434,8 +434,8 @@ def test_oras_mesher_designer_ultracoarse(tmp_path):
 @pytest.mark.cost_level_3
 def test_oras_mesher_inpro_ultracoarse(tmp_path):
 
-    import mola.legacy.InternalShortcuts as J
-    import mola.legacy.propeller_mesher as RW
+    import mola.pytree.InternalShortcuts as J
+    import mola.mesh.propeller_mesher as RW
 
     test_mode_else_debug = True # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
@@ -576,8 +576,8 @@ def test_oras_mesher_inpro_ultracoarse(tmp_path):
 @pytest.mark.cost_level_3
 def test_oras_mesher_inpro(tmp_path):
 
-    import mola.legacy.InternalShortcuts as J
-    import mola.legacy.propeller_mesher as RW
+    import mola.pytree.InternalShortcuts as J
+    import mola.mesh.propeller_mesher as RW
 
     test_mode_else_debug = True # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
@@ -747,8 +747,8 @@ def test_oras_mesher_barrier_ultracoarse(tmp_path):
 
     if os.getenv('USER') != 'lbernard': return # confidential case
 
-    import mola.legacy.InternalShortcuts as J
-    import mola.legacy.propeller_mesher as RW
+    import mola.pytree.InternalShortcuts as J
+    import mola.mesh.propeller_mesher as RW
 
     test_mode_else_debug = True # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
@@ -911,8 +911,8 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
 
     if os.getenv('USER') != 'lbernard': return # confidential case
 
-    import mola.legacy.InternalShortcuts as J
-    import mola.legacy.propeller_mesher as RW
+    import mola.pytree.InternalShortcuts as J
+    import mola.mesh.propeller_mesher as RW
 
     test_mode_else_debug = True # True:testing False:debugging
     msg_restricted = J.WARN+"WARNING: RESTRICTED USER CASE - SHARING INPUT/OUTPUT DATA IS FORBIDDEN"+J.ENDC
