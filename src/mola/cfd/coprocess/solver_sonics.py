@@ -187,7 +187,10 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
     
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
-    for IntegralDataNode in output_tree.group(Name='*:*', Type='ConvergenceHistory', Depth=2):
+
+    type_of_node_containing_integral_data = "IntegralData_t" # CAUTION IntegralData_t v0.6.9, but ConvergenceHistory_t in 0.6.4
+
+    for IntegralDataNode in output_tree.group(Name='*:*', Type=type_of_node_containing_integral_data, Depth=2):
         IntegralDataNode = IntegralDataNode.copy(deep=True)
         IntegralDataNode_name = IntegralDataNode.name()
         try:

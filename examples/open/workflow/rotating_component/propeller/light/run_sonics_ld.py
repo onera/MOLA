@@ -45,9 +45,9 @@ w = propeller.Workflow(
     ],
 
     Extractions = [
-        dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
-        dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.45, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
-        dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio', 'Mach']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.45, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio', 'Mach']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio', 'Mach']),
     ],
 
     ConvergenceCriteria = [
@@ -71,11 +71,11 @@ w = propeller.Workflow(
     RunManagement = dict(
         NumberOfProcessors = 8,
         NumberOfThreads = 1,
-        RunDirectory = f'example_{solver}_test',
+        RunDirectory = f'example_{solver}',
         Scheduler = 'local',
     ),
 )
 
 w.prepare()
 w.write_cfd_files()
-# w.submit()
+w.submit()

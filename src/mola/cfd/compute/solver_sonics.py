@@ -100,7 +100,7 @@ def get_iterators(workflow, config, hardware_target='cpu'):
         #     separate_systems=True,legend=True,grid={"ls":":"},
         #     yscale="log",xlabel="Iterations",ylabel="Residual")
         residuals_trigger = ext.apply(niter=workflow.Numerics['NumberOfIterations'])
-        pytriggers.append(residuals_trigger)
+        pytriggers.extend(residuals_trigger)
 
     if any([ext['Type'] in ['Restart', '3D', 'BC'] for ext in workflow.Extractions]):
         if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
