@@ -190,7 +190,6 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
 
     from sonics import __version__ as sonics_version
     from packaging.version import Version
-
     if Version(sonics_version) >= Version('0.6.9'):
         type_of_node_containing_integral_data = "IntegralData_t"
     else:
