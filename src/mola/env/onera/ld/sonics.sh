@@ -18,8 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-# ONLY ONE VERSION AVAILABLE FOR THE MOMENT
-export SONICSVERSION=0.6.4
+export SONICSVERSION=0.6.9 # since 0.6.8 not available in LD
 
 # Cassiopee
 export MACHINE=ld
@@ -28,18 +27,12 @@ export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 
-module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode/1.99.3
-module load pointwise/2022.1.2
-# # module load paraview/5.11.0 # provokes python and libraries incompatibilities
-module load occt/7.6.1-gnu831
-
 export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 
 unset I_MPI_PMI_LIBRARY
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
-source /stck/sonics/LD8/sonics/0.6.4/source.sh
+source /stck/sonics/LD8/sonics/$SONICSVERSION/gcc/source.sh
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 module load vscode/1.99.3
 module load pointwise/2022.1.2

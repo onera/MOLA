@@ -100,7 +100,13 @@ def get_iterators(workflow, config, hardware_target='cpu'):
         #     separate_systems=True,legend=True,grid={"ls":":"},
         #     yscale="log",xlabel="Iterations",ylabel="Residual")
         residuals_trigger = ext.apply(niter=workflow.Numerics['NumberOfIterations'])
-        pytriggers.append(residuals_trigger)
+
+        from sonics import __version__ as sonics_version
+        from packaging.version import Version
+        if Version(sonics_version) >= Version('0.6.9'):
+            pytriggers.extend(residuals_trigger)
+        else:
+            pytriggers.append(residuals_trigger)
 
     if any([ext['Type'] in ['Restart', '3D', 'BC'] for ext in workflow.Extractions]):
         if any([ext['Type'] in ['3D', 'BC'] for ext in workflow.Extractions]):
