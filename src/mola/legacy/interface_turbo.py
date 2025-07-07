@@ -58,7 +58,7 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
                                 config='annular', 
                                 lin_axis='XY',
                                 RowType='compressor',
-                                container_at_vertex=names.CONTAINER_OUTPUT_FIELDS):
+                                container_at_vertex=names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 

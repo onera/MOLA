@@ -89,8 +89,8 @@ class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
 
 
     def add_to_Extractions_IsoSurface(self,
-            IsoSurfaceContainersToTransfer : Union[ str, # accepts "all"
-                                                   list ] = [names.CONTAINER_OUTPUT_FIELDS,
+            ContainersToTransfer : Union[ str, # accepts "all"
+                                                   list ] = [names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX,
                                                              "FlowSolution#Height"],
             **kwargs):
         '''

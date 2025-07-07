@@ -221,7 +221,29 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
     if extraction['Name'] != 'ByFamily' and len(SurfacesTree.bases()) > 0:
         POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
 
+    rename_resulting_container_using_requested_name(SurfacesTree, extraction)
+    POST.keep_only_requested_containers(SurfacesTree, extraction)
+
     return SurfacesTree
+
+def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction : dict):
+    requested_containers = extraction['ContainersToTransfer']
+    
+    if isinstance(requested_containers,list) and len(requested_containers) == 1:
+        expected_container_name = requested_containers[0]
+    elif isinstance(requested_containers,str) and requested_containers != 'all':
+        expected_container_name = requested_containers
+    else:
+        return
+    
+    solver_output_name = extraction["_ElsaSolverOutputName"]
+    bc_data_set_name = solver_output_name.replace(".Solver#Output","BCDataSet")
+    
+    for zone in tree.zones():
+        container = zone.get(Name=bc_data_set_name, Type="FlowSolution_t", Depth=1)
+        if container:
+            container.setName(expected_container_name)
+
 
 def extract_isosurface(output_tree, extraction):
     if extraction['IsoSurfaceContainer'] == 'auto':
@@ -236,12 +258,7 @@ def extract_isosurface(output_tree, extraction):
         tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
         )
     
-    # TODO shall not be solver-specific, and shall be done also on BC
-    if extraction['IsoSurfaceContainersToTransfer'] != 'all':
-        for zone in isosurface.zones():
-            for FS in zone.group(Type='FlowSolution', Depth=1):
-                if FS.name() not in extraction['IsoSurfaceContainersToTransfer']:
-                    FS.remove()
+    POST.keep_only_requested_containers(isosurface, extraction)
     
     return isosurface
 

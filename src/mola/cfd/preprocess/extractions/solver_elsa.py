@@ -94,7 +94,7 @@ def process_extractions_of_type_field(workflow):
                 extraction3D = dict((name, param.default) for name, param in signature.parameters.items() if name != 'self')
                 extraction3D['Fields'] = Fields
                 extraction3D['GridLocation'] = 'Vertex'
-                extraction3D['Container'] = names.CONTAINER_OUTPUT_FIELDS
+                extraction3D['Container'] = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX
                 extraction3D['Frame'] = Extraction['Frame']
                 extraction3D['OtherOptions'] = dict()
                 
@@ -213,11 +213,10 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
                 SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
                 n += 1
             FamilyNode.setParameters(solver_output_name, **output_keys)
-        # else:
-        #     update_existing_solver_output(SolverOutput_node, output_keys)
-        
+        Extraction['_ElsaSolverOutputName'] = solver_output_name
+
     else:
-        mola_logger.warning(f'Caution: the list of fields to extract on family {FamilyNode.name()} is empty')
+        raise MolaException(f'the list of fields to extract on family {FamilyNode.name()} is empty')
 
 def update_existing_solver_output(SolverOutput_node, output_keys):
     for key, value in output_keys.items():

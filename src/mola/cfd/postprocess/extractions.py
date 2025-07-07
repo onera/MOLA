@@ -202,3 +202,11 @@ def merge_bases_and_rename_unique_base(t, basename):
             i += 1
             zone.moveTo(base0)
         base.remove()
+
+
+def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
+    if extraction['ContainersToTransfer'] != 'all':
+        for zone in tree.zones():
+            for container in zone.group(Type='FlowSolution_t', Depth=1):
+                if container.name() not in extraction['ContainersToTransfer']:
+                    container.remove()

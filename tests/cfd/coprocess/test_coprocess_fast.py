@@ -23,6 +23,7 @@ import os
 
 from treelab import cgns
 from mola.cfd.coprocess import solver_fast
+import mola.naming_conventions as names
 
 def get_rans_tree():
 
@@ -283,6 +284,7 @@ def test_extract_isosurface(tmp_path):
              Name='MySlice',
              IsoSurfaceContainer='auto',
              IsoSurfaceValue=0.1,
+             ContainersToTransfer=[names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX],
              Type='IsoSurface')]
     workflow.Extractions = workflow._coprocess_manager.Extractions
     
@@ -294,7 +296,7 @@ def test_extract_isosurface(tmp_path):
         tRef = extraction['Data']
         
         computed_fields = solver_fast.get_field_names(tRef,
-                                    container='FlowSolution#CentersV')
+                                    container=names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX)
         for expected_field_name in extraction['Fields']:
             if expected_field_name == 'Vorticity':
                 for c in 'XYZ':
@@ -335,8 +337,8 @@ def test_extract_bc(tmp_path):
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
     
     workflow._coprocess_manager.Extractions = [
-        dict(Type='BC', Source='WALL', Fields=['Pressure', 'Temperature'], Name='ByFamily'),
-        dict(Type='BC', Source='FARFIELD', Fields=['Pressure', 'MomentumX'], Name='ByFamily')]
+        dict(Type='BC', Source='WALL', Fields=['Pressure', 'Temperature'], Name='ByFamily',ContainersToTransfer=[names.CONTAINER_OUTPUT_FIELDS_AT_CENTER],),
+        dict(Type='BC', Source='FARFIELD', Fields=['Pressure', 'MomentumX'], Name='ByFamily',ContainersToTransfer=[names.CONTAINER_OUTPUT_FIELDS_AT_CENTER],)]
 
     workflow.Extractions = workflow._coprocess_manager.Extractions
     
@@ -348,7 +350,7 @@ def test_extract_bc(tmp_path):
                                       workflow._fast_metrics)
         
         computed_fields = solver_fast.get_field_names(tRef,
-                                    container='FlowSolution#Centers')
+                                    container=names.CONTAINER_OUTPUT_FIELDS_AT_CENTER)
         for expected_field_name in extraction['Fields']:
             assert expected_field_name in computed_fields
 
