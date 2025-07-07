@@ -188,12 +188,7 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
 
-    from sonics import __version__ as sonics_version
-    from packaging.version import Version
-    if Version(sonics_version) >= Version('0.6.9'):
-        type_of_node_containing_integral_data = "IntegralData_t"
-    else:
-        type_of_node_containing_integral_data = "ConvergenceHistory_t"
+    type_of_node_containing_integral_data = "IntegralData_t"
 
     for IntegralDataNode in output_tree.group(Name='*:*', Type=type_of_node_containing_integral_data, Depth=2):
         IntegralDataNode = IntegralDataNode.copy(deep=True)
