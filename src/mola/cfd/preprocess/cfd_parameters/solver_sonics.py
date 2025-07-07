@@ -137,12 +137,7 @@ def get_sonics_config(workflow):
     flux_features, flux_parameters = get_spatial_fluxes_template(workflow.Numerics, workflow.Turbulence['Model'])
     time_features, time_parameters = get_time_marching_template(workflow.Numerics)
 
-    from sonics import __version__ as sonics_version
-    from packaging.version import Version
-    if Version(sonics_version) >= Version('0.6.9'):
-        my_config = miles.Configuration()
-    else:
-        my_config = miles.Configuration(pure_cgns_mode=True)
+    my_config = miles.Configuration()
 
     if all_families_are_fixed(workflow):
         my_config.update("motion/fixed")

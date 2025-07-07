@@ -18,8 +18,6 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-export SONICSVERSION=0.6.9 # since 0.6.8 not available in LD
-
 # Cassiopee
 export MACHINE=ld
 export CASSIOPEE_VERSION=main
