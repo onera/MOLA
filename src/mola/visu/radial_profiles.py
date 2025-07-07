@@ -23,6 +23,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from treelab import cgns
 from mola.naming_conventions import DIRECTORY_OUTPUT, FILE_OUTPUT_2D, CGNS_NODE_EXTRACTION_LOG
 from mola.logging import mola_logger
+import mola.naming_conventions as names
 
 def pretty_name(var):
     '''
@@ -100,7 +101,7 @@ class RadialProfilesPlotter():
 
     def __init__(self):
         self.base_name_with_profiles = 'RadialProfiles'
-        self.container_profiles = 'FlowSolution#EndOfRunV'
+        self.container_profiles = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX
         self.profiles = dict()
         self.profiles_on_single_surface = dict()
         self.profiles_comparison = dict()

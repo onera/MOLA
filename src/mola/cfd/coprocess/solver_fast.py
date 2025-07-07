@@ -130,6 +130,13 @@ def get_output_tree(workflow, coprocess_manager):
     output_tree = cgns.castNode(workflow.tree)
     for extraction in coprocess_manager.Extractions:
         if extraction['Type'] == '3D' or extraction['Type'] == 'IsoSurface' and 'Fields' in extraction:
+
+            if not isinstance(extraction['Fields'], list):
+                if isinstance(extraction['Fields'], str):
+                    extraction['Fields'] = [ extraction['Fields'] ]
+                else:
+                    raise TypeError(f"wrong type of Fields in extraction named {extraction['Name']}")
+
             compute_missing_fields_at_cell_centers( workflow, output_tree, extraction['Fields'])
     output_tree = cgns.castNode(output_tree)
 
@@ -185,7 +192,33 @@ def extract_bc(output_tree, extraction, families_to_bctype, metrics):
 
     remove_spurious_data_from_output(SurfacesTree)
 
+    rename_resulting_container_using_requested_name(SurfacesTree, extraction)
+    POST.keep_only_requested_containers(SurfacesTree, extraction)
+
+
     return SurfacesTree
+
+def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction : dict):
+    requested_containers = extraction['ContainersToTransfer']
+    
+    if isinstance(requested_containers,list) and len(requested_containers) == 1:
+        expected_container_name = requested_containers[0]
+    elif isinstance(requested_containers,str) and requested_containers != 'all':
+        expected_container_name = requested_containers
+    else:
+        return
+        
+    for zone in tree.zones():
+        containers = zone.group(Type="FlowSolution_t", Depth=1)
+        if len(containers) > 1:
+            container_names = [n.name() for n in containers]
+            raise NotImplementedError(f"obtained multiple containers at {zone.path()}: {container_names}")
+        elif len(containers) == 0: 
+            return
+        container = containers[0]
+        container.setName(expected_container_name)
+
+
 
 def extract_isosurface(output_tree, extraction):
     if extraction['IsoSurfaceContainer'] == 'auto':
@@ -204,6 +237,7 @@ def extract_isosurface(output_tree, extraction):
         )
     
     # remove_spurious_data_from_output(isosurface)
+    rename_resulting_container_using_requested_name(isosurface, extraction)
     
     return isosurface
 
@@ -297,11 +331,15 @@ def get_field_names( t : cgns.Tree, container : str ='FlowSolution#Centers') -> 
     
     zone = t.get(Type='CGNSBase_t',Depth=1).get(Type='Zone_t',Depth=1)
     fs = zone.get(Name=container,Depth=1)
-    return [n.name() for n in fs.children() if n.type()=='DataArray_t']
+    fields_names = [n.name() for n in fs.children() if n.type()=='DataArray_t']
+    assert isinstance(fields_names, list)
+    return fields_names
 
 
 def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names : list):
     
+    assert isinstance(field_names, list)
+
     import FastS.PyTree as FastS
     import Post.PyTree as P
     import Converter.PyTree as C
@@ -358,7 +396,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
     cgns.castNode(t)
 
     
-def _add_ingredients_for_new_fields(field_names):
+def _add_ingredients_for_new_fields(field_names : list):
     ingredients = []
 
     for field_name in field_names:
@@ -366,9 +404,7 @@ def _add_ingredients_for_new_fields(field_names):
             equation = post_fields_combinations[field_name]
             ingredients += re.findall(r"\{([^}]+)\}", equation)
 
-    field_names += ingredients
-
-    
+    field_names += ingredients    
 
 
 

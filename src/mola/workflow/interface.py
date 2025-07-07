@@ -697,6 +697,9 @@ class WorkflowInterface(object):
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             GridLocation : str = 'CellCenter',
+            ContainersToTransfer : Union[ str, # accepts "all"
+                                         list ] = names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, 
+
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
             TimeAveragingIterations : int = 1000,
@@ -721,13 +724,13 @@ class WorkflowInterface(object):
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             GridLocation : str = 'Vertex',
+            ContainersToTransfer : Union[ str, # accepts "all"
+                                         list ] = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, 
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
             TimeAveragingIterations : int = 1000,
             PostprocessOperations : list = None,
             OtherOptions : dict = None,
-            IsoSurfaceContainersToTransfer : Union[ str, # accepts "all"
-                                                   list ] = names.CONTAINER_OUTPUT_FIELDS, 
             *,
             Type : str = 'IsoSurface',
             IsoSurfaceField : str = 'CoordinateX', # a coordinate or a field or a Container/field
@@ -777,7 +780,7 @@ class WorkflowInterface(object):
             Frame : str = 'relative', # TODO add warning for fast (only 'absolute' possible)
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
-            Container : str = 'FlowSolution#Output', 
+            Container : str = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX,
             GridLocation : str = 'Vertex',
             GhostCells : bool = False,
             TimeAveragingFirstIteration : int = 1000,

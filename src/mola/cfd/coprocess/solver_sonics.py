@@ -98,8 +98,10 @@ def get_output_tree(coprocess_manager):
     part_tree = cgns.castNode(part_tree)
     for zsr in part_tree.group(Type='ZoneSubRegion'):
         cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=zsr)
+    for fs in part_tree.group(Name='Fields@Cell@End'):
+        fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_CENTER)
     for fs in part_tree.group(Name='Fields@Cell@End#Vtx'):
-        fs.setName('FlowSolution#EndOfRunV')
+        fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX)
     
     return part_tree
 
@@ -164,7 +166,31 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
     # HACK for now remove EdgeElements because otherwise Cassiopee Cmpi bugs when the file is saved
     SurfacesTree.findAndRemoveNodes(Name='EdgeElements', Type='Elements')
 
+    rename_resulting_container_using_requested_name(SurfacesTree, extraction)
+    POST.keep_only_requested_containers(SurfacesTree, extraction)
+
     return SurfacesTree
+
+def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction : dict):
+    requested_containers = extraction['ContainersToTransfer']
+    
+    if isinstance(requested_containers,list) and len(requested_containers) == 1:
+        expected_container_name = requested_containers[0]
+    elif isinstance(requested_containers,str) and requested_containers != 'all':
+        expected_container_name = requested_containers
+    else:
+        return
+        
+    for zone in tree.zones():
+        containers = zone.group(Type="FlowSolution_t", Depth=1)
+        if len(containers) > 1:
+            container_names = [n.name() for n in containers]
+            raise NotImplementedError(f"obtained multiple containers at {zone.path()}: {container_names}")
+        elif len(containers) == 0: 
+            return
+        container = containers[0]
+        container.setName(expected_container_name)
+
 
 def extract_isosurface(output_tree, extraction):
     if extraction['IsoSurfaceContainer'] == 'auto':
@@ -179,6 +205,8 @@ def extract_isosurface(output_tree, extraction):
         tool = 'maia',
         )
     
+    POST.keep_only_requested_containers(isosurface, extraction)
+
     return isosurface
 
 def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIterations) -> None:
