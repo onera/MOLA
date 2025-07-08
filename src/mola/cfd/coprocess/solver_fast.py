@@ -129,7 +129,7 @@ def get_output_tree(workflow, coprocess_manager):
     
     output_tree = cgns.castNode(workflow.tree)
     for extraction in coprocess_manager.Extractions:
-        if extraction['Type'] == '3D' or extraction['Type'] == 'IsoSurface' and 'Fields' in extraction:
+        if extraction['Type'] in ['3D','BC','IsoSurface'] and 'Fields' in extraction:
 
             if not isinstance(extraction['Fields'], list):
                 if isinstance(extraction['Fields'], str):
@@ -194,6 +194,7 @@ def extract_bc(output_tree, extraction, families_to_bctype, metrics):
 
     rename_resulting_container_using_requested_name(SurfacesTree, extraction)
     POST.keep_only_requested_containers(SurfacesTree, extraction)
+    POST.keep_only_requested_fields(SurfacesTree, extraction)
 
 
     return SurfacesTree
@@ -238,6 +239,8 @@ def extract_isosurface(output_tree, extraction):
     
     # remove_spurious_data_from_output(isosurface)
     rename_resulting_container_using_requested_name(isosurface, extraction)
+    POST.keep_only_requested_containers(isosurface, extraction)
+    POST.keep_only_requested_fields(isosurface, extraction)
     
     return isosurface
 
@@ -345,7 +348,9 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
     import Converter.PyTree as C
     import Converter.Internal as I
 
-    existing_field_names = get_field_names(t)
+    already_computed_fields = ['Density','VelocityX','VelocityY','VelocityZ',
+                               'Temperature','TurbulentDistance','ViscosityEddy',
+                               'TurbulentSANuTilde']
 
     thermodynamic_const = dict(gamma = workflow.Fluid['Gamma'],
                                rgp   = workflow.Fluid['IdealGasConstant'],
@@ -357,7 +362,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
 
     for requested_field_name in field_names:
         
-        if requested_field_name in existing_field_names+list(post_fields_combinations):
+        if requested_field_name in already_computed_fields+list(post_fields_combinations):
             continue
 
         if requested_field_name in post_fields_using_fast:
@@ -386,6 +391,8 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
 
         else:
             raise MolaUserError('cannot extract '+requested_field_name)
+        
+        already_computed_fields += [ requested_field_name ]
 
     for requested_field_name in field_names:
         if requested_field_name in post_fields_combinations:

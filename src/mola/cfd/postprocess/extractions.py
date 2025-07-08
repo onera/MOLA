@@ -210,3 +210,11 @@ def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
             for container in zone.group(Type='FlowSolution_t', Depth=1):
                 if container.name() not in extraction['ContainersToTransfer']:
                     container.remove()
+
+def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
+    if extraction['Fields'] != 'all':
+        for zone in tree.zones():
+            for container in zone.group(Type='FlowSolution_t', Depth=1):
+                for field in container.group(Type='DataArray_t', Depth=1):
+                    if field.name() not in extraction['Fields']:
+                        field.remove()

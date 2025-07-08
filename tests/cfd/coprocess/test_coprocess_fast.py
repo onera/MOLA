@@ -348,6 +348,8 @@ def test_extract_bc(tmp_path):
     for extraction in workflow._coprocess_manager.Extractions:
         tRef = solver_fast.extract_bc(output_tree, extraction, families_to_bctype,
                                       workflow._fast_metrics)
+        src = extraction["Source"]
+        tRef.save(os.path.join(tmp_path,f'extraction_{src}.cgns'))
         
         computed_fields = solver_fast.get_field_names(tRef,
                                     container=names.CONTAINER_OUTPUT_FIELDS_AT_CENTER)
@@ -355,6 +357,7 @@ def test_extract_bc(tmp_path):
             assert expected_field_name in computed_fields
 
     workflow._coprocess_manager._status = 'COMPLETED'
+    raise RuntimeError('abort')
 
 
 

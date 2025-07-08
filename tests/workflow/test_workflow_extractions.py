@@ -67,7 +67,7 @@ def assert_file_with_relevant_zone_and_fields(filename, basename, zonename, fiel
             assert len(field_value) == expected_number_of_items
 
 def assert_file_containing_expected_field_at_expected_container(filename, basename: str, fieldnames: list,
-        expected_container : str, path: str=None ):
+        expected_container : str, path: str=None, exclusive : bool = False ):
     
     if path:
         expected_file = os.path.join(path, names.DIRECTORY_OUTPUT, filename)
@@ -86,13 +86,16 @@ def assert_file_containing_expected_field_at_expected_container(filename, basena
     for zone in base.zones():
 
         container = zone.get(Name=expected_container, Depth=1)
-        assert container
+        assert container, f"expected container {expected_container}"
+
+        if exclusive:
+            existing_field_names = [field.name() for field in container.group(Type='DataArray_t',Depth=1)]
+            assert set(existing_field_names) == set(fieldnames), f"did not get the expected field names, found: {existing_field_names} but expected: {fieldnames}"
+
         for fieldname in fieldnames:
             field_node = container.get(Name=fieldname, Type='DataArray_t', Depth=2)
             assert field_node 
             field_value = field_node.value()
-            if solver == 'fast' and field_node.name() == 'Pressure': 
-                continue # FIXME NOTIFY BUG when extracting Pressure in fast (NaN are present)
             assert not np.any(np.isnan(field_value)), f'nan found in {fieldname} in {basename}'
 
 @pytest.mark.integration
@@ -267,7 +270,7 @@ def test_bc_one_run(tmp_path, niter=10):
 
     w._interface.add_to_Extractions_BC(
         Name=basename,
-        Fields=['Pressure'],
+        Fields=['Pressure','MomentumX','MomentumY','MomentumZ'],
         File=separated_filename,
         Source='Ground',
     )
@@ -293,7 +296,9 @@ def test_iso_surface_only(tmp_path, niter=10):
     separated_filename = 'test_iso.cgns'
 
     w._interface.add_to_Extractions_IsoSurface(
-        Fields=['Density'],
+        Fields=['Density',
+                'Pressure' # FIXME not working with SONICS
+                ],
         IsoSurfaceField='CoordinateZ',
         IsoSurfaceValue=0.5,
         File=separated_filename,
@@ -312,18 +317,21 @@ def test_iso_surface_only(tmp_path, niter=10):
 
 @pytest.mark.integration
 @pytest.mark.cost_level_2
-def test_iso_surface_and_bc(tmp_path, niter=10):
+def test_exclusive_fields_in_iso_surface_and_bc(tmp_path, niter=10):
     
     w = get_workflow_cart_monoproc(tmp_path)
 
+    requested_fields_in_bc = ['Pressure','MomentumX']
+    requested_fields_in_iso_surface = ['Density']
+
     w._interface.add_to_Extractions_BC(
-        Fields=['Pressure'],
+        Fields=requested_fields_in_bc,
         Source='Ground',
     )
 
 
     w._interface.add_to_Extractions_IsoSurface(
-        Fields=['Density'],
+        Fields=requested_fields_in_iso_surface,
         IsoSurfaceField='CoordinateZ',
         IsoSurfaceValue=0.5,
     )
@@ -337,12 +345,12 @@ def test_iso_surface_and_bc(tmp_path, niter=10):
     w.assert_completed_without_errors()
 
     assert_file_containing_expected_field_at_expected_container(
-        'extractions.cgns', 'Iso_Z_0.5', ['Density'],
-        names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, tmp_path)
+        'extractions.cgns', 'Iso_Z_0.5', requested_fields_in_iso_surface,
+        names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, tmp_path, exclusive=True)
 
     assert_file_containing_expected_field_at_expected_container(
-        'extractions.cgns', 'Ground', ['Pressure'],
-        names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, tmp_path)
+        'extractions.cgns', 'Ground', requested_fields_in_bc,
+        names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, tmp_path, exclusive=True)
 
 
 

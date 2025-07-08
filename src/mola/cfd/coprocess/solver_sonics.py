@@ -168,6 +168,7 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
 
     rename_resulting_container_using_requested_name(SurfacesTree, extraction)
     POST.keep_only_requested_containers(SurfacesTree, extraction)
+    POST.keep_only_requested_fields(SurfacesTree, extraction)
 
     return SurfacesTree
 
@@ -206,6 +207,7 @@ def extract_isosurface(output_tree, extraction):
         )
     
     POST.keep_only_requested_containers(isosurface, extraction)
+    POST.keep_only_requested_fields(isosurface, extraction)
 
     return isosurface
 
