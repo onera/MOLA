@@ -205,10 +205,20 @@ def merge_bases_and_rename_unique_base(t, basename):
 
 
 def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
-    if extraction['ContainersToTransfer'] != 'all':
+    
+    if 'ContainersToTransfer' in extraction:
+        containers_to_transfer = extraction['ContainersToTransfer']
+    elif 'Container' in extraction:
+        containers_to_transfer = [extraction['Container']]
+    else:
+        name = extraction['Name']
+        type = extraction['Type']
+        MolaException(f'extraction "{name}" of type "{type}" did not contain keys Container nor ContainersToTransfer')
+
+    if containers_to_transfer != 'all':
         for zone in tree.zones():
             for container in zone.group(Type='FlowSolution_t', Depth=1):
-                if container.name() not in extraction['ContainersToTransfer']:
+                if container.name() not in containers_to_transfer:
                     container.remove()
 
 def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):

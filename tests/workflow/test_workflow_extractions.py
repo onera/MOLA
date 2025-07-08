@@ -353,6 +353,29 @@ def test_exclusive_fields_in_iso_surface_and_bc(tmp_path, niter=10):
         names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, tmp_path, exclusive=True)
 
 
+@pytest.mark.integration
+@pytest.mark.cost_level_2
+def test_exclusive_fields_in_3D(tmp_path, niter=10):
+    
+    w = get_workflow_cart_monoproc(tmp_path)
+
+    requested_fields = ['Density','MomentumX','MomentumY','MomentumZ']
+
+    w._interface.add_to_Extractions_3D(
+        Fields=requested_fields,
+    )
+
+    w.Numerics['NumberOfIterations'] = niter
+    w.RunManagement['Scheduler'] = 'local'
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.assert_completed_without_errors()
+
+    assert_file_containing_expected_field_at_expected_container(
+        'fields.cgns', 'cart', requested_fields,
+        names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, tmp_path, exclusive=True)
+
 
 @pytest.mark.integration
 @pytest.mark.cost_level_2

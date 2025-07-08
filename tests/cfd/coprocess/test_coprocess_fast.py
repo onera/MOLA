@@ -357,8 +357,6 @@ def test_extract_bc(tmp_path):
             assert expected_field_name in computed_fields
 
     workflow._coprocess_manager._status = 'COMPLETED'
-    raise RuntimeError('abort')
-
 
 
 @pytest.mark.unit

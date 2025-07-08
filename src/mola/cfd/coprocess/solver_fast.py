@@ -145,11 +145,12 @@ def get_output_tree(workflow, coprocess_manager):
 def extract_fields(output_tree, extraction) -> cgns.Tree:
 
     t = output_tree.copy()
-    remove_not_requested_fields(t, extraction['Fields'])
     if extraction['GridLocation'] == 'Vertex': put_fields_in_vertex(t)
     if not extraction['GhostCells']: remove_ghost_cells(t)
     rename_flow_solution_container(t, extraction)
-    remove_not_requested_containers(t, extraction['Container'])
+    POST.keep_only_requested_containers(t, extraction)
+    POST.keep_only_requested_fields(t, extraction)
+
 
     return t
 
@@ -414,20 +415,6 @@ def _add_ingredients_for_new_fields(field_names : list):
     field_names += ingredients    
 
 
-
-def remove_not_requested_fields( t : cgns.Tree, requested_field_names : list):
-    
-    if 'Vorticity' in requested_field_names:
-        requested_field_names += ['VorticityX', 'VorticityY', 'VorticityZ']
-
-    for zone in t.zones():
-        FlowSolution = zone.get(Name='FlowSolution#Centers', Depth=1)
-        if FlowSolution is None: raise MolaException('FATAL expected FlowSolution#Centers at '+zone.path())
-        for field_node in FlowSolution.group(Type='DataArray_t', Depth=1):
-            if field_node.name() not in requested_field_names:
-                field_node.remove()
-
-
 def remove_ghost_cells( t : cgns.Tree ):
 
     import Converter.Internal as I
@@ -465,22 +452,6 @@ def rename_flow_solution_container(t : cgns.Tree, extraction : dict):
 
         flow_solution_node.setName(extraction['Container'])
             
-
-
-def remove_not_requested_containers(t : cgns.Tree, container : str):
-
-    for zone in t.zones():
-        # Remove FlowSolution nodes that are not the target
-        for FS in zone.group(Type='FlowSolution', Depth=1):
-            if FS.name() != container:
-                FS.remove()
-        
-        if not zone.get(Type='FlowSolution', Depth=1):
-            # no more FlowSolution in the current zone
-            # --> remove this zone
-            zone.remove()
-            continue
-
 
 def unstack_residual( residual : cgns.Node ):
 
