@@ -44,6 +44,10 @@ from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
 from mola.cfd.postprocess.signals.tree_manipulation import update_zones_shape_using_iteration_number
 
+native_fields = ['Density','VelocityX','VelocityY','VelocityZ','Temperature',
+                 'ViscosityEddy','ViscosityMolecular','TurbulentSANuTilde',
+                 'Force','Torque','MassFlow']
+
 # https://fast.onera.fr/FastS.html#FastS.PyTree._computeVariables
 post_fields_using_fast = ['QCriterion', 'Enstrophy'] 
 
@@ -70,9 +74,14 @@ post_fields_using_cassiopee_computeExtraVariable = [
     'ShearStress']
 
 post_fields_combinations = {
-    'Viscosity_EddyMolecularRatio':'{ViscosityEddy}/{ViscosityMolecular}'
+    'Viscosity_EddyMolecularRatio':'{ViscosityEddy}/{ViscosityMolecular}',
+    'Momentum':'{Velocity}*{Density}',
+    'MomentumX':'{VelocityX}*{Density}',
+    'MomentumY':'{VelocityY}*{Density}',
+    'MomentumZ':'{VelocityZ}*{Density}',
 }
 
+ALLOWED_EXTRACTIONS = native_fields+post_fields_using_fast+post_fields_using_cassiopee_computeVariables+list(post_fields_combinations)
 
 def perform_extractions(workflow, coprocess_manager):
     output_tree = get_output_tree(workflow, coprocess_manager)
@@ -134,10 +143,13 @@ def get_output_tree(workflow, coprocess_manager):
             if not isinstance(extraction['Fields'], list):
                 if isinstance(extraction['Fields'], str):
                     extraction['Fields'] = [ extraction['Fields'] ]
+                elif extraction['Fields'] is None:
+                    extraction['Fields'] = []
+                    continue
                 else:
                     raise TypeError(f"wrong type of Fields in extraction named {extraction['Name']}")
 
-            compute_missing_fields_at_cell_centers( workflow, output_tree, extraction['Fields'])
+            compute_missing_fields_at_cell_centers( workflow, output_tree, extraction['Fields'][:])
     output_tree = cgns.castNode(output_tree)
 
     return output_tree
@@ -150,7 +162,6 @@ def extract_fields(output_tree, extraction) -> cgns.Tree:
     rename_flow_solution_container(t, extraction)
     POST.keep_only_requested_containers(t, extraction)
     POST.keep_only_requested_fields(t, extraction)
-
 
     return t
 
@@ -383,14 +394,8 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
                 fs = I.getNodeFromName1(z,'FlowSolution#Centers')
                 fs[2] = fs_ref[2]
 
-        elif requested_field_name.startswith('Momentum'):
-            coord = requested_field_name.replace('Momentum','')
-            if coord not in ['X','Y','Z']:
-                raise MolaUserError('could not extract %s. Available fields: %s'%(requested_field_name,str(existing_field_names)))
-            C._initVars(t,'centers:Momentum%s={centers:Velocity%s}*{centers:Density}'%(coord,coord))
-
         else:
-            raise MolaUserError('cannot extract '+requested_field_name)
+            raise MolaException(f'cannot extract {requested_field_name}')
         
         already_computed_fields += [ requested_field_name ]
 
@@ -398,7 +403,14 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
         if requested_field_name in post_fields_combinations:
             equation = post_fields_combinations[requested_field_name]
             equation = 'centers:'+requested_field_name+'='+equation.replace('{','{centers:')
-            C._initVars(t,equation)
+
+            if requested_field_name == 'Momentum':
+                for c in 'XYZ':
+                    equation = equation.replace('Momentum','Momentum'+c)
+                    equation = equation.replace('Velocity','Velocity'+c)
+                    C._initVars(t,equation)
+            else:
+                C._initVars(t,equation)
 
     cgns.castNode(t)
 

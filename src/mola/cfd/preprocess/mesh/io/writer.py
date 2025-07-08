@@ -24,11 +24,12 @@ from treelab import cgns
 import mola.naming_conventions as names
 
 def write(w, tree, dst, io_tool=None):
-    if tree.get(Name=':CGNS#Ppart', Depth=3):
-        io_tool = 'pypart'
-
+    
     if io_tool is None:
-        io_tool = get_io_tool(w, dst)
+        if tree.get(Name=':CGNS#Ppart', Depth=3):
+            io_tool = 'pypart'
+        else:
+            io_tool = get_io_tool(w, dst)
 
     write_with_selected_tool = dict(
         treelab = write_with_treelab,

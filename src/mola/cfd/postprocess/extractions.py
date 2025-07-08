@@ -222,7 +222,7 @@ def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
                     container.remove()
 
 def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
-    if extraction['Fields'] != 'all':
+    if 'Fields' in extraction and extraction['Fields'] != 'all':
 
         for vector_name in ['Momentum', 'Velocity', 'Vorticity']:
             if vector_name in extraction['Fields']:
