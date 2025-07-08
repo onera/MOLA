@@ -375,8 +375,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
 
         elif requested_field_name in post_fields_using_cassiopee_computeExtraVariable: 
             tRef = P.computeExtraVariable(t, "centers:"+requested_field_name,
-                                          **thermodynamic_const)
-                
+                                          **thermodynamic_const)                
 
             # HACK, because computeExtraVariable does not exist in-place...
             for z_ref, z in zip(I.getZones(tRef), I.getZones(t)):

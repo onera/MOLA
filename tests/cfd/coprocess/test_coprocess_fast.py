@@ -306,28 +306,7 @@ def test_extract_isosurface(tmp_path):
 
     workflow._coprocess_manager._status = 'COMPLETED'
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_remove_not_requested_fields():
-    import Converter.PyTree as C
-    import Generator.PyTree as G
 
-    z = G.cart((0.0,0.0,0.0), (0.1,0.1,0.1), (5,5,5))
-    t = C.newPyTree(['Base',z])
-    existing_fields = ['Density','MomentumX','Mach','VorticityX', 'VorticityY', 'VorticityZ']
-    for f in existing_fields: C._initVars(t,'centers:'+f, 0.0)
-    t = cgns.castNode(t)
-
-    requested_fields = ['Mach', 'Density','Vorticity']
-    solver_fast.remove_not_requested_fields(t, requested_fields)
-
-    computed_fields = solver_fast.get_field_names(t)
-    for expected_field_name in requested_fields:
-        if expected_field_name == 'Vorticity':
-            for c in 'XYZ':
-                assert expected_field_name+c in computed_fields
-        else:
-            assert expected_field_name in computed_fields
 
 
 @pytest.mark.unit

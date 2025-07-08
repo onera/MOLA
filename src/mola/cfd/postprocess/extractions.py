@@ -223,8 +223,18 @@ def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
 
 def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
     if extraction['Fields'] != 'all':
+
+        for vector_name in ['Momentum', 'Velocity', 'Vorticity']:
+            if vector_name in extraction['Fields']:
+                for c in 'XYZ':
+                    field_name = vector_name+c 
+                    if field_name not in extraction['Fields']:
+                        extraction['Fields'] += [field_name]
+
         for zone in tree.zones():
             for container in zone.group(Type='FlowSolution_t', Depth=1):
                 for field in container.group(Type='DataArray_t', Depth=1):
+                    field_name = field.name()
+
                     if field.name() not in extraction['Fields']:
                         field.remove()
