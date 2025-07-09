@@ -31,14 +31,15 @@ def apply_to_solver(workflow):
         if Extraction['Type'] == 'Residuals':
             Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
 
-        if 'Fields' in Extraction:
-            if isinstance(Extraction['Fields'],str):
-                Extraction['Fields'] = [ Extraction['Fields'] ]
+        if Extraction['Type'] in ['BC','IsoSurface','3D']:
+            if 'Fields' in Extraction:
+                if isinstance(Extraction['Fields'],str):
+                    Extraction['Fields'] = [ Extraction['Fields'] ]
 
-            for field in Extraction['Fields'][:]:
-                if field not in ALLOWED_EXTRACTIONS:
-                    mola_logger.warning(f'field "{field}" not supported in fast, skipping')
-                    Extraction['Fields'].remove(field)
+                for field in Extraction['Fields'][:]:
+                    if field not in ALLOWED_EXTRACTIONS:
+                        mola_logger.warning(f'field "{field}" not supported in fast, skipping')
+                        Extraction['Fields'].remove(field)
 
 def add_convergence_history(t, niter):
     import Converter.Internal as I

@@ -292,11 +292,14 @@ def test_extract_isosurface(tmp_path):
     
     for extraction in workflow._coprocess_manager.Extractions:
         extraction['Data'] = solver_fast.extract_isosurface(output_tree, extraction)
-        solver_fast.remove_not_needed_fields(extraction)
+
         tRef = extraction['Data']
-        
-        computed_fields = solver_fast.get_field_names(tRef,
-                                    container=names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX)
+
+        zone = tRef.zones()[0]
+        container_names = [n.name() for n in zone.group(Type="FlowSolution_t", Depth=1)]
+        assert names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX in container_names
+        fs = zone.get(Name=names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, Depth=1)
+        computed_fields = [n.name() for n in fs.group(Type='DataArray_t', Depth=1)]
         for expected_field_name in extraction['Fields']:
             if expected_field_name == 'Vorticity':
                 for c in 'XYZ':
@@ -305,8 +308,6 @@ def test_extract_isosurface(tmp_path):
                 assert expected_field_name in computed_fields
 
     workflow._coprocess_manager._status = 'COMPLETED'
-
-
 
 
 @pytest.mark.unit

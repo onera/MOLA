@@ -224,7 +224,7 @@ def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
 def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
     if 'Fields' in extraction and extraction['Fields'] != 'all':
 
-        for vector_name in ['Momentum', 'Velocity', 'Vorticity']:
+        for vector_name in ['Momentum', 'Velocity', 'Vorticity','Force','Torque']:
             if vector_name in extraction['Fields']:
                 for c in 'XYZ':
                     field_name = vector_name+c 

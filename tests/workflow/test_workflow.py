@@ -773,6 +773,8 @@ def test_workflow_cart_monoproc(tmp_path):
 
 
 @pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.fast
 @pytest.mark.cost_level_3
 def test_workflow_2_presplit(tmp_path):
     params = get_workflow2_parameters()

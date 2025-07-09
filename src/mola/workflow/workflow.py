@@ -64,11 +64,11 @@ class Workflow(object):
         self.compute_flow_and_turbulence()
         self.set_motion()
         self.set_boundary_conditions()
-        self.set_cfd_parameters()  # model, numerics, others...
-        self.initialize_flow()  # eventually + distance to wall
+        self.set_cfd_parameters()
+        self.initialize_flow()  
         self.set_extractions()
-        self.check_preprocess() # empty BCs... maybe solver-specific
-        self.finalize_preprocess() # solver-specific
+        self.check_preprocess() 
+        self.finalize_preprocess()
         mola_logger.info('PREPROCESS FINALIZED', rank=0)
 
     def process_mesh(self):

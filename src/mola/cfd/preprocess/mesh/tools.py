@@ -177,6 +177,16 @@ def remove_maia_part_zone_suffix(zone_name : str) -> str:
     import re
     return re.sub(r'\.P\d+\.N\d+$', '', zone_name)
 
+def remove_maia_part_zone_suffix_from_tree(tree : cgns.Tree):
+    for zone in tree.zones():
+        previous_name = zone.name()
+        new_name = remove_maia_part_zone_suffix(previous_name)
+        zone.setName(new_name)
+        for node in tree.group(Value=previous_name):
+            node.setValue(new_name)
+
+
+
 def to_full_tree_at_rank_0(tree : cgns.Tree):
     from mpi4py import MPI
     import maia

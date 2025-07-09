@@ -212,6 +212,25 @@ def extract_bc(output_tree, extraction, families_to_bctype, metrics):
     return SurfacesTree
 
 def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction : dict):
+    # requested_containers = extraction['ContainersToTransfer']
+    
+    # if isinstance(requested_containers,list) and len(requested_containers) == 1:
+    #     expected_container_name = requested_containers[0]
+    # elif isinstance(requested_containers,str) and requested_containers != 'all':
+    #     expected_container_name = requested_containers
+    # else:
+    #     return
+        
+    # for zone in tree.zones():
+    #     container = zone.get(Name="FlowSolution#Centers", Depth=1)
+    #     if container is None:
+    #         expected_container = zone.get(Name=expected_container_name, Depth=1)
+    #         if expected_container is not None:
+    #             existing_containers = zone.group(Type='FlowSolution_t', Depth=1)
+    #             container_names = [n.name() for n in existing_containers]
+    #             raise MolaException(f"did not find FlowSolution#Centers nor {expected_container_name}, but got: {container_names}")
+    #     else:
+    #         container.setName(expected_container_name)
     requested_containers = extraction['ContainersToTransfer']
     
     if isinstance(requested_containers,list) and len(requested_containers) == 1:
@@ -224,14 +243,17 @@ def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction
     for zone in tree.zones():
         containers = zone.group(Type="FlowSolution_t", Depth=1)
         if len(containers) > 1:
-            container_names = [n.name() for n in containers]
-            raise NotImplementedError(f"obtained multiple containers at {zone.path()}: {container_names}")
+            container = zone.get(Name='FlowSolution#Centers')
+            assert container
+            container.setName(expected_container_name)
+            # container_names = [n.name() for n in containers]
+            # raise NotImplementedError(f"obtained multiple containers at {zone.path()}: {container_names}")
         elif len(containers) == 0: 
             return
-        container = containers[0]
-        container.setName(expected_container_name)
-
-
+        else:
+            container = containers[0]
+            container.setName(expected_container_name)
+        
 
 def extract_isosurface(output_tree, extraction):
     if extraction['IsoSurfaceContainer'] == 'auto':
@@ -346,6 +368,9 @@ def get_field_names( t : cgns.Tree, container : str ='FlowSolution#Centers') -> 
     
     zone = t.get(Type='CGNSBase_t',Depth=1).get(Type='Zone_t',Depth=1)
     fs = zone.get(Name=container,Depth=1)
+    if not fs:
+        existing_container_names = [n.name() for n in zone.group(Type='FlowSolution_t',Depth=1)]
+        raise MolaException(f"zone {zone.path()} does not have container named {container}. It has containers: {existing_container_names}")
     fields_names = [n.name() for n in fs.children() if n.type()=='DataArray_t']
     assert isinstance(fields_names, list)
     return fields_names
