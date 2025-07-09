@@ -211,10 +211,18 @@ class CoprocessManager():
 
     def save(self, data, filename):
         self.mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
-        if self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
-            io_tool = 'cassiopee_mpi'
+
+        if not any([filename.endswith('.cgns'), filename.endswith('.hdf'), filename.endswith('.hdf5')]):
+
+            # we suppose it is a format supported by cassiopee and will write 1 file per proc
+            io_tool = 'cassiopee'
+
+        elif self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
+            io_tool = 'cassiopee_mpi' # BEWARE this avoids writing with pypart ?
+        
         else:
             io_tool = None
+        
         write(self.workflow, data, filename, io_tool=io_tool)
         self.mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
          

@@ -24,11 +24,12 @@ from treelab import cgns
 import mola.naming_conventions as names
 
 def write(w, tree, dst, io_tool=None):
-    if tree.get(Name=':CGNS#Ppart', Depth=3):
-        io_tool = 'pypart'
 
     if io_tool is None:
-        io_tool = get_io_tool(w, dst)
+        if tree.get(Name=':CGNS#Ppart', Depth=3):
+            io_tool = 'pypart'
+        else:
+            io_tool = get_io_tool(w, dst)
 
     write_with_selected_tool = dict(
         treelab = write_with_treelab,
@@ -47,6 +48,17 @@ def write_with_treelab(w, tree, dst):
 
 def write_with_cassiopee(w, tree, dst):
     import Converter.PyTree as C
+
+    from mpi4py import MPI
+    rank = MPI.COMM_WORLD.Get_rank()
+    size = MPI.COMM_WORLD.Get_size()
+
+    if size > 1:
+        file_path = dst.split('.')
+        start_path = '.'.join(file_path[:-1])
+        fmt = file_path[-1]
+        dst = start_path + '_%05d.'%rank +fmt
+
     links = tree.getLinks()
     for l in links: l[0] = '.' # HACK treelab 0.1.1
     C.convertPyTree2File(tree, dst, links=links)
@@ -90,20 +102,24 @@ def write_with_maia(w, tree, dst):
                 zone.remove()
         return links
     
+    links = get_links_for_maia(tree)
     MPI.COMM_WORLD.barrier()
     if maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
+        # maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, single_file=True, links=links)
         tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
-        tree = cgns.castNode(tree)
-
-    if maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
-        links = get_links_for_maia(tree)
         maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
+
+
+    elif maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
+        maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
+    
     else:
         # The tree is nor partitioned neither distributed.
         # It is then considered as full on rank 0
         if MPI.COMM_WORLD.Get_rank() == 0:
             links = tree.getLinks()
             maia.io.write_tree(tree, dst, links=links)
+
     MPI.COMM_WORLD.barrier()
 
 def write_with_pypart(w, tree, dst):

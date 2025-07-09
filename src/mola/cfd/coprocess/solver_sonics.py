@@ -132,11 +132,10 @@ def extract_fields(output_tree, extraction):
     t.findAndRemoveNodes(Type='IntegralData', Depth=2)
     t.findAndRemoveNodes(Type='ZoneSubRegion', Depth=2)
 
+    POST.keep_only_requested_containers(t, extraction)
+    POST.keep_only_requested_fields(t, extraction)
+
     for zone in t.zones():
-        # Remove FlowSolution nodes that are not the target
-        for FS in zone.group(Type='FlowSolution', Depth=1):
-            if FS.name() != extraction['Container']:
-                FS.remove()
         
         if not zone.get(Type='FlowSolution', Depth=1):
             # no more FlowSolution in the current zone
@@ -168,6 +167,7 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
 
     rename_resulting_container_using_requested_name(SurfacesTree, extraction)
     POST.keep_only_requested_containers(SurfacesTree, extraction)
+    POST.keep_only_requested_fields(SurfacesTree, extraction)
 
     return SurfacesTree
 
@@ -206,6 +206,7 @@ def extract_isosurface(output_tree, extraction):
         )
     
     POST.keep_only_requested_containers(isosurface, extraction)
+    POST.keep_only_requested_fields(isosurface, extraction)
 
     return isosurface
 

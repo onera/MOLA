@@ -15,5 +15,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .extractions import extract_bc, iso_surface, merge_bases_and_rename_unique_base, keep_only_requested_containers
+from .extractions import (
+    extract_bc,
+    iso_surface,
+    merge_bases_and_rename_unique_base,
+    keep_only_requested_containers,
+    keep_only_requested_fields
+    )
 from .signals import *

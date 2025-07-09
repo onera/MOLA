@@ -182,24 +182,18 @@ def extract_fields(output_tree, extraction):
     t.findAndRemoveNodes(Type='IntegralData', Depth=2)
     t.findAndRemoveNodes(Name='ELSA_TRIGGER')
 
-    for zone in t.zones():
-        # Remove FlowSolution nodes that are not the target
-        for FS in zone.group(Type='FlowSolution', Depth=1):
-            if FS.name() != extraction['Container']:
-                FS.remove()
-        
+
+    POST.keep_only_requested_containers(t, extraction)
+    POST.keep_only_requested_fields(t, extraction)
+
+
+    for zone in t.zones():       
         if not zone.get(Type='FlowSolution', Depth=1):
             # no more FlowSolution in the current zone
             # --> remove this zone
             zone.remove()
             continue
 
-        # Remove nodes that are not required in Fields
-        FS = zone.get(Type='FlowSolution', Depth=1)
-        for node in FS.group(Type='DataArray', Depth=1):
-            if node.name() not in extraction['Fields']:
-                node.remove()
-            
         # NOTE ZoneBC must be kept for to save tree with PyPart
         zone.findAndRemoveNodes(Type='BCDataSet')
     
@@ -223,6 +217,7 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
 
     rename_resulting_container_using_requested_name(SurfacesTree, extraction)
     POST.keep_only_requested_containers(SurfacesTree, extraction)
+    POST.keep_only_requested_fields(SurfacesTree, extraction)
 
     return SurfacesTree
 
@@ -259,6 +254,7 @@ def extract_isosurface(output_tree, extraction):
         )
     
     POST.keep_only_requested_containers(isosurface, extraction)
+    POST.keep_only_requested_fields(isosurface, extraction)
     
     return isosurface
 

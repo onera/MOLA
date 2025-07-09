@@ -36,6 +36,12 @@ def apply_to_solver(workflow):
 
     add_convergence_history(t, niter)
 
+    # For debugging & ticket creation
+    # import Converter.PyTree as C
+    # C.convertPyTree2File(t,'t.cgns')
+    # C.convertPyTree2File(tc,'tc.cgns')
+    # raise RuntimeError("STOP DUMPED FAST FILES")
+
     # The warmup function optimizes data storage in memory. 
     # Zones may be moved. After warmup, all operations on the trees must be in-place
     infos_ale = get_infos_ale(workflow)

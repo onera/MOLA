@@ -44,6 +44,10 @@ from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 
 from mola.cfd.postprocess.signals.tree_manipulation import update_zones_shape_using_iteration_number
 
+native_fields = ['Density','VelocityX','VelocityY','VelocityZ','Temperature',
+                 'ViscosityEddy','ViscosityMolecular','TurbulentSANuTilde',
+                 'Force','Torque','MassFlow']
+
 # https://fast.onera.fr/FastS.html#FastS.PyTree._computeVariables
 post_fields_using_fast = ['QCriterion', 'Enstrophy'] 
 
@@ -70,9 +74,14 @@ post_fields_using_cassiopee_computeExtraVariable = [
     'ShearStress']
 
 post_fields_combinations = {
-    'Viscosity_EddyMolecularRatio':'{ViscosityEddy}/{ViscosityMolecular}'
+    'Viscosity_EddyMolecularRatio':'{ViscosityEddy}/{ViscosityMolecular}',
+    'Momentum':'{Velocity}*{Density}',
+    'MomentumX':'{VelocityX}*{Density}',
+    'MomentumY':'{VelocityY}*{Density}',
+    'MomentumZ':'{VelocityZ}*{Density}',
 }
 
+ALLOWED_EXTRACTIONS = native_fields+post_fields_using_fast+post_fields_using_cassiopee_computeVariables+list(post_fields_combinations)
 
 def perform_extractions(workflow, coprocess_manager):
     output_tree = get_output_tree(workflow, coprocess_manager)
@@ -129,15 +138,18 @@ def get_output_tree(workflow, coprocess_manager):
     
     output_tree = cgns.castNode(workflow.tree)
     for extraction in coprocess_manager.Extractions:
-        if extraction['Type'] == '3D' or extraction['Type'] == 'IsoSurface' and 'Fields' in extraction:
+        if extraction['Type'] in ['3D','BC','IsoSurface'] and 'Fields' in extraction:
 
             if not isinstance(extraction['Fields'], list):
                 if isinstance(extraction['Fields'], str):
                     extraction['Fields'] = [ extraction['Fields'] ]
+                elif extraction['Fields'] is None:
+                    extraction['Fields'] = []
+                    continue
                 else:
                     raise TypeError(f"wrong type of Fields in extraction named {extraction['Name']}")
 
-            compute_missing_fields_at_cell_centers( workflow, output_tree, extraction['Fields'])
+            compute_missing_fields_at_cell_centers( workflow, output_tree, extraction['Fields'][:])
     output_tree = cgns.castNode(output_tree)
 
     return output_tree
@@ -145,11 +157,11 @@ def get_output_tree(workflow, coprocess_manager):
 def extract_fields(output_tree, extraction) -> cgns.Tree:
 
     t = output_tree.copy()
-    remove_not_requested_fields(t, extraction['Fields'])
     if extraction['GridLocation'] == 'Vertex': put_fields_in_vertex(t)
     if not extraction['GhostCells']: remove_ghost_cells(t)
     rename_flow_solution_container(t, extraction)
-    remove_not_requested_containers(t, extraction['Container'])
+    POST.keep_only_requested_containers(t, extraction)
+    POST.keep_only_requested_fields(t, extraction)
 
     return t
 
@@ -194,11 +206,31 @@ def extract_bc(output_tree, extraction, families_to_bctype, metrics):
 
     rename_resulting_container_using_requested_name(SurfacesTree, extraction)
     POST.keep_only_requested_containers(SurfacesTree, extraction)
+    POST.keep_only_requested_fields(SurfacesTree, extraction)
 
 
     return SurfacesTree
 
 def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction : dict):
+    # requested_containers = extraction['ContainersToTransfer']
+    
+    # if isinstance(requested_containers,list) and len(requested_containers) == 1:
+    #     expected_container_name = requested_containers[0]
+    # elif isinstance(requested_containers,str) and requested_containers != 'all':
+    #     expected_container_name = requested_containers
+    # else:
+    #     return
+        
+    # for zone in tree.zones():
+    #     container = zone.get(Name="FlowSolution#Centers", Depth=1)
+    #     if container is None:
+    #         expected_container = zone.get(Name=expected_container_name, Depth=1)
+    #         if expected_container is not None:
+    #             existing_containers = zone.group(Type='FlowSolution_t', Depth=1)
+    #             container_names = [n.name() for n in existing_containers]
+    #             raise MolaException(f"did not find FlowSolution#Centers nor {expected_container_name}, but got: {container_names}")
+    #     else:
+    #         container.setName(expected_container_name)
     requested_containers = extraction['ContainersToTransfer']
     
     if isinstance(requested_containers,list) and len(requested_containers) == 1:
@@ -211,14 +243,17 @@ def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction
     for zone in tree.zones():
         containers = zone.group(Type="FlowSolution_t", Depth=1)
         if len(containers) > 1:
-            container_names = [n.name() for n in containers]
-            raise NotImplementedError(f"obtained multiple containers at {zone.path()}: {container_names}")
+            container = zone.get(Name='FlowSolution#Centers')
+            assert container
+            container.setName(expected_container_name)
+            # container_names = [n.name() for n in containers]
+            # raise NotImplementedError(f"obtained multiple containers at {zone.path()}: {container_names}")
         elif len(containers) == 0: 
             return
-        container = containers[0]
-        container.setName(expected_container_name)
-
-
+        else:
+            container = containers[0]
+            container.setName(expected_container_name)
+        
 
 def extract_isosurface(output_tree, extraction):
     if extraction['IsoSurfaceContainer'] == 'auto':
@@ -238,6 +273,8 @@ def extract_isosurface(output_tree, extraction):
     
     # remove_spurious_data_from_output(isosurface)
     rename_resulting_container_using_requested_name(isosurface, extraction)
+    POST.keep_only_requested_containers(isosurface, extraction)
+    POST.keep_only_requested_fields(isosurface, extraction)
     
     return isosurface
 
@@ -331,6 +368,9 @@ def get_field_names( t : cgns.Tree, container : str ='FlowSolution#Centers') -> 
     
     zone = t.get(Type='CGNSBase_t',Depth=1).get(Type='Zone_t',Depth=1)
     fs = zone.get(Name=container,Depth=1)
+    if not fs:
+        existing_container_names = [n.name() for n in zone.group(Type='FlowSolution_t',Depth=1)]
+        raise MolaException(f"zone {zone.path()} does not have container named {container}. It has containers: {existing_container_names}")
     fields_names = [n.name() for n in fs.children() if n.type()=='DataArray_t']
     assert isinstance(fields_names, list)
     return fields_names
@@ -345,7 +385,9 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
     import Converter.PyTree as C
     import Converter.Internal as I
 
-    existing_field_names = get_field_names(t)
+    already_computed_fields = ['Density','VelocityX','VelocityY','VelocityZ',
+                               'Temperature','TurbulentDistance','ViscosityEddy',
+                               'TurbulentSANuTilde']
 
     thermodynamic_const = dict(gamma = workflow.Fluid['Gamma'],
                                rgp   = workflow.Fluid['IdealGasConstant'],
@@ -357,7 +399,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
 
     for requested_field_name in field_names:
         
-        if requested_field_name in existing_field_names+list(post_fields_combinations):
+        if requested_field_name in already_computed_fields+list(post_fields_combinations):
             continue
 
         if requested_field_name in post_fields_using_fast:
@@ -369,8 +411,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
 
         elif requested_field_name in post_fields_using_cassiopee_computeExtraVariable: 
             tRef = P.computeExtraVariable(t, "centers:"+requested_field_name,
-                                          **thermodynamic_const)
-                
+                                          **thermodynamic_const)                
 
             # HACK, because computeExtraVariable does not exist in-place...
             for z_ref, z in zip(I.getZones(tRef), I.getZones(t)):
@@ -378,20 +419,23 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
                 fs = I.getNodeFromName1(z,'FlowSolution#Centers')
                 fs[2] = fs_ref[2]
 
-        elif requested_field_name.startswith('Momentum'):
-            coord = requested_field_name.replace('Momentum','')
-            if coord not in ['X','Y','Z']:
-                raise MolaUserError('could not extract %s. Available fields: %s'%(requested_field_name,str(existing_field_names)))
-            C._initVars(t,'centers:Momentum%s={centers:Velocity%s}*{centers:Density}'%(coord,coord))
-
         else:
-            raise MolaUserError('cannot extract '+requested_field_name)
+            raise MolaException(f'cannot extract {requested_field_name}')
+        
+        already_computed_fields += [ requested_field_name ]
 
     for requested_field_name in field_names:
         if requested_field_name in post_fields_combinations:
             equation = post_fields_combinations[requested_field_name]
             equation = 'centers:'+requested_field_name+'='+equation.replace('{','{centers:')
-            C._initVars(t,equation)
+
+            if requested_field_name == 'Momentum':
+                for c in 'XYZ':
+                    equation = equation.replace('Momentum','Momentum'+c)
+                    equation = equation.replace('Velocity','Velocity'+c)
+                    C._initVars(t,equation)
+            else:
+                C._initVars(t,equation)
 
     cgns.castNode(t)
 
@@ -405,20 +449,6 @@ def _add_ingredients_for_new_fields(field_names : list):
             ingredients += re.findall(r"\{([^}]+)\}", equation)
 
     field_names += ingredients    
-
-
-
-def remove_not_requested_fields( t : cgns.Tree, requested_field_names : list):
-    
-    if 'Vorticity' in requested_field_names:
-        requested_field_names += ['VorticityX', 'VorticityY', 'VorticityZ']
-
-    for zone in t.zones():
-        FlowSolution = zone.get(Name='FlowSolution#Centers', Depth=1)
-        if FlowSolution is None: raise MolaException('FATAL expected FlowSolution#Centers at '+zone.path())
-        for field_node in FlowSolution.group(Type='DataArray_t', Depth=1):
-            if field_node.name() not in requested_field_names:
-                field_node.remove()
 
 
 def remove_ghost_cells( t : cgns.Tree ):
@@ -458,22 +488,6 @@ def rename_flow_solution_container(t : cgns.Tree, extraction : dict):
 
         flow_solution_node.setName(extraction['Container'])
             
-
-
-def remove_not_requested_containers(t : cgns.Tree, container : str):
-
-    for zone in t.zones():
-        # Remove FlowSolution nodes that are not the target
-        for FS in zone.group(Type='FlowSolution', Depth=1):
-            if FS.name() != container:
-                FS.remove()
-        
-        if not zone.get(Type='FlowSolution', Depth=1):
-            # no more FlowSolution in the current zone
-            # --> remove this zone
-            zone.remove()
-            continue
-
 
 def unstack_residual( residual : cgns.Node ):
 
