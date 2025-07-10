@@ -18,12 +18,13 @@
 import pytest 
 import os
 import numpy as np
+from glob import glob
 
 from treelab import cgns
 from mola import solver
 from mola import naming_conventions as names
 from mola.workflow import Workflow, read_workflow
-from .test_workflow import  get_workflow_cart_monoproc
+from .test_workflow import  get_workflow_cart_monoproc, get_workflow2_parameters
 
 def assert_file_with_relevant_zone_and_fields(filename, basename, zonename, fieldnames,
         path=None, expected_number_of_items=None):
@@ -97,6 +98,34 @@ def assert_file_containing_expected_field_at_expected_container(filename, basena
             assert field_node 
             field_value = field_node.value()
             assert not np.any(np.isnan(field_value)), f'nan found in {fieldname} in {basename}'
+
+def assert_tecplot_containing_expected_field(filename, fieldnames: list, path: str=None):
+    import Converter.PyTree as C
+
+    if path:
+        expected_file = os.path.join(path, names.DIRECTORY_OUTPUT, filename)
+    else:
+        expected_file = os.path.join(names.DIRECTORY_OUTPUT, filename)
+    
+    
+    trees = [ cgns.castNode(C.convertFile2PyTree(f)) for f in glob(expected_file) ] # allows wildcards, used for one-file-per-rank saving
+    tree = cgns.merge(trees)
+
+    assert tree
+
+    base = tree.get(Type="CGNSBase_t", Depth=1)
+    assert base
+    
+    for zone in base.zones():
+        container = zone.get(Name='FlowSolution')
+        assert container
+
+        for fieldname in fieldnames:
+            field_node = container.get(Name=fieldname, Type='DataArray_t', Depth=2)
+            assert field_node 
+            field_value = field_node.value()
+            assert not np.any(np.isnan(field_value)), f'nan found in {field_node.path()}'
+
 
 @pytest.mark.integration
 @pytest.mark.cost_level_1
@@ -375,6 +404,122 @@ def test_exclusive_fields_in_3D(tmp_path, niter=10):
     assert_file_containing_expected_field_at_expected_container(
         'fields.cgns', 'cart', requested_fields,
         names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, tmp_path, exclusive=True)
+
+
+@pytest.mark.integration
+@pytest.mark.cost_level_2
+@pytest.mark.skipif(solver=='sonics', reason="FIXME allow cgns transform and write in tecplot")
+def test_write_extractions_in_tecplot_format_co1(tmp_path, niter=10):
+    
+    params = get_workflow2_parameters()
+    params["RunManagement"]["RunDirectory"] = str(tmp_path)
+    params["RunManagement"]["NumberOfProcessors"] = 1
+    params["RunManagement"]['Scheduler'] = 'local'
+    params["Numerics"]['NumberOfIterations'] = niter
+    w = Workflow(**params)
+
+    requested_fields_in_signals = ['Force']
+    requested_fields_in_bc = ['Pressure','MomentumX']
+    requested_fields_in_iso_surface = ['Density']
+    requested_fields_in_3d = ['Density','MomentumX','MomentumY','MomentumZ']
+
+    w._interface.add_to_Extractions_Integral(
+        File='signals.plt',
+        Name='TestSeparatedFile',
+        Fields=requested_fields_in_signals, 
+        Source='Ground',
+    )
+
+    w._interface.add_to_Extractions_BC(
+        File = 'extractions.plt',
+        Fields=requested_fields_in_bc,
+        Source='Ground',
+    )
+
+    w._interface.add_to_Extractions_IsoSurface(
+        File = 'extractions.plt',
+        Fields=requested_fields_in_iso_surface,
+        IsoSurfaceField='CoordinateZ',
+        IsoSurfaceValue=0.5,
+    )
+
+    w._interface.add_to_Extractions_3D(
+        File = 'fields.plt',
+        Fields=requested_fields_in_3d,
+    )
+
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.assert_completed_without_errors()
+
+    assert_tecplot_containing_expected_field('signals.plt',
+        ['ForceX','ForceY','ForceZ'], tmp_path)
+
+    assert_tecplot_containing_expected_field('extractions.plt',
+        requested_fields_in_iso_surface+requested_fields_in_bc, tmp_path)
+
+    assert_tecplot_containing_expected_field('fields.plt',
+        requested_fields_in_3d, tmp_path)
+
+
+@pytest.mark.integration
+@pytest.mark.cost_level_2
+@pytest.mark.skipif(solver=='sonics', reason="FIXME allow cgns transform and write in tecplot")
+def test_write_extractions_in_tecplot_format_co2(tmp_path, niter=10):
+    
+    params = get_workflow2_parameters()
+    params["RunManagement"]["RunDirectory"] = str(tmp_path)
+    params["RunManagement"]["NumberOfProcessors"] = 2
+    params["RunManagement"]['Scheduler'] = 'local'
+    params["Numerics"]['NumberOfIterations'] = niter
+    w = Workflow(**params)
+
+    requested_fields_in_signals = ['Force']
+    requested_fields_in_bc = ['Pressure','MomentumX']
+    requested_fields_in_iso_surface = ['Density']
+    requested_fields_in_3d = ['Density','MomentumX','MomentumY','MomentumZ']
+
+    w._interface.add_to_Extractions_Integral(
+        File='signals.plt',
+        Name='TestSeparatedFile',
+        Fields=requested_fields_in_signals, 
+        Source='Ground',
+    )
+
+    w._interface.add_to_Extractions_BC(
+        File = 'extractions.plt',
+        Fields=requested_fields_in_bc,
+        Source='Ground',
+    )
+
+    w._interface.add_to_Extractions_IsoSurface(
+        File = 'extractions.plt',
+        Fields=requested_fields_in_iso_surface,
+        IsoSurfaceField='CoordinateZ',
+        IsoSurfaceValue=0.5,
+    )
+
+    w._interface.add_to_Extractions_3D(
+        File = 'fields.plt',
+        Fields=requested_fields_in_3d,
+    )
+
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.assert_completed_without_errors()
+
+    assert_tecplot_containing_expected_field('signals/*.plt',
+        ['ForceX','ForceY','ForceZ'], tmp_path)
+
+    assert_tecplot_containing_expected_field('extractions/*.plt',
+        requested_fields_in_iso_surface+requested_fields_in_bc, tmp_path)
+
+    assert_tecplot_containing_expected_field('fields/*.plt',
+        requested_fields_in_3d, tmp_path)
 
 
 @pytest.mark.integration
