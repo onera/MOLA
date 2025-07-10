@@ -26,7 +26,8 @@ from treelab import cgns
 
 def mergeContainers(t, FlowSolutionVertexName='FlowSolution',
         FlowSolutionCellCenterName='FlowSolution#Centers',
-        BCDataSetFaceCenterName='BCDataSet'):
+        BCDataSetFaceCenterName='BCDataSet',
+        remove_suffix_if_single_container=False):
     '''
     Merge all *FlowSolution_t* containers into a single one (one at Vertex, another
     at CellCenter), adding a numerical tag suffix to flowfield name for easy
@@ -63,6 +64,10 @@ def mergeContainers(t, FlowSolutionVertexName='FlowSolution',
         BCDataSetFaceCenterName : str
             the name of the resulting BCDataSet CGNS node
 
+        remove_suffix_if_single_container : bool
+            if the result of merging containers is a single container for a given
+            grid location, then removes the suffix "0" since it is not much useful
+
     Returns
     -------
 
@@ -77,7 +82,9 @@ def mergeContainers(t, FlowSolutionVertexName='FlowSolution',
     for zone in I.getZones(tR):
         _mergeFlowSolutions(zone, FlowSolutionVertexName, FlowSolutionCellCenterName)
         _mergeBCData(zone, BCDataSetFaceCenterName)
-    return tR
+        if remove_suffix_if_single_container:
+            _remove_suffix_if_single_container(zone)
+    return cgns.castNode(tR)
 
 def _mergeFlowSolutions(zone, FlowSolutionVertexName='FlowSolution',
         FlowSolutionCellCenterName='FlowSolution#Centers'):
@@ -560,3 +567,34 @@ def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='
     node = I.createUniqueChild(parent,name,type1, children=children)
     I._rmNodesByName1(parent, node[0])
     I.addChild(parent, node)
+
+
+def _remove_suffix_if_single_container(zone):
+    for container_per_location in _get_containers_per_location(zone):
+        if len(container_per_location) == 1:
+            _remove_suffix_of_fields(container_per_location[0])
+
+def _get_containers_per_location(zone):
+    containers_at_vertex = []
+    containers_at_center = []
+    for container in I.getNodesFromType1(zone, "FlowSolution_t"):
+        grid_location = I.getNodeFromName1(container, 'GridLocation')
+        
+        if not grid_location:
+            raise ValueError(f"expected GridLocation at node {zone[0]}/{container[0]}")
+        
+        grid_location_value = I.getValue(grid_location)
+        if grid_location_value == 'Vertex':
+            containers_at_vertex += [ container ]
+        elif grid_location_value == 'CellCenter':
+            containers_at_center += [ container ]
+        else:
+            raise TypeError(f"not supporting GridLocation {grid_location_value} at {zone[0]}/{container[0]}")
+        
+    return containers_at_vertex, containers_at_center
+
+def _remove_suffix_of_fields(container):
+    for field_node in I.getNodesFromType1(container,'DataArray_t'):
+        field_node_name = I.getName(field_node)
+        if field_node_name.endswith('0'):
+            I.setName(field_node,field_node_name[:-1])

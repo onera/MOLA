@@ -17,11 +17,18 @@
 
 import os
 import glob
+import numpy as np
 from .utils import get_io_tool
 from ..tools import (to_full_tree_at_rank_0, get_empty_FlowSolution_nodes, 
                      restore_empty_FlowSolution_nodes_in_file, restore_empty_FlowSolution_nodes)
 from treelab import cgns
 import mola.naming_conventions as names
+
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+nb_digit = int(np.ceil(np.log10(size+1)))
 
 def write(w, tree, dst, io_tool=None):
 
@@ -49,19 +56,32 @@ def write_with_treelab(w, tree, dst):
 def write_with_cassiopee(w, tree, dst):
     import Converter.PyTree as C
 
-    from mpi4py import MPI
-    rank = MPI.COMM_WORLD.Get_rank()
-    size = MPI.COMM_WORLD.Get_size()
-
-    if size > 1:
-        file_path = dst.split('.')
-        start_path = '.'.join(file_path[:-1])
-        fmt = file_path[-1]
-        dst = start_path + '_%05d.'%rank +fmt
+    file_path = dst.split('.')
+    start_path = '.'.join(file_path[:-1])
+    fmt = file_path[-1]
+    
+    if size > 1:        
+        if _shall_write_one_file_per_proc(tree):        
+            try: os.makedirs(start_path)
+            except: pass
+            dst = os.path.join(start_path, ('rank_{:0%d}.'%nb_digit).format(rank) + fmt)
 
     links = tree.getLinks()
     for l in links: l[0] = '.' # HACK treelab 0.1.1
     C.convertPyTree2File(tree, dst, links=links)
+
+
+def _shall_write_one_file_per_proc(tree):
+    comm.barrier()
+    has_tree = comm.gather(bool(tree))
+    at_least_one_rank_except_root_has_a_tree = None
+    if rank == 0:
+        at_least_one_rank_except_root_has_a_tree = any(has_tree[1:])
+    comm.barrier()
+    at_least_one_rank_except_root_has_a_tree = comm.bcast(at_least_one_rank_except_root_has_a_tree)
+
+    return at_least_one_rank_except_root_has_a_tree
+
 
 def write_with_cassiopee_mpi(w, tree, dst):
     import Converter.Mpi as Cmpi
