@@ -21,7 +21,7 @@ from treelab import cgns
 
 from mola.dependency_injector.retriever import load_source
 from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null
-from mola.cfd.postprocess.interpolation.interpolation import migrateFields
+from mola.cfd.postprocess.interpolation import migrateFields
 
 def apply(workflow, selected_boundaries_conditions=None):
     '''
@@ -196,8 +196,6 @@ def get_fields_from_file(t, FamilyName, filename, var2interp):
     inlet_BC_nodes.findAndRemoveNodes(Type='*FamilyName')
     donor_tree.findAndRemoveNodes(Type='*FamilyName')
 
-    # # FIXME THIS LINE MUST BE REPLACED
-    from mola.cfd.postprocess.interpolation import migrateFields
     migrateFields(donor_tree, inlet_BC_nodes)  
     inlet_BC_nodes = cgns.castNode(inlet_BC_nodes)
 

@@ -90,9 +90,10 @@ def get_renamed_tree(zones, basename, CellDimension=3, PhysicalDimension=3):
         # The name of the parent zone is kept in a temporary node .parentZone, 
         # that will be removed before saving
         # There might be a \ in zone name if it is a result of C.ExtractBCOfType
-        zoneName, bcName = zone.name().split('\\')
-        cgns.Node(Name='.parentZone', Type='Descriptor_t', Value=zoneName, Parent=zone)
-        cgns.Node(Name='.originalBC', Type='Descriptor_t', Value=bcName, Parent=zone)
+        split_names = zone.name().split('\\')
+        cgns.Node(Name='.parentZone', Type='Descriptor_t', Value=split_names[0], Parent=zone)
+        if len(split_names) > 1:
+            cgns.Node(Name='.originalBC', Type='Descriptor_t', Value=split_names[1], Parent=zone)
         # Rename zones like the base
         zone.setName(f'{basename}_R{rank}N{i}')
         base.addChild(zone)

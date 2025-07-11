@@ -44,7 +44,7 @@ from mola.pytree import InternalShortcuts as J
 from mola.mesh import curve as W
 from mola.mesh import surface as GSD
 from mola.mesh import volume as GVD
-from mola.cfd.postprocess.interpolation.interpolation import migrateFields
+from mola.cfd.postprocess.interpolation import migrateFields
 
 maxRadius = W.maxRadius
 

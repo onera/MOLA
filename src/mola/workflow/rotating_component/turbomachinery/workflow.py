@@ -31,7 +31,7 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
     def postprocess(self, **kwargs):     
         import Converter.Mpi as Cmpi
         import Distributor2.PyTree as D2
-        from mola.legacy.interface_turbo import postprocess_turbomachinery
+        from mola.cfd.postprocess.tool_interface.turbo import postprocess_turbomachinery
   
         input_signals = kwargs.get('input_signals', os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D))
         input_extractions = kwargs.get('input_extractions', os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D))
