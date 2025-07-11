@@ -30,18 +30,17 @@ from mola.cfd.preprocess.boundary_conditions import boundary_conditions
 from mola.cfd.preprocess.mesh.families import get_zone_family_from_bc_or_gc_family
 import mola.server as SV
 
-def define_bc_family(workflow, Family, Value):
-    familyNode = workflow.tree.get(Name=Family, Type='Family', Depth=2)
+def define_bc_family(tree, Family, Value):
+    familyNode = tree.get(Name=Family, Type='Family', Depth=2)
     familyNode.findAndRemoveNode(Name='.Solver#BC', Depth=1)
     familyNode.findAndRemoveNodes(Type='FamilyBC', Depth=1)
     cgns.Node( Name='FamilyBC', Value=Value, Type='FamilyBC', Parent=familyNode )
     return familyNode
 
-def impose_bc_fields(workflow, bc_path, ImposedVariables, GridLocation='FaceCenter'):
-    bc_node = workflow.tree.getAtPath(bc_path)
-    BCDataSet = cgns.Node( Name='BCDataSet#Init', Value='Null', Type='BCDataSet', Parent=bc_node )
+def impose_bc_fields(bc_node, ImposedVariables, GridLocation='FaceCenter', BCDataSetName='BCDataSet#Init', BCDataName='NeumannData'):
+    BCDataSet = cgns.Node(Name=BCDataSetName, Value='Null', Type='BCDataSet', Parent=bc_node)
     cgns.Node(Name='GridLocation', Type='GridLocation', Value=GridLocation, Parent=BCDataSet)
-    BCDataSet.setParameters('NeumannData', ContainerType='BCData', **ImposedVariables)
+    BCDataSet.setParameters(BCDataName, ContainerType='BCData', **ImposedVariables)
 
 def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa='walladia'):
     '''
@@ -71,7 +70,7 @@ def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa
         bctype_elsa : str, optional
             Type of the bc in elsA convention, value of the node 'type'.    
     '''
-    wall = define_bc_family(workflow, Family, bctype_cgns)
+    wall = define_bc_family(workflow.tree, Family, bctype_cgns)
 
     if Motion is None: 
         return
@@ -95,7 +94,8 @@ def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa
         non_uniform_fields = boundary_conditions.apply_function_to_BCDataSet(workflow, Family, Motion)
         for bc_path, ImposedVariables in non_uniform_fields.items():
             assert list(ImposedVariables) == ['RotationSpeed'], f'list(ImposedVariables)={list(ImposedVariables)}'
-            impose_bc_fields(workflow, bc_path, dict(omega = ImposedVariables['RotationSpeed']))
+            bc_node = workflow.tree.getAtPath(bc_path)
+            impose_bc_fields(bc_node, dict(omega = ImposedVariables['RotationSpeed']))
 
     else:
         assert_rotation_axis_is_correct(Motion)
@@ -130,7 +130,7 @@ def sym(workflow, Family):
     .. note:: see `elsA Tutorial about symmetry condition <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#symmetry/>`_
 
     '''
-    define_bc_family(workflow, Family, 'BCSymmetryPlane')
+    define_bc_family(workflow.tree, Family, 'BCSymmetryPlane')
 
 
 # Physical boundary conditions
@@ -150,7 +150,7 @@ def nref(workflow, Family, **kwargs):
 
     '''
     if not kwargs:
-        define_bc_family(workflow, Family, 'BCFarfield')
+        define_bc_family(workflow.tree, Family, 'BCFarfield')
     else:
         variables_from_file = ['Density', 'MomentumX', 'MomentumY', 'MomentumZ', 'EnergyStagnationDensity']
         variables_from_file += list(workflow.Turbulence['Conservatives'])
@@ -180,7 +180,7 @@ def outpres(workflow, Family, **kwargs):
                           )
 
 def outsup(workflow, Family):
-    define_bc_family(workflow, Family, 'BCOutflowSupersonic')
+    define_bc_family(workflow.tree, Family, 'BCOutflowSupersonic')
 
 def outmfr2(workflow, Family, **kwargs):
     set_physical_boundary(workflow, Family, 
@@ -351,9 +351,10 @@ def set_physical_boundary(workflow, Family,
         input_data_from_file = boundary_conditions.get_fields_from_file(
             workflow.tree, Family, File, var2interp=list(ImposedVariables)
             )
-        for bc, ImposedVariables in input_data_from_file.items():  
+        for bc_path, ImposedVariables in input_data_from_file.items():  
+            bc = workflow.tree.getAtPath(bc_path)
             setBCwithImposedVariables(
-                workflow, 
+                workflow.tree, 
                 Family, 
                 ImposedVariables,
                 FamilyBC=FamilyBC, 
@@ -362,9 +363,9 @@ def set_physical_boundary(workflow, Family,
                 variableForInterpolation=variableForInterpolation
                 )
     elif not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
-        for bc, ImposedVariables in boundary_conditions.get_bc_nodes_from_family(workflow.tree, Family):
+        for bc in boundary_conditions.get_bc_nodes_from_family(workflow.tree, Family):
             setBCwithImposedVariables(
-                workflow, 
+                workflow.tree, 
                 Family, 
                 ImposedVariables,
                 FamilyBC=FamilyBC, 
@@ -374,7 +375,7 @@ def set_physical_boundary(workflow, Family,
                 )
     else:
         setBCwithImposedVariables(
-            workflow, 
+            workflow.tree, 
             Family, 
             ImposedVariables,
             FamilyBC=FamilyBC, 
@@ -382,7 +383,7 @@ def set_physical_boundary(workflow, Family,
             variableForInterpolation=variableForInterpolation
             )
         
-def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCType,
+def setBCwithImposedVariables(tree, Family, ImposedVariables, FamilyBC, BCType,
     bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
     '''
     Generic function to impose a Boundary Condition ``inj1``. The following
@@ -437,73 +438,92 @@ def setBCwithImposedVariables(workflow, Family, ImposedVariables, FamilyBC, BCTy
     setBC_inj1, setBC_outpres, setBC_outmfr2
 
     '''
-    FamilyNode = define_bc_family(workflow, Family, FamilyBC)
 
-    if all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()]):
+    all_variables_are_scalar = all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()])
+
+    if all_variables_are_scalar:
         checkVariables(ImposedVariables)
         ImposedVariables = solver_elsa.translate_to_elsa(ImposedVariables)
+        FamilyNode = define_bc_family(tree, Family, FamilyBC)
         FamilyNode.setParameters('.Solver#BC', type=BCType, **ImposedVariables)
 
     else:
-        raise Exception('Not implemented yet')
         assert bc is not None
-        J.set(bc, '.Solver#BC', type=BCType)
+        _apply_BCDataSet_on_bc(bc, ImposedVariables, BCType, BCDataSetName, BCDataName, variableForInterpolation)
 
-        zone = I.getParentFromType(workflow.tree, bc, 'Zone_t') 
-        if variableForInterpolation in ['Radius', 'radius']:
-            radius, theta = J.getRadiusTheta(zone)
-        elif variableForInterpolation == 'ChannelHeight':
-            radius = I.getValue(I.getNodeFromName(zone, 'ChannelHeight'))
-        elif variableForInterpolation.startsWith('Coordinate'):
-            radius = I.getValue(I.getNodeFromName(zone, variableForInterpolation))
+
+def _apply_BCDataSet_on_bc(bc: cgns.Node, ImposedVariables, BCType, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
+
+    bc.setParameters('.Solver#BC', type=BCType)
+    
+    var2interp_value = None
+    if any([callable(value) for value in ImposedVariables.values()]):
+        # At least one value will be intepolated regarding variableForInterpolation
+        var2interp_value = _get_variable_on_bc(bc, variableForInterpolation)
+        bc_shape = var2interp_value.shape
+    else:
+        x_bc = _get_variable_on_bc(bc, 'CoordinateX')
+        bc_shape = x_bc.shape
+
+    for var, value in ImposedVariables.items():
+        if callable(value):
+            ImposedVariables[var] = value(var2interp_value) 
+        elif np.ndim(value)==0:
+            # scalar value --> uniform data
+            ImposedVariables[var] = value * np.ones(bc_shape, order='F')
+        if not ImposedVariables[var].shape == bc_shape:
+            raise MolaException((
+                f'Wrong shape for variable {var}: {ImposedVariables[var].shape} '
+                f'(shape {bc_shape} for {bc.path()})'
+            ))
+        
+    checkVariables(ImposedVariables)
+    impose_bc_fields(bc, ImposedVariables, BCDataSetName=BCDataSetName, BCDataName=BCDataName)
+
+def _get_variable_on_bc(bc: cgns.Node, variableForInterpolation: str):
+    zone = bc.getParent(Type='Zone_t')  # FIXME in treelab: allow Type='Zone', that is not possible just for this method
+    if variableForInterpolation in ['Radius', 'radius']:
+        # FIXME Generalize that to other axis that X
+        y, z = zone.yz()
+        radius = np.srqt(y**2+z**2)
+    elif variableForInterpolation.startswith('Coordinate') or variableForInterpolation == 'ChannelHeight':
+        try:
+            radius = zone.get(Name=variableForInterpolation).value()
+        except AttributeError:
+            raise AttributeError(f'Variable {variableForInterpolation} not found in zone {zone.path()}')
+    else:
+        raise ValueError('varForInterpolation must be ChannelHeight, Radius, CoordinateX, CoordinateY or CoordinateZ')
+
+    PointRangeNode = bc.get(Type='IndexRange')
+    if PointRangeNode:
+        # Structured mesh
+        PointRange = PointRangeNode.value()
+        bc_shape = PointRange[:, 1] - PointRange[:, 0]
+        if bc_shape[0] == 0:
+            bc_shape = (bc_shape[1], bc_shape[2])
+            radius = radius[PointRange[0, 0]-1,
+                            PointRange[1, 0]-1:PointRange[1, 1]-1, 
+                            PointRange[2, 0]-1:PointRange[2, 1]-1]
+        elif bc_shape[1] == 0:
+            bc_shape = (bc_shape[0], bc_shape[2])
+            radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                            PointRange[1, 0]-1, 
+                            PointRange[2, 0]-1:PointRange[2, 1]-1]
+        elif bc_shape[2] == 0:
+            bc_shape = (bc_shape[0], bc_shape[1])
+            radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
+                            PointRange[1, 0]-1:PointRange[1, 1]-1,
+                            PointRange[2, 0]-1]
         else:
-            raise ValueError('varForInterpolation must be ChannelHeight, Radius, CoordinateX, CoordinateY or CoordinateZ')
+            raise ValueError(f'Wrong BC shape {bc_shape} in {bc.path()}')
+    
+    else: 
+        # Unstructured mesh
+        PointList = bc.get(Type='IndexArray').value()
+        bc_shape = PointList.size
+        radius = radius[PointList-1]
 
-        PointRangeNode = I.getNodeFromType(bc, 'IndexRange_t')
-        if PointRangeNode:
-            # Structured mesh
-            PointRange = I.getValue(PointRangeNode)
-            bc_shape = PointRange[:, 1] - PointRange[:, 0]
-            if bc_shape[0] == 0:
-                bc_shape = (bc_shape[1], bc_shape[2])
-                radius = radius[PointRange[0, 0]-1,
-                                PointRange[1, 0]-1:PointRange[1, 1]-1, 
-                                PointRange[2, 0]-1:PointRange[2, 1]-1]
-            elif bc_shape[1] == 0:
-                bc_shape = (bc_shape[0], bc_shape[2])
-                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                PointRange[1, 0]-1, 
-                                PointRange[2, 0]-1:PointRange[2, 1]-1]
-            elif bc_shape[2] == 0:
-                bc_shape = (bc_shape[0], bc_shape[1])
-                radius = radius[PointRange[0, 0]-1:PointRange[0, 1]-1,
-                                PointRange[1, 0]-1:PointRange[1, 1]-1,
-                                PointRange[2, 0]-1]
-            else:
-                raise ValueError('Wrong BC shape {} in {}'.format(bc_shape, I.getPath(workflow.tree, bc)))
-        
-        else: 
-            # Unstructured mesh
-            PointList = I.getValue(I.getNodeFromType(bc, 'IndexArray_t'))
-            bc_shape = PointList.size
-            radius = radius[PointList-1]
-
-        for var, value in ImposedVariables.items():
-            if callable(value):
-                ImposedVariables[var] = value(radius) 
-            elif np.ndim(value)==0:
-                # scalar value --> uniform data
-                ImposedVariables[var] = value * np.ones(radius.shape)
-            assert ImposedVariables[var].shape == bc_shape, \
-                'Wrong shape for variable {}: {} (shape {} for {})'.format(
-                    var, ImposedVariables[var].shape, bc_shape, I.getPath(workflow.tree, bc))
-        
-        checkVariables(ImposedVariables)
-
-        BCDataSet = I.newBCDataSet(name=BCDataSetName, value='Null',
-            gridLocation='FaceCenter', parent=bc)
-        J.set(BCDataSet, BCDataName, childType='BCData_t', **ImposedVariables)
-
+    return radius
 
 def checkVariables(ImposedVariables):
     '''
@@ -673,7 +693,7 @@ def outradeq(workflow, Family, **kwargs):
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, Family):
         I._rmNodesByName(bc, '.Solver#BC')
-    define_bc_family(workflow, Family, 'BCOutflowSubsonic')
+    define_bc_family(t, Family, 'BCOutflowSubsonic')
 
     from etc.globborder.globborder_dict import globborder_dict
     gbd = globborder_dict(t, Family, config="axial")
@@ -771,7 +791,7 @@ def outradeqhyb(workflow, Family, **kwargs):
     # Delete previous BC if it exists
     for bc in C.getFamilyBCs(t, Family):
         I._rmNodesByName(bc, '.Solver#BC')
-    define_bc_family(workflow, Family, 'BCOutflowSubsonic')
+    define_bc_family(t, Family, 'BCOutflowSubsonic')
 
     bc = trf.BCOutRadEqHyb(t, t.get(Name=Family, Type='Family'))
     bc.glob_border()

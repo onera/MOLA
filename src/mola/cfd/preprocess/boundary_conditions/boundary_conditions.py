@@ -177,36 +177,48 @@ def get_bc_nodes_from_family(t, Family):
             bcs.append(bc)
     return bcs
 
-def get_fields_from_file(t, FamilyName, filename, var2interp, fileformat=None):
+def get_fields_from_file(t, FamilyName, filename, var2interp):
 
-    # TODO This function is not working yet. The function migrateFields must be replaced.
-
-    import Converter.PyTree as C
-    import Converter.Internal as I
+    def _get_original_bc_node(t, w):
+        zname = w.get(Name='.parentZone').value()
+        bcname = w.get(Name='.originalBC').value()            
+        znode = t.get(Name=zname, Type='Zone')
+        bcnode = znode.get(Name=bcname, Type='BC')
+        return bcnode
  
     input_data_from_file = dict()
-    donor_tree = C.convertFile2PyTree(filename, format=fileformat)
-    inlet_BC_nodes = C.extractBCOfName(t, f'FamilySpecified:{FamilyName}', reorder=False)
+    donor_tree = cgns.load(filename)
 
-    I._adaptZoneNamesForSlash(inlet_BC_nodes)
-    I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
-    J.migrateFields(donor_tree, inlet_BC_nodes)  # THIS LINE MUST BE REPLACED
+    from mola.cfd.postprocess import extract_bc
+    inlet_BC_nodes = extract_bc(t, Family=FamilyName)
 
-    for w in inlet_BC_nodes:
-        bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
-        zname, wname = bcLongName.split('\\')
-        znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
-        bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
+    inlet_BC_nodes.findAndRemoveNodes(Type='FlowSolution')
+    inlet_BC_nodes.findAndRemoveNodes(Type='*FamilyName')
+    donor_tree.findAndRemoveNodes(Type='*FamilyName')
+
+    # # FIXME THIS LINE MUST BE REPLACED
+    from mola.legacy.InternalShortcuts import migrateFields
+    migrateFields(donor_tree, inlet_BC_nodes)  
+    inlet_BC_nodes = cgns.castNode(inlet_BC_nodes)
+
+    for w in inlet_BC_nodes.zones():
+
         ImposedVariables = dict()
         for var in var2interp:
-            FS = I.getNodeFromName(w, I.__FlowSolutionCenters__)
-            varNode = I.getNodeFromName(FS, var) 
-            if varNode:
-                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode))
-            else:
-                raise TypeError('variable {} not found in {}'.format(var, filename))
-        
-        input_data_from_file[bcnode] = ImposedVariables
+            # search data in every FlowSolution at CellCenter
+            for FS in w.group(Type='FlowSolution'):
+                GridLocation_node = FS.get(Name='GridLocation', Depth=1)
+                if not GridLocation_node or GridLocation_node.value() != 'CellCenter':
+                    continue
+                varNode = FS.get(Name=var, Type='DataArray', Depth=1)
+                if varNode:
+                    ImposedVariables[var] = np.asfortranarray(varNode.value())
+                    break
+            if not var in ImposedVariables:
+                raise TypeError(f'variable {var} not found in {filename}')
+            
+        bcnode = _get_original_bc_node(t, w)
+        input_data_from_file[bcnode.path()] = ImposedVariables
     
     return input_data_from_file
 

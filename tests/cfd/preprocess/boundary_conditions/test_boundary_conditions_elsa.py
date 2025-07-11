@@ -17,6 +17,9 @@
 
 import pytest
 
+import numpy as np
+from treelab import cgns
+
 from mola.cfd.preprocess.boundary_conditions import solver_elsa
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_elsa import BoundaryConditionsDispatcherElsa
 from .test_boundary_conditions import get_workflow_prepared_to_test_bcs
@@ -61,7 +64,47 @@ def test_bc_specific():
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
     workflow.set_boundary_conditions()
 
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_bc_2D(tmp_path):
 
+    def _write_outflow_2D_file(filename):
+        x, y, z = np.meshgrid( [1],
+                            np.linspace(0,1,5),
+                            np.linspace(0,1,5), indexing='ij')
+        imax_plane = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+        # imax_plane.newFields(dict(Pressure=3), Container='FlowSolution#Centers', GridLocation='CellCenter')
+
+        pressure = np.array(np.random.rand(1, 4, 4), order='F')
+        FS = cgns.Node(Parent=imax_plane, Name='FlowSolution#Centers', Type='FlowSolution')
+        cgns.Node(Parent=FS, Name='GridLocation', Type='GridLocation', Value='CellCenter')
+        cgns.Node(Parent=FS, Name='Pressure', Type='DataArray', Value=pressure)
+        base = cgns.Node(Name='Base', Type='CGNSBase')
+        cgns.Node(Parent=base, Name='imax', Type='Family')
+        base.addChild(imax_plane)
+        cgns.Node(Parent=FS, Name='FamilyName', Type='FamilyName', Value='imax')
+        base.save(str(tmp_path/filename))
+
+    _write_outflow_2D_file('outflow_2D.cgns')
+
+    BoundaryConditions = [
+            dict(Family='imin', Type='InflowStagnation', PressureStagnation=lambda y: 1+2*y, variableForInterpolation='CoordinateY'),
+            dict(Family='imax', Type='OutflowPressure', File=str(tmp_path/'outflow_2D.cgns')),
+        ]
+    workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
+    workflow.set_boundary_conditions()
+
+    # bc_inflow = workflow.tree.get(Type='BC', Name='imin')  # after other tests, the name of the BC can be "imin.0", don't know why
+    bc_inflow = [bc for bc in workflow.tree.group(Type='BC') if bc.get(Type='FamilyName').value() == 'imin'][0]
+    assert bc_inflow.get(Name='PressureStagnation').value().shape == (4,4)
+    assert bc_inflow.get(Name='EnthalpyStagnation').value().shape == (4,4)
+
+    # bc_outflow = workflow.tree.get(Type='BC', Name='imax')
+    bc_outflow = [bc for bc in workflow.tree.group(Type='BC') if bc.get(Type='FamilyName').value() == 'imax'][0]
+
+    assert bc_outflow.get(Name='Pressure').value().shape == (4,4)
+
+    
 @pytest.mark.unit
 @pytest.mark.cost_level_1
 @pytest.mark.parametrize('interface_type', ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface'])
