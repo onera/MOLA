@@ -15,13 +15,17 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import mola.mesh.ExtractSurfacesProcessor as ESP
+
 import Converter.PyTree as C
 import Converter.Internal as I
 import Converter.Mpi as Cmpi
+from .tools import * # BAD PRACTICE !!
 
-from .tools import *
+from mola.pytree.user.checker import is_distributed_for_use_in_maia, assert_zones_have_zone_type_node
+from mola.cfd.preprocess.mesh.families import _ungroupBCsByBCType
 
-def extract_bc(t, Family=None, Name=None, Type=None):
+def extract_bc(tree, Family=None, Name=None, Type=None):
     '''
     This is a multi-container wrapper of Cassiopee C.extractBC* functions, 
     as requested in https://elsa.onera.fr/issues/10641. 
@@ -48,11 +52,23 @@ def extract_bc(t, Family=None, Name=None, Type=None):
             list of surfaces (zones) with multi-containers (including *BCData_t* 
             transformed into *FlowSolution_t* nodes)    
     '''
-    # CAVEAT BUG https://elsa.onera.fr/issues/12070
+    # CAUTION https://elsa.onera.fr/issues/12070
+    # CAUTION https://elsa.onera.fr/issues/12076
+    # HACK    https://elsa.onera.fr/issues/10641
 
-    # HACK https://elsa.onera.fr/issues/10641
+    t = I.copyTree(tree) # HACK https://gitlab.onera.net/numerics/solver/sonics/-/issues/180#note_51164
+    
     if Cmpi.size > 1:
+        if is_distributed_for_use_in_maia(t):
+            raise TypeError("Cannot use Cassiopee for extracting a BC using a maia-distributed tree in a MPI parallel context https://elsa.onera.fr/issues/12070")
         t = Cmpi.convert2PartialTree(t, rank=Cmpi.rank)
+
+    t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                           FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
+
+    # CAUTION https://elsa.onera.fr/issues/12076
+    t = I.adaptNGon42NGon3(t)
+    I._adaptPE2NFace(t)
 
     args = [Family, Name, Type]
     if args.count(None) != len(args)-1:
@@ -77,8 +93,6 @@ def extract_bc(t, Family=None, Name=None, Type=None):
         extractBCarg = Type
         extractBCfun = C.extractBCOfType
     
-    t = mergeContainers(t, FlowSolutionVertexName=I.__FlowSolutionNodes__,
-                           FlowSolutionCellCenterName=I.__FlowSolutionCenters__)
 
 
     bases_children_except_zones = []
@@ -89,7 +103,9 @@ def extract_bc(t, Family=None, Name=None, Type=None):
 
     bcs = []
     for zone in I.getZones(t):
-        extracted_bcs = I.getZones( extractBCfun(zone, extractBCarg))
+
+        extraction_output = extractBCfun(zone, extractBCarg)
+        extracted_bcs = I.getZones( extraction_output )
         if not extracted_bcs: continue
         I._adaptZoneNamesForSlash(extracted_bcs)
         for surf in extracted_bcs:
@@ -109,4 +125,35 @@ def extract_bc(t, Family=None, Name=None, Type=None):
             raise TypeError("extract_bc produced no zones")
 
     return zones
+
+
+
+def getWalls(t, SuffixTag=None):
+    '''
+    Get closed watertight surfaces from walls (defined using ``BCWall*``)
+
+    Parameters
+    ----------
+
+        t : PyTree
+            assembled tree
+
+        SuffixTag : str
+            if provided, include a tag on newly created zone names
+
+    Returns
+    -------
+
+        walls - list
+            
+    '''
+
+
+    if SuffixTag:
+        walls = extract_bc(t, Family=SuffixTag)
+        for w in I.getZones(walls): w[0] = SuffixTag
+    else:
+        walls = extract_bc(t, Type='BCWall')
+    
+    return walls
 

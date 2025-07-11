@@ -20,7 +20,7 @@ rank = MPI.COMM_WORLD.Get_rank()
 
 from treelab import cgns
 from mola.logging import MolaException
-
+from mola.pytree.user import checker
 
 def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, tool='cassiopee'):
     CellDimension = t.base().dim()
@@ -40,7 +40,7 @@ def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, 
 
     else:
         raise MolaException(f'iso_surface is available only with cassiopee (now tool={tool})')
-    
+
     return extraction
     
     
@@ -58,10 +58,8 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
     
     elif tool == 'maia':
         from .extractions_with_maia import extract_bc_from_family
-        zones = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
-        extraction = get_renamed_tree_maia(zones, BaseName, CellDimension=CellDimension)
-        extraction = cgns.castNode(extraction)
-        restore_families(extraction, t)
+        tree = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
+        extraction = cgns.castNode(tree)
     
     elif tool == 'maia_zsr':
         from .extractions_with_maia import extract_bc_from_zsr
@@ -102,8 +100,9 @@ def get_renamed_tree(zones, basename, CellDimension=3, PhysicalDimension=3):
     return tree
 
 def get_renamed_tree_maia(zones, basename, CellDimension=3, PhysicalDimension=3):
-    tree = cgns.Tree()
-    base = cgns.Base(Parent=tree, Name=basename)
+    tree = cgns.Tree(basename=[])
+    base = tree.bases()[0]
+    base.setName(basename)
     base.setCellDimension(CellDimension-1)
     base.setPhysicalDimension(PhysicalDimension)
 
@@ -111,6 +110,9 @@ def get_renamed_tree_maia(zones, basename, CellDimension=3, PhysicalDimension=3)
         return tree
         
     for i, zone in enumerate(zones):
+        if len(zone) != 4:
+            raise TypeError(f"wrong zone: {str(zone)}")
+
         zone = cgns.castNode(zone)
         # The name of the parent zone is kept in a temporary node .parentZone, 
         # that will be removed before saving
@@ -129,7 +131,10 @@ def get_maia_suffix(name):
     # regular expression to find a pattern ".P*.N*", with * a number with 1 to 5 figures
     maia_pattern = r'\.P(\d{1,5})\.N(\d{1,5})'
     match = re.search(maia_pattern, name)
-    pattern_found = match.group(0) 
+    if match:
+        pattern_found = match.group(0) 
+    else:
+        pattern_found = ''
     return pattern_found
 
 def restore_families(surfaces, skeleton):
@@ -198,3 +203,39 @@ def merge_bases_and_rename_unique_base(t, basename):
             i += 1
             zone.moveTo(base0)
         base.remove()
+
+
+def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
+    
+    if 'ContainersToTransfer' in extraction:
+        containers_to_transfer = extraction['ContainersToTransfer']
+    elif 'Container' in extraction:
+        containers_to_transfer = [extraction['Container']]
+    else:
+        name = extraction['Name']
+        type = extraction['Type']
+        MolaException(f'extraction "{name}" of type "{type}" did not contain keys Container nor ContainersToTransfer')
+
+    if containers_to_transfer != 'all':
+        for zone in tree.zones():
+            for container in zone.group(Type='FlowSolution_t', Depth=1):
+                if container.name() not in containers_to_transfer:
+                    container.remove()
+
+def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
+    if 'Fields' in extraction and extraction['Fields'] != 'all':
+
+        for vector_name in ['Momentum', 'Velocity', 'Vorticity','Force','Torque']:
+            if vector_name in extraction['Fields']:
+                for c in 'XYZ':
+                    field_name = vector_name+c 
+                    if field_name not in extraction['Fields']:
+                        extraction['Fields'] += [field_name]
+
+        for zone in tree.zones():
+            for container in zone.group(Type='FlowSolution_t', Depth=1):
+                for field in container.group(Type='DataArray_t', Depth=1):
+                    field_name = field.name()
+
+                    if field.name() not in extraction['Fields']:
+                        field.remove()

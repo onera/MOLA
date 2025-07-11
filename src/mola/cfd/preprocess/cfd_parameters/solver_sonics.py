@@ -138,10 +138,12 @@ def get_sonics_config(workflow):
     time_features, time_parameters = get_time_marching_template(workflow.Numerics)
 
     my_config = miles.Configuration()
+
     if all_families_are_fixed(workflow):
         my_config.update("motion/fixed")
     else:
         my_config.update("motion/mobile")
+        
     my_config.update(
         *fluid_features,
         *turb_features,

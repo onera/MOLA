@@ -125,7 +125,6 @@ def set(parent, childname, childType='UserDefinedData_t', **kwargs):
 
     return get(parent, childname)
 
-
 def get(parent, childname):
     '''
     Recover the name and values of children of a node named *childname* inside a
@@ -167,8 +166,6 @@ def get(parent, childname):
             else:
                 Dict[n[0]] = None
     return Dict
-
-
 
 def getVars(zone, VariablesName, Container='FlowSolution'):
     """
@@ -243,7 +240,6 @@ def getVars(zone, VariablesName, Container='FlowSolution'):
             print ("Field %s not found in container %s of zone %s. Check spelling or data."%(v,Container,zone[0]))
 
     return Pointers
-
 
 def getVars2Dict(zone, VariablesName=None, Container='FlowSolution'):
     """
@@ -324,7 +320,6 @@ def getAllVars(zone, Container='FlowSolution'):
     field_names = [n[0] for n in fs[2] if n[3]=='DataArray_t']
     return getVars2Dict(zone, field_names, Container=Container)
 
-
 def getVars2DictPerZone(t, **getVars2DictOpts):
     '''
     higher-level version of :py:func:`getVars2Dict`, where a new level is provided
@@ -363,7 +358,6 @@ def invokeFields(zone, VariableNames, locationTag='nodes:'):
 
     return getVars(zone,VariableNames,Container)
 
-
 def _invokeFields(zone,VariableNames,locationTag='nodes:'):
     '''
     See documentation of :py:func:`invokeFields`.
@@ -372,7 +366,6 @@ def _invokeFields(zone,VariableNames,locationTag='nodes:'):
     # adding children)
     # TODO: replace locationTag by general Container
     for v in VariableNames: C._initVars(zone,locationTag+v,0.)
-
 
 def invokeFieldsDict(zone,VariableNames,locationTag='nodes:'):
     """
@@ -407,7 +400,6 @@ def invokeFieldsDict(zone,VariableNames,locationTag='nodes:'):
 
     return VarsDict
 
-
 def _setField(zone, FieldName, FieldNumpy, locationTag='nodes:'):
     '''
     Set field named <FieldName> contained in <zone> at FlowSolution of tag
@@ -416,7 +408,6 @@ def _setField(zone, FieldName, FieldNumpy, locationTag='nodes:'):
     # TODO: replace locationTag by general Container
     Field, = invokeFields(zone, [FieldName], locationTag=locationTag)
     Field[:] = FieldNumpy
-
 
 def getx(zone):
     '''
@@ -438,7 +429,6 @@ def getx(zone):
     gety, getz, getxy, getxyz
     '''
     return I.getNodeFromName2(zone,'CoordinateX')[1]
-
 
 def gety(zone):
     '''
@@ -510,7 +500,6 @@ def getxy(zone):
     '''
     return getx(zone), gety(zone)
 
-
 def getyz(zone):
     '''
     Get the pointers of the numpy array of *CoordinateY* and *CoordinateZ*.
@@ -566,40 +555,6 @@ def getxyz(zone):
     '''
     return getx(zone), gety(zone), getz(zone)
 
-def getRadiusTheta(zone, axis=(1,0,0)):
-    '''
-    Get the radius and the angle theta.
-
-    Parameters
-    ----------
-
-        zone : zone
-            Zone PyTree node from where coordinates are being extracted
-
-        axis : tuple
-            Axis of the cylindrical frame of reference
-
-    Returns
-    -------
-
-        r : numpy.ndarray
-            radius
-
-        theta : numpy.ndarray
-            angle in radians
-
-    See also
-    --------
-    getx, gety, getz, getxy, getxyz
-    '''
-    x, y, z = getxyz(zone)
-    if axis != (1,0,0):
-        raise Exception('getRadiusTheta is available only for axis=(1,0,0)')
-
-    r = (y**2 + z**2)**0.5
-    theta = np.arctan2(z, y)
-    return r, theta
-
 def getNearestPointIndex(a,P):
     '''
 
@@ -639,7 +594,6 @@ def getNearestPointIndex(a,P):
         else:
             raise AttributeError('Could not recognize the first argument. Please provide Tree, Zone or :py:class:`list` of zone')
 
-
 def getNearestPointIndexOfZone__(zone1, Point):
     '''
 
@@ -657,7 +611,6 @@ def getNearestPointIndexOfZone__(zone1, Point):
     NearPtDist = Distances[NearPtIndx]
 
     return NearPtIndx, NearPtDist
-
 
 def getNearestZone(ZonesOrPyTree, Point):
     '''
@@ -695,7 +648,6 @@ def getNearestZone(ZonesOrPyTree, Point):
     NearestZone    = zones[NearestZoneNo]
 
     return NearestZone, NearestZoneNo
-
 
 def createZone(Name, Arrays, Vars):
     """
@@ -784,8 +736,6 @@ def getZoneFromListByName(ZoneList, ZoneName):
         if I.getName(zone) == ZoneName:
             return zone
 
-
-
 def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='DataArray_t'):
     '''
     parent : Parent node
@@ -803,449 +753,6 @@ def _addSetOfNodes(parent, name, ListOfNodes, type1='UserDefinedData_t', type2='
     node = I.createUniqueChild(parent,name,type1, children=children)
     I._rmNodesByName1(parent, node[0])
     I.addChild(parent, node)
-
-
-def convertNode2Tetra(zone):
-    '''
-    Makes use of scipy's Delaunay function in order to produce
-    a TRI (2D) or TETRA (3D) mesh from a point cloud defined by
-    the input zone of type NODE. If FlowSolutions exist in the
-    input zone, those are preserved in the final output.
-
-    Parameters
-    ----------
-
-        zone : zone
-            Points cloud zone as a form of `NODE`_ zone (as got from
-            ``C.convertArray2Node()``).
-
-            .. note:: if all values of CoordinateZ are the same, then **zone**
-                is supposed to be 2D.
-
-    Returns
-    -------
-
-        zoneUns : zone
-            Unstructured meshed of type TRI (2D) or TETRA (3D).
-
-        Delaunay : scipy's Delaunay object
-            Returns also the scipy's Delaunay object
-    '''
-
-    from scipy.spatial import Delaunay
-
-    x,y,z = getxyz(zone)
-
-    zoneIs2D = np.unique(z).size == 1
-
-    # Stack coordinates
-    points = np.vstack((x.flatten(),y.flatten())).T if zoneIs2D else np.vstack((x.flatten(),y.flatten(),z.flatten())).T
-
-    # Apply Delaunay's function
-    tri = Delaunay(points, qhull_options='Qj')
-
-    # Create the unstructured zone
-    NPts = len(tri.points[:,0])
-    NElts= len(tri.vertices[:,0])
-
-    zoneUns = I.createNode(zone[0],ntype='Zone_t',value=np.array([[NPts, NElts,0]],dtype=np.int32,order='F'))
-    zt_n = I.createNode('ZoneType', ntype='ZoneType_t',parent=zoneUns)
-    I.setValue(zt_n,'Unstructured')
-    # Add grid coordinates
-    gc_n = I.newGridCoordinates(parent=zoneUns)
-    I.createNode('CoordinateX',ntype='DataArray_t',value=tri.points[:,0].reshape((NPts),order='F'), parent=gc_n)
-    I.createNode('CoordinateY',ntype='DataArray_t',value=tri.points[:,1].reshape((NPts),order='F'), parent=gc_n)
-    Zcoords = z.reshape((NPts),order='F') if zoneIs2D else tri.points[:,2].reshape((NPts),order='F')
-    I.createNode('CoordinateZ',ntype='DataArray_t',value=Zcoords, parent=gc_n)
-    # Add grid elements
-    GEval = 6 if zoneIs2D else 10
-    ge_n = I.createNode('GridElements', ntype='Elements_t', value=np.array([GEval,0],dtype=np.int32, order='F'), parent=zoneUns)
-    I.createNode('ElementRange', ntype='Inderange_t', value=np.array([1,NElts],dtype=np.int32, order='F'), parent=ge_n)
-    I.createNode('ElementConnectivity', ntype='DataArray_t', value=tri.vertices.flatten()+1, parent=ge_n)
-
-    FS_n = I.getNodeFromName(zone,'FlowSolution')
-    if FS_n is not None:
-        I.addChild(zoneUns,FS_n)
-        for child in FS_n[2]:
-            child[1] = child[1].ravel(order='C') # 'C' important
-
-    return zoneUns, tri
-
-def interpolate__(AbscissaRequest, AbscissaData, ValuesData,
-                  Law='interp1d_linear', axis= -1, **kwargs):
-    """
-    This is a general-purpose interpolation macro for
-    N-dimensional data. This function conveniently wraps
-    a set of `scipy.interpolate <https://docs.scipy.org/doc/scipy/reference/interpolate.html>`_
-    functions. Future implementations may include other 3rd party libraries.
-
-    Interpolations (and extrapolations) are applied on the last
-    axis of **ValuesData**, based on the reference vector
-    **AbscissaData**, for the requested points contained in the
-    vector **AbscissaRequest**.
-
-    Parameters
-    ----------
-
-        AbscissaRequest : 1D numpy array
-            The user-requested points where inter/extrapolation will be
-            performed.
-
-        AbscissaData : 1D numpy array
-            Reference abscissa where **ValuesData** are coherent.
-
-            .. warning:: **AbscissaData** must be monotonically increasing.
-
-        ValuesData : N-d numpy array
-            Set of data to interpolate.
-
-            .. warning:: the last dimension of **ValuesData** must be equal to
-                the length of **AbscissaData**.
-
-        Law : str
-            Controls the algorithm of interpolation
-            to be employed. Current implementation includes:
-
-            ``'linear'`` : linear interpolation :math:`\mathcal{O}(1)` mode
-                Makes use of the function `numpy.interp() <https://numpy.org/doc/stable/reference/generated/numpy.interp.html>`_
-
-            ``'interp1d_<kind>'`` : one-dimensional interpolation (multiple orders)
-                Makes use of the function
-                `scipy.interpolate.interp1d <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html>`_,
-                where ``<kind>`` may be one of *(for scipy v1.4.1)*:
-                (``linear``, ``nearest``, ``zero``, ``slinear``, ``quadratic``,
-                ``cubic``, ``previous`` or ``next``).
-
-            ``'pchip'`` : Piecewise Cubic Hermite Interpolating Polynomial :math:`\mathcal{O}(3)`
-                Makes use of the function `scipy.interpolate.PchipInterpolator <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html>`_
-
-            ``'akima'`` : Akima interpolator :math:`\mathcal{O}(3)`
-                Makes use of the function `scipy.interpolate.Akima1DInterpolator <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.Akima1DInterpolator.html>`_
-
-            ``'cubic'`` : Cubic spline :math:`\mathcal{O}(3)`
-                Makes use of the function `scipy.interpolate.CubicSpline <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicSpline.html>`_
-
-                In this case, an additional keyword is available for
-                specification of spline's *boundary conditions* in **kwargs**,
-                for example:
-
-                ::
-
-                    CubicSplineBoundaryConditions = ('clamped', 'not_a_knot')
-
-                The first element of the tupple indicates the boundary
-                condition of the spline at the start and the second one
-                indicates the boundary condition at the end.
-
-    Returns
-    -------
-
-        Result : N-dimension numpy array
-            Result of interpolation
-    """
-    import scipy.interpolate
-    LawLower = Law.lower()
-
-    if 'linear' == LawLower:
-        return np.interp(AbscissaRequest, AbscissaData, ValuesData)
-
-    elif 'interp1d' in LawLower:
-        ScipyLaw =  Law.split('_')[1]
-        interp = scipy.interpolate.interp1d( AbscissaData, ValuesData, axis=axis, kind=ScipyLaw, bounds_error=False, fill_value='extrapolate', assume_sorted=True, copy=False)
-        return interp(AbscissaRequest)
-
-    elif 'pchip' == LawLower:
-        interp = scipy.interpolate.PchipInterpolator(AbscissaData, ValuesData, axis=axis, extrapolate=True)
-        return interp(AbscissaRequest)
-
-    elif 'akima' == LawLower:
-        interp = scipy.interpolate.Akima1DInterpolator(AbscissaData, ValuesData, axis=axis)
-        return interp(AbscissaRequest, extrapolate=True)
-
-    elif 'cubic' == LawLower:
-        try: bc_type = kwargs['CubicSplineBoundaryConditions']
-        except KeyError: bc_type = 'not-a-knot'
-
-        interp = scipy.interpolate.CubicSpline(AbscissaData, ValuesData, axis=axis, extrapolate=True, **kwargs)
-        return interp(AbscissaRequest)
-
-    else:
-        raise AttributeError('interpolate__(): Law %s not recognized.'%Law)
-
-
-def getDistributionFromHeterogeneousInput__(InputDistrib):
-    """
-    This function accepts a polymorphic object **InputDistrib** and
-    conveniently translates it into 1D numpy distributions
-    and ``D.getDistribution()``-compliant distribution zone.
-
-    Parameters
-    ----------
-
-        InputDistrib : polymorphic
-            One of the following objects are accepted:
-
-            * numpy 1D vector
-                for example,
-                ::
-
-                    np.array([15., 20., 25., 30.])
-
-            * Python list of float
-                for example,
-                ::
-
-                    [15., 20., 25., 30.]
-
-            * Python dictionary
-                A ``W.linelaw()``-compliant dictionary which must
-                include, at least, the following keys:
-
-                ``'P1'``, ``'P2'`` and ``'N'``.
-
-                Other possible keys are the
-                ``distrib`` possible keys and values of ``W.linelaw()``.
-
-                For example,
-                ::
-
-                    dict(P1=(15,0,0), P2=(20,0,0),
-                         N=100, kind='tanhOneSide',
-                         FirstCellHeight=0.01)
-
-    Returns
-    -------
-
-        Span : 1D numpy
-            vector monotonically increasing. **Absolute length** dimensions.
-
-        Abscissa : 1D numpy
-            corresponding curvilinear abscissa (from 0 to 1) **dimensionless**.
-
-        Distribution : zone
-            ``G.map()``-compliant 1D PyTree curve as got from
-            ``D.getDistribution()``
-    """
-    import Geom.PyTree as D
-
-    def buildResultFromNode__(n):
-        x,y,z = getxyz(n)
-        xIsNone = x is None
-        yIsNone = y is None
-        zIsNone = z is None
-        if (xIsNone and yIsNone and zIsNone):
-            ErrMsg = "Input argument was a PyTree node (named %s), but no coordinates were found.\nPerhaps you forgot GridCoordinates nodes?"%n[0]
-            raise AttributeError(ErrMsg)
-        else:
-            if xIsNone:
-                if not yIsNone: x = y*0
-                else:           x = z*0
-            if yIsNone: y = x*0
-            if zIsNone: z = x*0
-        zone = createZone('distribution',[x,y,z],['CoordinateX', 'CoordinateY', 'CoordinateZ'])
-        D._getCurvilinearAbscissa(zone)
-        Abscissa, = getVars(zone,['s'])
-        Distribution = D.getDistribution(zone)
-        x,y,z = getxyz(zone)
-        # Span = np.sqrt(x*x+y*y+z*z) # wrong
-
-        return x, Abscissa, Distribution
-
-
-    typeInput=type(InputDistrib)
-    NodeKind = I.isStdNode(InputDistrib)
-    if NodeKind == -1: # It is a node
-        return buildResultFromNode__(InputDistrib)
-    elif NodeKind == 0: # List of Nodes
-        return buildResultFromNode__(InputDistrib[0])
-    elif typeInput is np.ndarray: # It is a numpy array
-        s  = InputDistrib
-        if len(s.shape)>1:
-            ErrMsg = "Input argument was detected as a numpy array of dimension %g!\nInput distribution MUST be a monotonically increasing VECTOR (1D numpy array)."%len(s.shape)
-            raise AttributeError(ErrMsg)
-        if any( np.diff(s)<0):
-            ErrMsg = "Input argument was detected as a numpy array.\nHowever, it was NOT monotonically increasing. Input distribution MUST be monotonically increasing. Check that, please."
-            raise AttributeError(ErrMsg)
-
-        zone = createZone('distribution',[s,s*0,s*0],['CoordinateX', 'CoordinateY', 'CoordinateZ'])
-        return buildResultFromNode__(zone)
-
-    elif isinstance(InputDistrib, list): # It is a list
-        try:
-            s = np.array(InputDistrib,dtype=np.float64)
-        except:
-            raise AttributeError('Could not transform InputDistrib argument into a numpy array.\nCheck your InputDistrib argument.')
-        if len(s.shape)>1:
-            ErrMsg = "InputDistrib argument was converted from list to a numpy array of shape %s!\nSpan MUST be a monotonically increasing VECTOR (1D numpy array)."%(str(s.shape))
-            raise AttributeError(ErrMsg)
-        if any( np.diff(s)<0):
-            ErrMsg = "Input argument was detected as a numpy array.\nHowever, it was NOT monotonically increasing. Input distribution MUST be monotonically increasing. Check that, please."
-            raise AttributeError(ErrMsg)
-
-        zone = createZone('distribution',[s,s*0,s*0],['CoordinateX', 'CoordinateY', 'CoordinateZ'])
-        return buildResultFromNode__(zone)
-
-    elif isinstance(InputDistrib,dict):
-        from . import curve as W
-        try: P1 = InputDistrib['P1']
-        except KeyError: P1 = (0,0,0)
-        try: P2 = InputDistrib['P2']
-        except KeyError: P2 = (1,0,0)
-        try: N = InputDistrib['N']
-        except KeyError: raise AttributeError('distribution requires number of pts "N"')
-        zone = W.linelaw(P1=P1, P2=P2, N=InputDistrib['N'],Distribution=InputDistrib)
-        return buildResultFromNode__(zone)
-
-    else:
-        raise AttributeError('Type of Span argument not recognized. Check your input.')
-
-
-
-def get2DQhullZone__(x,y,rescale=True):
-    '''
-    Construct the convex-hull *(Qhull)* of 2D data defined by a set of
-    scattered **(x, y)** points.
-
-    Parameters
-    ----------
-
-        x : 1D-numpy array
-            A vector containing all X-values defining the scattered data
-
-        y : 1D-numpy array
-            A vector containing all Y-values defining the scattered data
-
-        rescale : bool
-            if :py:obj:`True`, then rescales the data for computation of Qhull.
-
-    Returns
-    -------
-
-        QhullZone : zone
-            a CGNS Structured zone containing the curve of the convex-hull
-            around the provided scattered data
-
-        xScale : float
-            Employed value for rescaling X-data
-
-        yScale : float
-            Employed value for rescaling Y-data
-
-    See also
-    --------
-    sampleIn2DQhull__
-    '''
-    from scipy.spatial import ConvexHull
-    import Transform.PyTree as T
-
-    if rescale:
-        xScale = x.max()-x.min()
-        yScale = y.max()-y.min()
-    else:
-        xScale = 1.0
-        yScale = 1.0
-
-    x /= xScale
-    y /= yScale
-
-    points = np.vstack((x.flatten(),y.flatten())).T
-
-    hull = ConvexHull(points)
-
-    curves = [createZone('Curve%d'%i,[points[hull.simplices[i],0], points[hull.simplices[i],1], 0*points[hull.simplices[i],1]],['CoordinateX', 'CoordinateY', 'CoordinateZ'] ) for i in range(len(hull.simplices))]
-
-    QhullZone = T.merge(curves)[0]
-    xq, yq = getxy(QhullZone)
-    xq *= xScale
-    yq *= yScale
-    x *= xScale
-    y *= yScale
-
-    return QhullZone, xScale, yScale
-
-
-def sampleIn2DQhull__(x,y,QhullNPts=20,QhullScale=1.2, grading=0.1, rescale=True):
-    '''
-    Produce a new set of scattered data **(x,y)**.
-
-    The technique performs a 2D discretization of initially provided scattered
-    data, by first constructing  the convex-hull (*Qhull*), and then making
-    a sampling of points *inside* the *Qhull*.
-
-    Parameters
-    ----------
-
-        x : 1D-numpy array
-            A vector containing all X-values defining the scattered data
-
-        y : 1D-numpy array
-            A vector containing all Y-values defining the scattered data
-
-        QhullNPts : int
-            Number of points used to uniformly discretize the *Qhull*
-
-        QhullScale : float
-            Scaling factor used for deforming resulting *Qhull* from its
-            barycenter.
-
-            .. hint:: use **QhullScale** slightly greater than 1 in order to
-                obtain a margin for sampling the interior of a scattered region.
-
-        grading : float
-            Refinement criterion used for sampling the interior points of the
-            *Qhull*, as employed by **grading** attribute of function
-            ``G.T3mesher2D``
-
-        rescale : bool
-            if :py:obj:`True`, then rescales the scatter data from which *Qhull*
-            is computed.
-
-    Returns
-    -------
-
-        xnew : 1D numpy vector
-            New set of X-values defining scattered data at the interior of
-            the *Qhull*
-
-        ynew : 1D numpy vector
-            New set of Y-values defining scattered data at the interior of
-            the *Qhull*
-
-        QhullZone : zone
-            a CGNS Structured zone containing the curve of the convex-hull
-            around the provided scattered data
-
-    See also
-    --------
-    get2DQhullZone__
-    '''
-    import Generator.PyTree as G
-    import Transform.PyTree as T
-    from . import curve as W
-
-    QhullZone, xScale, yScale = get2DQhullZone__(x,y,rescale)
-    xq, yq = getxy(QhullZone)
-    xq /= xScale
-    yq /= yScale
-
-    QhullZone = W.discretize(QhullZone,QhullNPts)
-    T._scale(QhullZone,QhullScale)
-    QhullZoneBAR = C.convertArray2Tetra(QhullZone)
-    QhullZoneBAR = G.close(QhullZoneBAR)
-    mesh = G.T3mesher2D(QhullZoneBAR, triangulateOnly=0, grading=grading, metricInterpType=0)
-
-    # Rescale back to original
-    x *= xScale
-    y *= yScale
-    xhull, yhull = getxy(QhullZone)
-    xhull *= xScale
-    yhull *= yScale
-    xnew, ynew = getxy(mesh)
-    xnew *= xScale
-    ynew *= yScale
-
-    return xnew, ynew, QhullZone
-
 
 def secant(fun, x0=None, x1=None, ftol=1e-6, bounds=None, maxiter=20, args=()):
     '''
@@ -1444,7 +951,6 @@ def secant(fun, x0=None, x1=None, ftol=1e-6, bounds=None, maxiter=20, args=()):
 
     return sol
 
-
 def writePythonFile(filename,DictOfVariables,writemode='w'):
     '''
     This function writes a Python-compatible file using a dictionary
@@ -1497,435 +1003,6 @@ def writePythonFile(filename,DictOfVariables,writemode='w'):
                     f.write(Variable+' '+PrettyVariable+'\n\n')
                 else:
                     f.write(Variable+'='+PrettyVariable+'\n\n\n')
-
-
-def migrateFields(Donor, Receiver, keepMigrationDataForReuse=False,
-                 forceAddMigrationData=False):
-    '''
-    Migrate all fields contained in ``FlowSolution_t`` type nodes of **Donor**
-    towards **Receiver** using a zero-th order interpolation (nearest) strategy.
-
-    The same structure of FlowSolution containers of **Donor** are kept in
-    **Receiver**. Specifically, interpolations are done from Vertex containers
-    towards vertex containers and CellCenter containers towards CellCenter
-    containers.
-
-    Parameters
-    ----------
-
-        Donor : Tree/base/zone, :py:class:`list` of zone/bases/Trees
-            Donor elements.
-
-        Receiver : Tree/base/zone, :py:class:`list` of zone/bases/Trees
-            Receiver elements.
-
-            .. important:: **Receiver** is modified.
-
-        keepMigrationDataForReuse : bool
-            if :py:obj:`True`, special nodes ``.MigrationData``
-            are stored on **Receiver** zones so that migration can be further
-            reused, for numerical efficiency. Otherwise, special nodes
-            ``.MigrationData`` are destroyed.
-
-            .. hint:: use ``keepMigrationDataForReuse=True`` if you plan
-                doing additional migrations of fields **only if** **Donor** and
-                **Receiver** fields do not move.
-
-        forceAddMigrationData : bool
-            if True, re-compute special nodes ``.MigrationData``, regardless of
-            their previous existence.
-
-    '''
-    import Geom.PyTree as D
-
-
-    def addMigrationDataIfForcedOrNotExisting(DonorZones, ReceiverZones):
-        for ReceiverZone in ReceiverZones:
-
-            MigrationNode = I.getNodeFromName1(ReceiverZone,
-                                               MigrateDataNodeReservedName)
-
-
-            if forceAddMigrationData or not MigrationNode:
-                I._rmNode(ReceiverZone, MigrateDataNodeReservedName)
-                MigrationNode = I.createNode(MigrateDataNodeReservedName,
-                                            'UserDefinedData_t',
-                                            parent=ReceiverZone)
-
-                for DonorZone in DonorZones:
-                    addMigrationDataAtReceiver(DonorZone,
-                                               ReceiverZone,
-                                               MigrationNode)
-
-                updateMasks(ReceiverZone)
-
-
-    def invokeFieldsAtReceiver(DonorZones, ReceiverZones):
-        for DonorZone, ReceiverZone in product(DonorZones, ReceiverZones):
-
-            ContainersNames = getFlowSolutionNamesBasedOnLocations(DonorZone)
-            VertexNames, CentersNames = ContainersNames
-            for VertexName in VertexNames:
-                FlowSolution = I.getNodeFromNameAndType(DonorZone,
-                                                        VertexName,
-                                                       'FlowSolution_t')
-                FieldNames = [I.getName(c) for c in I.getChildren(FlowSolution)]
-
-                invokeReceiverZoneFieldsByContainer(ReceiverZone, VertexName,
-                                                    FieldNames, 'Vertex')
-
-            for CentersName in CentersNames:
-                FlowSolution = I.getNodeFromNameAndType(DonorZone,
-                                                        CentersName,
-                                                       'FlowSolution_t')
-                FieldNames = [I.getName(c) for c in I.getChildren(FlowSolution)]
-
-                invokeReceiverZoneFieldsByContainer(ReceiverZone, CentersName,
-                                                    FieldNames, 'CellCenter')
-
-
-    def invokeReceiverZoneFieldsByContainer(ReceiverZone, ContainerName,
-                                            FieldNames, GridLocation):
-        PreviousNodesInternalName = I.__FlowSolutionNodes__[:]
-        PreviousCentersInternalName = I.__FlowSolutionCenters__[:]
-
-
-        DimensionOfReceiver = I.getZoneDim(ReceiverZone)[4]
-        isCellCenter = GridLocation == 'CellCenter' and DimensionOfReceiver > 1
-        FieldSuffix = 'centers:' if isCellCenter else 'nodes:'
-
-
-        if isCellCenter:
-            I.__FlowSolutionCenters__ = ContainerName
-        else:
-            I.__FlowSolutionNodes__ = ContainerName
-
-        for FieldName in FieldNames:
-            FullVarName = FieldSuffix+FieldName
-            FieldNotPresent = C.isNamePresent(ReceiverZone, FullVarName) == -1
-            if FieldName != 'GridLocation' and FieldNotPresent:
-                C._initVars(ReceiverZone, FullVarName, 0.)
-
-        if isCellCenter:
-            I.__FlowSolutionCenters__ = PreviousCentersInternalName
-
-        else:
-            I.__FlowSolutionNodes__ = PreviousNodesInternalName
-
-
-    def migrateDonorFields2ReceiverZone(DonorZones, ReceiverZone):
-        MigrationDataNode = I.getNodeFromName1(ReceiverZone,
-                                               MigrateDataNodeReservedName)
-        DonorMigrationNodes = I.getChildren(MigrationDataNode)
-
-        for DonorMigrationNode in DonorMigrationNodes:
-            DonorName = I.getName(DonorMigrationNode)
-            DonorZone = getZoneFromListByName(DonorZones, DonorName)
-            if not DonorZone:
-                C.convertPyTree2File(ReceiverZone,'debug.cgns')
-                raise ValueError('could not find DonorZone %s. Check debug.cgns.'%DonorName)
-            FlowSolutions = I.getNodesFromType1(DonorZone, 'FlowSolution_t')
-
-            for FlowSolution in FlowSolutions:
-                GridLocation = getGridLocationOfFlowSolutionNode(FlowSolution)
-
-                Keyname = 'Point' if GridLocation == 'Vertex' else 'Cell'
-                MaskNode = I.getNodeFromName(DonorMigrationNode,
-                                             Keyname+'Mask')
-                Mask = I.getValue(MaskNode)
-                Mask = np.asarray(Mask, dtype=bool, order='F')
-                PointListDonorNode = I.getNodeFromName(DonorMigrationNode,
-                                                 Keyname+'ListDonor')
-                PointListDonor = PointListDonorNode[1]
-
-                FlowSolutionName = I.getName(FlowSolution)
-                FieldsNodes = I.getChildren(FlowSolution)
-                for FieldNode in FieldsNodes:
-                    assignReceiverFieldFromDonorFieldNode(FieldNode,
-                                                          ReceiverZone,
-                                                          Mask,
-                                                          PointListDonor,
-                                                          FlowSolutionName)
-
-
-    def assignReceiverFieldFromDonorFieldNode(FieldNode, ReceiverZone, Mask,
-                                              PointListDonor, FlowSolutionName):
-        FieldName = I.getName(FieldNode)
-        if FieldName == 'GridLocation': return
-
-        DonorFieldArray = FieldNode[1]
-        isNumpyArray = type(DonorFieldArray) == np.ndarray
-
-        if not isNumpyArray: return
-        DonorFieldArray = DonorFieldArray.ravel(order='F')
-
-        ReceiverFlowSolution = I.getNodeFromName1(ReceiverZone,FlowSolutionName)
-        ReceiverFieldNode = I.getNodeFromName1(ReceiverFlowSolution, FieldName)
-
-        if ReceiverFieldNode:
-            ReceiverFieldArray = ReceiverFieldNode[1].ravel(order='F')
-            try:
-                ReceiverFieldArray[Mask] = DonorFieldArray[PointListDonor][Mask]
-            except IndexError:
-                print(len(Mask))
-                print(len(PointListDonor))
-                ERRMSG = ('Wrong dimensions for '
-                          '{FieldName} on {RcvName}/{FlowSolName} container.'
-                          ).format(
-                          FieldName=FieldName,
-                          RcvName=I.getName(ReceiverZone),
-                          FlowSolName=FlowSolutionName,
-                          )
-                raise ValueError(ERRMSG)
-
-        else:
-            ERRMSG = ('Did not find field '
-                      '{FieldName} on {RcvName}/{FlowSolName} container.\n'
-                      'Try migrateFields() function again using option '
-                      'forceAddMigrationData=True').format(
-                      FieldName=FieldName,
-                      RcvName=I.getName(ReceiverZone),
-                      FlowSolName=FlowSolutionName)
-            raise ValueError(ERRMSG)
-
-
-    def addMigrationDataAtReceiver(DonorZone, ReceiverZone, MigrationNode):
-        hasVertexField = hasFlowSolutionAtVertex(DonorZone)
-        if hasVertexField:
-            addMigrationDataFromZoneAndKeyName(ReceiverZone,
-                                               DonorZone,
-                                               MigrationNode,
-                                               Keyname='Point')
-
-        hasCenterField = hasFlowSolutionAtCenters(DonorZone)
-        if hasCenterField:
-            DonorZoneName = I.getName(DonorZone)
-            ReceiverZoneRef = I.copyRef(ReceiverZone)
-            I._rmNodesByType1(ReceiverZoneRef, 'FlowSolution_t')
-            ReceiverZoneCenters = C.node2Center(ReceiverZoneRef)
-            DonorZoneRef = I.copyRef(DonorZone)
-            I._rmNodesByType1(DonorZoneRef, 'FlowSolution_t')
-            DonorZoneCenters = C.node2Center(DonorZoneRef)
-            I.setName(DonorZoneCenters, DonorZoneName)
-            addMigrationDataFromZoneAndKeyName(ReceiverZoneCenters,
-                                               DonorZoneCenters,
-                                               MigrationNode,
-                                               Keyname='Cell')
-
-
-    def addMigrationDataFromZoneAndKeyName(zone, DonorZone, MigrationNode,
-                                           Keyname='Point'):
-        RcvX = I.getNodeFromName2(zone, 'CoordinateX')[1].ravel(order='F')
-        RcvY = I.getNodeFromName2(zone, 'CoordinateY')[1].ravel(order='F')
-        RcvZ = I.getNodeFromName2(zone, 'CoordinateZ')[1].ravel(order='F')
-        NPts = len(RcvX)
-        ReceiverAsPoints = [(RcvX[i], RcvY[i], RcvZ[i]) for i in range(NPts)]
-
-        # The following function call is the most costly part
-        PointIndex = D.getNearestPointIndex(DonorZone, ReceiverAsPoints)
-
-        PointListDonor = []
-        SquaredDistances = []
-        for Index, SquaredDistance in PointIndex:
-            PointListDonor.append(Index)
-            SquaredDistances.append(SquaredDistance)
-        PointListDonor = np.array(PointListDonor, dtype=np.int32, order='F')
-        SquaredDistances = np.array(SquaredDistances, order='F')
-
-        PointListDonorNode = I.createNode(Keyname+'ListDonor',
-                                          'DataArray_t',
-                                          value=PointListDonor)
-
-        SquaredDistancesNode = I.createNode(Keyname+'SquaredDistances',
-                                            'DataArray_t',
-                                            value=SquaredDistances)
-
-        MaskNode = I.createNode(Keyname+'Mask',
-                                'DataArray_t',
-                                value=np.zeros(NPts,dtype=np.int32, order='F'))
-
-        DonorMigrationDataChildren = [PointListDonorNode,
-                                      SquaredDistancesNode,
-                                      MaskNode]
-        DonorMigrationDataName = DonorZone[0]
-
-        DonorZoneMigrationNode = I.getNodeFromName1(MigrationNode,
-                                                    DonorMigrationDataName)
-        if not DonorZoneMigrationNode:
-            DonorZoneMigrationNode = I.createNode(DonorMigrationDataName,
-                                                 'UserDefinedData_t',
-                                                  parent=MigrationNode)
-        DonorZoneMigrationNode[2].extend(DonorMigrationDataChildren)
-
-
-    def hasFlowSolutionAtCenters(DonorZone):
-        return hasFlowSolutionAtRequestedLocation(DonorZone, 'CellCenter')
-
-
-    def hasFlowSolutionAtVertex(DonorZone):
-        return hasFlowSolutionAtRequestedLocation(DonorZone, 'Vertex')
-
-
-    def hasFlowSolutionAtRequestedLocation(DonorZone, RequestedLocation):
-        FlowSolutionNodes = I.getNodesFromType1(DonorZone, 'FlowSolution_t')
-        for FlowSolutionNode in FlowSolutionNodes:
-            GridLocation = getGridLocationOfFlowSolutionNode(FlowSolutionNode)
-            if GridLocation == RequestedLocation:
-                return True
-        return False
-
-
-    def getGridLocationOfFlowSolutionNode(FlowSolutionNode):
-        GridLocationNode = I.getNodeFromType1(FlowSolutionNode,
-                                              'GridLocation_t')
-        return I.getValue(GridLocationNode)
-
-
-
-    def getFlowSolutionNamesBasedOnLocations(DonorZone):
-        VertexNames = []
-        CenterNames = []
-        FlowSolutionNodes = I.getNodesFromType1(DonorZone, 'FlowSolution_t')
-        for FlowSolutionNode in FlowSolutionNodes:
-            GridLocationNode = I.getNodeFromName1(FlowSolutionNode,
-                                                  'GridLocation')
-            GridLocation = I.getValue(GridLocationNode)
-            FlowSolutionName = I.getName(FlowSolutionNode)
-            if GridLocation == 'Vertex':
-                VertexNames.append(FlowSolutionName)
-            elif GridLocation == 'CellCenter':
-                CenterNames.append(FlowSolutionName)
-
-        return VertexNames, CenterNames
-
-
-    def addGridLocationNodeIfAbsent(DonorZones):
-        for DonorZone in DonorZones:
-            GridDimension = I.getZoneDim(DonorZone)[1]
-            FlowSolutionNodes = I.getNodesFromType1(DonorZone, 'FlowSolution_t')
-            for FlowSolutionNode in FlowSolutionNodes:
-                GridLocationNode = I.getNodeFromName1(FlowSolutionNode,
-                                                      'GridLocation')
-                if not GridLocationNode:
-                    FieldDimension = getFlowSolutionDimension(FlowSolutionNode)
-                    if GridDimension == FieldDimension:
-                        Location = 'Vertex'
-                    else:
-                        Location = 'CellCenter'
-                    GridLocationNode = I.createNode('GridLocation',
-                                                    'GridLocation_t',
-                                                    Location)
-                    I.addChild(FlowSolutionNode, GridLocationNode, pos=0)
-
-
-    def getFlowSolutionDimension(FlowSolutionNode):
-        for Field in I.getChildren(FlowSolutionNode):
-            if I.getName(Field) == 'GridLocation':
-                continue
-            else:
-                return I.getValue(Field).shape[0]
-
-
-    def raiseErrorIfNotValidDonorZoneNames(DonorZones):
-        for DonorZone in DonorZones:
-            DonorZoneName = I.getName(DonorZone)
-            CenterReservedSuffix = '.c'
-            if DonorZoneName.endswith(CenterReservedSuffix):
-                ERRMSG = ('Invalid donor zone name {}. '
-                          'It cannot end with reserved suffix "{}"').format(
-                          DonorZoneName, CenterReservedSuffix)
-                raise ValueError(ERRMSG)
-
-    def updateMasks(ReceiverZone):
-        MigrationDataNode = I.getNodeFromName1(ReceiverZone,
-                                               MigrateDataNodeReservedName)
-
-        for LocationKey in ('Point', 'Cell'):
-            SquaredDistances = []
-            Masks            = []
-            for MigrationDonorZone in I.getChildren(MigrationDataNode):
-                SquaredDistanceNode = I.getNodeFromName(MigrationDonorZone,
-                                                LocationKey+'SquaredDistances')
-                if not SquaredDistanceNode: continue
-                SquaredDistance = SquaredDistanceNode[1]
-                MaskNode = I.getNodeFromName(MigrationDonorZone,
-                                       LocationKey+'Mask')
-                Mask = MaskNode[1]
-                SquaredDistances.append(SquaredDistance)
-                Masks.append(Mask)
-
-            if len(Masks) == 0: continue
-
-            ReceiverZoneNPts = len(Masks[0])
-            for i in range(ReceiverZoneNPts):
-                LocalPointDistances = np.array([s[i] for s in SquaredDistances])
-                ClosestPointOfDonorZoneNumber = np.argmin(LocalPointDistances)
-                for maskNumber, mask in enumerate(Masks):
-                    if maskNumber == ClosestPointOfDonorZoneNumber:
-                        mask[i] = 1
-                        break
-
-    MigrateDataNodeReservedName = '.MigrateData'
-
-    Donor = I.copyRef( Donor )
-    DonorZones = I.getZones( Donor )
-    ReceiverZones = I.getZones( Receiver )
-
-    # https://gitlab.onera.net/numerics/mola/-/issues/191#note_24456
-    I._correctPyTree(DonorZones,level=3)
-    I._correctPyTree(ReceiverZones,level=3)
-
-    raiseErrorIfNotValidDonorZoneNames( DonorZones )
-
-    addGridLocationNodeIfAbsent( DonorZones )
-
-    addMigrationDataIfForcedOrNotExisting(DonorZones, ReceiverZones)
-
-    invokeFieldsAtReceiver(DonorZones, ReceiverZones)
-
-    for ReceiverZone in ReceiverZones:
-        migrateDonorFields2ReceiverZone(DonorZones,
-                                        ReceiverZone)
-
-    if not keepMigrationDataForReuse:
-        I._rmNodesByName(Receiver, MigrateDataNodeReservedName)
-
-
-def checkEmptyBC(t):
-    '''
-    Check if input PyTree has undefined zones in it and prints a message.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            the tree to be checked
-
-    Returns
-    -------
-
-        hasEmpty : bool
-            :py:obj:`True` if **t** has at least one empty BC
-    '''
-    def isEmpty(emptyBC):
-        if isinstance(emptyBC, list) or isinstance(emptyBC, np.ndarray):
-            for i in emptyBC:
-                return isEmpty(i)
-            return False
-        elif np.isfinite(emptyBC):
-            return True
-        else:
-            raise ValueError('unexpected type %s'%type(emptyBC))
-
-    emptyBC = C.getEmptyBC(t, dim=3)
-    hasEmpty = isEmpty(emptyBC)
-    if hasEmpty:
-        print(FAIL+'UNDEFINED BC IN PYTREE'+ENDC)
-    else:
-        print(GREEN+'No undefined BC found on PyTree'+ENDC)
-
-    return hasEmpty
-
 
 def sortListsUsingSortOrderOfFirstList(*arraysOrLists):
     '''
@@ -1994,8 +1071,6 @@ def sortNodesByName(nodes):
     sorted_nodes = sortListsUsingSortOrderOfFirstList(names, nodes)[1]
     nodes[:] = sorted_nodes
 
-
-
 def getSkeleton(t, keepNumpyOfSizeLessThan=20):
     '''
     .. danger:: workaround. See ticket `8815 <https://elsa.onera.fr/issues/8815>`_
@@ -2029,7 +1104,6 @@ def getStructure(t):
         n[2] = []
     return tR
 
-
 def forceZoneDimensionsCoherency(t):
     for zone in I.getZones(t):
         ZoneType = I.getValue(I.getNodeFromName(zone,'ZoneType'))
@@ -2050,14 +1124,12 @@ def forceZoneDimensionsCoherency(t):
                                     [x.shape[2],x.shape[2]-1,0],],
                                     dtype=np.int32,order='F')
 
-
 def getZones(t):
     '''
     .. danger:: workaround. See ticket `8816 <https://elsa.onera.fr/issues/8816>`_
     '''
     if t is None: return []
     else: return I.getZones(t)
-
 
 def deprecated(v1, v2=None, comment=None):
     """This is a decorator which can be used to mark functions
@@ -2210,7 +1282,6 @@ def stdout_redirected(to=os.devnull):
                                             # buffering and flags such as
                                             # CLOEXEC may be different
 
-
 def selectZonesExceptThatWithHighestNumberOfPoints(ListOfZones):
     '''
     return a list of zones excluding the zone yielding the highest number
@@ -2253,244 +1324,6 @@ def selectZoneWithHighestNumberOfPoints(ListOfZones):
     ListOfNPts = [C.getNPts(z) for z in zones]
     IndexOfZoneWithMaximumNPts = np.argmax(ListOfNPts)
     return zones[IndexOfZoneWithMaximumNPts]
-
-def load_source(ModuleName, filename, safe=True):
-    '''
-    Load a python file as a module guaranteeing intercompatibility between
-    different Python versions
-
-    Parameters
-    ----------
-
-        ModuleName : str
-            name to be provided to the new module
-
-        filename : str
-            full or relative path of the file containing the source (moudule)
-            to be loaded
-
-        safe : bool
-            if :py:obj:`True`, then cached files of previously loaded versions
-            are explicitely removed
-
-    Returns
-    -------
-
-        module : module
-            the loaded module
-    '''
-    if safe:
-        current_path_file = filename.split(os.path.sep)[-1]
-        for fn in [filename, current_path_file]:
-            try: os.remove(fn+'c')
-            except: pass
-        try:
-            import shutil
-            shutil.rmtree('__pycache__')
-        except: pass
-
-    if sys.version_info[0] == 3 and sys.version_info[1] >= 5:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(ModuleName, filename)
-        LoadedModule = importlib.util.module_from_spec(spec)
-        sys.modules[ModuleName] = LoadedModule
-        spec.loader.exec_module(LoadedModule)
-    elif sys.version_info[0] == 3 and sys.version_info[1] < 5:
-        from importlib.machinery import SourceFileLoader
-        LoadedModule = SourceFileLoader(ModuleName, filename).load_module()
-    elif sys.version_info[0] == 2:
-        import imp
-        LoadedModule = imp.load_source(ModuleName, filename)
-    else:
-        raise ValueError("Not supporting Python version "+sys.version)
-    return LoadedModule
-
-def reload_source(module):
-    '''
-    Reload a python module guaranteeing intercompatibility between
-    different Python versions
-
-    Parameters
-    ----------
-
-        module : module
-            pointer towards the previously loaded module
-    '''
-    if sys.version_info[0] == 3:
-        import importlib
-        importlib.reload(module)
-    elif sys.version_info[0] == 2:
-        import imp
-        imp.reload(module)
-    else:
-        raise ValueError("Not supporting Python version "+sys.version)
-
-
-def getBCFamilies(t):
-    '''
-    Get all the Families of BC in the tree **t**.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            May be a top tree, a base or a zone.
-
-    Returns
-    -------
-
-        familyNames : :py:class:`list` of :py:class:`str`
-            list of all found families of BCs
-    '''
-    familyNames = []
-    # Automatically get BC Families
-    if I.getType(t) == 'Zone_t':
-        for BC in I.getNodesFromType2(t, 'BC_t'):
-            FamilyNameNode = I.getNodeFromType1(BC, 'FamilyName_t')
-            if not FamilyNameNode:
-                continue
-            FamilyName = I.getValue(FamilyNameNode)
-            if FamilyName not in familyNames:
-                familyNames.append(FamilyName)
-    else:
-        # assume that t is a top tree or a base
-        for fam in I.getNodesFromType(t, 'Family_t'):
-            if I.getNodeFromType(fam, 'FamilyBC_t'):
-                familyNames.append(I.getName(fam))
-    return familyNames
-
-def createSymbolicLink(src, dst):
-    try:
-        if os.path.islink(dst):
-            os.unlink(dst)
-        else:
-            os.remove(dst)
-    except:
-        pass
-    os.symlink(src, dst)
-
-def getSignal(filename):
-    '''
-    Get a signal using an temporary auxiliar file technique.
-
-    If the intermediary file exists (signal received) then it is removed, and
-    the function returns :py:obj:`True`. Otherwise, it returns
-    :py:obj:`False`.
-
-    This function is employed for controling a simulation in a simple manner,
-    for example using UNIX command ``touch``:
-
-    .. code-block:: bash
-
-        touch filename
-
-    at the same directory where :py:func:`getSignal` is called.
-
-    Parameters
-    ----------
-
-        filename : str
-            the name of the file (the signal keyword)
-
-    Returns
-    -------
-
-        isOrder : bool
-            :py:obj:`True` if the signal is received, otherwise :py:obj:`False`
-    '''
-    isOrder = False
-    try:
-        os.remove(filename)
-        isOrder = True
-        print(CYAN+"Received signal %s"%filename+ENDC)
-    except:
-        pass
-    return isOrder
-
-def rampFunction(iteri, iterf, vali, valf):
-    '''
-    Create a ramp function, going from **vali** to **valf** between **iteri** to **iterf**.
-    If **iteri**=**iterf**, then the return ramp function is a constant equal to **valf**.
-
-    Parameters
-    ----------
-
-        iteri, iterf, vali, valf : float
-
-    Returns
-    -------
-
-        f : function
-            Ramp function. Could be called in ``x`` with:
-
-            >> f(x)
-    '''
-    if iteri == iterf: 
-        return lambda x:  valf
-    slope = (valf-vali) / (iterf-iteri)
-    if vali == valf:
-        f = lambda x: vali*np.ones(np.shape(x))
-    elif vali < valf:
-        f = lambda x: np.maximum(vali, np.minimum(valf, slope*(x-iteri)+vali))
-    else:
-        f = lambda x: np.minimum(vali, np.maximum(valf, slope*(x-iteri)+vali))
-    return f
-
-
-def joinFamilies(t, pattern):
-    '''
-    In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
-    Families <ROW_I>_<PATTERN>, so as many as rows.
-    Useful to join all the row_i_HUB* or (row_i_SHROUD*) together
-
-    Parameters
-    ----------
-
-        t : PyTree
-            A PyTree read by Cassiopee
-
-        pattern : str
-            The pattern used to gather CGNS families. Should be for example 'HUB' or 'SHROUD'
-    '''
-    fam2remove = []
-    fam2keep = []
-    # Loop on the BCs in the tree
-    for bc in I.getNodesFromType(t, 'BC_t'):
-        # Get BC family name
-        famBC_node = I.getNodeFromType(bc, 'FamilyName_t')
-        if not famBC_node: 
-            continue
-        famBC = I.getValue(famBC_node)
-        # Check if the pattern is present in FamilyBC name
-        if pattern not in famBC:
-            continue
-        # Split to get the short name based on pattern
-        split_fanBC = famBC.split(pattern)
-        assert len(split_fanBC) == 2, 'The pattern {} is present more than once in the FamilyBC {}. It must be more selective.'.format(
-            pattern, famBC)
-        preffix, suffix = split_fanBC
-        # Add the short name to the set fam2keep
-        short_name = '{}{}'.format(preffix, pattern)
-        if short_name not in fam2keep: 
-            fam2keep.append(short_name)
-        if suffix != '':
-            # Change the family name
-            I.setValue(famBC_node, '{}'.format(short_name))
-            if famBC not in fam2remove: 
-                fam2remove.append(famBC)
-
-    # Remove families
-    for fam in fam2remove:
-        print('Remove family {}'.format(fam))
-        I._rmNodesByNameAndType(t, fam, 'Family_t')
-
-    # Check that families to keep still exist
-    base = I.getNodeFromType(t, 'CGNSBase_t')
-    for fam in fam2keep:
-        fam_node = I.getNodeFromNameAndType(t, fam, 'Family_t')
-        if fam_node is None:
-            print('Add family {}'.format(fam))
-            I.newFamily(fam, parent=base)
 
 def _getBaseWithZoneName(t,zone_name):
     for base in I.getBases(t):
@@ -2692,7 +1525,6 @@ def loadZones(*args, **kwargs):
     '''
     kwargs['return_type']='zones'
     return load(*args,**kwargs)
-
 
 def save(*args, **kwargs):
     '''
@@ -2938,19 +1770,6 @@ def zoneHasData(zone):
             if data[1] is not None: 
                 return True
 
-def _inferOrderFromInterpLawName(InterpolationLaw):
-    InterpLaw = InterpolationLaw.lower()
-    if InterpLaw == 'interp1d_linear':
-        InterpLaw = 'rectbivariatespline_1'
-    elif InterpLaw == 'interp1d_quadratic':
-        InterpLaw = 'rectbivariatespline_2'
-    elif InterpLaw in ['interp1d_cubic', 'pchip', 'akima', 'cubic']:
-        InterpLaw = 'rectbivariatespline_3'
-    elif not InterpLaw.startswith('rectbivariatespline'):
-        raise AttributeError(f'unknown law "{InterpLaw}"')
-    order = int(InterpLaw.split('_')[-1])
-    return order
-
 def getFieldOrCoordinate(zone, field_or_coordinate : str):
     foc = field_or_coordinate
     if foc.startswith('Coordinate') or foc.lower() in 'xyz':
@@ -2986,7 +1805,6 @@ def tree(**kwargs):
     I._correctPyTree(t,level=3)
     return t
     
-
 def getZonesByCopy( tree_base_zone_or_list ):
     zones = I.getZones(tree_base_zone_or_list)
     if not zones: raise AttributeError('did not find zones in provided argument')

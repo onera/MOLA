@@ -1252,11 +1252,11 @@ def add_choro_data(t, rowName, f_freq, f_omega, f_harm, f_relax, axis_ang_1, axi
         axis_ang_2 : float
             Number of simulated passages for the considered row, as provided by compute_choro_parameters().
 
-    ''' 
+    '''
     fam_node = t.get(Name=rowName, Type='Family', Depth=2)
     motion_node = fam_node.get(Name='.Solver#Motion')
     if motion_node is None:
-        raise MolaException(f'Motion has not been defined for family {rowName} (cannot found the node .Solver#Motion)')
+        raise MolaException(f'Motion has not been defined for family {rowName} (cannot find the node .Solver#Motion)')
     cgns.Node(Name='axis_ang_1', Value=axis_ang_1, Type='DataArray', Parent=motion_node)
     cgns.Node(Name='axis_ang_2', Value=axis_ang_2, Type='DataArray', Parent=motion_node)
 

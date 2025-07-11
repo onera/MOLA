@@ -16,9 +16,10 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Creation by recycling UnsteadyOverset.py of v1.18.1
-'''
+UnsteadyOverset
 
+13/09/2022 - L. Bernardos - creation
+'''
 
 import numpy as np
 from timeit import default_timer as ToK
@@ -29,7 +30,7 @@ import Generator.PyTree as G
 import Post.PyTree as P
 cost_est = np.array([0.0])
 
-from . import InternalShortcuts as J
+from mola.pytree import InternalShortcuts as J
 
 MOLA_MASK = 'mask'
 
@@ -58,7 +59,7 @@ def setMaskParameters(t, InputMeshes):
             # we suppose all patches belong to the same base
             mask_zone = I.getNodeFromName2(mask,'Zone')
             MaskBase = J._getBaseWithZoneName(t, I.getValue(mask_zone))
-            meshInfo = [m for m in InputMeshes if m['baseName']==MaskBase[0]][0]
+            meshInfo = [m for m in InputMeshes if m['Name']==MaskBase[0]][0]
             if 'UnsteadyMaskOptions' in meshInfo['OversetOptions']:
                 mask_params.update(meshInfo['OversetOptions']['UnsteadyMaskOptions'])
             if mask_params['type'] == 'cart_elts' and 'proj_direction' not in mask_params:
@@ -124,7 +125,7 @@ def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
 
     for meshInfo in InputMeshes:
         if 'Motion' not in meshInfo: continue
-        BaseName = meshInfo['baseName']
+        BaseName = meshInfo['Name']
         base = I.getNodeFromName2(tR,BaseName)
 
         rot_ctr, rot_axis, scale, Dpsi = _getRotorMotionParameters(meshInfo)
@@ -138,7 +139,7 @@ def setMaskedZonesOfMasks(t, InputMeshes, BlankingMatrix, BodyNames):
 
     NeighbourDict = {}
     for meshInfo in InputMeshes:
-        BaseName = meshInfo['baseName']
+        BaseName = meshInfo['Name']
         
         try: is_duplicated = bool(meshInfo['DuplicatedFrom'] != base[0])
         except KeyError: is_duplicated = False
@@ -420,14 +421,9 @@ def _getBaseNumber(BaseName, t):
         if b[0] == BaseName: return i
     raise ValueError('BaseName %s not found'%(BaseName))
 
-def getBodyName(body):
-    if isinstance(body[0],str): return body[0]
-    else: return body[0][0]
-
-
 def addMaskData(t, InputMeshes, bodies, BlankingMatrix):
     for i, meshInfo in enumerate(InputMeshes):
-        baseName = meshInfo['baseName']
+        baseName = meshInfo['Name']
         base = _getBaseFromName(t, baseName)
         MaskBodies = [ b for j, b in enumerate(bodies) if BlankingMatrix[i,j] ]
         if not MaskBodies: continue
@@ -456,3 +452,7 @@ def _getBaseFromName(t, base_name):
     for b in bases:
         if b[0] == base_name: 
             return b
+
+def getBodyName(body):
+    if isinstance(body[0],str): return body[0]
+    else: return body[0][0]

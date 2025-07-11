@@ -25,6 +25,7 @@ from mola.cfd.postprocess import extract_bc
 from mola import solver
 from mola.pytree.user.checker import is_partitioned_for_use_in_maia, is_distributed_for_use_in_maia
 from mola.cfd.postprocess.signals.propeller_coefficients_computer import add_aerodynamic_coefficients_to
+from mola.pytree.user import checker 
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -45,10 +46,10 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         # the default tool could have been done in a low-level factory step.
         # TODO review design of extract_bc in order to use DIP and avoid Solver
         # filtering inside the Workflow
+
+
         self._extract_bc_default_tool = 'cassiopee'
-
-
-        # # CAVEAT see _compute_maximum_blade_radius
+        # requires being more general https://gitlab.onera.net/numerics/mesh/maia/-/issues/201
         # if self.Solver == 'sonics':
         #     self._extract_bc_default_tool = 'maia' 
         # else: 
@@ -57,6 +58,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
     def compute_flow_and_turbulence(self):
         self.set_velocity_for_scaling_and_turbulence()
         super().compute_flow_and_turbulence()
+
 
     def set_velocity_for_scaling_and_turbulence(self):
         
@@ -67,10 +69,10 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             omega = self.ApplicationContext["ShaftRotationSpeed"]
         else:
             raise MolaUserError(f'got wrong ShaftRotationSpeedUnit "{omega_units}", shall be "rpm" or "rad/s"')
-
+        
         r_max = self.blade_radius()
         assert r_max > 0
-        r_rel_ref = self.ApplicationContext["ReferenceTurbulenceSetAtRelativeRadius"]
+        r_rel_ref = self.ApplicationContext["TurbulenceSetAtRelativeRadius"]
         axial_velocity = self.Flow['Velocity']
         tangential_velocity = omega * r_rel_ref * r_max
 
@@ -107,10 +109,6 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             tool = imposed_tool
         else: 
             tool = self._extract_bc_default_tool
-
-        # CAVEAT
-        if tool != 'cassiopee': 
-            raise MolaException('must use cassiopee for extract_bc, since maia requires being unstructured partitioned with BCDataSet')
 
         tree = self.tree
         if tool == 'maia':

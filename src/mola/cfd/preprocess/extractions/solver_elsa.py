@@ -44,9 +44,10 @@ def apply_to_solver(workflow):
 def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():
         workflow._interface.add_to_Extractions_3D(
-            Fields    = list(workflow.Flow['Conservatives']), 
-            Container = 'FlowSolution#Overset', 
-            Frame     = 'absolute'
+            Fields    = ['CoordinateX', 'CoordinateY', 'CoordinateZ'], 
+            Container = 'FlowSolution#EndOfRun#Coords', 
+            GridLocation = 'Vertex',
+            Frame     = 'absolute',
         )
 
 def add_global_convergence_history(workflow, ExtractionPeriod=1):
@@ -65,6 +66,7 @@ def add_extractions_for_restart(workflow):
     workflow._interface.add_to_Extractions_Restart(
         Container='FlowSolution#EndOfRun', 
         Fields=list(workflow.Flow['ReferenceState']),
+        Frame='relative'
         )
 
 def process_extractions_of_type_field(workflow):
@@ -72,16 +74,15 @@ def process_extractions_of_type_field(workflow):
     # For 3D averaged field : 
     #   dict(type='3D', Container='FlowSolution#Average', fields=[...], options=dict(average='time', period_init='inactive'))
 
-    # For coordinates : 
-    #    dict(type='3D', Container='FlowSolution#EndOfRun#Coords', fields=['CoordinateX', 'CoordinateY', 'CoordinateZ'], GridLocation='Vertex', Frame='absolute')
-
     add_GridLocation = workflow.SplittingAndDistribution['Splitter'].lower() != 'maia'
+
+    add_cellN_field = workflow.has_overset_component()
 
     for zone in workflow.tree.zones():
         for Extraction in workflow.Extractions:
 
             if Extraction['Type'] in ['3D', 'Restart'] and is_zone_in_extraction_family(zone, Extraction):
-                add_3d_extraction_to_zone(zone, Extraction, add_GridLocation)
+                add_3d_extraction_to_zone(zone, Extraction, add_GridLocation, add_cellN_field)
 
             elif Extraction['Type'] == 'IsoSurface' and is_zone_in_extraction_family(zone, Extraction):
                 Fields = Extraction.get('Fields')
@@ -93,10 +94,11 @@ def process_extractions_of_type_field(workflow):
                 extraction3D = dict((name, param.default) for name, param in signature.parameters.items() if name != 'self')
                 extraction3D['Fields'] = Fields
                 extraction3D['GridLocation'] = 'Vertex'
-                extraction3D['Container'] = 'FlowSolution#Output'
+                extraction3D['Container'] = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX
+                extraction3D['Frame'] = Extraction['Frame']
                 extraction3D['OtherOptions'] = dict()
                 
-                add_3d_extraction_to_zone(zone, extraction3D, add_GridLocation)
+                add_3d_extraction_to_zone(zone, extraction3D, add_GridLocation, add_cellN_field)
             
             elif Extraction['Type'] == 'Probe' and is_zone_in_extraction_family(zone, Extraction):
                 Fields = Extraction.get('Fields')
@@ -111,7 +113,7 @@ def process_extractions_of_type_field(workflow):
                 extraction3D['Container'] = 'FlowSolution#Probes'
                 extraction3D['OtherOptions'] = dict()
                 
-                add_3d_extraction_to_zone(zone, extraction3D, add_GridLocation)
+                add_3d_extraction_to_zone(zone, extraction3D, add_GridLocation, add_cellN_field)
 
 def is_zone_in_extraction_family(zone, Extraction):
     try:
@@ -125,7 +127,7 @@ def is_zone_in_extraction_family(zone, Extraction):
         # No Family is given as a filter: no filter is applied
         return True
 
-def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True): 
+def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True, add_cellN_field=False): 
     
     if Extraction['Fields'] == []: 
         mola_logger.warning(f'Caution: the list of fields in Extraction of name {Extraction["Name"]} is empty')
@@ -140,7 +142,14 @@ def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True):
         if add_GridLocation:
             cgns.Node(Parent=EoRnode, Name='GridLocation', Type='GridLocation', Value=Extraction['GridLocation'])
 
-    elsa_var_list = translate_to_elsa(Extraction['Fields'], type='var')     
+    elsa_var_list = translate_to_elsa(Extraction['Fields'], type='var')
+
+    if add_cellN_field and Extraction['Container'] != "FlowSolution#EndOfRun#Coords":
+        if 'cellN' not in Extraction['Fields']:
+            Extraction['Fields'] += ['cellN']
+        celln_var = translate_to_elsa('cellN', type='var')
+        if celln_var not in elsa_var_list:
+            elsa_var_list += [celln_var]
     
     # Set GridLocation
     if Extraction['GridLocation'] == 'CellCenter':
@@ -150,6 +159,8 @@ def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True):
     else:
         raise MolaException(f'no defined GridLocation for 3D extraction: {Extraction["GridLocation"]}. Choose CellCenter or Vertex.')
     
+
+
     solver_output_name = '.Solver#Output'
     options = Extraction.get('OtherOptions', dict())
     output_keys = dict(
@@ -202,11 +213,10 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
                 SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
                 n += 1
             FamilyNode.setParameters(solver_output_name, **output_keys)
-        # else:
-        #     update_existing_solver_output(SolverOutput_node, output_keys)
-        
+        Extraction['_ElsaSolverOutputName'] = solver_output_name
+
     else:
-        mola_logger.warning(f'Caution: the list of fields to extract on family {FamilyNode.name()} is empty')
+        raise MolaException(f'the list of fields to extract on family {FamilyNode.name()} is empty')
 
 def update_existing_solver_output(SolverOutput_node, output_keys):
     for key, value in output_keys.items():

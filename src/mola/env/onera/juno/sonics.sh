@@ -18,11 +18,12 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
-# export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
-export TREELABPATH=/tmp_user/juno/lbernard/treelab/dev/juno_elsA # ONLY DURING DEV (replaces stable version)
+export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_sonics
+# export TREELABPATH=/stck/lbernard/treelab/dev # ONLY DURING DEV (replaces stable version)
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 

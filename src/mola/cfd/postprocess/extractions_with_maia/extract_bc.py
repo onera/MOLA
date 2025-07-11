@@ -18,15 +18,43 @@
 from treelab import cgns
 import maia
 from mola.logging import MolaException
-from mola.pytree.user.checker import is_partitioned_for_use_in_maia
 
 def extract_bc_from_family(tree, Family, comm):
-    if not is_partitioned_for_use_in_maia(tree):
-        raise MolaException('cannot extract a bc from a cgns tree that is not partitioned for use in maia')
+    tree_ref = maia.pytree.shallow_copy(tree)
+    
+    try:
+        import maia.pytree.maia.check_tree as check
+        is_part = check.is_cgns_part_tree(tree_ref)
+        is_dist = check.is_cgns_dist_tree(tree_ref)
+        is_full = check.is_cgns_full_tree(tree_ref)
+    
+    except ModuleNotFoundError:
+        import mola.pytree.user.checker as check
+        is_part = check.is_partitioned_for_use_in_maia(tree_ref)
+        is_dist = check.is_distributed_for_use_in_maia(tree_ref)
+        is_full = not is_part and not is_dist
 
-    # CAVEAT cannot extract surface grid only, raises error if no BCDataSet found
-    surface = maia.algo.part.extract_part_from_family(tree, Family, comm, containers_name=['BCDataSet'])
+    
+    if is_part:
+        part_tree = tree_ref
+    
+    elif is_dist:
+        part_tree = maia.factory.partition_dist_tree(tree_ref, comm)
+
+    elif is_full:
+        if comm.Get_size() > 1:
+            raise MolaException('cannot execute maia using full tree in parallel MPI context')
+        dist_tree = maia.factory.full_to_dist_tree(tree_ref, comm, owner=0)
+        part_tree = maia.factory.partition_dist_tree(dist_tree, comm)
+    
+    else:
+        raise MolaException("tree is not recognized as partitioned, distributed nor full. Cannot use maia.")
+
+    surface = maia.algo.part.extract_part_from_family(part_tree, Family, comm,
+        # CAUTION https://gitlab.onera.net/numerics/mesh/maia/-/issues/201
+        containers_name=['BCDataSet'])
     return surface
+
 
 def extract_bc_from_zsr(tree, Family, comm):
     zsr_names = []

@@ -15,11 +15,36 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from mola.logging.exceptions import MolaException
+
+try:
+    import Converter.PyTree as C
+    import Converter.Internal as I
+except:
+    pass
+
+
 def is_partitioned_for_use_in_maia(tree):
-    import maia
-    return bool(maia.pytree.get_node_from_name(tree, ":CGNS#GlobalNumbering"))
+    return bool(I.getNodeFromName(tree, ":CGNS#GlobalNumbering"))
 
 
 def is_distributed_for_use_in_maia(tree):
-    import maia
-    return bool(maia.pytree.get_node_from_name(tree, ":CGNS#Distribution"))
+    return bool(I.getNodeFromName(tree, ":CGNS#Distribution"))
+
+
+def assert_zones_have_zone_type_node(tree):
+    # assert I.getNodeFromName(tree,"ZoneType")
+    path = ''
+    for base in I.getBases(tree):
+        for zone in I.getZones(base):
+            path = base[0]+"/"+zone[0]
+            zone_type = I.getNodeFromName1(zone,"ZoneType")
+            
+            if not zone_type:
+                raise MolaException(f"zone {path} does not have ZoneType node")
+            
+            zone_type_value = I.getValue(zone_type)
+            if zone_type_value not in ['Structured', 'Unstructured']:
+                raise MolaException(f"zone {path} has value {zone_type_value} which is not recognized")
+
+

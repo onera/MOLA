@@ -22,6 +22,8 @@ import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import server as SV
 from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text, get_lines_to_submit_job_again
+import mola.pytree.user.checker as check
+
 
 def apply_to_solver(workflow):
 
@@ -45,7 +47,14 @@ def write_data_files(workflow):
             dst = os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_INPUT_SOLVER)
         else:
             dst = names.FILE_INPUT_SOLVER
-        io.writer.write(workflow, t, dst)
+
+        is_part = check.is_partitioned_for_use_in_maia(t)
+        is_dist = check.is_distributed_for_use_in_maia(t)
+        is_full = not is_part and not is_dist
+
+        io_tool = 'maia' if not is_full else None
+
+        io.writer.write(workflow, t, dst, io_tool=io_tool)
     
     if not run_on_localhost:
         SV.copy_remote(

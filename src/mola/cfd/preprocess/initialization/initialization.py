@@ -18,7 +18,7 @@
 from treelab import cgns
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException, MolaUserError
-from mola.cfd.preprocess.mesh.tools import to_partitioned
+from mola.cfd.preprocess.mesh.tools import to_partitioned, remove_maia_part_zone_suffix_from_tree
 from mola.cfd.preprocess.mesh.split import _assert_tree_has_good_distribution_assignment
 from .initialization_with_turbo import initialize_flow_with_turbo
 
@@ -198,11 +198,13 @@ def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
             raise MolaException(f'{FlowSolution_name} is missing in zone {zone.name()}')
 
 def compute_wall_distance_if_needed(workflow):
+    mola_logger.info("computing wall distance...", rank=0)
     init_opts = workflow.Initialization
     if workflow.Turbulence['Model'] == 'Euler':
         init_opts['ComputeWallDistanceAtPreprocess'] = False
-    elif not init_opts['ComputeWallDistanceAtPreprocess'] and workflow.Solver.lower() == 'fast':
+    elif workflow.Solver.lower() == 'fast':
         init_opts['ComputeWallDistanceAtPreprocess'] = True
+        init_opts['WallDistanceComputingTool'] = 'cassiopee'
 
     if init_opts['ComputeWallDistanceAtPreprocess']:
         tool = init_opts['WallDistanceComputingTool']
@@ -227,7 +229,6 @@ def compute_wall_distance_with_maia(tree: cgns.Tree):
 
     tree = to_partitioned(tree)
     maia.algo.part.compute_wall_distance(tree, comm)  # create a FlowSolution container named WallDistance
-
     tree = cgns.castNode(tree)
     for zone in tree.zones():
         FlowSolution = zone.get(Name='FlowSolution#Init')

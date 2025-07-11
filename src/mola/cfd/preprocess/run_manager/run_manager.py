@@ -38,6 +38,8 @@ SchedulerDefaults = dict(
     },
 )
 
+ALLOWED_SCHEDULERS = ['local','SLURM']
+
 def apply(workflow):
 
     workflow.RunManagement['SchedulerOptions'] = set_default(workflow.RunManagement)
@@ -111,6 +113,7 @@ def get_scheduler_and_options(RunManagement):
         except AttributeError:
             pass
 
+
     # update with default options from the scheduler, regardless the machine
     try:
         for key, default_value in SchedulerDefaults[scheduler].items():
@@ -132,8 +135,12 @@ def get_scheduler_and_options(RunManagement):
     # required by test_WorkflowManager_sphere_local when running
     # in juno. Otherwise, jobs would be launched, test will continue and raise
     # and exception because the tests cannot be completed
-    RunManagement['Scheduler'] = RunManagement.get('Scheduler',scheduler)
+    if 'Scheduler' not in RunManagement:
+        RunManagement['Scheduler'] = scheduler
 
+    elif RunManagement['Scheduler'] not in ALLOWED_SCHEDULERS:
+        requested_scheduler = RunManagement['Scheduler']
+        raise MolaUserError(f'You requested RunManagement Scheduler "{requested_scheduler}" but must be one of: {ALLOWED_SCHEDULERS}')
 
     return scheduler, scheduler_options
 

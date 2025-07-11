@@ -32,6 +32,7 @@ class FakeWorkflow():
         cgns.Node(Name='Rotor', Type='Family', Parent=base)
         cgns.Node(Name='Stator', Type='Family', Parent=base)
         self.Motion = Motion
+        self.RawMeshComponents = []
 
 
 @pytest.mark.unit

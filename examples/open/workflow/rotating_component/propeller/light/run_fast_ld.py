@@ -1,17 +1,16 @@
 from mola.workflow.rotating_component import propeller, solver
 import numpy as np
 
+assert solver == 'fast'
+
 w = propeller.Workflow(
     
-    Solver='fast', 
-
     RawMeshComponents=[
         dict(
             Name='LIGHT',
             Source='/stck/mola/data/open/mesh/light_propeller/mesh.cgns',
         )
     ],
-
 
     Flow = dict(
         Velocity = 10.0,
@@ -20,7 +19,7 @@ w = propeller.Workflow(
     ),
 
     ApplicationContext = dict(
-        ShaftRotationSpeed = 2000.0,
+        ShaftRotationSpeed = -2000.0,
         NumberOfBlades = 5,
         Surface = 1.0,
         Length = 1.0
@@ -31,8 +30,6 @@ w = propeller.Workflow(
         Viscosity_EddyMolecularRatio = 0.1,
         Model = 'SA',
     ),
-
-    # Initialization = dict(WallDistanceComputingTool='cassiopee'),
 
     Numerics = dict(
         NumberOfIterations=2000,
@@ -45,6 +42,12 @@ w = propeller.Workflow(
         dict(Family='SPINNER', Type='WallInviscid'),
         dict(Family='BLADE', Type='WallViscous'),
         dict(Family='FARFIELD', Type='Farfield')
+    ],
+
+    Extractions = [
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.45, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
     ],
 
     ConvergenceCriteria = [
@@ -65,11 +68,13 @@ w = propeller.Workflow(
         )
     ],
 
+    Initialization = dict(WallDistanceComputingTool='cassiopee'),
+    
     RunManagement = dict(
         NumberOfProcessors = 1,
         NumberOfThreads = 8,
-        RunDirectory = f'example_{solver}_2',
-        Scheduler = 'local',
+        RunDirectory = f'example_{solver}',
+        
     ),
 )
 

@@ -27,6 +27,7 @@ import mola.naming_conventions as names
 import mola.server as SV
 from mola.cfd import call_solver_specific_function
 from mola.cfd.preprocess.mesh.io.writer import write
+from mola.cfd.postprocess.extractions_with_cassiopee.tools import mergeContainers
 
 from . import rank, comm
 from .tools import move_log_files, check_stderr, write_tagfile
@@ -211,10 +212,22 @@ class CoprocessManager():
 
     def save(self, data, filename):
         self.mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
-        if self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
-            io_tool = 'cassiopee_mpi'
+
+        if not any([filename.endswith('.cgns'), filename.endswith('.hdf'), filename.endswith('.hdf5')]):
+            # we suppose it is a format supported by cassiopee, and requires merging containers
+            import Converter.Internal as I
+            data = mergeContainers(data, FlowSolutionVertexName=I.__FlowSolutionNodes__,
+                                         FlowSolutionCellCenterName=I.__FlowSolutionCenters__,
+                                         remove_suffix_if_single_container=True)
+
+            io_tool = 'cassiopee'
+
+        elif self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
+            io_tool = 'cassiopee_mpi' # BEWARE this avoids writing with pypart ?
+        
         else:
             io_tool = None
+        
         write(self.workflow, data, filename, io_tool=io_tool)
         self.mola_logger.info(f'{GREEN}saving {filename}... OK{ENDC}', rank=0)
          

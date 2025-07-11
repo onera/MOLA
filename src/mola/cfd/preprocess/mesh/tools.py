@@ -177,15 +177,34 @@ def remove_maia_part_zone_suffix(zone_name : str) -> str:
     import re
     return re.sub(r'\.P\d+\.N\d+$', '', zone_name)
 
+def remove_maia_part_zone_suffix_from_tree(tree : cgns.Tree):
+    for zone in tree.zones():
+        previous_name = zone.name()
+        new_name = remove_maia_part_zone_suffix(previous_name)
+        zone.setName(new_name)
+        for node in tree.group(Value=previous_name):
+            node.setValue(new_name)
+
+
+
 def to_full_tree_at_rank_0(tree : cgns.Tree):
     from mpi4py import MPI
     import maia
     MPI.COMM_WORLD.barrier()
     
-    is_dist = bool(tree.get(':CGNS#Distribution'))
-    is_part = bool(tree.get(':CGNS#GlobalNumbering'))
+    try:
+        import maia.pytree.maia.check_tree as check
+        is_part = check.is_cgns_part_tree(tree)
+        is_dist = check.is_cgns_dist_tree(tree)
+        is_full = check.is_cgns_full_tree(tree)
+    
+    except ModuleNotFoundError:
+        import mola.pytree.user.checker as check
+        is_part = check.is_partitioned_for_use_in_maia(tree)
+        is_dist = check.is_distributed_for_use_in_maia(tree)
+        is_full = not is_part and not is_dist
                    
-    if not is_dist and not is_part:
+    if is_full or MPI.COMM_WORLD.Get_size() == 1:
         return tree
     
     if is_part:

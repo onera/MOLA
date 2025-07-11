@@ -124,7 +124,7 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         upstream_plane, downstream_plane = self._get_planes_names_for_perfo(stage)
 
         queries = [
-            f'CGNSTree/Averages0D/{downstream_plane}/FlowSolution#EndOfRunV/Massflow',
+            f'CGNSTree/Averages0D/{downstream_plane}/names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX/Massflow',
             f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#EndOfRunV/StagnationPressureRatio',
             f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#EndOfRunV/IsentropicEfficiency',
         ]

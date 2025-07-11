@@ -1,9 +1,9 @@
 from mola.workflow.rotating_component import propeller, solver
 import numpy as np
 
-w = propeller.Workflow(
-    
-    Solver='elsa', 
+assert solver == 'elsa'
+
+w = propeller.Workflow( 
 
     RawMeshComponents=[
         dict(
@@ -11,7 +11,6 @@ w = propeller.Workflow(
             Source='/stck/mola/data/open/mesh/light_propeller/mesh.cgns',
         )
     ],
-
 
     Flow = dict(
         Velocity = 10.0,
@@ -33,8 +32,6 @@ w = propeller.Workflow(
         Model = 'SA',
     ),
 
-    # Initialization = dict(WallDistanceComputingTool='cassiopee'),
-
     Numerics = dict(
         NumberOfIterations=2000,
         MinimumNumberOfIterations=3,
@@ -46,6 +43,12 @@ w = propeller.Workflow(
         dict(Family='SPINNER', Type='WallInviscid'),
         dict(Family='BLADE', Type='WallViscous'),
         dict(Family='FARFIELD', Type='Farfield')
+    ],
+
+    Extractions = [
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.45, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
     ],
 
     ConvergenceCriteria = [

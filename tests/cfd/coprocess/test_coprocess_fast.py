@@ -23,6 +23,7 @@ import os
 
 from treelab import cgns
 from mola.cfd.coprocess import solver_fast
+import mola.naming_conventions as names
 
 def get_rans_tree():
 
@@ -283,6 +284,7 @@ def test_extract_isosurface(tmp_path):
              Name='MySlice',
              IsoSurfaceContainer='auto',
              IsoSurfaceValue=0.1,
+             ContainersToTransfer=[names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX],
              Type='IsoSurface')]
     workflow.Extractions = workflow._coprocess_manager.Extractions
     
@@ -290,11 +292,14 @@ def test_extract_isosurface(tmp_path):
     
     for extraction in workflow._coprocess_manager.Extractions:
         extraction['Data'] = solver_fast.extract_isosurface(output_tree, extraction)
-        solver_fast.remove_not_needed_fields(extraction)
+
         tRef = extraction['Data']
-        
-        computed_fields = solver_fast.get_field_names(tRef,
-                                    container='FlowSolution#CentersV')
+
+        zone = tRef.zones()[0]
+        container_names = [n.name() for n in zone.group(Type="FlowSolution_t", Depth=1)]
+        assert names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX in container_names
+        fs = zone.get(Name=names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, Depth=1)
+        computed_fields = [n.name() for n in fs.group(Type='DataArray_t', Depth=1)]
         for expected_field_name in extraction['Fields']:
             if expected_field_name == 'Vorticity':
                 for c in 'XYZ':
@@ -304,29 +309,6 @@ def test_extract_isosurface(tmp_path):
 
     workflow._coprocess_manager._status = 'COMPLETED'
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_remove_not_requested_fields():
-    import Converter.PyTree as C
-    import Generator.PyTree as G
-
-    z = G.cart((0.0,0.0,0.0), (0.1,0.1,0.1), (5,5,5))
-    t = C.newPyTree(['Base',z])
-    existing_fields = ['Density','MomentumX','Mach','VorticityX', 'VorticityY', 'VorticityZ']
-    for f in existing_fields: C._initVars(t,'centers:'+f, 0.0)
-    t = cgns.castNode(t)
-
-    requested_fields = ['Mach', 'Density','Vorticity']
-    solver_fast.remove_not_requested_fields(t, requested_fields)
-
-    computed_fields = solver_fast.get_field_names(t)
-    for expected_field_name in requested_fields:
-        if expected_field_name == 'Vorticity':
-            for c in 'XYZ':
-                assert expected_field_name+c in computed_fields
-        else:
-            assert expected_field_name in computed_fields
-
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -335,8 +317,8 @@ def test_extract_bc(tmp_path):
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
     
     workflow._coprocess_manager.Extractions = [
-        dict(Type='BC', Source='WALL', Fields=['Pressure', 'Temperature'], Name='ByFamily'),
-        dict(Type='BC', Source='FARFIELD', Fields=['Pressure', 'MomentumX'], Name='ByFamily')]
+        dict(Type='BC', Source='WALL', Fields=['Pressure', 'Temperature'], Name='ByFamily',ContainersToTransfer=[names.CONTAINER_OUTPUT_FIELDS_AT_CENTER],),
+        dict(Type='BC', Source='FARFIELD', Fields=['Pressure', 'MomentumX'], Name='ByFamily',ContainersToTransfer=[names.CONTAINER_OUTPUT_FIELDS_AT_CENTER],)]
 
     workflow.Extractions = workflow._coprocess_manager.Extractions
     
@@ -346,14 +328,15 @@ def test_extract_bc(tmp_path):
     for extraction in workflow._coprocess_manager.Extractions:
         tRef = solver_fast.extract_bc(output_tree, extraction, families_to_bctype,
                                       workflow._fast_metrics)
+        src = extraction["Source"]
+        tRef.save(os.path.join(tmp_path,f'extraction_{src}.cgns'))
         
         computed_fields = solver_fast.get_field_names(tRef,
-                                    container='FlowSolution#Centers')
+                                    container=names.CONTAINER_OUTPUT_FIELDS_AT_CENTER)
         for expected_field_name in extraction['Fields']:
             assert expected_field_name in computed_fields
 
     workflow._coprocess_manager._status = 'COMPLETED'
-
 
 
 @pytest.mark.unit

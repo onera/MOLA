@@ -18,6 +18,7 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
 unset I_MPI_FABRICS_LIST
@@ -26,8 +27,8 @@ unset I_MPI_FABRICS_LIST
 #     NOTE installation hint:
 #     python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/treelab/lib # because required libxcb-cursor is missing in sator https://bugreports.qt.io/browse/PYSIDE-2306
-# export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
-export TREELABPATH=/tmp_user/sator/lbernard/treelab/dev/sator_elsA # ONLY DURING DEV (replaces stable version)
+export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
+# export TREELABPATH=/tmp_user/sator/lbernard/treelab/dev/sator_elsA # ONLY DURING DEV (replaces stable version)
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 

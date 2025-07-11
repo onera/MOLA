@@ -39,7 +39,7 @@ def check_unique_motion(Motion):
     
     return unique_motion
 
-def _must_be_unsteady_if_has_motion(Motion, Numerics, DefaultAzimutalStepInDegrees=1.0):
+def _must_be_unsteady_if_has_motion(Motion, Numerics, DefaultAzimutalStepInDegrees=0.5):
 
     DefaultTimeStep = get_timestep_based_on_azimutal_step(Motion, DefaultAzimutalStepInDegrees)
 

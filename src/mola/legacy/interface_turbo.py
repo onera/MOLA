@@ -20,7 +20,8 @@ Creation by recycling PostprocessTurbo.py of v1.18.1
 '''
 
 from treelab import cgns
-from mola.naming_conventions import CGNS_NODE_EXTRACTION_LOG
+import mola.naming_conventions as names
+from mola.cfd.postprocess.extractions_with_cassiopee.iso_surface import iso_surface
 
 # Cassiopee packages
 import Converter.PyTree   as C
@@ -57,7 +58,7 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
                                 config='annular', 
                                 lin_axis='XY',
                                 RowType='compressor',
-                                container_at_vertex='FlowSolution#EndOfRunV'):
+                                container_at_vertex=names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX):
     '''
     Perform a series of classical postprocessings for a turbomachinery case : 
 
@@ -329,7 +330,7 @@ def getExtractionInfo(surface):
     '''
     surface = cgns.castNode(surface)
     try:
-        return surface.getParameters(CGNS_NODE_EXTRACTION_LOG)
+        return surface.getParameters(names.CGNS_NODE_EXTRACTION_LOG)
     except ValueError:
         return dict()
 
@@ -652,7 +653,7 @@ def compute0DPerformances(w, surfaces, variablesByAverage):
                            **info
                            }
         perfos = cgns.castNode(perfos)
-        perfos.setParameters(CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)                   
+        perfos.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)                   
         I.addChild(Averages, perfos)
 
 def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[]):
@@ -783,7 +784,7 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
                             **getExtractionInfo(surface)
                             }
         z_radial = cgns.castNode(z_radial)
-        z_radial.setParameters(CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)   
+        z_radial.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)   
         I.addChild(RadialProfiles, z_radial)
 
 def compareRadialProfilesPlane2Plane(w, surfaces, var4comp_repart, stages=[], config='compressor'):
@@ -821,7 +822,7 @@ def compareRadialProfilesPlane2Plane(w, surfaces, var4comp_repart, stages=[], co
         
         if not(InletPlane and OutletPlane): continue
 
-        fsname = I.getNodeFromType(InletPlane, 'FlowSolution_t')[0]
+        fsname = I.getNodeFromType(InletPlane, 'FlowSolution_t')[0] # unsafe if several containers are present
 
         extractionInfoInlet = getExtractionInfo(InletPlane)
         extractionInfoOutlet = getExtractionInfo(OutletPlane)
@@ -866,7 +867,7 @@ def computeVariablesOnBladeProfiles(w, surfaces, height_list='all', kind='rotor'
         height_list = []
         surfacesIsoH = getSurfacesFromInfo(surfaces, Type='IsoSurface', IsoSurfaceField='ChannelHeight')
         for surface in surfacesIsoH:
-            ExtractionInfo = I.getNodeFromName(surface, CGNS_NODE_EXTRACTION_LOG)
+            ExtractionInfo = I.getNodeFromName(surface, names.CGNS_NODE_EXTRACTION_LOG)
             valueH = I.getValue(I.getNodeFromName(ExtractionInfo, 'value'))
             height_list.append(valueH)
         
@@ -902,7 +903,7 @@ def computeVariablesOnBladeProfiles(w, surfaces, height_list='all', kind='rotor'
 
         BladeSlices = I.newCGNSBase(f'{I.getName(blade_ref)}_Slices', cellDim=1, physDim=3, parent=surfaces)
         for h in height_list:
-            bladeIsoH = T.join(POST.isoSurface(blade_with_Mis, fieldname='ChannelHeight', value=h, container='FlowSolution#Height'))
+            bladeIsoH = T.join(iso_surface(blade_with_Mis, fieldname='ChannelHeight', value=h, container='FlowSolution#Height'))
             if bladeIsoH == []:
                 # empty slice
                 continue

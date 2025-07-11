@@ -124,6 +124,7 @@ def test_extract_isosurface(tmp_path):
              IsoSurfaceField='CoordinateX',
              Name='MySlice',
              IsoSurfaceContainer='auto',
+             ContainersToTransfer='all',
              IsoSurfaceValue=0.1,
              Type='IsoSurface')]
     workflow.Extractions = workflow._coprocess_manager.Extractions

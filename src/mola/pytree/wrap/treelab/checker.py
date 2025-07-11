@@ -18,6 +18,7 @@
 try: from treelab import cgns
 except: pass
 
+from mola.logging.exceptions import MolaException
 
 def is_partitioned_for_use_in_maia(tree):
     t = cgns.castNode(tree)
@@ -27,3 +28,15 @@ def is_partitioned_for_use_in_maia(tree):
 def is_distributed_for_use_in_maia(tree):
     t = cgns.castNode(tree)
     return bool(t.get(':CGNS#Distribution'))
+
+def assert_zones_have_zone_type_node(tree):
+    t = cgns.castNode(tree)
+    for zone in t.zones():
+        zone_type = zone.get(Name="ZoneType")
+        
+        if not zone_type:
+            raise MolaException(f"zone {zone.path()} does not have ZoneType node")
+        
+        zone_type_value = zone_type.value()
+        if zone_type_value not in ['Structured', 'Unstructured']:
+            raise MolaException(f"zone {zone.path()} has value {zone_type_value} which is not recognized")

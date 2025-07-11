@@ -49,6 +49,7 @@ class WorkflowInterface(object):
             Turbulence : dict = None,
             BoundaryConditions : list = None,
             SplittingAndDistribution : dict = None,
+            Overset : dict = None,
             Numerics : dict = None,
             BodyForceModeling : list = None,
             Motion : dict = None, # make list of dicts
@@ -139,8 +140,14 @@ class WorkflowInterface(object):
             method = getattr(self, 'set_'+attribute_name)
 
             if expected_type is dict:
-                try: method(**user_input)
-                except TypeError as e: raise MolaUserAttributeError(method, e)
+
+                # since BUG incompatible with Motion defined by user (a dict)
+                if attribute_name == "Motion":
+                    method(user_input)
+
+                else:
+                    try: method(**user_input)
+                    except TypeError as e: raise MolaUserAttributeError(method, e)
 
             elif expected_type in [list, str]:
                 try: method(user_input)
@@ -172,6 +179,7 @@ class WorkflowInterface(object):
         Connection       : list = None,
         DefaultToleranceForConnection : float = 1e-8,
         OversetOptions   : dict = None,
+        OversetMotion    : dict = None,
         *,
         Name             : str,
         Source           : Union[ str, Tree, Base, Zone],
@@ -424,6 +432,20 @@ class WorkflowInterface(object):
         self.SplittingAndDistribution = self._get_comp(
             WorkflowInterface.set_SplittingAndDistribution, self.get_default_values_from_local_signature())
 
+
+    def set_Overset(self,
+        depth                :  int = 2,
+        optimizeOverlap      : bool = False,
+        prioritiesIfOptimize : list = [],
+        double_wall          :  int = 0,
+        saveMaskBodiesTree   : bool = True,
+        overset_in_CGNS      : bool = False, # see elsA #10545
+        CHECK_OVERSET        : bool = True):
+        self.Overset = self._get_comp(
+            WorkflowInterface.set_Overset, self.get_default_values_from_local_signature())
+
+
+
     def set_Numerics(self,
         Scheme                    : str   = 'Jameson',
         TimeMarching              : str   = 'Steady',
@@ -514,7 +536,9 @@ class WorkflowInterface(object):
 
     def set_Motion(self,
             motion_per_family_dict    : dict  = None):
-        self.Motion = self._get_comp(WorkflowInterface.set_Motion, self.get_default_values_from_local_signature())
+        self.Motion = motion_per_family_dict
+        # BUGGED
+        # self.Motion = self._get_comp(WorkflowInterface.set_Motion, self.get_default_values_from_local_signature())
 
     def set_Initialization(self,
             Method    : str  = 'uniform',
@@ -673,6 +697,9 @@ class WorkflowInterface(object):
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             GridLocation : str = 'CellCenter',
+            ContainersToTransfer : Union[ str, # accepts "all"
+                                         list ] = names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, 
+
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
             TimeAveragingIterations : int = 1000,
@@ -697,6 +724,8 @@ class WorkflowInterface(object):
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
             GridLocation : str = 'Vertex',
+            ContainersToTransfer : Union[ str, # accepts "all"
+                                         list ] = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, 
             Frame : str = 'relative',
             TimeAveragingFirstIteration : int = 1000,
             TimeAveragingIterations : int = 1000,
@@ -751,7 +780,7 @@ class WorkflowInterface(object):
             Frame : str = 'relative', # TODO add warning for fast (only 'absolute' possible)
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
-            Container : str = 'FlowSolution#Output', 
+            Container : str = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX,
             GridLocation : str = 'Vertex',
             GhostCells : bool = False,
             TimeAveragingFirstIteration : int = 1000,

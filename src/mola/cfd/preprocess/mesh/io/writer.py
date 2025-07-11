@@ -17,18 +17,26 @@
 
 import os
 import glob
+import numpy as np
 from .utils import get_io_tool
 from ..tools import (to_full_tree_at_rank_0, get_empty_FlowSolution_nodes, 
                      restore_empty_FlowSolution_nodes_in_file, restore_empty_FlowSolution_nodes)
 from treelab import cgns
 import mola.naming_conventions as names
 
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+nb_digit = int(np.ceil(np.log10(size+1)))
+
 def write(w, tree, dst, io_tool=None):
-    if tree.get(Name=':CGNS#Ppart', Depth=3):
-        io_tool = 'pypart'
 
     if io_tool is None:
-        io_tool = get_io_tool(w, dst)
+        if tree.get(Name=':CGNS#Ppart', Depth=3):
+            io_tool = 'pypart'
+        else:
+            io_tool = get_io_tool(w, dst)
 
     write_with_selected_tool = dict(
         treelab = write_with_treelab,
@@ -47,9 +55,33 @@ def write_with_treelab(w, tree, dst):
 
 def write_with_cassiopee(w, tree, dst):
     import Converter.PyTree as C
+
+    file_path = dst.split('.')
+    start_path = '.'.join(file_path[:-1])
+    fmt = file_path[-1]
+    
+    if size > 1:        
+        if _shall_write_one_file_per_proc(tree):        
+            try: os.makedirs(start_path)
+            except: pass
+            dst = os.path.join(start_path, ('rank_{:0%d}.'%nb_digit).format(rank) + fmt)
+
     links = tree.getLinks()
     for l in links: l[0] = '.' # HACK treelab 0.1.1
     C.convertPyTree2File(tree, dst, links=links)
+
+
+def _shall_write_one_file_per_proc(tree):
+    comm.barrier()
+    has_tree = comm.gather(bool(tree))
+    at_least_one_rank_except_root_has_a_tree = None
+    if rank == 0:
+        at_least_one_rank_except_root_has_a_tree = any(has_tree[1:])
+    comm.barrier()
+    at_least_one_rank_except_root_has_a_tree = comm.bcast(at_least_one_rank_except_root_has_a_tree)
+
+    return at_least_one_rank_except_root_has_a_tree
+
 
 def write_with_cassiopee_mpi(w, tree, dst):
     import Converter.Mpi as Cmpi
@@ -90,20 +122,24 @@ def write_with_maia(w, tree, dst):
                 zone.remove()
         return links
     
+    links = get_links_for_maia(tree)
     MPI.COMM_WORLD.barrier()
     if maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
+        # maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, single_file=True, links=links)
         tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
-        tree = cgns.castNode(tree)
-
-    if maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
-        links = get_links_for_maia(tree)
         maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
+
+
+    elif maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
+        maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
+    
     else:
         # The tree is nor partitioned neither distributed.
         # It is then considered as full on rank 0
         if MPI.COMM_WORLD.Get_rank() == 0:
             links = tree.getLinks()
             maia.io.write_tree(tree, dst, links=links)
+
     MPI.COMM_WORLD.barrier()
 
 def write_with_pypart(w, tree, dst):

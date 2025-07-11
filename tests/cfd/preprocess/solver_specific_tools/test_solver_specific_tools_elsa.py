@@ -33,9 +33,9 @@ RSM_CGNS2ElsaDict = dict(
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_translate_to_elsa_dict():
-    d = dict((key, 0) for key in solver_elsa.CGNS2ElsaInCGNSNode)
+    d = dict((key, 0) for key in solver_elsa.cgns_to_elsa_bc_field_name)
     res = solver_elsa.translate_to_elsa(d)
-    assert set(res) == set(list(solver_elsa.CGNS2ElsaInCGNSNode.values())+['inj_tur7'])
+    assert set(res) == set(list(solver_elsa.cgns_to_elsa_bc_field_name.values())+['inj_tur7'])
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
@@ -48,9 +48,9 @@ def test_translate_to_elsa_dict_rsm():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_translate_to_elsa_list():
-    input_list = list(solver_elsa.CGNS2ElsaInCGNSNode)
+    input_list = list(solver_elsa.cgns_to_elsa_bc_field_name)
     res = solver_elsa.translate_to_elsa(input_list)
-    expected_list = list(solver_elsa.CGNS2ElsaInCGNSNode.values())
+    expected_list = list(solver_elsa.cgns_to_elsa_bc_field_name.values())
     # replace the first inj_tur2 by inj_tur7
     i = input_list.index('TurbulentDissipationRate')
     expected_list[i] = 'inj_tur7'
@@ -59,7 +59,7 @@ def test_translate_to_elsa_list():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_translate_to_elsa_str():
-    for cgns_name, elsa_name in solver_elsa.CGNS2ElsaInCGNSNode.items():
+    for cgns_name, elsa_name in solver_elsa.cgns_to_elsa_bc_field_name.items():
         res = solver_elsa.translate_to_elsa(cgns_name)
         assert res == elsa_name
 

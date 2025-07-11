@@ -116,13 +116,40 @@ def get_elsa_output_tree(skeleton):
     t = elsAxdt.get(elsAxdt.OUTPUT_TREE)
     t = cgns.castNode(t)   
     t.merge(skeleton)
-    ravel_FlowSolution(t)
+    # ravel_FlowSolution(t) # don't ravel! this breaks multi-indexing!
     remove_empty_BCDataSet(t)
     # force_FamilyBC_as_FamilySpecified(t) # HACK https://elsa.onera.fr/issues/10928
     t.findAndRemoveNodes(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3)
     # HACK Pypart puts WorkflowParameters under the base... need to remove it
     t.findAndRemoveNodes(Name=names.CONTAINER_WORKFLOW_PARAMETERS, Type='UserDefinedData', Depth=2) 
+    rename_cellnf_fields(t)
+    replace_relative_coordinates_with_absolute(t)
     return t
+
+def rename_cellnf_fields(tree : cgns.Tree):
+    
+    for zone in tree.zones():
+        for container in zone.group(Type='FlowSolution_t'):
+            for field_node in container.children():
+                name = field_node.name()
+                if name == 'cellnf':
+                    field_node.setName("cellN")
+
+
+def replace_relative_coordinates_with_absolute(tree : cgns.Tree):
+    
+    for zone in tree.zones():
+
+        absolute_coordinates = zone.get(Name='FlowSolution#EndOfRun#Coords',Depth=1)
+        if not absolute_coordinates: continue
+
+        zone.findAndRemoveNodes(Name='GridCoordinates', Type='GridCoordinates_t', Depth=1)
+
+        absolute_coordinates.findAndRemoveNodes(Name='GridLocation',Depth=1)
+        
+        absolute_coordinates.setName('GridCoordinates')
+        absolute_coordinates.setType('GridCoordinates_t')
+        
 
 def update_restart_fields(workflow, output_tree):
     output_tree = cgns.castNode(output_tree)
@@ -155,24 +182,18 @@ def extract_fields(output_tree, extraction):
     t.findAndRemoveNodes(Type='IntegralData', Depth=2)
     t.findAndRemoveNodes(Name='ELSA_TRIGGER')
 
-    for zone in t.zones():
-        # Remove FlowSolution nodes that are not the target
-        for FS in zone.group(Type='FlowSolution', Depth=1):
-            if FS.name() != extraction['Container']:
-                FS.remove()
-        
+
+    POST.keep_only_requested_containers(t, extraction)
+    POST.keep_only_requested_fields(t, extraction)
+
+
+    for zone in t.zones():       
         if not zone.get(Type='FlowSolution', Depth=1):
             # no more FlowSolution in the current zone
             # --> remove this zone
             zone.remove()
             continue
 
-        # Remove nodes that are not required in Fields
-        FS = zone.get(Type='FlowSolution', Depth=1)
-        for node in FS.group(Type='DataArray', Depth=1):
-            if node.name() not in extraction['Fields']:
-                node.remove()
-            
         # NOTE ZoneBC must be kept for to save tree with PyPart
         zone.findAndRemoveNodes(Type='BCDataSet')
     
@@ -194,7 +215,30 @@ def extract_bc(output_tree, extraction, DictBCNames2Type):
     if extraction['Name'] != 'ByFamily' and len(SurfacesTree.bases()) > 0:
         POST.merge_bases_and_rename_unique_base(SurfacesTree, extraction['Name'])
 
+    rename_resulting_container_using_requested_name(SurfacesTree, extraction)
+    POST.keep_only_requested_containers(SurfacesTree, extraction)
+    POST.keep_only_requested_fields(SurfacesTree, extraction)
+
     return SurfacesTree
+
+def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction : dict):
+    requested_containers = extraction['ContainersToTransfer']
+    
+    if isinstance(requested_containers,list) and len(requested_containers) == 1:
+        expected_container_name = requested_containers[0]
+    elif isinstance(requested_containers,str) and requested_containers != 'all':
+        expected_container_name = requested_containers
+    else:
+        return
+    
+    solver_output_name = extraction["_ElsaSolverOutputName"]
+    bc_data_set_name = solver_output_name.replace(".Solver#Output","BCDataSet")
+    
+    for zone in tree.zones():
+        container = zone.get(Name=bc_data_set_name, Type="FlowSolution_t", Depth=1)
+        if container:
+            container.setName(expected_container_name)
+
 
 def extract_isosurface(output_tree, extraction):
     if extraction['IsoSurfaceContainer'] == 'auto':
@@ -208,6 +252,9 @@ def extract_isosurface(output_tree, extraction):
         Name = extraction['Name'],
         tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
         )
+    
+    POST.keep_only_requested_containers(isosurface, extraction)
+    POST.keep_only_requested_fields(isosurface, extraction)
     
     return isosurface
 
