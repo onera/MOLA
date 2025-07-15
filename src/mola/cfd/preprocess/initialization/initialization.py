@@ -102,11 +102,11 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     import maia
 
     if isinstance(workflow.Initialization['Source'], str):
-        mola_logger.info(f"Initialize FlowSolution by interpolation from {workflow.Initialization['Source']}", rank=0)
+        mola_logger.info(f" - initialize flow by interpolation from {workflow.Initialization['Source']}", rank=0)
         tree_source = maia.io.file_to_dist_tree(workflow.Initialization['Source'], MPI.COMM_WORLD)
         tree_source = cgns.castNode(tree_source)
     else:
-        mola_logger.info(f"Initialize FlowSolution by interpolation from the given tree", rank=0)
+        mola_logger.info(f" - initialize flow by interpolation from the given tree", rank=0)
         tree_source = workflow.Initialization['Source']
 
     workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
@@ -152,11 +152,11 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
     '''
     # FIXME Won't work if workflow.tree is a dist_tree or a part_tree (because zone names are modified)
     if isinstance(workflow.Initialization['Source'], str):
-        mola_logger.info(f"Initialize FlowSolution by copy of {workflow.Initialization['Source']}", rank=0)
+        mola_logger.info(f" - initialize flow by copy of {workflow.Initialization['Source']}", rank=0)
         errtag = workflow.Initialization['Source']
         tree_source = cgns.load(workflow.Initialization['Source'])
     else:
-        mola_logger.info(f"Initialize FlowSolution by copy of the given tree", rank=0)
+        mola_logger.info(f" - initialize flow by copy of the given tree", rank=0)
         tree_source = workflow.Initialization['Source']
         errtag = 'source tree'
 
@@ -198,7 +198,7 @@ def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
             raise MolaException(f'{FlowSolution_name} is missing in zone {zone.name()}')
 
 def compute_wall_distance_if_needed(workflow):
-    mola_logger.info("computing wall distance...", rank=0)
+    mola_logger.info(" - computing wall distance", rank=0)
     init_opts = workflow.Initialization
     if workflow.Turbulence['Model'] == 'Euler':
         init_opts['ComputeWallDistanceAtPreprocess'] = False

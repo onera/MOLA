@@ -154,7 +154,7 @@ def get_iterators(workflow, config, hardware_target='cpu'):
     return iterators
 
 def is_a_bc_with_valve_law(bc):
-    if 'valve_type' in bc:
+    if 'ValveLaw' in bc or 'MassFlow' in bc:
         return True
     else:
         False

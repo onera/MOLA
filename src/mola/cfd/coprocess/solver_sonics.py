@@ -54,7 +54,6 @@ def perform_extractions(workflow, coprocess_manager):
         coprocess_manager.mola_logger.debug(f'  update extraction of type {extraction["Type"]}', rank=0)
         
         if extraction['Type'] == 'Restart':
-            coprocess_manager.iteration = workflow.Numerics['NumberOfIterations']
             update_restart_fields(workflow, coprocess_manager.output_tree)
             extraction['Data'] = workflow.tree
         
@@ -69,7 +68,7 @@ def perform_extractions(workflow, coprocess_manager):
             remove_not_needed_fields(extraction)
         
         elif extraction['Type'] == 'Integral':
-            extract_integral(output_tree, extraction, families_to_bctype, NumberOfIterations=workflow.Numerics['NumberOfIterations'])  
+            extract_integral(output_tree, extraction, families_to_bctype)  
 
         elif extraction['Type'] == 'Residuals':
             extract_residuals(extraction, output_tree)
@@ -210,25 +209,26 @@ def extract_isosurface(output_tree, extraction):
 
     return isosurface
 
-def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIterations) -> None:
+def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
 
     families_to_extract = get_bc_families_in_extraction(extraction, DictBCNames2Type)
     
     t = cgns.Tree()
     base = cgns.Base(Name='Integral', Parent=t)
 
-    type_of_node_containing_integral_data = "IntegralData_t"
+    for IntegralDataNode in output_tree.group(Type='IntegralData_t', Depth=2) \
+        + output_tree.group(Name='*:VALVE', Type='ConvergenceHistory_t', Depth=2):
 
-    for IntegralDataNode in output_tree.group(Name='*:*', Type=type_of_node_containing_integral_data, Depth=2):
         IntegralDataNode = IntegralDataNode.copy(deep=True)
         IntegralDataNode_name = IntegralDataNode.name()
-        try:
-            family = IntegralDataNode.get(Name='Family').value()
-        except:
-            # TODO this is a hack, make it cleaner
-            # The IntegralDataNode for ValveLawRadialEquilibrium does not contain the node Family
+
+        if IntegralDataNode_name.endswith(':VALVE'): 
+            # HACK The IntegralDataNode for ValveLawRadialEquilibrium does not contain the node Family
             # Fix that in SoNICS
             family = IntegralDataNode_name.split(':')[0]
+
+        else:
+            family = IntegralDataNode.get(Name='Family').value()        
 
         if family not in families_to_extract: 
             continue
@@ -246,7 +246,7 @@ def extract_integral(output_tree, extraction, DictBCNames2Type, NumberOfIteratio
         # we must split the IntegralDataNode by keeping only the variables required for this extraction
         remove_not_required_fields(extraction, IntegralDataNode)
 
-        if IntegralDataNode_name.endswith('VALVE'):
+        if IntegralDataNode_name.endswith(':VALVE'):
             zone = cgns.Zone(Name=IntegralDataNode_name, Parent=base, Children=[IntegralDataNode])
         else:
             zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])

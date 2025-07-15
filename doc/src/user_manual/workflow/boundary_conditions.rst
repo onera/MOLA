@@ -115,18 +115,96 @@ The only editable quantity is `MassFlow`.
 OutflowRadialEquilibrium
 ========================
 
+In it simplified form, the radial equilibrium condition implies that pressure gradient balances 
+centrifugal force due to swirl:
+
+.. math:: \frac{\partial p}{\partial r} = \frac{\rho U_{\theta}^2}{r}
+
+Integrating this equation gives the pressure radial profile to impose on the boundary condition:
+
+.. math:: p(r) = p_0 + \int_{r_0}^{r} \frac{\rho U_{\theta}^2}{r} dr
+
+The integration constant :math:`p_0` (static pressure at radius :math:`r_0`) is a parameter of 
+this method and can be set by several means.
+
+A first possible choice is to give directly this value: 
+
 .. code-block:: python
 
     dict(Type='OutflowRadialEquilibrium', Family='myFamily', 
-        valve_type=4, valve_ref_pres=0.75*Pt, valve_ref_mflow=5., valve_relax=0.3*Pt
+         PressureAtHub=3e4,
+         # or PressureAtShroud=8e4
+         # or PressureAtSpecifiedHeight=5e4, Height=0.5  # Height is between 0 (hub) and 1 (shroud)
+    )
+
+The second choice is to set the `MassFlow` to target on the boundary condition:
+
+.. code-block:: python
+
+    dict(Type='OutflowRadialEquilibrium', Family='myFamily', 
+        MassFlow=10.  # mass flow rate on 360°
         )
 
-It defines an outflow condition imposing a radial equilibrium ('outradeq' in
-*elsA*). The arguments have the same names that *elsA* keys. Valve law types
-from 1 to 5 are available. The radial equilibrium without a valve law (with
-**valve_type** = 0, which is the default value) is also available. To be
-consistant with the condition 'OutflowPressure', the argument
-**valve_ref_pres** may also be named **Pressure**.
+.. note:: It corresponds to `valve_type=2` in elsA and `valve_type='BCValveLawQTarget'` in SoNICS.
+
+
+Another choice is to use a valve law, to mimic channel opening/closing that would be done in an experimental test.
+Two options are available, that are both iterative procedures.
+
+The first one is a linear law:
+
+.. math::
+
+    p_0^{n+1} = p_0^n + \omega \left( p_{ref} \frac{\dot{m}^n}{\dot{m}_{ref}} - p_0^n \right)
+
+with the following correspondance with MOLA parameters: 
+
+* :math:`p_{ref}` is `PressureRef` 
+
+* :math:`\dot{m}_{ref}` is `MassFlowRef` (by default, equal to `workflow.Flow ['MassFlow']`)
+
+* :math:`\omega` is `RelaxationCoefficient` (0.1 by default)
+
+
+.. code-block:: python
+
+    dict(Type='OutflowRadialEquilibrium', Family='myFamily', 
+         ValveLaw = dict(Type='Linear', PressureRef=5e4)
+        )
+
+It is recommended to change only `PressureRef` and let other default values.
+
+.. note:: It corresponds to `valve_type=1` in elsA and `valve_type='BCValveLawSlopePsQ'` in SoNICS.
+
+
+
+
+The second option for the valve law is a quadratic law:
+
+.. math::
+
+    p_0^{n+1} = p_{ref} + k P_{t,ref} \left( \frac{\dot{m}^n}{\dot{m}_{ref}} \right)^2
+
+with the following correspondance with MOLA parameters: 
+
+* :math:`p_{ref}` is `PressureRef` (by default, equal to `0.75 * workflow.Flow['PressureStagnation']`)
+
+* :math:`\dot{m}_{ref}` is `MassFlowRef` (by default, equal to `workflow.Flow ['MassFlow']`)
+
+* :math:`k` is `ValveCoefficient`
+
+* :math:`P_{t,ref}` is the reference `PressureStagnation` taken equal to `workflow.Flow['PressureStagnation']` (this parameter is not editable).
+
+
+.. code-block:: python
+
+    dict(Type='OutflowRadialEquilibrium', Family='myFamily', 
+         ValveLaw = dict(Type='Quadratic', ValveCoefficient=0.8)
+        )
+
+It is recommended to change only `ValveCoefficient` (typically between 0.05 and 1.5) and let other default values.
+
+.. note:: It corresponds to `valve_type=4` in elsA and `valve_type='BCValveLawQHyperbolic'` in SoNICS.
 
 
 ***************************

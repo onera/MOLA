@@ -95,30 +95,33 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         
     def _get_family_and_throttle_key(self):
         outflow_bc = mesh_tools.get_bc_from_bc_type(self.base_workflow, 'Outflow*')
-        THROTTLE_KEY = dict(
-            OutflowPressure = 'Pressure', 
-            OutflowMassFlow = 'MassFlow',
-        )
-        self._update_throttle_key_for_elsa_and_sonics(THROTTLE_KEY, outflow_bc)
         outflow_family = outflow_bc["Family"]
-        throttle_key = THROTTLE_KEY[outflow_bc["Type"]]
+        throttle_key = self._get_throttle_key(outflow_bc)
         return outflow_family, throttle_key
     
     @staticmethod
-    def _update_throttle_key_for_elsa_and_sonics(THROTTLE_KEY, outflow_bc):
-        # The following lines are specific to elsA and Sonics
-        outflow_bc.setdefault('valve_type', 0)
-        if outflow_bc['valve_type'] == 0:
-            if 'prespiv' in outflow_bc: 
-                THROTTLE_KEY['OutflowRadialEquilibrium'] = 'prespiv'
-            elif 'valve_ref_pres' in outflow_bc: 
-                THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_pres'
-        elif outflow_bc['valve_type'] in [1, 5]:
-            THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_pres' 
-        elif outflow_bc['valve_type'] == 2:
-            THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_ref_mflow'
-        elif outflow_bc['valve_type'] in [3, 4]:
-            THROTTLE_KEY['OutflowRadialEquilibrium'] = 'valve_relax' 
+    def _get_throttle_key(outflow_bc):
+
+        if outflow_bc['Type'] == 'OutflowPressure':
+            return 'Pressure'
+
+        elif outflow_bc['Type'] == 'OutflowMassFlow':
+            return 'MassFlow'
+        
+        elif outflow_bc['Type'] == 'OutflowRadialEquilibrium':
+
+            for key in ['MassFlow', 'PressureAtHub', 'PressureAtShroud', 'PressureAtSpecifiedHeight']:
+                if key in outflow_bc:
+                    return key
+            
+            # otherwise, a ValveLaw must be defined
+            if outflow_bc['ValveLaw']['Type'] == 'Linear':
+                return 'PressureRef'
+            elif outflow_bc['ValveLaw']['Type'] == 'Quadratic':
+                return 'ValveCoefficient'
+            
+        else:
+            raise MolaAssertionError(f"Outflow BC type {outflow_bc['Type']} not supported by WorkflowTurbomachineryManager")
     
     def gather_performance(self, stage:Union[tuple, str], filename:Union[str, None]=None) -> dict:
         upstream_plane, downstream_plane = self._get_planes_names_for_perfo(stage)

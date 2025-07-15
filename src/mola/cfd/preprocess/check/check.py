@@ -78,7 +78,6 @@ def check_empty_bc(workflow):
         return
     
     I._adaptPE2NFace(t)
-    mola_logger.info("getEmptyBC", rank=0)
     emptyBC = C.getEmptyBC(t, dim=3)
     empty_bcs = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
     
@@ -112,7 +111,7 @@ def _ignore_undefined_periodic_boundaries_in_2D_structured_grids(t):
 
 
 def assert_bc_and_connectivity_coherency(tree):
-    mola_logger.info(' -- checking BC and connectivity coherency',rank=0)
+    mola_logger.info(' - checking BC and connectivity coherency',rank=0)
     import Converter.Internal as I
     import Converter.PyTree as C
     

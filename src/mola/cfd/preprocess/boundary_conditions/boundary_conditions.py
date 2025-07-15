@@ -56,6 +56,9 @@ def apply(workflow, selected_boundaries_conditions=None):
         if bc_type == 'InterfaceBetweenWorkflows':
             continue
 
+        if bc_type == 'OutflowRadialEquilibrium':
+            OutflowRadialEquilibrium_interface(workflow, bc)
+
         if 'LinkedFamily' in bc:
             mola_logger.info(f'  > {bc_type} between families {bc["Family"]} and {bc["LinkedFamily"]}', rank=0)
         else:
@@ -327,41 +330,41 @@ def _instantiate_bc_dispatcher(workflow):
 
     return workflow._bc_dispatcher
 
+def get_fluxcoeff_on_bc(workflow, Family):
+    bcs = get_bc_nodes_from_family(workflow.tree, Family)
+    try:
+        bc = bcs[0]
+    except IndexError:
+        raise MolaException(f'Cannot find a BC associated to Family {Family}')
+    zone = bc.getParent(Type='Zone_t')
+    row = zone.get(Type='FamilyName').value()
+    try:
+        rowParams = workflow.ApplicationContext['Rows'][row]
+    except:
+        raise MolaException('Worklow must have an attribute ApplicationContext with a dict named "Rows" inside.')
+    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+            
+    return fluxcoeff
+
 def OutflowRadialEquilibrium_interface(workflow, bcparams):
-    ### EXAMPLES
-    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
-    #         PressureAtHub=...,
-    #         # Or 
-    #         PressureAtSpecifiedLocation=...,
-    #         Location=...,
-    #         ),
-    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
-    #         MassFlow=...,
-    #         ),
-    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
-    #         ValveLaw=dict(
-    #             Type='Quadratic',
-    #             ValveCoefficient=0.8, # to be multiplied by Pt latter, to be homogeneous to a pressure
-    #         )
-    #         ),
     
     # Check minimal information is given
-    possible_arguments = ['PressureAtHub', 'PressureAtSpecifiedLocation', 'MassFlow', 'ValveLaw']
+    possible_arguments = ['PressureAtHub', 'PressureAtShroud', 'PressureAtSpecifiedHeight', 'MassFlow', 'ValveLaw']
     if sum(1 for arg in possible_arguments if arg in bcparams) != 1:
         raise MolaUserError((
             'For BC of Type "OutflowRadialEquilibrium", exactly one of the following '
             f'arguments must be provided: {possible_arguments}'
         ))
 
-    # Check that both PressureAtSpecifiedLocation and Location are specified together
-    if 'PressureAtSpecifiedLocation' in bcparams and not 'Location' in bcparams:
+    # Check that both PressureAtSpecifiedHeight and Height are specified together
+    if 'PressureAtSpecifiedHeight' in bcparams and not 'Height' in bcparams:
         raise MolaUserError((
-            'For BC of Type "OutflowRadialEquilibrium", if "PressureAtSpecifiedLocation", '
-            'then "Location" must also be specified.'
+            'For BC of Type "OutflowRadialEquilibrium", if "PressureAtSpecifiedHeight", '
+            'then "Height" must also be specified.'
         ))
     
     if 'ValveLaw' in bcparams:
-        possible_valve_types = ['Linear', 'Quadaratic']
+        possible_valve_types = ['Linear', 'Quadratic']
         if not isinstance(bcparams['ValveLaw'], dict):
             raise MolaUserError('For BC of Type "OutflowRadialEquilibrium", parameter ValveLaw must be a dict')
         if not 'Type' in bcparams['ValveLaw'] or bcparams['ValveLaw']['Type'] not in possible_valve_types:
@@ -382,6 +385,4 @@ def OutflowRadialEquilibrium_interface(workflow, bcparams):
                     'For BC of Type "OutflowRadialEquilibrium" with ValveLaw of '
                     f'Type={bcparams["ValveLaw"]["Type"]}, parameter ValveCoefficient must be defined and must be a float.'
                 ))
-
-            bcparams['ValveLaw'].setdefault('RelaxationCoefficient', 0.1)
 

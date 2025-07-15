@@ -285,47 +285,58 @@ def outmfr2_interface(workflow, groupmassflow=1, **kwargs):
     return ImposedVariables
 
 def outradeq_interface(workflow, Family, **kwargs):
-
-    def _get_default_valve_ref_mflow():
-        bcs = boundary_conditions.get_bc_nodes_from_family(workflow.tree, Family)
-        try:
-            bc = bcs[0]
-        except IndexError:
-            raise MolaException(f'Cannot find a BC associated to Family {Family}')
-        zone = bc.getParent(Type='Zone_t')
-        row = zone.get(Type='FamilyName').value()
-        try:
-            rowParams = workflow.ApplicationContext['Rows'][row]
-        except:
-            raise MolaException('Worklow must have an attribute ApplicationContext with a dict named "Rows" inside.')
-        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
-        try:
-            valve_ref_mflow = workflow.Flow['MassFlow'] / fluxcoeff
-        except:
-            raise MolaException('Miss MassFlow in Flow attribute')
-        
-        return valve_ref_mflow
-
-    valve_type = kwargs.get('valve_type', 0)
-
-    valve_ref_pres = kwargs.get('valve_ref_pres')
-    if not valve_ref_pres:
-        valve_ref_pres = kwargs.get('Pressure', workflow.Flow['Pressure'])
     
-    if valve_type == 0:
-        valve_ref_mflow = None
+    # Default values, will be updated below depending on the valve law
+    valve_ref_pres = workflow.Flow['Pressure']
+    valve_ref_mflow = workflow.Flow['MassFlow']
+    valve_relax = 0.1
+    indpiv = kwargs.get('indpiv', 1)
+    dirorder = kwargs.get('dirorder', -1)
+
+    ValveLaw = kwargs.get('ValveLaw')
+    if not ValveLaw:
+        if not 'MassFlow' in kwargs:
+            valve_type = 0
+            if 'PressureAtHub' in kwargs:
+                indpiv = 1
+                valve_ref_pres = kwargs['PressureAtHub']
+            elif 'PressureAtShroud' in kwargs:
+                indpiv = -1
+                valve_ref_pres = kwargs['PressureAtShroud']
+            elif 'PressureAtSpecifiedHeight' in kwargs:
+                raise MolaUserError('only PressureAtHub or PressureAtShroud can be provided for a simulation with elsA using MOLA preprocessing.')
+            else:
+                raise MolaUserError('PressureAtHub is missing')
+
+        else:
+            valve_type = 2
+            fluxcoeff = boundary_conditions.get_fluxcoeff_on_bc(workflow, Family)
+            valve_ref_mflow = kwargs['MassFlow'] / fluxcoeff
+
+    elif ValveLaw['Type'] == 'Linear':
+        valve_type = 1
+        fluxcoeff = boundary_conditions.get_fluxcoeff_on_bc(workflow, Family)
+        valve_ref_pres = ValveLaw['PressureRef']
+        valve_ref_mflow = ValveLaw['MassFlowRef'] / fluxcoeff
+        valve_relax = ValveLaw['RelaxationCoefficient']
+
+    elif ValveLaw['Type'] == 'Quadratic':
+        valve_type = 4
+        fluxcoeff = boundary_conditions.get_fluxcoeff_on_bc(workflow, Family)
+        valve_ref_pres = ValveLaw['PressureRef']
+        valve_ref_mflow = ValveLaw['MassFlowRef'] / fluxcoeff
+        valve_relax = ValveLaw['ValveCoefficient'] * workflow.Flow['PressureStagnation']
+
     else:
-        valve_ref_mflow = kwargs.get('valve_ref_mflow')
-        if not valve_ref_mflow:
-            valve_ref_mflow = kwargs.get('MassFlow', _get_default_valve_ref_mflow())
+        raise MolaUserError(f"Valve law {ValveLaw['Type']} is not available with elsA. Available laws are 'Linear' and 'Quadratic'.")
 
     parameters = dict(
         valve_type = valve_type, 
         valve_ref_pres = valve_ref_pres,
         valve_ref_mflow = valve_ref_mflow, 
-        valve_relax = kwargs.get('valve_relax', 0.1),
-        indpiv = kwargs.get('indpiv', 1),
-        dirorder = kwargs.get('dirorder', -1),
+        valve_relax = valve_relax,
+        indpiv = indpiv,
+        dirorder = dirorder,
         )
     return parameters
 

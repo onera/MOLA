@@ -17,6 +17,7 @@
 
 import pytest
 
+import copy
 import numpy as np
 from treelab import cgns
 
@@ -35,6 +36,58 @@ def test_functions_well_defined():
     bc_dict = BoundaryConditionsDispatcherElsa()
     for expected_function_name in bc_dict.get_all_specific_names():
         assert getattr(solver_elsa, expected_function_name)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+@pytest.mark.parametrize('inputs', [
+    dict(
+        bc_params=dict(PressureAtHub=0.9e5),
+        expected_params=dict(valve_type=0, valve_ref_pres=0.9e5, valve_ref_mflow=3., valve_relax=0.1, indpiv=1)        
+        ),
+    dict(
+        bc_params=dict(PressureAtShroud=0.9e5),
+        expected_params=dict(valve_type=0, valve_ref_pres=0.9e5, valve_ref_mflow=3., valve_relax=0.1, indpiv=-1)        
+        ),
+    dict(
+        bc_params=dict(MassFlow=2.),
+        expected_params=dict(valve_type=2, valve_ref_pres=1e5, valve_ref_mflow=0.2, valve_relax=0.1, indpiv=1)        
+        ),
+    dict(
+        bc_params=dict(ValveLaw=dict(Type='Linear', PressureRef=0.8e5, RelaxationCoefficient=0.05)),
+        expected_params=dict(valve_type=1, valve_ref_pres=0.8e5, valve_ref_mflow=0.3, valve_relax=0.05, indpiv=1)        
+        ),
+    dict(
+        bc_params=dict(ValveLaw=dict(Type='Quadratic', ValveCoefficient=0.1)),
+        expected_params=dict(valve_type=4, valve_ref_pres=0.9e5, valve_ref_mflow=0.3, valve_relax=0.12e5, indpiv=1)        
+        ),
+]
+)
+def test_outradeq_interface(inputs):
+
+    bc_params = inputs['bc_params']
+    expected_params = inputs['expected_params']
+
+    from mola.cfd.preprocess.boundary_conditions import boundary_conditions
+
+    # Monkey patching to force fluxcoeff to be equal to 10
+    def fake_fun(workflow, Family):
+        return 10
+    saved_fun = copy.deepcopy(boundary_conditions.get_fluxcoeff_on_bc)
+    boundary_conditions.get_fluxcoeff_on_bc = fake_fun
+
+    class FakeWorkflow():
+
+        def __init__(self):
+            self.Flow = dict(Pressure=1e5, PressureStagnation=1.2e5, MassFlow=3.)
+
+    workflow = FakeWorkflow()
+    Family = 'Outflow'
+    boundary_conditions.OutflowRadialEquilibrium_interface(workflow, bc_params)
+    params = solver_elsa.outradeq_interface(workflow, Family, **bc_params)
+    for key, value in expected_params.items():
+        assert params[key] == value      
+
+    boundary_conditions.get_fluxcoeff_on_bc = saved_fun  
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1
@@ -113,7 +166,7 @@ def test_RotorStatorInterface(tmp_path, interface_type):
     params = get_compressor_example_parameters(tmp_path)
     params['BoundaryConditions'] = [
         dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
-        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', Pressure=1e5),
+        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', PressureAtHub=1e5),
         dict(Family='HUB', Type='WallInviscid'),
         dict(Family='SHROUD', Type='WallInviscid'),
         dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', Type=interface_type)

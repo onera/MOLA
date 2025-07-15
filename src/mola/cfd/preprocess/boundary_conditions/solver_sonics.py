@@ -17,8 +17,12 @@
 
 from treelab import cgns
 
-from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.boundary_conditions.boundary_conditions import get_turbulent_primitives, get_bc_nodes_from_family
+from mola.logging import mola_logger, MolaException, MolaUserError
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import (
+    get_turbulent_primitives, 
+    get_fluxcoeff_on_bc, 
+    OutflowRadialEquilibrium_interface,
+)
 from mola.cfd.preprocess.motion.solver_sonics import translate_motion_to_sonics
 
 
@@ -33,6 +37,13 @@ def function_generator(bc_type):
     if bc_type.startswith('GC'):
         def set_gc(workflow, **kwargs):
             import miles
+
+            ### Check on MPI size, until mixing plane is made available for NumberOfProcessors>1
+            from mpi4py import MPI
+            size = MPI.COMM_WORLD.Get_size()
+            if bc_type == 'GCMixingPlane' and size>1:
+                raise MolaException('For now, MixingPlane in SoNICS is available only for a simulation on one MPI rank.')
+            ### End of MPI check
 
             Family = kwargs.pop('Family')
             LinkedFamily = kwargs.pop('LinkedFamily')
@@ -150,112 +161,78 @@ def BCOutflowSubsonic_interface(workflow, **kwargs):
 
 def BCOutflowRadialEquilibrium_interface(workflow, **kwargs):
 
+    if 'PressureAtHub' in kwargs:
+        Pressure = kwargs.get('PressureAtHub')
+        PivotPercenthH = 0.
+    elif 'PressureAtShroud' in kwargs:
+        Pressure = kwargs.get('PressureAtShroud')
+        PivotPercenthH = 1.
+    elif 'PressureAtSpecifiedHeight' in kwargs:
+        Pressure = kwargs.get('PressureAtSpecifiedHeight')
+        PivotPercenthH = kwargs.get('Height')
+        if PivotPercenthH is None:
+            raise MolaUserError((
+                'Height must be provided if PressureAtSpecifiedHeight is given. '
+                'Otherwise, consider giving directly PressureAtHub or PressureAtShroud.'
+            ))
+    else:
+        # a valve law is used, but default parameters must still be provided anyway
+        Pressure = kwargs.get('PressureAtSpecifiedHeight', workflow.Flow['Pressure'])
+        PivotPercenthH = kwargs.get('Height', 0.)
+
     parameters = dict(
-        Pressure = kwargs.get('Pressure', workflow.Flow['Pressure']),
-        PivotPercenthH = kwargs.get('PivotPercenthH', 0.),
+        Pressure = Pressure,
+        PivotPercenthH = PivotPercenthH,
         )
 
     return parameters
 
 def valve_law_interface(workflow, **kwargs):
 
-    AVAILABLE_VALVE_LAWS = {1: 'BCValveLawSlopePsQ', 2: 'BCValveLawQTarget', 4: 'BCValveLawQHyperbolic'}
+    # Default values, will be updated below depending on the valve law
+    valve_ref_pres = workflow.Flow['Pressure']
+    valve_ref_mflow = workflow.Flow['MassFlow']
+    valve_relax = 0.1
+    valve_period = kwargs.get('valve_period', 10)
 
-    valve_type = kwargs['valve_type']
-    if isinstance(valve_type, int):
-        valve_type = AVAILABLE_VALVE_LAWS[valve_type]
-    else:
-        assert valve_type in AVAILABLE_VALVE_LAWS.values()
-
-    def _get_default_valve_ref_mflow():
-        bcs = get_bc_nodes_from_family(workflow.tree, kwargs['Family'])
-        bc = bcs[0]
-        zone = bc.getParent(Type='Zone_t')
-        row = zone.get(Type='FamilyName').value()
-        try:
-            rowParams = workflow.ApplicationContext['Rows'][row]
-        except:
-            raise MolaException('Worklow must have an attribute ApplicationContext with a dict named "Rows" inside.')
-        fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
-        try:
-            valve_ref_mflow = workflow.Flow['MassFlow'] / fluxcoeff
-        except:
-            raise MolaException('Miss MassFlow in Flow attribute')
+    ValveLaw = kwargs.get('ValveLaw')
+    if 'MassFlow' in kwargs:
+        valve_type = 'BCValveLawQTarget'
+        fluxcoeff = get_fluxcoeff_on_bc(workflow, kwargs['Family'])
+        valve_ref_mflow = kwargs['MassFlow'] / fluxcoeff
         
-        return valve_ref_mflow
+    elif ValveLaw['Type'] == 'Linear':
+        valve_type = 'BCValveLawSlopePsQ'
+        fluxcoeff = get_fluxcoeff_on_bc(workflow, kwargs['Family'])
+        valve_ref_pres = ValveLaw['PressureRef']
+        valve_ref_mflow = ValveLaw['MassFlowRef'] / fluxcoeff
+        valve_relax = ValveLaw['RelaxationCoefficient']
 
-    valve_ref_mflow = kwargs.get('valve_ref_mflow')
-    if not valve_ref_mflow:
-        valve_ref_mflow = kwargs.get('MassFlow', _get_default_valve_ref_mflow())
+    elif ValveLaw['Type'] == 'Quadratic':
+        valve_type = 'BCValveLawQHyperbolic'
+        fluxcoeff = get_fluxcoeff_on_bc(workflow, kwargs['Family'])
+        valve_ref_pres = ValveLaw['PressureRef']
+        valve_ref_mflow = ValveLaw['MassFlowRef'] / fluxcoeff
+        valve_relax = ValveLaw['ValveCoefficient'] * workflow.Flow['PressureStagnation']
+
+    else:
+        raise MolaUserError(f"Valve law {ValveLaw['Type']} is not available with SoNICS. Available laws are 'Linear' and 'Quadratic'.")
 
     parameters = dict(
         valve_type = valve_type, 
-        valve_ref_pres = kwargs.get('valve_ref_pres', workflow.Flow['Pressure']),
+        valve_ref_pres = valve_ref_pres,
         valve_ref_mflow = valve_ref_mflow, 
-        valve_relax = kwargs.get('valve_relax', 0.1),
-        valve_period = kwargs.get('valve_period', 10),
-    )
+        valve_relax = valve_relax,
+        valve_period = valve_period,
+        )
 
     return parameters
 
 def get_valve_law_trigger(workflow, config, bc, hardware_target='cpu'):
     from sonics.toolkit.triggers import valve_law_trigger as VLT
 
+    OutflowRadialEquilibrium_interface(workflow, bc)
     valve_params = valve_law_interface(workflow, **bc)
-
-    #########################################################################################################
-    # HACK MONKEY PATCHING. Solved in MR https://gitlab.onera.net/numerics/solver/sonics/-/merge_requests/253
-    from sonics.toolkit.triggers.valve_law_trigger import DataFactory, guards
-    def fextracts(self, conf, solver, topology):
-        treg = solver.terms
-        df = DataFactory(solver, topology)
-        elt_location  = treg.cell if guards.cell_center in self.conf else treg.vertex
-        dual_location = treg.face if guards.cell_center in self.conf else treg.edge
-        bc_location   = treg.face if guards.cell_center in self.conf else treg.dual_facet
-
-        extracts = []
-        extracts += df.create_zones(treg.dummy(treg.conservatives(treg.full)), elt_location) # ADDED LINE FOR CORRECTION
-        extracts += df.create_families(treg.conv_flux(treg.Density), treg.face, family_type=treg.family_value, predicate=lambda n,v : v['name'] == self.family)
-        return extracts
-    
-    import numpy as np
-    from sonics.toolkit.triggers.valve_law_trigger import SCE, SDB, CGL, utils, ComputeAndExtractDataInGraphTrigger
-    def pre(self):
-        ComputeAndExtractDataInGraphTrigger.pre(self)
-
-        args = SCE.extract_term_to_key(self.sonics,
-                                    self.initial_part_trees,
-                                    self.all_extracts,
-                                    setup_solution_name=lambda z : self.setup_solution_name(z, self._iteration))
-
-        for arg in args:
-            name, array, node_path, pid, value, label, gid, location, dtype, memalloc = arg
-            dtype = utils.term2dtype[str(dtype)]
-            key   = node_path+"/"+name+"/"+str(value)
-            # print(" ooooooooo ", node_path+"/"+name, node_path, array, pid, value, label, gid, location, dtype, memalloc)
-            
-            if(label != CGL.Family_t): # ADDED LINE FOR CORRECTION
-                continue               # ADDED LINE FOR CORRECTION
-
-            assert(key not in self.mf_history)
-            self.mf_history  [key] = np.empty( self.array_size, order='F', dtype=dtype)
-            self.mf_arrays   [key] = array
-            self.mf_data_info[key] = (node_path, name, value, pid, label)
-            self.iter_history[key] = np.empty( self.array_size, order='F', dtype=dtype)
-
-        ### self.keys = self.__get_parameter(self.var_name, CGL.BC_t, self.family) # can be useful for valve law with outpres BC
-        self.keys = self._ValveLawRadialEquilibrium__get_parameter_family(self.var_name, CGL.Family_t, self.family)
-        # --- len(self.keys) = 1 for concerned core, 0 otherwise
-        for key in self.keys:
-            self.ps_history[key] = np.empty( self.array_size, order='F', dtype=dtype)
-            md_array = SDB.at(self.sonics.db.buffers,key)
-            self.ps_arrays[key] = np.asarray(md_array)
-
-    VLT.ValveLawRadialEquilibrium.fextracts = fextracts
-    VLT.ValveLawRadialEquilibrium.pre = pre
-
-    # END OF MONKEY PATCHING
-    #########################################################################################################
 
     valve_law_trigger = VLT.ValveLawRadialEquilibrium(
         config, 

@@ -59,7 +59,8 @@ def get_compressor_example_parameters(RunDirectory):
     BoundaryConditions = [
         dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
         # dict(Family='Stator_OUTFLOW', Type='OutflowPressure', Pressure=110e3), #98500.),
-        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', valve_type=4, valve_ref_pres=0.75*101325, valve_relax=0.1*101325),
+        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
+             ValveLaw=dict(Type='Quadratic', ValveCoefficient=0.1)),
         dict(Family='HUB', Type='WallInviscid'),
         dict(Family='SHROUD', Type='WallInviscid'),
         dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', Type='MixingPlane')
