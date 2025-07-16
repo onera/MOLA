@@ -85,7 +85,7 @@ def add_reference_state(workflow):
         base.setParameters('ReferenceState', ContainerType='ReferenceState', **ReferenceState)
 
 def initialize_flow_with_reference_state(workflow, FlowSolution_name):
-    mola_logger.info('Initialize FlowSolution with uniform reference values',rank=0)
+    mola_logger.info(' - initialize flow with uniform reference values',rank=0)
     workflow.tree.findAndRemoveNodes(Name=FlowSolution_name)
     workflow.tree.newFields(workflow.Flow['ReferenceState'], Container=FlowSolution_name, GridLocation='CellCenter')
 
