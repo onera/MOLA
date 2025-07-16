@@ -44,7 +44,7 @@ def initialize_flow_with_turbo(workflow, FlowSolution_name):
         Rows in TurboConfiguration must be list in the downstream order.
 
     '''
-    mola_logger.info('Initialize FlowSolution with turbo', rank=0)
+    mola_logger.info(' - initialize flow with turbo', rank=0)
     
     if workflow.Name != 'WorkflowTurbomachinery' or workflow.Solver != 'elsa':
         raise MolaException('Initialization with turbo is available only with WorkflowTurbomachinery and for elsA solver.')
