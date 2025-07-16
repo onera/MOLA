@@ -90,8 +90,10 @@ def get_renamed_tree(zones, basename, CellDimension=3, PhysicalDimension=3):
         # The name of the parent zone is kept in a temporary node .parentZone, 
         # that will be removed before saving
         # There might be a \ in zone name if it is a result of C.ExtractBCOfType
-        zoneName = zone.name().split('\\')[0]
-        cgns.Node(Name='.parentZone', Type='UserDefinedData_t', Value=zoneName, Parent=zone)
+        split_names = zone.name().split('\\')
+        cgns.Node(Name='.parentZone', Type='Descriptor_t', Value=split_names[0], Parent=zone)
+        if len(split_names) > 1:
+            cgns.Node(Name='.originalBC', Type='Descriptor_t', Value=split_names[1], Parent=zone)
         # Rename zones like the base
         zone.setName(f'{basename}_R{rank}N{i}')
         base.addChild(zone)
@@ -118,7 +120,7 @@ def get_renamed_tree_maia(zones, basename, CellDimension=3, PhysicalDimension=3)
         # There might be a \ in zone name if it is a result of C.ExtractBCOfType
         zoneName = zone.name()
         suffix = get_maia_suffix(zoneName)
-        cgns.Node(Name='.parentZone', Type='UserDefinedData_t', Value=zoneName, Parent=zone)
+        cgns.Node(Name='.parentZone', Type='Descriptor_t', Value=zoneName, Parent=zone)
         # Rename zones like the base
         zone.setName(f'{basename}{suffix}')
         base.addChild(zone)
@@ -180,7 +182,7 @@ def restore_families(surfaces, skeleton):
                 if fam: 
                     families_in_base.append(fam.value())
 
-            parentZone_node.remove()
+            # parentZone_node.remove()
             
         for family in family_nodes:
             if family.name() in families_in_base:

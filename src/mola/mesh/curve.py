@@ -22,7 +22,7 @@ Creation by recycling Wireframe.py of v1.18.1
 
 from mola.pytree import InternalShortcuts as J
 from mola.math_tools import interpolate__
-from mola.cfd.postprocess.interpolation.interpolation import migrateFields
+from mola.cfd.postprocess.interpolation import migrateFields
 
 import sys
 import os

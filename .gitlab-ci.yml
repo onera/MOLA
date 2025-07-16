@@ -183,7 +183,7 @@ compile_doc:
   script: 
     - cd doc
     - make install_theme
-    - export PYTHONPATH=./theme:$PYTHONPATH
+    - export PYTHONPATH="$(pwd)/theme":$PYTHONPATH
     - make doc
   artifacts:   
     paths:

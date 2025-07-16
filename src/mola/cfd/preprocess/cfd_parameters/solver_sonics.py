@@ -143,6 +143,7 @@ def get_sonics_config(workflow):
         my_config.update("motion/fixed")
     else:
         my_config.update("motion/mobile")
+        
     my_config.update(
         *fluid_features,
         *turb_features,

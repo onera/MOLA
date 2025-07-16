@@ -21,7 +21,7 @@ from treelab import cgns
 
 from mola.dependency_injector.retriever import load_source
 from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null
-from mola.cfd.postprocess.interpolation.interpolation import migrateFields
+from mola.cfd.postprocess.interpolation import migrateFields
 
 def apply(workflow, selected_boundaries_conditions=None):
     '''
@@ -55,6 +55,9 @@ def apply(workflow, selected_boundaries_conditions=None):
         bc_type = bc.pop('Type')
         if bc_type == 'InterfaceBetweenWorkflows':
             continue
+
+        if bc_type == 'OutflowRadialEquilibrium':
+            OutflowRadialEquilibrium_interface(workflow, bc)
 
         if 'LinkedFamily' in bc:
             mola_logger.info(f'  > {bc_type} between families {bc["Family"]} and {bc["LinkedFamily"]}', rank=0)
@@ -177,36 +180,46 @@ def get_bc_nodes_from_family(t, Family):
             bcs.append(bc)
     return bcs
 
-def get_fields_from_file(t, FamilyName, filename, var2interp, fileformat=None):
+def get_fields_from_file(t, FamilyName, filename, var2interp):
 
-    # TODO This function is not working yet. The function migrateFields must be replaced.
-
-    import Converter.PyTree as C
-    import Converter.Internal as I
+    def _get_original_bc_node(t, w):
+        zname = w.get(Name='.parentZone').value()
+        bcname = w.get(Name='.originalBC').value()            
+        znode = t.get(Name=zname, Type='Zone')
+        bcnode = znode.get(Name=bcname, Type='BC')
+        return bcnode
  
     input_data_from_file = dict()
-    donor_tree = C.convertFile2PyTree(filename, format=fileformat)
-    inlet_BC_nodes = C.extractBCOfName(t, f'FamilySpecified:{FamilyName}', reorder=False)
+    donor_tree = cgns.load(filename)
 
-    I._adaptZoneNamesForSlash(inlet_BC_nodes)
-    I._rmNodesByType(inlet_BC_nodes,'FlowSolution_t')
-    migrateFields(donor_tree, inlet_BC_nodes)  # THIS LINE MUST BE REPLACED
+    from mola.cfd.postprocess import extract_bc
+    inlet_BC_nodes = extract_bc(t, Family=FamilyName)
 
-    for w in inlet_BC_nodes:
-        bcLongName = I.getName(w)  # from C.extractBCOfName: <zone>\<bc>
-        zname, wname = bcLongName.split('\\')
-        znode = I.getNodeFromNameAndType(t, zname, 'Zone_t')
-        bcnode = I.getNodeFromNameAndType(znode, wname, 'BC_t')
+    inlet_BC_nodes.findAndRemoveNodes(Type='FlowSolution')
+    inlet_BC_nodes.findAndRemoveNodes(Type='*FamilyName')
+    donor_tree.findAndRemoveNodes(Type='*FamilyName')
+
+    migrateFields(donor_tree, inlet_BC_nodes)  
+    inlet_BC_nodes = cgns.castNode(inlet_BC_nodes)
+
+    for w in inlet_BC_nodes.zones():
+
         ImposedVariables = dict()
         for var in var2interp:
-            FS = I.getNodeFromName(w, I.__FlowSolutionCenters__)
-            varNode = I.getNodeFromName(FS, var) 
-            if varNode:
-                ImposedVariables[var] = np.asfortranarray(I.getValue(varNode))
-            else:
-                raise TypeError('variable {} not found in {}'.format(var, filename))
-        
-        input_data_from_file[bcnode] = ImposedVariables
+            # search data in every FlowSolution at CellCenter
+            for FS in w.group(Type='FlowSolution'):
+                GridLocation_node = FS.get(Name='GridLocation', Depth=1)
+                if not GridLocation_node or GridLocation_node.value() != 'CellCenter':
+                    continue
+                varNode = FS.get(Name=var, Type='DataArray', Depth=1)
+                if varNode:
+                    ImposedVariables[var] = np.asfortranarray(varNode.value())
+                    break
+            if not var in ImposedVariables:
+                raise TypeError(f'variable {var} not found in {filename}')
+            
+        bcnode = _get_original_bc_node(t, w)
+        input_data_from_file[bcnode.path()] = ImposedVariables
     
     return input_data_from_file
 
@@ -317,41 +330,41 @@ def _instantiate_bc_dispatcher(workflow):
 
     return workflow._bc_dispatcher
 
+def get_fluxcoeff_on_bc(workflow, Family):
+    bcs = get_bc_nodes_from_family(workflow.tree, Family)
+    try:
+        bc = bcs[0]
+    except IndexError:
+        raise MolaException(f'Cannot find a BC associated to Family {Family}')
+    zone = bc.getParent(Type='Zone_t')
+    row = zone.get(Type='FamilyName').value()
+    try:
+        rowParams = workflow.ApplicationContext['Rows'][row]
+    except:
+        raise MolaException('Worklow must have an attribute ApplicationContext with a dict named "Rows" inside.')
+    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+            
+    return fluxcoeff
+
 def OutflowRadialEquilibrium_interface(workflow, bcparams):
-    ### EXAMPLES
-    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
-    #         PressureAtHub=...,
-    #         # Or 
-    #         PressureAtSpecifiedLocation=...,
-    #         Location=...,
-    #         ),
-    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
-    #         MassFlow=...,
-    #         ),
-    # dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', 
-    #         ValveLaw=dict(
-    #             Type='Quadratic',
-    #             ValveCoefficient=0.8, # to be multiplied by Pt latter, to be homogeneous to a pressure
-    #         )
-    #         ),
     
     # Check minimal information is given
-    possible_arguments = ['PressureAtHub', 'PressureAtSpecifiedLocation', 'MassFlow', 'ValveLaw']
+    possible_arguments = ['PressureAtHub', 'PressureAtShroud', 'PressureAtSpecifiedHeight', 'MassFlow', 'ValveLaw']
     if sum(1 for arg in possible_arguments if arg in bcparams) != 1:
         raise MolaUserError((
             'For BC of Type "OutflowRadialEquilibrium", exactly one of the following '
             f'arguments must be provided: {possible_arguments}'
         ))
 
-    # Check that both PressureAtSpecifiedLocation and Location are specified together
-    if 'PressureAtSpecifiedLocation' in bcparams and not 'Location' in bcparams:
+    # Check that both PressureAtSpecifiedHeight and Height are specified together
+    if 'PressureAtSpecifiedHeight' in bcparams and not 'Height' in bcparams:
         raise MolaUserError((
-            'For BC of Type "OutflowRadialEquilibrium", if "PressureAtSpecifiedLocation", '
-            'then "Location" must also be specified.'
+            'For BC of Type "OutflowRadialEquilibrium", if "PressureAtSpecifiedHeight", '
+            'then "Height" must also be specified.'
         ))
     
     if 'ValveLaw' in bcparams:
-        possible_valve_types = ['Linear', 'Quadaratic']
+        possible_valve_types = ['Linear', 'Quadratic']
         if not isinstance(bcparams['ValveLaw'], dict):
             raise MolaUserError('For BC of Type "OutflowRadialEquilibrium", parameter ValveLaw must be a dict')
         if not 'Type' in bcparams['ValveLaw'] or bcparams['ValveLaw']['Type'] not in possible_valve_types:
@@ -372,6 +385,4 @@ def OutflowRadialEquilibrium_interface(workflow, bcparams):
                     'For BC of Type "OutflowRadialEquilibrium" with ValveLaw of '
                     f'Type={bcparams["ValveLaw"]["Type"]}, parameter ValveCoefficient must be defined and must be a float.'
                 ))
-
-            bcparams['ValveLaw'].setdefault('RelaxationCoefficient', 0.1)
 
