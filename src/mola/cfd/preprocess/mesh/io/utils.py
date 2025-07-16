@@ -29,7 +29,7 @@ def is_using_mpi():
 
 def get_io_tool(w, src):
     using_mpi = is_using_mpi()
-    is_cgns = src.endswith('.cgns') or src.endswith('.hdf')
+    is_cgns = src.endswith('.cgns') or src.endswith('.hdf') or src.endswith('.hdf5')
 
     if not using_mpi:
         io_tool = 'treelab' if is_cgns else 'cassiopee'

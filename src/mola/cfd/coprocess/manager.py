@@ -213,7 +213,9 @@ class CoprocessManager():
     def save(self, data, filename):
         self.mola_logger.info(f'{CYAN}saving {filename}...{ENDC}', rank=0)
 
-        if not any([filename.endswith('.cgns'), filename.endswith('.hdf'), filename.endswith('.hdf5')]):
+        is_cgns = filename.endswith('.cgns') or filename.endswith('.hdf') or filename.endswith('.hdf5')
+
+        if not is_cgns:
             # we suppose it is a format supported by cassiopee, and requires merging containers
             import Converter.Internal as I
             data = mergeContainers(data, FlowSolutionVertexName=I.__FlowSolutionNodes__,
@@ -222,8 +224,11 @@ class CoprocessManager():
 
             io_tool = 'cassiopee'
 
+        elif is_cgns and data.get(Name=':CGNS#Ppart', Depth=3):
+            io_tool = 'pypart'
+
         elif self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
-            io_tool = 'cassiopee_mpi' # BEWARE this avoids writing with pypart ?
+            io_tool = 'cassiopee_mpi' 
         
         else:
             io_tool = None
