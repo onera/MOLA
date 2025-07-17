@@ -45,9 +45,6 @@ def apply(workflow, selected_boundaries_conditions=None):
     # Deep copy to prevent modification on the Workflow attribute BoundaryConditions
     selected_boundaries_conditions = copy.deepcopy(selected_boundaries_conditions)
 
-    if len(selected_boundaries_conditions) != 0:
-        mola_logger.info(f'Set boundary conditions:', rank=0)
-
     for bc in selected_boundaries_conditions:
 
         _check_family_exists(workflow.tree, bc['Family'])

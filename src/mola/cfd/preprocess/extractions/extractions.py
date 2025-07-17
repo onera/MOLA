@@ -20,7 +20,9 @@ from fnmatch import fnmatch
 from pprint import pformat as pretty
 from mola.cfd import apply_to_solver
 from mola.cfd.postprocess.signals import AVAILABLE_OPERATIONS_ON_SIGNALS
+from mola.logging import mola_logger
 from mola.logging.exceptions import MolaUserError, MolaException
+from mola.naming_conventions import FILE_INPUT_SOLVER
 
 def apply(workflow):
 
@@ -31,7 +33,8 @@ def apply(workflow):
     split_bc_and_integral_extractions_by_family(workflow)
     update_extractions_from_convergence_criteria(workflow)
     apply_to_solver(workflow)
-    
+    print_extractions(workflow.Extractions)
+
 def add_residuals_extraction(workflow):
     if not any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
         workflow._interface.add_to_Extractions_Residuals()
@@ -253,3 +256,46 @@ def _split_operations_on_variable(var: str, prefixes=None) -> tuple:
     if prefixes and prefixes[-1] == '-':
         prefixes = prefixes[:-1]
     return prefixes, var
+
+def print_extractions(Extractions: list):
+
+    def sort_by_file_and_type(Extractions):
+        extraction_files = dict()
+        for ext in Extractions:
+            if ext['File'] not in extraction_files:
+                extraction_files[ext['File']] = [ext]
+            else:
+                extraction_files[ext['File']].append(ext)
+        
+        for filename in extraction_files:
+            extraction_files[filename] = sorted(extraction_files[filename], key=lambda e: e['Type'])
+
+        return extraction_files
+    
+    for filename, extractions in sort_by_file_and_type(Extractions).items():
+        if filename == FILE_INPUT_SOLVER:
+            continue
+        mola_logger.info(f'  To write in {filename}:', rank=0)
+        for ext in extractions:
+            msg = False
+            try:
+                fields = ', '.join(ext['Fields'])
+            except:
+                fields = 'no fields'
+            if ext['Type'] == 'Restart':
+                continue
+            elif ext['Type'] in ['Residuals', 'TimeMonitoring', 'MemoryUsage']:
+                msg = f"    - {ext['Type']}"
+            elif ext['Type'] in ['3D', 'Interpolation']:
+                msg = f"    - {ext['Type']} extraction at {ext['GridLocation']} in {ext['Frame']} Frame for {fields} "
+            elif ext['Type'] == 'Probe':
+                msg = f"    - Probe {ext['Name']} at {ext['Position']} for {fields}"
+            elif ext['Type'] == 'Integral':
+                msg = f"    - {fields} on {ext['Source']}"
+            elif ext['Type'] == 'IsoSurface':
+                msg = f"    - {ext['Name']} with {fields}"
+            elif ext['Type'] == 'BC':
+                msg = f"    - BC {ext['Source']} with {fields}"
+        
+            if msg: mola_logger.info(msg, rank=0)
+    

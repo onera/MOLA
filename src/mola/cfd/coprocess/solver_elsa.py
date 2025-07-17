@@ -18,8 +18,6 @@
 import os
 import glob
 import shutil
-from fnmatch import fnmatch
-import warnings
 import numpy as np
 
 from treelab import cgns

@@ -33,10 +33,7 @@ nb_digit = int(np.ceil(np.log10(size+1)))
 def write(w, tree, dst, io_tool=None):
 
     if io_tool is None:
-        if tree.get(Name=':CGNS#Ppart', Depth=3):
-            io_tool = 'pypart'
-        else:
-            io_tool = get_io_tool(w, dst)
+        io_tool = get_io_tool(w, dst)
 
     write_with_selected_tool = dict(
         treelab = write_with_treelab,

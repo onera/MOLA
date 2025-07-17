@@ -68,12 +68,12 @@ def apply_with_cassiopee(workflow):
         _check_connections(component['Connection'])
         I._adaptPE2NFace(base)  # For NGon mesh, generate NGonFace nodes if they don't exist using ParentElements n
 
-        mola_logger.info(f'Connections for base {base_name}:', rank=0)
+        mola_logger.info(f'   - connections for base {base_name}:', rank=0)
 
         for operation in component['Connection']:
             # if mpi_size > 1: raise MolaException('unable to connect mesh using MPI parallel mode and Cassiopee')
             ConnectionType = operation['Type']
-            mola_logger.info(f'  > connecting type {ConnectionType}', rank=0)
+            mola_logger.info(f'    > connecting type {ConnectionType}', rank=0)
             try: 
                 tolerance = operation['Tolerance']
             except KeyError:
@@ -140,7 +140,7 @@ def apply_with_maia(workflow):
     component = workflow.RawMeshComponents[0] # CAVEAT this prevents from connecting multiple raw mesh components using maia
     for operation in component['Connection']:
         ConnectionType = operation['Type']
-        mola_logger.info(f'  > connecting type {ConnectionType}', rank=0)
+        mola_logger.info(f'    > connecting type {ConnectionType}', rank=0)
             
         if ConnectionType == 'PeriodicMatch':
             rotation_center = operation.get('RotationCenter', [0., 0., 0.])

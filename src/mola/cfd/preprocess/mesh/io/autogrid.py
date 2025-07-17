@@ -17,6 +17,7 @@
 
 import numpy as np
 from typing import Union
+from fnmatch import fnmatch
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
 from ..families import join_families
@@ -57,11 +58,14 @@ AUTOGRID_SPECIAL_BASES = ['Numeca*', 'meridional_base', 'tools_base']
 
 def reader(w, component):
 
-    mola_logger.info(f'Read component {component["Name"]} with Autogrid reader')
+    mola_logger.info(f'   - read component {component["Name"]} with Autogrid reader')
     
     # TODO These parameters should be managed by an interface
     #################################################################################
-    component.setdefault('CleaningMacro', 'Autogrid_joinBC') 
+    if w.Name == 'WorkflowPropeller':
+        component.setdefault('CleaningMacro', 'Autogrid_Propeller') 
+    else:
+        component.setdefault('CleaningMacro', 'Autogrid_joinBC') 
 
     # Defaults for Connection
     component.setdefault('Connection', [])
@@ -84,6 +88,21 @@ def reader(w, component):
     
     mesh = read(w, component['Source'])
 
+    blade_numbers = get_blade_number_from_mesh(mesh)
+
+    # Apply a cleaning macro
+    if component['CleaningMacro'] == 'Autogrid':
+        # TODO handle families inlet_bulb* and outlet_bulb*, and merge them with other families
+        apply_cleaning_macro_autogrid(mesh)
+    elif component['CleaningMacro'] == 'Autogrid_joinBC':
+        apply_cleaning_macro_autogrid(mesh)
+        join_families(mesh, 'HUB')
+        join_families(mesh, 'SHROUD')
+    elif component['CleaningMacro'] == 'Autogrid_Propeller':
+        apply_cleaning_macro_autogrid_propeller(mesh)
+
+
+    # Check GridConnectivity nodes
     if need_to_add_gc(mesh):
         # There is no GC in the mesh --> add them automatically
         component['Connection'].append(dict(Type='Match', Tolerance=component['DefaultToleranceForConnection']))
@@ -93,18 +112,16 @@ def reader(w, component):
         # update_Connection_from_mesh(mesh, w.Solver, component, w.ApplicationContext.get('ShaftAxis'))
         if w.Solver == 'sonics':
             raise MolaException('Periodic BCs must be already defined in the input mesh for sonics.')
-        periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(mesh, component['DefaultToleranceForConnection'], w.ApplicationContext.get('ShaftAxis'))
+        periodic_connections = get_periodic_match_from_Autogrid_BladeNumber(
+            mesh, 
+            Tolerance=component['DefaultToleranceForConnection'], 
+            blade_numbers=blade_numbers,
+            axis=w.ApplicationContext.get('ShaftAxis'),
+            )
         component['Connection'] += periodic_connections
     else:
         remove_periodic_families_and_bc_but_keep_gc(mesh)    
 
-    if component['CleaningMacro'] == 'Autogrid':
-        # TODO handle families inlet_bulb* and outlet_bulb*, and merge them with other families
-        apply_cleaning_macro_autogrid(mesh)
-    elif component['CleaningMacro'] == 'Autogrid_joinBC':
-        apply_cleaning_macro_autogrid(mesh)
-        join_families(mesh, 'HUB')
-        join_families(mesh, 'SHROUD')
 
     nb_of_bases = len(mesh.bases())
     if nb_of_bases != 1:
@@ -118,12 +135,140 @@ def reader(w, component):
 
     return base
             
-def apply_cleaning_macro_autogrid(mesh):
+def apply_cleaning_macro_autogrid(mesh: cgns.Tree):
     clean_autogrid_log_bases(mesh)
     clean_family_properties(mesh)
     remove_gc_abutting(mesh)
 
     shorten_zones_names(mesh)
+
+def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
+
+    apply_cleaning_macro_autogrid(mesh)
+
+    #TODO put that function in treelab as a method of Tree and Base
+    def rename_family(mesh: cgns.Tree, current_fam_name: str, new_fam_name: str):
+        '''
+        Rename a Family in the tree, or all families which match a given pattern. 
+
+        Parameters
+        ----------
+        mesh : cgns.Tree
+            
+        current_fam_name : str
+            name of the family to modify, or pattern to modify. Can begin or/and end with '*', 
+            but cannot contain a '*' in the middle of the string.
+
+        new_fam_name : str
+            new name, without wildcards
+
+        '''
+        def update_new_fam_name(name, pattern, replacement):
+            if '*' not in pattern:
+                return replacement
+            
+            elif pattern.startswith('*') and pattern.endswith('*'):
+                search_term = pattern[1:-1]
+                new_name = name.replace(search_term, replacement)
+                return new_name
+
+            elif pattern.endswith('*'):
+                search_term = pattern[:-1]
+                new_name = replacement + name[len(search_term):]
+                return new_name
+    
+            elif pattern.startswith('*'):
+                search_term = pattern[1:]
+                new_name = name[:-len(search_term)] + replacement
+                return new_name
+
+            else:
+                raise ValueError(f"The pattern ({pattern}) cannot contain a '*' in the middle of it")
+        
+
+        if len(current_fam_name) > 2 and '*' in current_fam_name[1:-1]:
+            raise MolaException(f"current_fam_name ({current_fam_name}) cannot contain wildcards '*' in the middle of the string.")
+
+        for family_node in mesh.group(Type='Family', Depth=2):
+            family = family_node.name()
+            if fnmatch(family, current_fam_name):
+
+                updated_new_fam_name = update_new_fam_name(family, current_fam_name, new_fam_name)
+                mola_logger.debug(f'Renaming Family {family} to {updated_new_fam_name}')
+
+                # change Family Name
+                if not mesh.get(Type='Family', Name=updated_new_fam_name, Depth=2):
+                    family_node.setName(updated_new_fam_name)  
+                else:
+                    family_node.remove()  # already a Family with the same name 
+
+                # Change also the value of all nodes FamilyName_t or AdditionalFamilyName_t related to that Family                
+                for node in mesh.group(Type='*FamilyName', Value=family):
+                    node.setValue(updated_new_fam_name)
+
+        return mesh
+    
+
+    def get_unique_zone_family_name(mesh: cgns.Tree):
+        zone_families = []
+        for family_node in mesh.group(Type='Family', Depth=2):
+            family = family_node.name()
+            for zone in mesh.zones():
+                if zone.get(Type='*FamilyName', Value=family, Depth=1):
+                    zone_families.append(family)
+                    break
+
+        if len(zone_families) > 1:
+            raise MolaException(
+                f'More than one Family of Zones found in mesh: {zone_families}. '
+                'It is uncompatible with WorkflowPropeller.'
+                )
+        
+        elif len(zone_families) == 0:
+            raise MolaException('No Family of Zones found in mesh.')
+
+        return zone_families[0]
+
+    # Mandatory name "Propeller" for WorkflowPropeller
+    zone_family_name = get_unique_zone_family_name(mesh)
+    mesh = rename_family(mesh, f'*{zone_family_name}*', 'Propeller')
+
+    # rename blade family
+    guess_names_for_blade_family = [
+        'Propeller_Propeller', 'Propeller_Blade', 'Propeller_BLADE', 'Propeller_Main_Blade', 'Propeller_MAIN_BLADE',
+        'Propeller_far_field_SOLID_1'  # this is the blade tip
+        ]
+    for fam in guess_names_for_blade_family:
+        if mesh.get(Type='Family', Name=fam, Depth=2) is not None:
+            mesh = rename_family(mesh, fam, 'BLADE')
+
+    # For convenience
+    mesh = rename_family(mesh, 'FAR_FIELD', 'FARFIELD')
+    join_families(mesh, 'HUB')
+    mesh = rename_family(mesh, '*HUB*', 'SPINNER')
+
+    # For butterfly mesh, Autogrid uses default family names
+    mesh = rename_family(mesh, 'inlet_bulb', 'Propeller')
+    mesh = rename_family(mesh, 'outlet_bulb', 'Propeller')
+    # mesh = rename_family(mesh, 'inlet_bulb_HUB', 'SPINNER')
+    # mesh = rename_family(mesh, 'outlet_bulb_HUB', 'SPINNER')
+
+
+    # Remove Family *_SHROUD* and *_far_field_CON_* that were BC at 
+    # the interface of Propeller and Farfield zones
+    for fakeBC in ['*_SHROUD*', '*_far_field_CON*']:
+        mesh.findAndRemoveNodes(Name=fakeBC, Type='Family', Depth=2)
+        for bc in mesh.group(Type='BC'):
+            for node in bc.group(Type='*FamilyName'):
+                family = node.value()
+                if fnmatch(family, fakeBC):
+                    bc.remove()
+                    break
+
+    # Remove GC, they will be recreated by MOLA
+    remove_periodic_families_and_bc_but_keep_gc(mesh)
+    mesh.findAndRemoveNodes(Type='ZoneGridConnectivity')
+
 
 def clean_autogrid_log_bases(t):
     for name in AUTOGRID_SPECIAL_BASES:
@@ -154,17 +299,26 @@ def shorten_zones_names(t):
                     node.setValue(new_name)
     t.setUniqueZoneNames()
 
-def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance, axis=np.array([1,0,0])):
-    base = mesh.bases()[0]
-    Connections = []
-    for family in base.group(Type='Family', Depth=1):
-        node = family.get(Name='BladeNumber')
-        if node is None:
+def get_blade_number_from_mesh(mesh):
+    blade_numbers = dict()
+    for family in mesh.group(Type='Family', Depth=2):
+        try:
+            blade_number = family.get(Name='BladeNumber').value()
+        except:
             continue
-        angle = 360./float(node.value())
 
+        blade_numbers[family.name()] = blade_number
+
+    return blade_numbers
+
+def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance, blade_numbers=None, axis=np.array([1,0,0])):
+    if blade_numbers is None:
+        blade_numbers = get_blade_number_from_mesh(mesh)
+
+    Connections = []
+    for row, blade_number in blade_numbers.items():
+        angle = 360./float(blade_number)
         mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
-        row = family.name()
         Connections.append(
             dict(
                 Type='PeriodicMatch', 
