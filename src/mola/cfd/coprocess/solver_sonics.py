@@ -18,7 +18,6 @@
 import os
 import glob
 import shutil
-from fnmatch import fnmatch
 import numpy as np
 
 import maia

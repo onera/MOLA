@@ -15,13 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import glob
-import shutil
 import re
 import numpy as np
-from fnmatch import fnmatch
-import warnings
 
 from treelab import cgns
 
