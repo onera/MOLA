@@ -15,6 +15,5 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .helpers import make_movie
-from .rotating_components import plot_radial_profiles, RadialProfilesPlotter, unwrap, make_rotate, duplicate_rows
-from .figure import Figure
+from .radial_profiles import plot_radial_profiles, RadialProfilesPlotter
+from .utils import unwrap, make_rotate, duplicate_rows
