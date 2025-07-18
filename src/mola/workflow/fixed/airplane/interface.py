@@ -37,7 +37,6 @@ class WorkflowAirplaneInterface(WorkflowInterface):
                     dict(Type='std', Variable='CD'),
                 ]
             )
-            self.add_to_Extractions_Residuals(Type='Residuals')
 
     def set_ApplicationContext(self, 
         AngleOfAttackDeg : float = 0.0,
