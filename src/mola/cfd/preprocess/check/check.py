@@ -74,7 +74,7 @@ def check_empty_bc(workflow):
 
     # CAUTION BUG https://elsa.onera.fr/issues/12076#note-5
     if workflow.Solver == 'sonics': 
-        mola_logger.warn(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
+        mola_logger.warning(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
         return
     
     I._adaptPE2NFace(t)
@@ -126,7 +126,9 @@ def assert_bc_and_connectivity_coherency(tree):
         errors += I.checkPyTree(tree, level=check_code)
     if errors:
         C.convertPyTree2File(tree, 'debug.cgns')
-        raise MolaException(pprint.pformat(errors))
+        with open('debug.log', 'w') as fi:
+            fi.write(pprint.pformat(errors))
+        raise MolaException('Error in BC or connectivity coherency. See debug.cgns and debug.log (contains the error returned by Cassiopee)') 
 
 
 def _raise_undefined_bc_error_saving_undefined_bc_surfaces(t, rank):

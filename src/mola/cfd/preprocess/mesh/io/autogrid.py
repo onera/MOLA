@@ -229,8 +229,14 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
 
         return zone_families[0]
 
-    # Mandatory name "Propeller" for WorkflowPropeller
-    zone_family_name = get_unique_zone_family_name(mesh)
+    # Family name "Propeller" is mandatory for WorkflowPropeller
+
+    # For butterfly mesh, Autogrid uses default family names
+    mesh = rename_family(mesh, 'inlet_bulb', 'Propeller')
+    mesh = rename_family(mesh, 'outlet_bulb', 'Propeller')
+
+    mesh.findAndRemoveNode(Name='Propeller', Type='Family', Depth=2)  # for next line. This family will be recreated after
+    zone_family_name = get_unique_zone_family_name(mesh)  # at this stage, there must be only one family of zones remaining
     mesh = rename_family(mesh, f'*{zone_family_name}*', 'Propeller')
 
     # rename blade family
@@ -247,16 +253,8 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
     join_families(mesh, 'HUB')
     mesh = rename_family(mesh, '*HUB*', 'SPINNER')
 
-    # For butterfly mesh, Autogrid uses default family names
-    mesh = rename_family(mesh, 'inlet_bulb', 'Propeller')
-    mesh = rename_family(mesh, 'outlet_bulb', 'Propeller')
-    # mesh = rename_family(mesh, 'inlet_bulb_HUB', 'SPINNER')
-    # mesh = rename_family(mesh, 'outlet_bulb_HUB', 'SPINNER')
-
-
-    # Remove Family *_SHROUD* and *_far_field_CON_* that were BC at 
-    # the interface of Propeller and Farfield zones
-    for fakeBC in ['*_SHROUD*', '*_far_field_CON*']:
+    # Remove Families *__CON_* at the interface of Propeller and Farfield zones
+    for fakeBC in ['*_CON_*']:
         mesh.findAndRemoveNodes(Name=fakeBC, Type='Family', Depth=2)
         for bc in mesh.group(Type='BC'):
             for node in bc.group(Type='*FamilyName'):
