@@ -13,6 +13,8 @@ import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, CYAN, GREEN, ENDC
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 def plot_residuals(signals, figname='residuals.png'):
     residuals_zone = signals.get(Name='Residuals', Type='Zone')
@@ -68,7 +70,8 @@ def plot_loads(signals):
 
             # first search for the base quantity
             if fs.get(Name=quantity):
-                loads[quantity] = dict()
+                if quantity not in loads:
+                    loads[quantity] = dict()
                 loads[quantity][extraction] = dict()
                 loads[quantity][extraction]['Iteration'] = fs.get(Name='Iteration').value()
                 loads[quantity][extraction]['current'] = fs.get(Name=quantity).value()
@@ -90,14 +93,26 @@ def plot_loads(signals):
             extractions = sorted(loads[quantity].keys())
 
             plt.figure()
+            legend_elements = []
             for i, extraction in enumerate(extractions):
                 array = loads[quantity][extraction]
-                plt.plot(array['Iteration'], array['current'], '-', color=f'C{i}', label=extraction)
+                current_line, = plt.plot(array['Iteration'], array['current'], '-', color=f'C{i}', label=extraction)
+                legend_elements.append(current_line)
                 if 'avg' in array:
-                    plt.plot(array['Iteration'], array['avg'], '--', color=f'C{i}', label=extraction)
+                    plt.plot(array['Iteration'], array['avg'], '--', color=f'C{i}', label=None)
+            
+            if len(extractions) > 1:
+                # Plot total on all extractions
+                total_line, = plt.plot(array['Iteration'], np.sum([loads[quantity][ext]['current'] for ext in extractions], axis=0), 'k-', label='Total')
+                legend_elements.append(total_line)
+
             plt.xlabel('Iterations')
             plt.ylabel(quantity)
-            plt.legend(loc='best')
+
+            avg_line = Line2D([0], [0], linestyle='--', color='darkgrey', label='avg')
+            legend_elements.append(avg_line)
+            
+            plt.legend(handles=legend_elements, loc='best')
             plt.grid()
             save_figure_if_required(f'{quantity}.png')
 
@@ -112,7 +127,8 @@ def plot_loads(signals):
                 plt.figure()
                 for i, extraction in enumerate(extractions):
                     array = loads[quantity][extraction]
-                    plt.plot(array['Iteration'], array[prefix], '-', color=f'C{i}', label=extraction)
+                    if prefix in array:
+                        plt.plot(array['Iteration'], array[prefix], '-', color=f'C{i}', label=extraction)
                 plt.xlabel('Iterations')
                 plt.ylabel(f'{prefix}-{quantity}')
                 plt.legend(loc='best')

@@ -204,10 +204,7 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
 
                 # Change also the value of all nodes FamilyName_t or AdditionalFamilyName_t related to that Family                
                 for node in mesh.group(Type='*FamilyName', Value=family):
-                    node.setValue(updated_new_fam_name)
-
-        return mesh
-    
+                    node.setValue(updated_new_fam_name)    
 
     def get_unique_zone_family_name(mesh: cgns.Tree):
         zone_families = []
@@ -232,28 +229,32 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
     # Family name "Propeller" is mandatory for WorkflowPropeller
 
     # For butterfly mesh, Autogrid uses default family names
-    mesh = rename_family(mesh, 'inlet_bulb', 'Propeller')
-    mesh = rename_family(mesh, 'outlet_bulb', 'Propeller')
+    rename_family(mesh, 'inlet_bulb', 'Propeller')
+    rename_family(mesh, 'outlet_bulb', 'Propeller')
 
     mesh.findAndRemoveNode(Name='Propeller', Type='Family', Depth=2)  # for next line. This family will be recreated after
     zone_family_name = get_unique_zone_family_name(mesh)  # at this stage, there must be only one family of zones remaining
-    mesh = rename_family(mesh, f'*{zone_family_name}*', 'Propeller')
+    rename_family(mesh, f'*{zone_family_name}*', 'Propeller')
 
     # rename blade family
     guess_names_for_blade_family = [
         'Propeller_Propeller', 'Propeller_Blade', 'Propeller_BLADE', 'Propeller_Main_Blade', 'Propeller_MAIN_BLADE',
-        'Propeller_far_field_SOLID_1'  # this is the blade tip
+        'Propeller_far_field_SOLID_1'  # blade tip
         ]
     for fam in guess_names_for_blade_family:
         if mesh.get(Type='Family', Name=fam, Depth=2) is not None:
-            mesh = rename_family(mesh, fam, 'BLADE')
+            rename_family(mesh, fam, 'BLADE')
+    # Put blade tip in a different family, to let the possibility to user to use WallInscid BC if wanted
+    # FIXME Incompatible with WorkflowPropeller _compute_maximum_blade_radius
+    # rename_family(mesh, 'Propeller_far_field_SOLID_1', 'BLADE_TIP') 
 
     # For convenience
-    mesh = rename_family(mesh, 'FAR_FIELD', 'FARFIELD')
+    rename_family(mesh, 'FAR_FIELD', 'FARFIELD')
     join_families(mesh, 'HUB')
-    mesh = rename_family(mesh, '*HUB*', 'SPINNER')
+    rename_family(mesh, '*HUB*', 'SPINNER')
 
-    # Remove Families *__CON_* at the interface of Propeller and Farfield zones
+    # Remove BC Families *__CON_* at the interface of Propeller and Farfield zones
+    # If the mesh is well defined, these BC are redundant with GC already well defined
     for fakeBC in ['*_CON_*']:
         mesh.findAndRemoveNodes(Name=fakeBC, Type='Family', Depth=2)
         for bc in mesh.group(Type='BC'):

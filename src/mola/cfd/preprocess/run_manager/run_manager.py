@@ -130,6 +130,11 @@ def get_scheduler_and_options(RunManagement):
     except KeyError:
         pass
 
+    # Parameters given by user directly for the job scheduler
+    if 'SchedulerOptions' in RunManagement:
+        for key, value in RunManagement['SchedulerOptions'].items():
+            scheduler_options[key] = value
+
     # possibly want to run locally (e.g. within same slurm node) without
     # submitting new sbatch jobs (and having to wait for them), which is
     # required by test_WorkflowManager_sphere_local when running
