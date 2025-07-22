@@ -44,7 +44,7 @@ def apply(workflow):
 
     workflow.RunManagement['SchedulerOptions'] = set_default(workflow.RunManagement)
 
-def set_default(RunManagement):
+def set_default(RunManagement, check_run_dir=True):
     # CAVEAT: cannot use other contextual information contained in Workflow if 
     # only provides RunManagement in function
     set_default_machine(RunManagement)
@@ -71,7 +71,7 @@ def set_default(RunManagement):
         if RunManagement['RemovePreviousRunDirectory']:
             mola_logger.warning('Remove previous run directory')
             SV.remove_path(path, machine, user, file_only=False)
-        elif SV.is_existing_path(f'{path}/{names.FILE_INPUT_SOLVER}', machine, user):
+        elif check_run_dir and SV.is_existing_path(f'{path}/{names.FILE_INPUT_SOLVER}', machine, user):
             raise MolaException(f"Run Directory {path} already exists")
     
     scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
