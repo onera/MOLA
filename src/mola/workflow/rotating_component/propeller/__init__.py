@@ -1,2 +1,2 @@
 from .workflow import WorkflowPropeller as Workflow
-from .. import WorkflowManager 
+from .manager import WorkflowPropellerManager as WorkflowManager 
