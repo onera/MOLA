@@ -131,6 +131,8 @@ def plot_loads(signals):
                         plt.plot(array['Iteration'], array[prefix], '-', color=f'C{i}', label=extraction)
                 plt.xlabel('Iterations')
                 plt.ylabel(f'{prefix}-{quantity}')
+                if prefix == 'rsd':
+                    plt.yscale('log')
                 plt.legend(loc='best')
                 plt.grid()
                 save_figure_if_required(f'{prefix}-{quantity}.png')

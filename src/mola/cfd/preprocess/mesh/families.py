@@ -282,7 +282,7 @@ def get_bc_family_nodes_from_patterns(tree, patterns):
         nodes += [ family_node ]
     return nodes
 
-def get_bc_family_names_from_patterns(tree, patterns) -> set:
+def get_bc_family_names_from_patterns(tree, patterns) -> list:
     nodes = get_bc_family_name_nodes_from_patterns(tree, patterns)
     family_names = set()
     for n in nodes:
