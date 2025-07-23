@@ -137,6 +137,43 @@ def plot_loads(signals):
                 plt.grid()
                 save_figure_if_required(f'{prefix}-{quantity}.png')
 
+def plot_probes(signals, abscissa='Iteration'):
+
+    def _get_variables(probes):
+        variables = []
+        for probe in probes.values():
+            variables += list(probe)
+        variables = list(set(variables))
+        variables.remove('Iteration')
+        variables.remove('Time')
+        return variables
+    
+    # Get probes data
+    probes = dict()
+    probes_base = signals.get(Type='CGNSBase', Name='Probes', Depth=1)
+    for probe_zone in probes_base.zones():
+        probe = dict()
+        fs = probe_zone.get(Type='FlowSolution', Depth=1)
+        for data_node in fs.group(Type='DataArray'):
+            probe[data_node.name()] = data_node.value()
+        probes[probe_zone.name()] = probe
+
+    if len(probes) == 0:
+        mola_logger.warning('No probes found')
+    else:      
+        # Plot probes data  
+        for variable in _get_variables(probes):
+            # One plot per variable, with all probes containing that variable
+            plt.figure()
+            for name, probe in probes.items():
+                if variable in probe:    
+                    plt.plot(probe[abscissa], probe[variable], label=name)
+            plt.xlabel(abscissa)
+            plt.ylabel(variable)
+            plt.legend(loc='best')
+            plt.grid()
+            save_figure_if_required(f'probes_{variable}.png')
+
 def save_figure_if_required(figname):
     if figname is not None:
         print(f'Saving {CYAN}{figname}{ENDC} ...', end=' ')
@@ -145,7 +182,7 @@ def save_figure_if_required(figname):
 
 def main():
 
-    available_operations = ['residuals', 'massflow', 'loads']
+    available_operations = ['residuals', 'massflow', 'loads', 'probes']
 
     parser = argparse.ArgumentParser(usage=__DOC__)
     parser.add_argument('-f', '--file', type=str, help='path of the file with 1D results', 
@@ -160,6 +197,7 @@ def main():
         residuals = plot_residuals,
         massflow = plot_massflow,
         loads = plot_loads,
+        probes = plot_probes,
     )
     for name in args.output:
         if name not in operations:

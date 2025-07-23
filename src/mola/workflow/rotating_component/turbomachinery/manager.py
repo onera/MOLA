@@ -18,6 +18,7 @@
 from typing import Union
 import numpy as np
 from mola.logging import mola_logger, MolaAssertionError
+from mola import naming_conventions as names
 from mola.cfd.preprocess.mesh import tools as mesh_tools
 from mola.workflow import WorkflowManager
 
@@ -123,15 +124,20 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         else:
             raise MolaAssertionError(f"Outflow BC type {outflow_bc['Type']} not supported by WorkflowTurbomachineryManager")
     
-    def gather_performance(self, stage:Union[tuple, str], filename:Union[str, None]=None) -> dict:
+    def gather_performance(self, 
+                           stage:Union[tuple, str], 
+                           filename:Union[str, None]=None,
+                           update_from_remote_machine=True) -> dict:
         upstream_plane, downstream_plane = self._get_planes_names_for_perfo(stage)
 
+        suffix = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX.split('#')[1]
+
         queries = [
-            f'CGNSTree/Averages0D/{downstream_plane}/names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX/Massflow',
-            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#EndOfRunV/StagnationPressureRatio',
-            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#EndOfRunV/IsentropicEfficiency',
+            f'CGNSTree/Averages0D/{downstream_plane}/{names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX}/Massflow',
+            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#{suffix}/StagnationPressureRatio',
+            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#{suffix}/IsentropicEfficiency',
         ]
-        perfo_data = self.gather_signals(queries, filename=filename, keep_last_point=True)
+        perfo_data = self.gather_signals(queries, filename=filename, keep_last_point=True, update_from_remote_machine=update_from_remote_machine)
 
         VarsToRename = [
             ('Massflow', 'MassFlow'), 

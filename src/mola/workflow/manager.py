@@ -291,7 +291,10 @@ class WorkflowManager():
             results = dict()
             for query in queries:
                 path = query
-                node = signals.getAtPath(path)
+                try:
+                    node = signals.getAtPath(path)
+                except:
+                    raise MolaException(f'Cannot find node at {path} in {filename}')
                 if node:
                     results[node.name()] = node.value()
             return results
