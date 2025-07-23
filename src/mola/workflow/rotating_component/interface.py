@@ -123,7 +123,6 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
                                   cgns.Zone ]  = None,
             SourceContainer : str = None,
             ComputeWallDistanceAtPreprocess : bool = False,
-            KeepWallDistance : bool = False,
             ParametrizeWithHeight : str = None, # parameter specific to that workflow
             ):
         self.Initialization = self._get_comp(

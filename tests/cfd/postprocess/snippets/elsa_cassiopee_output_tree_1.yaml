@@ -329,7 +329,6 @@ CGNSTree CGNSTree_t:
     Initialization UserDefinedData_t:
       Method DataArray_t 'uniform':
       ComputeWallDistanceAtPreprocess DataArray_t:
-      KeepWallDistance DataArray_t:
     ExtractionsDefaults DataArray_t:
     Extractions DataArray_t:
       _list_.0 UserDefinedData_t:

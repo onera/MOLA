@@ -55,17 +55,16 @@ class WorkflowLinearCascade(Workflow):
         super().compute_flow_and_turbulence()
 
     def initialize_flow(self):
-        self.Initialization.setdefault('ParametrizeWithHeight', None)
-        if self.Initialization['ParametrizeWithHeight'] is None \
-            and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
-            self.Initialization['ParametrizeWithHeight'] = 'maia'
+        analytical_methods = ['turbo']
 
-        if self.Initialization['ParametrizeWithHeight'] == 'maia':
+        if self.Initialization['Method'] in analytical_methods:
             self.parametrize_with_height()
-        elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
-            self.parametrize_with_height_with_turbo(self.lin_axis)
+            super().initialize_flow()
 
-        super().initialize_flow()
+        else:
+            super().initialize_flow()
+            if not self.tree.get(Name='ChannelHeight', Type='DataArray'):
+                self.parametrize_with_height()
 
     def get_periodic_direction(self):
         periodic_node = self.tree.get(Type='Periodic')  # Periodic node in a GridConnectivity
@@ -102,7 +101,18 @@ class WorkflowLinearCascade(Workflow):
             
         return periodic_direction
     
-    def parametrize_with_height(self, hub_families=['hub', 'moyeu'], 
+    def parametrize_with_height(self):
+        self.Initialization.setdefault('ParametrizeWithHeight', None)
+        if self.Initialization['ParametrizeWithHeight'] is None \
+            and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
+            self.Initialization['ParametrizeWithHeight'] = 'maia'
+
+        if self.Initialization['ParametrizeWithHeight'] == 'maia':
+            self.parametrize_with_height_with_maia()
+        elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
+            self.parametrize_with_height_with_turbo(self.lin_axis)
+    
+    def parametrize_with_height_with_maia(self, hub_families=['hub', 'moyeu'], 
                                 shroud_families=['shroud', 'carter'], GridLocation='Vertex'):
         self.tree = parametrize_with_height(
             self.tree, 

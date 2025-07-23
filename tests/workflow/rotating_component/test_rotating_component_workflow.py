@@ -219,6 +219,7 @@ def test_compute_fluxcoef_by_row():
 def test_parametrize_with_height(tmp_path):
     w = get_workflow_annular_sector(tmp_path)
     w.assemble()
+    w.Initialization['ParametrizeWithHeight'] = 'maia'
     w.parametrize_with_height()
     assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
 

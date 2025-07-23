@@ -548,8 +548,7 @@ class WorkflowInterface(object):
                                   Zone ]  = None,
             SourceContainer : str = None,
             ComputeWallDistanceAtPreprocess : bool = False,
-            WallDistanceComputingTool : str = 'maia',
-            KeepWallDistance : bool  = False):
+            WallDistanceComputingTool : str = 'maia'):
         '''
         Set workflow attribute **Initialization**
 
@@ -570,9 +569,6 @@ class WorkflowInterface(object):
             Container to consider in the source mesh, by default 'FlowSolution#Init'
         ComputeWallDistanceAtPreprocess : bool, optional
             If True, compute distances to walls during preprocess.
-            By default False
-        KeepWallDistance : bool, optional
-            With `Method='copy'`, choose to copy variables `TurbulentDistance` and `TurbulentDistanceIndex` or not.
             By default False
         '''
         self.Initialization = self._get_comp(

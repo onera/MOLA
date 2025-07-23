@@ -83,7 +83,6 @@
            'cp': 1004.6855000000002,
            'cv': 717.6325000000002},
  'Initialization': {'ComputeWallDistanceAtPreprocess': False,
-                    'KeepWallDistance': False,
                     'Method': 'uniform'},
  'Motion': {'DefaultFamily': {'RotationAxisOrigin': [0.0, 0.0, 0.0],
                               'RotationSpeed': [0.0, 0.0, 0.0],
