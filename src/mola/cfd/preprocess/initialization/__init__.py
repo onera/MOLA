@@ -15,4 +15,4 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .initialization import apply
+from .initialization import apply, INIT_ANALYTICAL_METHODS

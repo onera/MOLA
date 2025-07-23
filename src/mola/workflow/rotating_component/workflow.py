@@ -24,6 +24,7 @@ from mola.logging import mola_logger, MolaException, MolaAssertionError, redirec
 from mola.cfd.preprocess.mesh import duplicate
 from mola.cfd.preprocess.mesh.families import get_bc_family_nodes_from_patterns, get_bc_family_names_from_patterns
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height
+from mola.cfd.preprocess import initialization
 
 from .. import Workflow
 from .interface import WorkflowRotatingComponentInterface
@@ -89,14 +90,13 @@ class WorkflowRotatingComponent(Workflow):
         self.duplicate()
 
     def initialize_flow(self):
-        analytical_methods = ['turbo']
-
-        if self.Initialization['Method'] in analytical_methods:
+        if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
             self.parametrize_with_height()
             super().initialize_flow()
 
         else:
             super().initialize_flow()
+            # Do not recompute ChannelHeight if it was in source data
             if not self.tree.get(Name='ChannelHeight', Type='DataArray'):
                 self.parametrize_with_height()
 

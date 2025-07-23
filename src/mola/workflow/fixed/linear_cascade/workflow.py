@@ -22,6 +22,7 @@ from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola.math_tools import rotate_3d_vector_from_axis_and_angle_in_degrees
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height
 from mola.cfd.preprocess.mesh.families import get_bc_family_names_from_patterns
+from mola.cfd.preprocess import initialization
 import mola.cfd.postprocess as POST
 from ... import Workflow
 from .interface import WorkflowLinearCascadeInterface
@@ -55,14 +56,13 @@ class WorkflowLinearCascade(Workflow):
         super().compute_flow_and_turbulence()
 
     def initialize_flow(self):
-        analytical_methods = ['turbo']
-
-        if self.Initialization['Method'] in analytical_methods:
+        if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
             self.parametrize_with_height()
             super().initialize_flow()
 
         else:
             super().initialize_flow()
+            # Do not recompute ChannelHeight if it was in source data
             if not self.tree.get(Name='ChannelHeight', Type='DataArray'):
                 self.parametrize_with_height()
 
