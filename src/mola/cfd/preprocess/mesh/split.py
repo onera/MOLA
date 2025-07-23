@@ -285,7 +285,6 @@ def hasAnyEmptyProc(t, NumberOfProcessors, behavior='raise'):
 
     for z in t.zones():
         proc = int(getProc(z))
-        print(f'{proc=}')
 
         if proc < 0:
             raise ValueError('zone %s is not distributed'%z[0])

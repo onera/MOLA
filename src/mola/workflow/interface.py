@@ -893,6 +893,7 @@ class WorkflowInterface(object):
         FilesAndDirectories : list = [],
         mola_target_path : str = None,
         Scheduler : str = None, # None : chosed auto. "SLURM": will launch sbatch; "local" will launch ./job
+        SchedulerOptions : dict = None,
         AER : str = None,
         RemovePreviousRunDirectory : bool = False,
         ):
@@ -941,6 +942,8 @@ class WorkflowInterface(object):
         Scheduler : str, optional
             Job scheduler, like SLURM, to use to run the simulation. 
             The default value depends on the **Machine** and environment parameters. 
+        SchedulerOptions : dict, optional
+            Parameters for the scheduler, with scheduler specific names.
         AER : str, optional
             AER number for simulation on sator
         RemovePreviousRunDirectory : bool, optional

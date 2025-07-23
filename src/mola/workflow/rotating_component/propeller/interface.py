@@ -38,7 +38,6 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
                     # dict(Type='std', Variable='Power'),
                 ]
             )
-            self.add_to_Extractions_Residuals(Type='Residuals')
 
     def set_ApplicationContext(self, 
         ShaftAxis : Union[list,

@@ -189,3 +189,13 @@ def wait_until(predicate, timeout=30., period=1.0, *args, **kwargs):
             return 
         time.sleep(period)
     raise MolaException('Reach TimeOut')
+
+def job_is_submitted_or_running(job_name, machine, user=None):
+    user_option = f'-u {user}' if user else '--me'
+    command = f'squeue {user_option} -h -n {job_name} | grep --quiet . && echo "true" || echo "false"'
+    output = submit_command(command, machine, user=user)
+    last_line = output.split('\n')[-2]
+    if last_line == 'true':
+        return True
+    else:
+        return False

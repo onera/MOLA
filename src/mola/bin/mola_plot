@@ -2,6 +2,8 @@
 #
 # Plot residuals, massflow, loads, etc.
 
+__DOC__ = 'Plot residuals, massflow, loads, etc.'
+
 import os
 import numpy as np
 import argparse
@@ -11,15 +13,8 @@ import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, CYAN, GREEN, ENDC
 
 import matplotlib.pyplot as plt
-
-parser = argparse.ArgumentParser('Plot results')
-parser.add_argument('-f', '--file', type=str, help='path of the file with 1D results', 
-                    default=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D))
-parser.add_argument('-o', '--output', type=str, help='Kinds of outputs to plot. Available choices are: residuals, massflow', 
-                    nargs='*', default=['residuals', 'massflow'])
-args = parser.parse_args()
-
-signals = cgns.load(args.file)
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 def plot_residuals(signals, figname='residuals.png'):
     residuals_zone = signals.get(Name='Residuals', Type='Zone')
@@ -56,14 +51,91 @@ def plot_massflow(signals, figname='massflow.png'):
         mola_logger.warning('No massflow results found')
     else:
         plt.figure()
-        zones = sorted(massflows.keys())
-        for zone in zones:
-            plt.plot(massflows[zone]['Iteration'], massflows[zone]['MassFlow'], label=zone)
+        extractions = sorted(massflows.keys())
+        for extraction in extractions:
+            plt.plot(massflows[extraction]['Iteration'], massflows[extraction]['MassFlow'], label=extraction)
         plt.xlabel('Iterations')
         plt.ylabel('MassFlow (kg/s)')
         plt.legend(loc='best')
         plt.grid()
         save_figure_if_required(figname)
+
+def plot_loads(signals):
+    quantities = ['Thrust', 'Torque', 'Power']
+
+    loads = dict()
+    for fs in signals.group(Type='FlowSolution'):
+        extraction = fs.Parent.name()
+        for quantity in quantities: 
+
+            # first search for the base quantity
+            if fs.get(Name=quantity):
+                if quantity not in loads:
+                    loads[quantity] = dict()
+                loads[quantity][extraction] = dict()
+                loads[quantity][extraction]['Iteration'] = fs.get(Name='Iteration').value()
+                loads[quantity][extraction]['current'] = fs.get(Name=quantity).value()
+            else:
+                continue
+
+            # Then search for statistics of that quantity
+            for prefix in ['avg', 'std', 'rsd']:
+                try:
+                    loads[quantity][extraction][prefix] = fs.get(Name=f'{prefix}-{quantity}').value()
+                except:
+                    pass
+                
+    if len(loads) == 0:
+        mola_logger.warning('No loads results found')
+    else:
+        for quantity in quantities: 
+
+            extractions = sorted(loads[quantity].keys())
+
+            plt.figure()
+            legend_elements = []
+            for i, extraction in enumerate(extractions):
+                array = loads[quantity][extraction]
+                current_line, = plt.plot(array['Iteration'], array['current'], '-', color=f'C{i}', label=extraction)
+                legend_elements.append(current_line)
+                if 'avg' in array:
+                    plt.plot(array['Iteration'], array['avg'], '--', color=f'C{i}', label=None)
+            
+            if len(extractions) > 1:
+                # Plot total on all extractions
+                total_line, = plt.plot(array['Iteration'], np.sum([loads[quantity][ext]['current'] for ext in extractions], axis=0), 'k-', label='Total')
+                legend_elements.append(total_line)
+
+            plt.xlabel('Iterations')
+            plt.ylabel(quantity)
+
+            avg_line = Line2D([0], [0], linestyle='--', color='darkgrey', label='avg')
+            legend_elements.append(avg_line)
+            
+            plt.legend(handles=legend_elements, loc='best')
+            plt.grid()
+            save_figure_if_required(f'{quantity}.png')
+
+            if any(['rsd' in loads[quantity][extraction] for extraction in extractions]):
+                prefix = 'rsd'
+            elif any(['std' in loads[quantity][extraction] for extraction in extractions]):
+                prefix = 'std'
+            else:
+                prefix = None
+
+            if prefix:
+                plt.figure()
+                for i, extraction in enumerate(extractions):
+                    array = loads[quantity][extraction]
+                    if prefix in array:
+                        plt.plot(array['Iteration'], array[prefix], '-', color=f'C{i}', label=extraction)
+                plt.xlabel('Iterations')
+                plt.ylabel(f'{prefix}-{quantity}')
+                if prefix == 'rsd':
+                    plt.yscale('log')
+                plt.legend(loc='best')
+                plt.grid()
+                save_figure_if_required(f'{prefix}-{quantity}.png')
 
 def save_figure_if_required(figname):
     if figname is not None:
@@ -71,14 +143,30 @@ def save_figure_if_required(figname):
         plt.savefig(figname, dpi=150, bbox_inches='tight')
         print(f'{GREEN}OK{ENDC}')
 
-operations = dict(
-    residuals = plot_residuals,
-    massflow = plot_massflow,
-)
-for name in args.output:
-    if name not in operations:
-        raise MolaUserError(f'Unknown kind of output "{name}". See documention of this function with --help')
-    operations[name](signals)
+def main():
 
-plt.show()
+    available_operations = ['residuals', 'massflow', 'loads']
 
+    parser = argparse.ArgumentParser(usage=__DOC__)
+    parser.add_argument('-f', '--file', type=str, help='path of the file with 1D results', 
+                        default=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D))
+    parser.add_argument('-o', '--output', type=str, help=f'Kinds of outputs to plot. Available choices are: {", ".join(available_operations)}', 
+                        nargs='*', default=available_operations)
+    args = parser.parse_args()
+
+    signals = cgns.load(args.file)
+
+    operations = dict(
+        residuals = plot_residuals,
+        massflow = plot_massflow,
+        loads = plot_loads,
+    )
+    for name in args.output:
+        if name not in operations:
+            raise MolaUserError(f'Unknown kind of output "{name}". See documention of this function with --help')
+        operations[name](signals)
+
+    plt.show()
+
+if __name__ == '__main__':
+    main()

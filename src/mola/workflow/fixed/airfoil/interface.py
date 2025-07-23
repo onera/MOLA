@@ -27,7 +27,6 @@ class WorkflowAirfoilInterface(WorkflowInterface):
         if tree is None:
             self.add_to_Extractions_BC(Source='BCWall*', Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
             self.add_to_Extractions_Integral(Source='BCWall*', Fields=['Force', 'Torque'])
-            self.add_to_Extractions_Residuals(Type='Residuals')
 
     def set_ApplicationContext(self, 
         AngleOfAttackDeg : float = 0.0,

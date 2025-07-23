@@ -25,7 +25,7 @@ import numpy as np
 from treelab import cgns
 from mola import __MOLA_PATH__
 import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, ENDC
+from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, GREEN, RED, YELLOW, ENDC
 from mola.cfd.preprocess.run_manager import run_manager
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 from mola import server as SV
@@ -217,65 +217,63 @@ class WorkflowManager():
         self.machine = parameters['Machine']
         self.run_directories = parameters['RunDirectories']
 
-    def get_synchronized_directories(self, filenames): 
-        from . import read_workflow  # Cannot be in the header of this file, otherwise it raises a ImportError du to a circular import
-
+    def get_synchronized_directories(self, filenames: list=[], update_from_remote_machine: bool=True): 
         if not hasattr(self, 'run_directories'):
             self.run_directories = self.get_run_directories()
 
-        def _get_local_run_directories():
-            local_run_directories = []
-            for local_dir in self.run_directories:
-                w = read_workflow(f'{local_dir}/{names.FILE_INPUT_WORKFLOW}')
-                status = w.simulation_status()
-                mola_logger.info(f'{local_dir} -> {status}')
+        def _get_status(directory):
+            for status in names.STATUS_FILES:
+                status_file = Path(directory) / names.FILE_JOB_COMPLETED
+                if status_file.is_file():
+                    return status
+            return 'not ended'
+
+        def _get_completed_run_directories(local_directories):
+            completed_run_directories = []
+            for local_dir in local_directories:
+
+                status = _get_status(local_dir)
                 if status == names.FILE_JOB_COMPLETED:
-                    local_run_directories.append(local_dir)
-            return local_run_directories
-        
-        def _synchronize_local_run_directories():
-            local_run_directories = []
-            for run_directory in self.run_directories:
-                local_dir = os.path.relpath(run_directory, self.root_directory)
-                SV.makedirs_remote(f'{local_dir}/{names.DIRECTORY_OUTPUT}', machine='localhost')
+                    mola_logger.info(f'{local_dir} -> {GREEN}{names.FILE_JOB_COMPLETED}{ENDC}')
+                    completed_run_directories.append(local_dir)
 
-                # Check status  # TODO improve this 
-                try: 
-                    if SV.is_file(f'{run_directory}/{names.FILE_JOB_COMPLETED}', self.machine):
-                        status = names.FILE_JOB_COMPLETED  
-                    else:
-                        status = names.FILE_JOB_FAILED
-                    assert status == names.FILE_JOB_COMPLETED
-                    mola_logger.info(f'{local_dir} -> {status}')
-                except:
-                    mola_logger.info(f'{local_dir} -> not synchronized')
-                    continue
-
+                elif status == names.FILE_JOB_FAILED:
+                    mola_logger.info(f'{local_dir} -> {RED}{names.FILE_JOB_FAILED}{ENDC}')
                 
-                try:
-                    for filename in filenames:
-                        SV.copy_remote(
-                            f'{run_directory}/{filename}',
-                            f'{local_dir}/{filename}', 
-                            source_machine=self.machine, 
-                            force_copy=True
-                            )
-                    local_run_directories.append(local_dir)
-                except MolaException as err:
-                    mola_logger.warning(str(err))
-                    pass
-            return local_run_directories
-        
+                else:
+                    mola_logger.info(f'{local_dir} -> {YELLOW}{status}{ENDC}')
+                    
+            return completed_run_directories
+
         if not SV.run_on_localhost(machine=self.machine, run_directory=self.run_directories[0]):
-            # raise MolaException('Not implemented for remote machines yet.')
-            local_run_directories = _synchronize_local_run_directories()
+            local_directories = [
+                os.path.relpath(run_directory, self.root_directory) 
+                for run_directory in self.run_directories
+                ]
+            if update_from_remote_machine:
+                # copy locally all the required files from each directory
+                included_files = set(
+                    [names.DIRECTORY_OUTPUT, f'*/{names.FILE_OUTPUT_1D}']
+                    + names.STATUS_FILES 
+                    + filenames
+                )
+                SV.get_all_cases_from_workflow_manager(
+                    included_files=included_files, 
+                    excluded_files=set('*')
+                )
+
         else:
-            local_run_directories = _get_local_run_directories()
+            local_directories = [
+                os.path.relpath(run_directory, '.') 
+                for run_directory in self.run_directories
+                ]
         
-        return local_run_directories
+        completed_run_directories = _get_completed_run_directories(local_directories)
+        
+        return completed_run_directories
         
 
-    def gather_signals(self, queries, filename=None, keep_last_point=False):
+    def gather_signals(self, queries, filename=None, keep_last_point=False, update_from_remote_machine=True):
         """
         Need for an extraction method from queries (path, metadata)
         get scalars from signals.cgns and plot a curve
@@ -298,7 +296,7 @@ class WorkflowManager():
                     results[node.name()] = node.value()
             return results
         
-        local_run_directories = self.get_synchronized_directories([filename])
+        local_run_directories = self.get_synchronized_directories([filename], update_from_remote_machine=update_from_remote_machine)
 
         all_data = dict()
         user_dir = os.getcwd()
@@ -316,6 +314,16 @@ class WorkflowManager():
 
     @staticmethod
     def rearange_signals(signals):
+        '''
+        Input: 
+        
+        >>> signals = {'<job_dir>/<case_dir1>': {'Thrust': 10., 'Power': 100.}, '<job_dir>/<case_dir2>': {'Thrust': 12., 'Power': 110.}}
+
+        Output:
+
+        >>> {'<job_dir>': {'Thrust': np.array([10., 12.]), 'Power': np.array([100., 110.]), 'case': ['<case_dir1>', '<case_dir2>']}}
+
+        '''
         ordered_signals = dict()
         for path, data in signals.items():
             path = Path(path)
@@ -510,6 +518,12 @@ class WorkflowSequentialManager():
         self.data_directory = data_directory
         self.skip_if_exists = skip_if_exists
 
+        # Following parameter will be set to True if at least one new case is created.
+        # The only case when it will keep value False is if all cases have already been 
+        # created by a previous WorkflowManager.
+        self.at_least_one_new_case = False  
+
+
         self._check_structure_of_workflows()
         self._check_and_set_local_paths()
         self._check_all_workflows_have_different_working_directories()
@@ -542,7 +556,7 @@ class WorkflowSequentialManager():
     def _set_machine(self):
         first_workflow = self.workflows[0] 
         RunManagement = copy.deepcopy(first_workflow.RunManagement)
-        scheduler_options = run_manager.set_default(RunManagement)
+        scheduler_options = run_manager.set_default(RunManagement, check_run_dir=not self.skip_if_exists)
         self.machine = RunManagement['Machine']
         self.manager = RunManagement['Scheduler']
         self.job_text = write_cfd_files.get_job_text(first_workflow.Solver, RunManagement, scheduler_options)
@@ -550,12 +564,20 @@ class WorkflowSequentialManager():
     def prepare(self):
         SV.makedirs_remote(self.root_directory, machine=self.machine)
         previous_workflow = None
+
         for workflow in self.workflows:
             mola_logger.info(f"\n{CYAN}  > preparing {workflow.RunManagement['RunDirectory']}...{ENDC}")
             if self.skip_if_exists and SV.is_directory(workflow.RunManagement['RunDirectory'], self.machine):
                 mola_logger.warning(f"Skip directory {workflow.RunManagement['RunDirectory']} that already exists")
+                previous_workflow = workflow
                 continue
+            else:
+                if not self.at_least_one_new_case:
+                    # Stop process if a previous job is still running
+                    self.check_job_is_not_submitted_or_running()
+                self.at_least_one_new_case = True
 
+            # If needed, update initialization field from previous case
             if workflow.Initialization.get('Method') == 'from_previous':
                 workflow.Initialization['Method'] = 'copy'
                 try:
@@ -570,21 +592,42 @@ class WorkflowSequentialManager():
             workflow.write_tree_remote(data_directory=self.data_directory, copy_options=copy_options)
             previous_workflow = workflow
 
-        self.write_sequence_job()        
+        if self.at_least_one_new_case:
+            self.write_sequence_job()  
+
+    def check_job_is_not_submitted_or_running(self):
+        user = None # TODO allow different user
+        job_path = os.path.join(self.root_directory, self._sequential_job_filename)
+        if SV.is_file(job_path, machine=self.machine, user=user):
+            command = f"grep 'job-name' {job_path} | awk -F'=' '{{print $2}}'"
+            output = SV.submit_command(command, self.machine, user=user)
+            job_name = output.split('\n')[-2]
+            assert len(job_name) > 0
+
+            if SV.job_is_submitted_or_running(job_name, self.machine):
+                raise MolaAssertionError((
+                    f'The job at path {job_path} is already running or submitted, '
+                    'hence you cannot modify add new subdirectories or submit this job again. '
+                    'Wait for this job to finish or cancel it.'
+                ))
 
     def write_sequence_job(self):
         paths_in_bash = '"{}"'.format(' '.join(self.cases_local_paths))
         loop_on_cases = self._build_loop_on_cases(paths_in_bash, self._sequential_job_filename)
-        SV.save_file_maybe_remote(self._sequential_job_filename, self.job_text + loop_on_cases, self.root_directory, machine=self.machine)
+        SV.save_file_maybe_remote(self._sequential_job_filename, self.job_text + loop_on_cases, 
+                                  self.root_directory, machine=self.machine, force_copy=True)
 
     def submit(self):
-        mola_logger.info(f'  > submission of job sequence in {self.root_directory}')
-        if self.manager == 'SLURM':
-            command = f"cd {self.root_directory}; sbatch {self._sequential_job_filename}"
-        else:
-            command = f"cd {self.root_directory}; ./{self._sequential_job_filename}"
+        if self.at_least_one_new_case:
+            mola_logger.info(f'  > submission of job sequence in {self.root_directory}')
+            if self.manager == 'SLURM':
+                command = f"cd {self.root_directory}; sbatch {self._sequential_job_filename}"
+            else:
+                command = f"cd {self.root_directory}; ./{self._sequential_job_filename}"
 
-        SV.submit_command(command, self.machine)
+            SV.submit_command(command, self.machine)
+        else:
+            mola_logger.warning(f'  > job sequence in {self.root_directory} was not submitted, because all cases were already existing.')
 
     @staticmethod
     def _build_loop_on_cases(sequence_of_paths, sequential_job_filename):

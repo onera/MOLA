@@ -259,7 +259,7 @@ def rsync(source_path, destination_path, source_machine=None, destination_machin
     rsync_cmd.append(destination)
 
     # Executing the rsync command with subprocess
-    print(f"Executing command: {' '.join(rsync_cmd)}")
+    mola_logger.debug(f"Executing command: {' '.join(rsync_cmd)}")
     subprocess.run(rsync_cmd, check=True)
 
 

@@ -381,10 +381,12 @@ class WorkflowRotatingComponent(Workflow):
         return self.tree
 
 
-    def get_blade_family_names(self, must_be_unique=False, must_exist=False)  -> list:
+    def get_blade_family_names(self, must_be_unique=False, must_exist=False) -> list:
 
-        tree= self.__choose_skeleton_tree_if_existent()
+        tree = self.__choose_skeleton_tree_if_existent()
         names = get_bc_family_names_from_patterns(tree, self._blade_patterns)
+        # Filter blade tip families
+        # names = [name for name in names if not name.lower().endswith("tip")]
         
         if must_be_unique:
             must_exist = True

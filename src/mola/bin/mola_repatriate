@@ -2,65 +2,21 @@
 #
 # Repatriate directories after submitting several simulations on sator at once
 
-__DOC__ = """repatriate directories after submitting several simulations on sator at once.
-There has to be a file JobsConfiguration.py in the current directory.
-This command must be used with at least one option.
-"""
-
-import os
 from pathlib import Path
 import argparse
 
 import mola.naming_conventions as names
 from mola.logging import MolaException
-import mola.server as SV
+from mola.server import get_one_case, get_all_cases_from_workflow_manager
 
-def extract_variables_from_file(file_path):
-    """
-    Reads a file and extracts variables as key-value pairs.
-    
-    :param file_path: Path to the file to be read
-    :return: Dictionary containing the extracted variables
-    """
-    variables = {}
-    
-    try:
-        with open(file_path, 'r') as file:
-            for line in file:
-                # Ignore empty lines and those starting with '#'
-                if line.strip() and not line.startswith('#'):
-                    # Split the line into key and value
-                    key_value = line.split('=')
-                    if len(key_value) == 2:
-                        key, value = [item.strip() for item in key_value]
-                        if value == 'None': 
-                            value = None
-                        variables[key] = value
+__DOC__ = (
+    "repatriate data from a remote machine after submitting one simulation with a Workflow "
+    "or several simulations with a WorkflowManager. "
+    f"There has to be a file {names.FILE_LOG_REMOTE_DIRECTORY} "
+    f"or a file {names.FILE_WORKFLOW_MANAGER} in the current directory. "
+    "This command must be used with at least one option."
+)
 
-    except FileNotFoundError:
-        print(f"Error: The file '{file_path}' was not found.")
-    
-    return variables
-
-def get_remote_info():
-    if Path(names.FILE_LOG_REMOTE_DIRECTORY).is_file():
-        remote_info = extract_variables_from_file(names.FILE_LOG_REMOTE_DIRECTORY)
-
-        run_directory = remote_info['RunDirectory']
-        machine = remote_info['Machine']
-        user = remote_info['User']
-    else:
-        raise MolaException(f'The file {names.FILE_LOG_REMOTE_DIRECTORY} does not exist.')
-    
-    # check that run_directory is not empty (else all the root /* will be copy !)
-    assert run_directory != ''
-    # It is important that run_directory ends with '/', 
-    # otherwise rsync won't work as intended
-    if not run_directory.endswith(os.path.sep):
-        run_directory += os.path.sep
-
-    return run_directory, machine, user
-    
 def parse_args():
     # Predefined file patterns
     BASE_INCLUDES = set(names.STATUS_FILES)
@@ -110,15 +66,25 @@ def parse_args():
 
 def main():
 
-    run_directory, machine, user = get_remote_info()
     included_files, excluded_files = parse_args()
 
-    SV.rsync(
-        source_path=run_directory, source_machine=machine, source_user=user, 
-        destination_path='./', destination_machine='localhost',
-        included_files=included_files, excluded_files=excluded_files
-        )
+    is_remote_case_file = Path(names.FILE_LOG_REMOTE_DIRECTORY).is_file()
+    is_workflow_manager_file = Path(names.FILE_WORKFLOW_MANAGER).is_file()
 
+    if is_remote_case_file and is_workflow_manager_file:
+        raise MolaException((
+            f'Found both files {names.FILE_LOG_REMOTE_DIRECTORY} and {names.FILE_WORKFLOW_MANAGER}. '
+            'Remove the outdated one and try again.'
+        ))
+    
+    elif is_remote_case_file and not is_workflow_manager_file:
+        get_one_case(included_files, excluded_files)
+
+    elif not is_remote_case_file and is_workflow_manager_file:
+        get_all_cases_from_workflow_manager(included_files, excluded_files)
+
+    else:
+        raise MolaException(f'Neither {names.FILE_LOG_REMOTE_DIRECTORY} nor {names.FILE_WORKFLOW_MANAGER} exists.')
 
 if __name__ == '__main__':
     main()
