@@ -94,5 +94,6 @@ def write_job_launcher(RunManagement, scheduler_options):
     job_text += f'export OMP_NUM_THREADS=1 # NOTE for MPI launch of elsa, but shall be >1 for OpenMP (no MPI) pre/post scripts\n'
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} elsA.x -C xdt-runtime-tree {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}\n'
     job_text += get_lines_to_submit_job_again(RunManagement)
+    job_text += '\nmola_plot --no-show\n'
 
     SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
