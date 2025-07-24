@@ -199,6 +199,13 @@ it is equivalent to connect to this machine with ssh, move to the run directory
 
     If needed, the command can be modified with parameter `RunManagement['LauncherCommand']`.
 
+.. tip::
+
+    Alternatively, instead of using methods `prepare`, `write_cfd_files` and `submit`, you may 
+    use the method `prepare_and_submit_remotely` which will perform the entire process on the 
+    chosen remote machine (`RunManagement['Machine']`). A first job will be executed to prepare 
+    the simulation (`prepare` and `write_cfd_files`), and the second job will be the actual 
+    simulation job (exactly like if you had run `submit`). 
 
 
 ***********************

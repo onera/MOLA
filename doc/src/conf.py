@@ -63,3 +63,7 @@ prepare(
 # Variables are accessible through globals()
 extensions.add('mola_extension_for_sphinx')
 extensions.add('sphinx.ext.graphviz')
+
+# remove warnings about duplicate labels
+# see https://stackoverflow.com/a/77577337
+suppress_warnings = ['autosectionlabel.*'] 

@@ -1,0 +1,20 @@
+####
+SRV2 
+####
+
+*****************
+Short description
+*****************
+
+The SRV2 is centrifugal compressor with an impeller and a smooth diffuser. 
+
+For more information on the configuration and experimental data,
+see: https://www.kbwiki.ercoftac.org/w/index.php/AC_6-08_Description
+
+***************
+RANS simulation
+***************
+
+.. literalinclude:: ../../../../examples/open/workflow/rotating_component/turbomachinery/SRV2/run_sator.py
+    :language: python
+
