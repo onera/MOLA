@@ -17,6 +17,7 @@
 
 from typing import Union
 from treelab import cgns
+from mola import naming_conventions as names
 from ... import WorkflowInterface
 
 
@@ -67,4 +68,17 @@ class WorkflowLinearCascadeInterface(WorkflowInterface):
             ):
         self.Initialization = self._get_comp(
             self.set_Initialization, self.get_default_values_from_local_signature())
+        
+    def add_to_Extractions_IsoSurface(self,
+            ContainersToTransfer : Union[ str, # accepts "all"
+                                                   list ] = [names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX,
+                                                             "FlowSolution#Height"],
+            **kwargs):
+        '''
+        Summation over a given source of the mesh, providing a scalar integral value
+        '''
+        local_kwargs = self.get_default_values_from_local_signature()
+        local_kwargs.update(kwargs)
+        super().add_to_Extractions_IsoSurface(**local_kwargs)
+
         

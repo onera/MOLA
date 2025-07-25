@@ -28,16 +28,27 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         super().__init__(_skip_interface=True) # used to recover the private attributes of WorkflowRotatingComponent
         self._interface = WorkflowTurbomachineryInterface(self, **kwargs)
 
-    def postprocess(self, **kwargs):     
+    def postprocess(
+        self, 
+        input_signals=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D),
+        input_extractions=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D),
+        output_signals=None, 
+        output_extractions=None,
+        **kwargs
+        ):
+        '''
+        kwargs are parameters for postprocess_turbomachinery
+        '''     
         import Converter.Mpi as Cmpi
         import Distributor2.PyTree as D2
-        from mola.cfd.postprocess.tool_interface.turbo import postprocess_turbomachinery
+        from mola.cfd.postprocess.tool_interface.turbo import postprocess_with_turbo
   
-        input_signals = kwargs.get('input_signals', os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D))
-        input_extractions = kwargs.get('input_extractions', os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D))
-        output_signals = kwargs.get('output_signals', input_signals)
-        output_extractions = kwargs.get('output_extractions', input_extractions)
-        stages = kwargs.get('stages', [])
+        if output_signals is None:
+            output_signals = input_signals
+        if output_extractions is None:
+            output_extractions = input_extractions
+
+        kwargs.setdefault('RowType', self.ApplicationContext['RowType'])
 
         signals = cgns.load(input_signals)
         # Read in parallel 
@@ -48,7 +59,7 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         surfaces = cgns.castNode(surfaces)
         Cmpi.barrier()
 
-        surfaces, signals = postprocess_turbomachinery(self, surfaces, signals, stages=stages)
+        surfaces, signals = postprocess_with_turbo(self, surfaces, signals, **kwargs)
         Cmpi.barrier()
         Cmpi.convertPyTree2File(surfaces, output_extractions)
         if Cmpi.rank == 0: 

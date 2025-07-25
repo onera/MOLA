@@ -139,16 +139,6 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         ]
         perfo_data = self.gather_signals(queries, filename=filename, keep_last_point=True, update_from_remote_machine=update_from_remote_machine)
 
-        VarsToRename = [
-            ('Massflow', 'MassFlow'), 
-            ('StagnationPressureRatio', 'PressureStagnationRatio'), 
-            ('IsentropicEfficiency', 'EfficiencyIsentropic')
-            ]
-        for (oldName, newName) in VarsToRename:
-            for path, data in perfo_data.items(): 
-                if oldName in data:
-                    perfo_data[path][newName] = perfo_data[path].pop(oldName)
-
         perfo_data = self._rearange_performance(perfo_data)
 
         return perfo_data

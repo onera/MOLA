@@ -200,10 +200,10 @@ def translate_to_elsa(Variables, type='node'):
     elif isinstance(Variables, list):
         NewVariables = []
         for var in Variables:
-            if var in elsAVariables:
-                NewVariables.append(var)
-            else:
+            if var in CGNS2ElsaDict:
                 NewVariables.append(CGNS2ElsaDict[var])
+            else:
+                NewVariables.append(var)                    
         return NewVariables
     elif isinstance(Variables, str):
         if Variables in CGNS2ElsaDict:

@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 from typing import Union
 import mola.naming_conventions as names
 from ..interface import WorkflowRotatingComponentInterface
@@ -34,6 +35,31 @@ class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
         local_kwargs = self.get_default_values_from_local_signature()
         local_kwargs.update(kwargs)
         super().add_to_RawMeshComponents(**local_kwargs)
+
+    def set_ApplicationContext(self,
+            ShaftAxis : Union[list,
+                            tuple,
+                            np.ndarray] = [1,0,0],
+            ShaftRotationSpeedUnit : str = 'rad/s', 
+            HubRotationIntervals : list = None,
+            Surface : float = None,
+            NormalizationCoefficient : dict = None,
+            RowType : str = 'Compressor',  # specific parameter to this Workflow
+            *,
+            ShaftRotationSpeed : Union[float, int] = None,
+            Rows : dict = dict(),
+            ):
+
+        super().set_ApplicationContext(
+            ShaftAxis=ShaftAxis,
+            ShaftRotationSpeedUnit=ShaftRotationSpeedUnit,  
+            HubRotationIntervals=HubRotationIntervals, 
+            Surface=Surface,
+            NormalizationCoefficient=NormalizationCoefficient,
+            ShaftRotationSpeed=ShaftRotationSpeed,
+            Rows=Rows
+            )
+        self.ApplicationContext['RowType'] = RowType
 
     def add_Row_to_ApplicationContext(self,
         IsRotating : bool = False,

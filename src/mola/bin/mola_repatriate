@@ -51,6 +51,8 @@ def parse_args():
                         )
 
     args = parser.parse_args()
+    if not args.patterns and not args.full:
+        raise MolaException('mola_repatriate must be used with at least one option. See help with mola_repatriate --help')
 
     included_files = set(BASE_INCLUDES)
     excluded_files = set()

@@ -39,7 +39,7 @@ def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, 
         extraction.bases()[0].setName(Name)
 
     else:
-        raise MolaException(f'iso_surface is available only with cassiopee (now tool={tool})')
+        raise MolaException(f'iso_surface is available only with cassiopee and maia (now tool={tool})')
 
     return extraction
     
@@ -56,7 +56,7 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
         extraction = cgns.castNode(extraction)
         restore_families(extraction, t)
     
-    elif tool == 'maia':
+    elif tool == 'maia_family':
         from .extractions_with_maia import extract_bc_from_family
         tree = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
         extraction = cgns.castNode(tree)
@@ -72,7 +72,7 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
         restore_families(extraction, t)
 
     else:
-        raise MolaException(f'extract_bc is available only with cassiopee (now tool={tool})')
+        raise MolaException(f'extract_bc is available only with cassiopee, maia_family and maia_zsr (now tool={tool})')
 
     return extraction
     
@@ -215,7 +215,7 @@ def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
     else:
         name = extraction['Name']
         type = extraction['Type']
-        MolaException(f'extraction "{name}" of type "{type}" did not contain keys Container nor ContainersToTransfer')
+        raise MolaException(f'extraction "{name}" of type "{type}" did not contain keys Container nor ContainersToTransfer')
 
     if containers_to_transfer != 'all':
         for zone in tree.zones():
@@ -226,12 +226,19 @@ def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
 def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
     if 'Fields' in extraction and extraction['Fields'] != 'all':
 
+        if isinstance(extraction['Fields'], str):
+            extraction['Fields'] = [extraction['Fields']]
+
         for vector_name in ['Momentum', 'Velocity', 'Vorticity','Force','Torque']:
             if vector_name in extraction['Fields']:
                 for c in 'XYZ':
                     field_name = vector_name+c 
                     if field_name not in extraction['Fields']:
                         extraction['Fields'] += [field_name]
+        
+        # Always keep ChannelHeight is it exists (if the FlowSolution#Height has been kept)
+        if 'ChannelHeight' not in extraction['Fields']:
+            extraction['Fields'].append('ChannelHeight')
 
         for zone in tree.zones():
             for container in zone.group(Type='FlowSolution_t', Depth=1):

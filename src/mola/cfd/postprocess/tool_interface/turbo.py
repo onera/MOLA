@@ -40,6 +40,68 @@ import turbo.machis   as TMis
 RADIAL_PROFILES_BASE = 'RadialProfiles'
 AVERAGES_0D_BASE = 'Averages0D'
 
+def rename_variables_from_turbo_to_mola(tree):
+    # substitution rules
+    substitutions = dict(
+        Massflow = 'MassFlow',
+
+        StaticPressure = 'Pressure',
+        StaticTemperature = 'Temperature',
+        StaticEnthalpy = 'Enthalpy',
+        StagnationPressure = 'PressureStagnation',
+        StagnationTemperature = 'TemperatureStagnation',
+        StagnationEnthalpy = 'EnthalpyStagnation',
+
+        IsentropicEfficiency = 'EfficiencyIsentropic',
+        PolytropicEfficiency = 'EfficiencyPolytropic',
+
+        # MachNumberAbs = 'MachAbs',
+        # MachNumberRel = 'MachRel',
+
+        # Modify suffixes to be compliant with CGNS standard (vector components ends by X,Y,Z)
+        XAbs = 'AbsX',
+        YAbs = 'AbsY',
+        ZAbs = 'AbsZ',
+        RadiusAbs = 'AbsRadius',
+        ThetaAbs = 'AbsTheta',
+        MagnitudeAbs = 'AbsMagnitude',
+        XRel = 'RelX',
+        YRel = 'RelY',
+        ZRel = 'RelZ',
+        RadiusRel = 'RelRadius',
+        ThetaRel = 'RelTheta',
+        MagnitudeRel = 'RelMagnitude',
+    )
+
+    def _apply_rules(name):
+        # remove Dim suffix (every quantity has a dimension in MOLA)
+        if name.endswith('Dim'):
+            name = name[:-3]
+
+        for pattern, replacement in substitutions.items():
+            name = name.replace(pattern, replacement)
+        return name
+    
+    radial_base = tree.get(Type='CGNSBase', Name=RADIAL_PROFILES_BASE, Depth=1)
+    average_base = tree.get(Type='CGNSBase', Name=AVERAGES_0D_BASE, Depth=1)
+
+    for base in [radial_base, average_base]:
+        if base is None:
+            continue  # no data on this MPI rank
+        for node in base.group(Type='DataArray'):
+            new_name = _apply_rules(node.name())
+            # Check if another node at the same level has already that name
+            if any([sibling.name() == new_name for sibling in node.siblings(include_myself=False)]):
+                node.remove()
+            else:
+                node.setName(new_name)
+
+        for averageType in base.group(Name='averageType'):
+            for node in averageType.group(Type='DataArray'):
+                variables = node.value()
+                variables = list(set([_apply_rules(var) for var in variables]))
+                node.setValue(variables)
+
 class RefState():
 
     def __init__(self, w):
@@ -51,7 +113,7 @@ class RefState():
         self.aio   = (self.Gamma * self.Rgaz * self.Tio)**0.5
         self.Lref  = 1.
 
-def postprocess_turbomachinery(w, surfaces, signals, stages=[], 
+def postprocess_with_turbo(w, surfaces, signals, stages=[], 
                                 var4comp_repart=None, var4comp_perf=None, var2keep=None, 
                                 computeRadialProfiles=True, 
                                 heightListForIsentropicMach='all',
@@ -163,6 +225,7 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
     suffixes = [c.replace('FlowSolution','') for c in containers_at_vertex]
 
     for container_at_vertex in containers_at_vertex:
+        # Rename that container for turbo
         I.__FlowSolutionNodes__ = container_at_vertex
         for zone in I.getZones(surfaces):
             fs_container = I.getNodeFromName1(zone, container_at_vertex)
@@ -217,7 +280,7 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
         # COMPUTE BY COMPARING TWO SURFACES _________________________________________________________#
         move_0D_and_1D_data_to_rank_0(surfaces)
         if Cmpi.rank == 0:
-            comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages)
+            comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages, config=RowType)
             if computeRadialProfiles: 
                 if I.getNodeFromName(surfaces, 'ChannelHeight'):
                     compareRadialProfilesPlane2Plane(
@@ -226,25 +289,33 @@ def postprocess_turbomachinery(w, surfaces, signals, stages=[],
         #____________________________________________________________________________________________#
         cleanSurfaces(w, surfaces, var2keep=var2keep)
 
+        # Rename that container as it was originally
         suffix = container_at_vertex.replace('FlowSolution','')
         for zone in I.getZones(surfaces):
             for fs_container in I.getNodesFromType1(zone, 'FlowSolution_t'):
                 fs_name = fs_container[0]
                 is_turbo_container = fs_name in [turbo_required_vertex_container,
                                                 turbo_new_centers_container]
-                is_new_comparison = fs_name.startswith('Comparison') and not \
-                                    fs_name.endswith(suffix)
-
-                if is_turbo_container or is_new_comparison: 
+                is_new_comparison = fs_name.startswith('Comparison') and \
+                                    fs_name.endswith('#NEW')
+                
+                if is_turbo_container: 
                     if not any([fs_container[0].endswith(s) for s in suffixes]):
                         fs_container[0] += suffix
                         if fs_container[0].startswith(turbo_new_centers_container):
                             fs_container[0]=fs_container[0].replace(turbo_new_centers_container,
                                                                     'FlowSolution')
 
-        I.__FlowSolutionNodes__ = previous_vertex_container
+                elif is_new_comparison:
+                    nb_comparisons = len([node for node in I.getChildren(zone)if I.getName(node).startswith('Comparison')])
+                    fs_container[0]=fs_container[0].replace('#NEW', f'#{nb_comparisons}')
+                    compared_fs = fs_container.get(Name='MOLA:ComparisonInfos').get('FlowSolution')
+                    compared_fs.setValue(f'FlowSolution{suffix}')
+                            
 
+    I.__FlowSolutionNodes__ = previous_vertex_container
     surfaces = cgns.castNode(surfaces)
+    rename_variables_from_turbo_to_mola(surfaces)
 
     if Cmpi.rank == 0:
         move_scalar_outputs_to_signals(surfaces, signals)
@@ -424,7 +495,7 @@ def sortVariablesByAverage(variables):
     '''
     Sort variables in a dictionnary by average type.
     Currently, every variable that contains 'Stagnation' or 'Entropy' in
-    its name is appended to the 'massflow' list. Every other variable is appended
+    its name is appended to the 'MassFlow' list. Every other variable is appended
     to the 'surface' list.
 
     Parameters
@@ -448,15 +519,15 @@ def sortVariablesByAverage(variables):
 
         .. code-block:: python
 
-            {'massflow': ['StagnationPressure', 'Entropy'], 'surface': ['Mach', 'Pressure']}
+            {'MassFlow': ['StagnationPressure', 'Entropy'], 'Surface': ['Mach', 'Pressure']}
 
     '''
-    averages = dict(massflow=[], surface=[])
+    averages = dict(MassFlow=[], Surface=[])
     for var in variables:
         if any([pattern in var for pattern in ['Stagnation', 'Entropy']]):
-            averages['massflow'].append(var)
+            averages['MassFlow'].append(var)
         else:
-            averages['surface'].append(var)
+            averages['Surface'].append(var)
     return averages
 
 def mergeFlowSolutionOfTrees(t1, t2, var2save=None, container=I.__FlowSolutionCenters__):
@@ -637,11 +708,11 @@ def compute0DPerformances(w, surfaces, variablesByAverage):
         fluxcoeff = getFluxCoeff(surface)
         info = getExtractionInfo(surface)
 
-        filtered_variables = TUS.getFilteredFields(surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
+        filtered_variables = TUS.getFilteredFields(surface, variablesByAverage['MassFlow'], fsname=I.__FlowSolutionCenters__)
         perfTreeMassflow = TP.computePerformances(surface, surfaceName,
                                                   variables=filtered_variables, average='massflow',
                                                   compute_massflow=False, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
-        filtered_variables = TUS.getFilteredFields(surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
+        filtered_variables = TUS.getFilteredFields(surface, variablesByAverage['Surface'], fsname=I.__FlowSolutionCenters__)
         perfTreeSurface = TP.computePerformances(surface, surfaceName,
                                                  variables=filtered_variables, average='surface',
                                                  compute_massflow=True, fluxcoef=fluxcoeff, fsname=I.__FlowSolutionCenters__)
@@ -656,7 +727,7 @@ def compute0DPerformances(w, surfaces, variablesByAverage):
         perfos.setParameters(names.CGNS_NODE_EXTRACTION_LOG, **PostprocessInfo)                   
         I.addChild(Averages, perfos)
 
-def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[]):
+def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[], config='compressor'):
     '''
     Compare averaged values between the **InletPlane** and the **OutletPlane**.
 
@@ -693,11 +764,22 @@ def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[]):
                                                     [I.getName(InletPlane), I.getName(OutletPlane)],
                                                     f'Comparison',
                                                     fsname=I.__FlowSolutionNodes__,
-                                                    config='compressor', variables=var4comp_perf)
+                                                    config=config, variables=var4comp_perf)
             
         fsBudget = I.getNodeFromType(tBudget, 'FlowSolution_t')
         I.createUniqueChild(fsBudget, 'GridLocation', 'GridLocation_t', 'CellCenter', pos=0)
-        I.setName(fsBudget, f'Comparison#{I.getName(InletPlane)}')
+
+        # Rename FlowSolution
+        fs_name = f'Comparison#{I.getName(InletPlane)}#NEW'  # suffix #NEW will be updated later in postprocess_with_turbo
+        if len(fs_name) <=32:
+            I.setName(fsBudget, fs_name)
+        else:
+            fs_name = 'Comparison#NEW'
+            I.setName(fsBudget, fs_name)
+
+        fsBudget = cgns.castNode(fsBudget)
+        fsBudget.setParameters('MOLA:ComparisonInfos', Surface=I.getName(InletPlane), FlowSolution=None) # idem, FlowSolution value will be updated later
+
         I.addChild(OutletPlane, fsBudget)
 
 def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_axis='XY', NumberOfRadialPoints=121, tipRadius=None):
@@ -761,13 +843,13 @@ def compute1DRadialProfiles(surfaces, variablesByAverage, config='annular', lin_
         else:
             radial_dist_arr = None
 
-        filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['surface'], fsname=I.__FlowSolutionCenters__)
+        filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['Surface'], fsname=I.__FlowSolutionCenters__)
         radial_surf, radius_dist = TR.computeRadialProfile(
             tmp_surface, surfaceName, filtered_variables, 'surface',
             fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, 
             save_radius='return', load_radius=radial_dist_arr)
 
-        filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['massflow'], fsname=I.__FlowSolutionCenters__)
+        filtered_variables = TUS.getFilteredFields(tmp_surface, variablesByAverage['MassFlow'], fsname=I.__FlowSolutionCenters__)
         radial_massflow = TR.computeRadialProfile(
             tmp_surface, surfaceName, filtered_variables, 'massflow',
             fsname=I.__FlowSolutionCenters__, config=config, lin_axis=lin_axis, 
@@ -836,7 +918,18 @@ def compareRadialProfilesPlane2Plane(w, surfaces, var4comp_repart, stages=[], co
             zBudget = I.getNodeFromType3(tBudget,'Zone_t')
             fsBudget = I.getNodeFromType(zBudget, 'FlowSolution_t')
             I.createUniqueChild(fsBudget, 'GridLocation', 'GridLocation_t', 'CellCenter', pos=0)
-            I.setName(fsBudget, f'Comparison#{I.getName(InletPlane)}')
+
+            # Rename FlowSolution
+            fs_name = f'Comparison#{I.getName(InletPlane)}#NEW'  # suffix #NEW will be updated later in postprocess_with_turbo
+            if len(fs_name) <=32:
+                I.setName(fsBudget, fs_name)
+            else:
+                fs_name = 'Comparison#NEW'
+                I.setName(fsBudget, fs_name)
+
+            fsBudget = cgns.castNode(fsBudget)
+            fsBudget.setParameters('MOLA:ComparisonInfos', Surface=I.getName(InletPlane), FlowSolution=None) # idem, FlowSolution value will be updated later
+
             I.addChild(OutletPlane, fsBudget)
 
 def computeVariablesOnBladeProfiles(w, surfaces, height_list='all', kind='rotor'):
