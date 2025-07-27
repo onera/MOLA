@@ -66,12 +66,12 @@ def plot_loads(signals):
     loads = dict()
     for integral_base in signals.group(Type='CGNSBase', Name='Integral', Depth=1):
         extraction = integral_base.name() 
-        fs = signals.get(Type='FlowSolution')
+        fs = integral_base.get(Type='FlowSolution')
 
         for quantity in quantities: 
 
             # first search for the base quantity
-            if fs.get(Name=quantity):
+            if fs is not None and fs.get(Name=quantity):
                 if quantity not in loads:
                     loads[quantity] = dict()
                 loads[quantity][extraction] = dict()
@@ -206,6 +206,8 @@ def plot_criteria(signals):
     for criterion in ConvergenceCriteria:
 
         extraction_for_criterion = signals.get(Name=criterion['ExtractionName'])
+        if extraction_for_criterion is None:
+            continue
         criterion_variable = extraction_for_criterion.get(Name=criterion['Variable'], Type='DataArray').value()
 
         iterations = extraction_for_criterion.get(Name='Iteration', Type='DataArray').value()
