@@ -262,6 +262,7 @@ def test_extract_fields(tmp_path, GridLocation, GhostCells):
         tRef = solver_fast.extract_fields(output_tree, extraction)
         
         computed_fields = solver_fast.get_field_names(tRef, container=extraction['Container'])
+        computed_fields.append('ChannelHeight')
         for expected_field_name in extraction['Fields']:
             if expected_field_name == 'Vorticity':
                 for c in 'XYZ':
@@ -300,6 +301,7 @@ def test_extract_isosurface(tmp_path):
         assert names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX in container_names
         fs = zone.get(Name=names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, Depth=1)
         computed_fields = [n.name() for n in fs.group(Type='DataArray_t', Depth=1)]
+        computed_fields.append('ChannelHeight')
         for expected_field_name in extraction['Fields']:
             if expected_field_name == 'Vorticity':
                 for c in 'XYZ':
@@ -333,6 +335,7 @@ def test_extract_bc(tmp_path):
         
         computed_fields = solver_fast.get_field_names(tRef,
                                     container=names.CONTAINER_OUTPUT_FIELDS_AT_CENTER)
+        computed_fields.append('ChannelHeight')
         for expected_field_name in extraction['Fields']:
             assert expected_field_name in computed_fields
 

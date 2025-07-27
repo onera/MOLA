@@ -22,6 +22,8 @@ from mola.cfd.preprocess.mesh.tools import to_partitioned, remove_maia_part_zone
 from mola.cfd.preprocess.mesh.split import _assert_tree_has_good_distribution_assignment
 from .initialization_with_turbo import initialize_flow_with_turbo
 
+INIT_ANALYTICAL_METHODS = ['uniform', 'turbo']
+
 def apply(workflow):
     '''
     Initialize the flow solution.
@@ -115,10 +117,8 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
         for FS in tree_source.group(Name=workflow.Initialization['SourceContainer'], Type='FlowSolution'):
             FS.setName(FlowSolution_name)
 
-    # Check that requiered variables are present 
+    # Check that all needed quantities are indeed in the container
     varNames = list(workflow.Flow['ReferenceState'])
-    if workflow.Initialization['KeepWallDistance']:
-        varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
     for FS in tree_source.group(Name=FlowSolution_name, Type='FlowSolution'):
         for var in varNames:
             if FS.get(Name=var, Depth=1) is None:
@@ -136,6 +136,17 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
         strategy='Closest',
         n_closest_pt=4,
         )
+    
+    if maia.pytree.get_node_from_name(tree_source, 'FlowSolution#Height'):
+        maia.algo.part.interpolate(
+            tree_source, 
+            workflow.tree, 
+            MPI.COMM_WORLD, 
+            containers_name=['FlowSolution#Height'], 
+            location='Vertex',
+            strategy='Closest',
+            n_closest_pt=4,
+            )
     
     workflow.tree = cgns.castNode(workflow.tree)
 
@@ -160,10 +171,6 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
         tree_source = workflow.Initialization['Source']
         errtag = 'source tree'
 
-    varNames = list(workflow.Flow['ReferenceState'])
-    if workflow.Initialization['KeepWallDistance']:
-        varNames += ['TurbulentDistance', 'TurbulentDistanceIndex']
-
     workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
 
     for zone in workflow.tree.zones():
@@ -178,11 +185,22 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
         if workflow.Initialization['SourceContainer'] != FlowSolution_name:
             FlowSolutionInSourceTree.setName(FlowSolution_name)
 
-        for var in varNames:
+        # Check that all needed quantities are indeed in the container
+        for var in list(workflow.Flow['ReferenceState']):
             if FlowSolutionInSourceTree.get(Name=var, Depth=1) is None:
                 raise MolaException(f'{var} cannot be found in {FSpath}')
 
         zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
+
+        # Copy ChannelHeight if possible
+        try:
+            FSpath = zone.path() + '/FlowSolution#Height'
+            FlowSolutionHeightInSourceTree = tree_source.getAtPath(FSpath)
+            assert FlowSolutionInSourceTree is not None
+            zone.addChild(FlowSolutionHeightInSourceTree, override_sibling_by_name=True)
+        except:
+            pass
+            
 
 def initialize_flow_from_previous(**kwargs):
     raise MolaException(

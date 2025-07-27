@@ -353,10 +353,10 @@ class Workflow(object):
         boundary_conditions.apply(self, updated_boundary_conditions)
 
 
-    def convert_to_dict(self, skip_attributes=['self','tree','workflow']):
+    def convert_to_dict(self):
         params= dict()
         for a in list(self.__dict__):
-            if not a.startswith('_') and a not in skip_attributes:
+            if not a.startswith('_') and a not in self._interface._fake_attributes:
                 att = getattr(self,a)
                 if not callable(att):
                     params[a] = att

@@ -22,6 +22,7 @@ from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola.math_tools import rotate_3d_vector_from_axis_and_angle_in_degrees
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height
 from mola.cfd.preprocess.mesh.families import get_bc_family_names_from_patterns
+from mola.cfd.preprocess import initialization
 import mola.cfd.postprocess as POST
 from ... import Workflow
 from .interface import WorkflowLinearCascadeInterface
@@ -55,17 +56,15 @@ class WorkflowLinearCascade(Workflow):
         super().compute_flow_and_turbulence()
 
     def initialize_flow(self):
-        self.Initialization.setdefault('ParametrizeWithHeight', None)
-        if self.Initialization['ParametrizeWithHeight'] is None \
-            and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
-            self.Initialization['ParametrizeWithHeight'] = 'maia'
-
-        if self.Initialization['ParametrizeWithHeight'] == 'maia':
+        if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
             self.parametrize_with_height()
-        elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
-            self.parametrize_with_height_with_turbo(self.lin_axis)
+            super().initialize_flow()
 
-        super().initialize_flow()
+        else:
+            super().initialize_flow()
+            # Do not recompute ChannelHeight if it was in source data
+            if not self.tree.get(Name='ChannelHeight', Type='DataArray'):
+                self.parametrize_with_height()
 
     def get_periodic_direction(self):
         periodic_node = self.tree.get(Type='Periodic')  # Periodic node in a GridConnectivity
@@ -102,7 +101,18 @@ class WorkflowLinearCascade(Workflow):
             
         return periodic_direction
     
-    def parametrize_with_height(self, hub_families=['hub', 'moyeu'], 
+    def parametrize_with_height(self):
+        self.Initialization.setdefault('ParametrizeWithHeight', None)
+        if self.Initialization['ParametrizeWithHeight'] is None \
+            and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
+            self.Initialization['ParametrizeWithHeight'] = 'maia'
+
+        if self.Initialization['ParametrizeWithHeight'] == 'maia':
+            self.parametrize_with_height_with_maia()
+        elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
+            self.parametrize_with_height_with_turbo(self.lin_axis)
+    
+    def parametrize_with_height_with_maia(self, hub_families=['hub', 'moyeu'], 
                                 shroud_families=['shroud', 'carter'], GridLocation='Vertex'):
         self.tree = parametrize_with_height(
             self.tree, 

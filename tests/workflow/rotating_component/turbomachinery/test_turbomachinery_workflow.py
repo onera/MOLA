@@ -16,13 +16,11 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
-import os
 import numpy as np
 
-from mola.logging import mola_logger, MolaException, MolaAssertionError
-import mola.server as SV
+from treelab import cgns
+from mola import naming_conventions as names
 from mola.workflow.rotating_component import turbomachinery
-from mola import solver
 
 def get_compressor_example_parameters(RunDirectory):
     params = dict( 
@@ -67,9 +65,7 @@ def get_compressor_example_parameters(RunDirectory):
     ],
 
     Extractions = [
-        # dict(Type='3D', 
-        #      Fields=['VelocityX', 'VelocityY', 'VelocityZ', 'Mach', 'Pressure', 'PressureStagnation', 'Entropy'], 
-        #      ExtractionPeriod=500, SavePeriod=500),
+        # dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.5, Fields=['Conservatives']),
     ],
 
     RunManagement=dict(
@@ -180,71 +176,6 @@ def get_compressor_example_rotor_only(RunDirectory):
 #         variables = zone.allFields(include_coordinates=False)
 #         assert all([v in variables for v in expected_variables])
 
-def get_workflow_rotor37(RunDirectory):
-    w = turbomachinery.Workflow( 
-        RawMeshComponents=[
-            dict(
-                Name='rotor37',
-                Source = '/stck/mola/data/open/mesh/rotor37/rotor37.cgns',
-                Unit = 'cm',
-                ) 
-        ],
-
-        ApplicationContext = dict(
-            ShaftRotationSpeed = -1800., 
-            Rows = dict(
-                R37 = dict(
-                    IsRotating = True,
-                    NumberOfBlades = 36,
-                )
-            )
-        ),
-
-        Flow = dict(
-            MassFlow              = 20.5114,  # for the 360 degrees section, even it is simulated entirely
-            TemperatureStagnation = 288.15,
-            PressureStagnation    = 101330.,
-        ),
-
-        Turbulence = dict(
-            Level = 0.03,
-            Viscosity_EddyMolecularRatio = 0.1,
-            Model = 'smith',
-        ),
-
-        Numerics = dict(
-            NumberOfIterations = 5000,
-            CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
-        ),
-
-        BoundaryConditions = [
-            dict(Family='R37_INFLOW', Type='InflowStagnation'),
-            dict(Family='R37_OUTFLOW', Type='OutflowPressure', Pressure=0.9936*1e5),
-        ],
-
-        Extractions = [
-            dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9),
-            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.03, OtherOptions=dict(tag='InletPlane', ReferenceRow='R37')),
-            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.07, OtherOptions=dict(tag='OutletPlane', ReferenceRow='R37')),
-        ],
-
-        ConvergenceCriteria = [
-            dict(
-                ExtractionName = 'R37_INFLOW',
-                Variable  = 'rsd-MassFlow',
-                Threshold = 1e-4,
-            ),
-        ],
-
-        RunManagement=dict(
-            JobName='rotor37',
-            RunDirectory=RunDirectory,
-            NumberOfProcessors=4,
-            ),
-
-        )
-    return w
-
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_init(tmp_path):
@@ -303,6 +234,15 @@ def test_compressor_example_local_rotor_only(tmp_path):
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()
+
+    # Check outputs
+    signals = cgns.load(str(tmp_path/names.DIRECTORY_OUTPUT/names.FILE_OUTPUT_1D), only_skeleton=True)
+    extractions = cgns.load(str(tmp_path/names.DIRECTORY_OUTPUT/names.FILE_OUTPUT_2D), only_skeleton=True)
+    assert signals.get(Name='Integral', Depth=1).get(Name='Rotor_INFLOW').get(Name='MassFlow') is not None
+    assert signals.get(Name='Integral', Depth=1).get(Name='Rotor_OUTFLOW').get(Name='MassFlow') is not None
+    assert extractions.get(Name='Iso_H_0.5', Depth=1).get(Name='MomentumX') is not None
+    assert extractions.get(Name='Iso_H_0.5', Depth=1).get(Name='ChannelHeight') is not None
+
 
 if __name__ == '__main__':
     test_compressor_example_local_rotor_only("mytest_compressor_example_local_rotor_only")

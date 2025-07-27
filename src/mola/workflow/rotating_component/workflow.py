@@ -24,6 +24,7 @@ from mola.logging import mola_logger, MolaException, MolaAssertionError, redirec
 from mola.cfd.preprocess.mesh import duplicate
 from mola.cfd.preprocess.mesh.families import get_bc_family_nodes_from_patterns, get_bc_family_names_from_patterns
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height
+from mola.cfd.preprocess import initialization
 
 from .. import Workflow
 from .interface import WorkflowRotatingComponentInterface
@@ -89,17 +90,15 @@ class WorkflowRotatingComponent(Workflow):
         self.duplicate()
 
     def initialize_flow(self):
-        self.Initialization.setdefault('ParametrizeWithHeight', None)
-        if self.Initialization['ParametrizeWithHeight'] is None \
-            and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
-            self.Initialization['ParametrizeWithHeight'] = 'maia'
-
-        if self.Initialization['ParametrizeWithHeight'] == 'maia':
+        if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
             self.parametrize_with_height()
-        elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
-            self.parametrize_with_height_with_turbo()
-            
-        super().initialize_flow()
+            super().initialize_flow()
+
+        else:
+            super().initialize_flow()
+            # Do not recompute ChannelHeight if it was in source data
+            if not self.tree.get(Name='ChannelHeight', Type='DataArray'):
+                self.parametrize_with_height()
 
     def set_default_parameters_for_rows(self):
 
@@ -348,14 +347,6 @@ class WorkflowRotatingComponent(Workflow):
                 mola_logger.debug(f'fluxcoeff on Family {Family} is {fluxcoeff}')
                 self.ApplicationContext['NormalizationCoefficient'][Family] = dict(FluxCoef=fluxcoeff)
 
-    def parametrize_with_height(self, GridLocation='Vertex'):
-        self.tree = parametrize_with_height(
-            self.tree, 
-            hub_families = self.get_hub_family_names(), 
-            shroud_families = self.get_shroud_family_names(), 
-            GridLocation=GridLocation
-            )
-
     def get_hub_family_names(self, must_be_unique=False, must_exist=False)  -> list:
 
         tree= self.__choose_skeleton_tree_if_existent()
@@ -416,6 +407,26 @@ class WorkflowRotatingComponent(Workflow):
         return names
 
 
+
+    def parametrize_with_height(self):
+        self.Initialization.setdefault('ParametrizeWithHeight', None)
+        if self.Initialization['ParametrizeWithHeight'] is None \
+            and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
+            self.Initialization['ParametrizeWithHeight'] = 'maia'
+
+        if self.Initialization['ParametrizeWithHeight'] == 'maia':
+            self.parametrize_with_height_with_maia()
+        elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
+            self.parametrize_with_height_with_turbo()
+
+    def parametrize_with_height_with_maia(self, GridLocation='Vertex'):
+        self.tree = parametrize_with_height(
+            self.tree, 
+            hub_families = self.get_hub_family_names(), 
+            shroud_families = self.get_shroud_family_names(), 
+            GridLocation=GridLocation
+            )
+        
     def parametrize_with_height_with_turbo(self, method=2):
         '''
         Compute the variable *ChannelHeight* from a mesh PyTree **t**. This function
@@ -487,28 +498,6 @@ class WorkflowRotatingComponent(Workflow):
         I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
         
         self.tree = cgns.castNode(self.tree)
-
-    # def normalize_data_from_extraction(self, Family, data_tree):
-    #     data_to_normalize = dict(
-    #         MassFlow = dict(Name='MassFlowTotal', Coef='FluxCoef'),
-    #         CL = dict(Name='CL', Coef='FluxCoef'),
-    #         CD = dict(Name='CD', Coef='FluxCoef'),
-    #         CY = dict(Name='CY', Coef='FluxCoef'),
-    #         Cn = dict(Name='Cn', Coef='TorqueCoef'),
-    #         Cl = dict(Name='Cl', Coef='TorqueCoef'),
-    #         Cm = dict(Name='Cm', Coef='TorqueCoef'),
-    #     )
-    #     for name, params in data_to_normalize.items():
-    #         new_name = params['Name']
-    #         try:
-    #             coef = self.ApplicationContext['NormalizationCoefficient'][Family][params['Coef']]
-    #         except:
-    #             continue
-    #         for node in data_tree.group(Name=name, Type='DataArray'):
-    #             # node.setName(new_name)
-    #             # node.setValue(node.value()*coef)
-    #             node.Parent.findAndRemoveNode(Name=new_name, Depth=1)
-    #             cgns.Node(Type='DataArray', Name=new_name, Value=node.value()*coef, Parent=node.Parent)
             
     def plot_radial_profiles(self, *args, **kwargs):
         if MPI.COMM_WORLD.Get_rank() == 0:

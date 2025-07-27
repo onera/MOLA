@@ -73,4 +73,5 @@ def write_job_launcher(RunManagement, scheduler_options):
 
     job_text = get_job_text('sonics', RunManagement, scheduler_options)+'\n\n'
     job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} python3 {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}\n'
+    job_text += 'mola_plot --no-show\n'
     SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])

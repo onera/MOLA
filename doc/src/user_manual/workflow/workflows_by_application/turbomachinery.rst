@@ -35,7 +35,7 @@ by this workflow:
 
 * `Numerics`: the default spatial `Scheme` is `Roe`.
 
-* `Extractions`: MassFlow is automatically extracted on Inflow and Outflow 
+* `Extractions`: **MassFlow** is automatically extracted on Inflow and Outflow 
   boundary conditions, including rotor/stator interfaces. More specifically, 
   every boundary with `Type` matching `Inflow*` or `Outflow*` are included.
 
@@ -100,12 +100,6 @@ parameters of the turbomachine:
   * `NumberOfBladesInInitialMesh` (int): 
     Number of blades present in the provided mesh. 
     It is normally automatically computed.
-
-
-Added parameters in other attributes
-====================================
-
-* `Initialization`: the parameter `ParametrizeWithHeight` ...
 
 
 

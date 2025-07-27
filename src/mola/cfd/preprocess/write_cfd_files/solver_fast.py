@@ -101,6 +101,8 @@ def write_job_launcher(RunManagement, scheduler_options):
         argcmd = '-a $OPENMPIOVERSUBSCRIBE' if bool(os.environ.get("OPENMPIOVERSUBSCRIBE")) else ''
         job_text += f'kpython -n {nranks} -t {nthreads} {argcmd} {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}'
 
+    job_text += '\nmola_plot --no-show\n'
+    
     SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 

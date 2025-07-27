@@ -2,29 +2,15 @@
 Examples
 ########
 
-There is no user examples ready for now, but you can be inspired by MOLA tests.
+This page contains some examples that are ready to run. 
+You can find all examples scripts in the directory `$MOLA/examples`, 
+where `$MOLA` is the install repository of MOLA, defined when MOLA environment is sourced.
 
-**************
-Basic Workflow
-**************
+.. toctree::
+   :maxdepth: 2
 
-.. literalinclude:: ../../../tests/workflow/test_workflow.py
-    :language: python
-    :pyobject: get_workflow_sphere_struct
-
-.. literalinclude:: ../../../tests/workflow/test_workflow.py
-    :language: python
-    :pyobject: test_workflow_sphere_struct_local_monoproc
-
-***********************
-Workflow turbomachinery
-***********************
-
-.. literalinclude:: ../../../tests/workflow/rotating_component/turbomachinery/test_turbomachinery_workflow.py
-    :language: python
-    :pyobject: get_compressor_example_parameters
-
-.. literalinclude:: ../../../tests/workflow/rotating_component/turbomachinery/test_turbomachinery_workflow.py
-    :language: python
-    :pyobject: test_compressor_example_local_stage
+   airplane/index
+   linear_cascade/index
+   propeller/index
+   turbomachinery/index
 

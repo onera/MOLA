@@ -91,9 +91,13 @@ def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa
                             **Motion_elsa
                             )
         # Put omega values in each bc
-        non_uniform_fields = boundary_conditions.apply_function_to_BCDataSet(workflow, Family, Motion)
+        non_uniform_fields = boundary_conditions.apply_function_to_BCDataSet(
+            workflow, 
+            Family, 
+            functions_to_apply=dict(RotationSpeed=Motion['RotationSpeed'])
+            )
         for bc_path, ImposedVariables in non_uniform_fields.items():
-            assert list(ImposedVariables) == ['RotationSpeed'], f'list(ImposedVariables)={list(ImposedVariables)}'
+            assert list(ImposedVariables) == ['RotationSpeed'], f'{list(ImposedVariables)=}'
             bc_node = workflow.tree.getAtPath(bc_path)
             impose_bc_fields(bc_node, dict(omega = ImposedVariables['RotationSpeed']))
 

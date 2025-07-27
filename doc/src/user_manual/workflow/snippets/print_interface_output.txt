@@ -119,7 +119,6 @@ Attribute [4m[1mInitialization[0m is set using:
       [1mSource[0m ([96mstr[0m, [96mTree[0m, [96mBase[0m, [96mZone[0m) : [95mNone[0m
       [1mSourceContainer[0m ([96mstr[0m) : [95mNone[0m
       [1mComputeWallDistanceAtPreprocess[0m ([96mbool[0m) : [95mFalse[0m
-      [1mKeepWallDistance[0m ([96mbool[0m) : [95mFalse[0m
     
     
 Attribute [4m[1mExtractionsDefaults[0m is set using:

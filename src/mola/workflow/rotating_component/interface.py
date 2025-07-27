@@ -46,7 +46,7 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
         ShaftAxis /= np.linalg.norm(ShaftAxis)
 
         kwargs = self.get_default_values_from_local_signature()
-        self.ApplicationContext = self._get_comp(self.set_ApplicationContext, kwargs)
+        self.ApplicationContext = self._get_comp(WorkflowRotatingComponentInterface.set_ApplicationContext, kwargs)
 
         for key, row_parameters in Rows.items():
             self.add_Row_to_ApplicationContext(_Key=key, **row_parameters)
@@ -123,7 +123,6 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
                                   cgns.Zone ]  = None,
             SourceContainer : str = None,
             ComputeWallDistanceAtPreprocess : bool = False,
-            KeepWallDistance : bool = False,
             ParametrizeWithHeight : str = None, # parameter specific to that workflow
             ):
         self.Initialization = self._get_comp(

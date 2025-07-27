@@ -90,7 +90,8 @@ def get_workflow_spleen(tmp_path):
 
         Extractions = [
             dict(Type='BC', Source='SPLEEN_BLADE', Fields=['Pressure'], ExtractAtEndOfRun=True),
-            dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=0.001, ExtractAtEndOfRun=True), # midspan
+            # dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=0.001, ExtractAtEndOfRun=True), # midspan
+            dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.5, ExtractAtEndOfRun=True), # midspan
         ],
 
         RunManagement = dict(
@@ -138,6 +139,7 @@ def test_get_periodic_direction():
 def test_parametrize_with_height(tmp_path):
     w = get_workflow_spleen(tmp_path)
     w.assemble()
+    w.Initialization['ParametrizeWithHeight'] = 'maia'
     w.parametrize_with_height()
     assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
 

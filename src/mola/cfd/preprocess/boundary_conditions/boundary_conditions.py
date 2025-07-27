@@ -98,7 +98,7 @@ def _check_family_exists(tree, family_name):
     if not tree.get(Name=family_name, Type='Family', Depth=2):
         raise MolaException(f'Cannot apply a boundary condition on family {family_name}: This family does not exist in the mesh.')
 
-def apply_function_to_BCDataSet(workflow, Family, functions_to_apply):
+def apply_function_to_BCDataSet(workflow, Family: str, functions_to_apply: dict):
     '''
     Apply a function to all face centers in the BC attached to **Family**
 

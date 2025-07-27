@@ -40,9 +40,12 @@ from mola import solver
 
 class WorkflowInterface(object):
 
+    _fake_attributes = ['self','tree','workflow','Mesh']
+
     def __init__(self, workflow,
             tree=None,
             Solver : str = None,
+            Mesh : Union[dict, str] = None,
             RawMeshComponents : list = None,
             Fluid : dict = None,
             Flow : dict = None,
@@ -65,6 +68,15 @@ class WorkflowInterface(object):
         attributes = self.get_default_values_from_local_signature()
         self.workflow = workflow
         
+        # If Mesh is given, use it to initialize RawMeshComponents and delete it
+        if Mesh is not None:
+            if isinstance(Mesh, dict):
+                attributes['RawMeshComponents'] = [Mesh]
+            elif isinstance(Mesh, str):
+                attributes['RawMeshComponents'] = [dict(Source=Mesh, Name='Base')]
+            else:
+                raise MolaUserError(f"Input parameter Mesh must be either a dict or str but is {type(Mesh)}")
+        attributes.pop('Mesh')
     
         # Link attributes of WorkflowInterface to them of Workflow.
         # Hence, a modification of the attribute in WorkflowInterface
@@ -94,7 +106,7 @@ class WorkflowInterface(object):
         setattr(WorkflowInterface, attr_name, property(getter, setter))
 
     
-    def get_workflow_parameters_from_tree(self, skip_attributes=['self','tree','workflow']):
+    def get_workflow_parameters_from_tree(self):
         
         if isinstance(self.tree, str):
             workflow_parameters = cgns.load_workflow_parameters(self.tree)
@@ -109,7 +121,7 @@ class WorkflowInterface(object):
         # for attributes appearing in constructor signature
         expected_types = self.get_argument_types(WorkflowInterface.__init__)
         for attribute_name, expected_type in expected_types.items():
-            if attribute_name in skip_attributes: continue
+            if attribute_name in self._fake_attributes: continue
             if getattr(self, attribute_name) is None:
                 setattr(self, attribute_name, expected_type())
 
@@ -119,12 +131,12 @@ class WorkflowInterface(object):
         if isinstance(self.RunManagement['LauncherCommand'], list):
             self.RunManagement['LauncherCommand'] = ' '.join(self.RunManagement['LauncherCommand'])
     
-    def set_attributes(self, attributes, skip_attributes=['self','tree','workflow']):
+    def set_attributes(self, attributes):
 
         expected_attribute_types = self.get_argument_types(WorkflowInterface.__init__)
 
         for attribute_name, user_input in attributes.items():
-            if attribute_name in skip_attributes: continue
+            if attribute_name in self._fake_attributes: continue
         
             try:
                 expected_type = expected_attribute_types[attribute_name]
@@ -548,8 +560,7 @@ class WorkflowInterface(object):
                                   Zone ]  = None,
             SourceContainer : str = None,
             ComputeWallDistanceAtPreprocess : bool = False,
-            WallDistanceComputingTool : str = 'maia',
-            KeepWallDistance : bool  = False):
+            WallDistanceComputingTool : str = 'maia'):
         '''
         Set workflow attribute **Initialization**
 
@@ -570,9 +581,6 @@ class WorkflowInterface(object):
             Container to consider in the source mesh, by default 'FlowSolution#Init'
         ComputeWallDistanceAtPreprocess : bool, optional
             If True, compute distances to walls during preprocess.
-            By default False
-        KeepWallDistance : bool, optional
-            With `Method='copy'`, choose to copy variables `TurbulentDistance` and `TurbulentDistanceIndex` or not.
             By default False
         '''
         self.Initialization = self._get_comp(
@@ -961,7 +969,7 @@ class WorkflowInterface(object):
             
     def __str__(self, keep_args=None, maxlevel=1000):
         
-        def get_interface_text(cls, indent="    ", skip_args=['self','tree','workflow'], maxlevel=maxlevel):
+        def get_interface_text(cls, indent="    ", maxlevel=maxlevel):
 
             def process_signature_per_class_to_text(signature_per_class):
                 txt = ''
@@ -1000,7 +1008,7 @@ class WorkflowInterface(object):
                 try:
                     setter_method = getattr(self,setter_name)
                 except:
-                    raise MolaException(f'Must implement interface for argument "{param_name}" using method "{setter_name}" in {self.Name}\n{skip_args}')
+                    raise MolaException(f'Must implement interface for argument "{param_name}" using method "{setter_name}" in {self.Name}')
                 queue = [(cls, 0)]
                 signature_per_class = {}
                 while queue:
@@ -1042,7 +1050,7 @@ class WorkflowInterface(object):
             signature = inspect.signature(WorkflowInterface.__init__)
             for param in signature.parameters.values():
                 param_name = param.name
-                if param_name in skip_args: continue
+                if param_name in self._fake_attributes: continue
                 if keep_args is not None and param_name not in keep_args: continue
 
                 txt += f'Attribute \033[4m\033[1m{param_name}\033[0m is set using:\n'

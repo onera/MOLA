@@ -27,9 +27,10 @@ class WorkflowPropellerManager(WorkflowManager):
         Thrust = 'N',
         Power = 'W', 
         Torque = 'N.m',
-        FigureOfMerit = '-',
+        FigureOfMeritHover = '-',
+        PropulsiveEfficiency = '-',
     )
-    _default_quantities_to_plot = ['Thrust', 'Power']
+    _default_quantities_to_plot = ['Thrust', 'Power', 'PropulsiveEfficiency']
 
     def add_operating_point(self, operating_point, Density, Velocity, Temperature, RPM_range):
         self.new_job(operating_point) 
@@ -105,7 +106,9 @@ class WorkflowPropellerManager(WorkflowManager):
 
     def export_perfo_to_dat(self, perfo_on_op, variables=None, fmt='%.4e'):
         if variables is None:
-            variables = self._default_quantities_to_plot
+            a_op = list(perfo_on_op)[0]
+            variables = list(perfo_on_op[a_op])
+            variables.remove('RPM')
 
         for op in perfo_on_op:  
             # export to .dat

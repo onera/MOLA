@@ -659,10 +659,10 @@ def test_submit(tmp_path):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_write_tree():
+def test_write_tree(tmp_path):
     w = Workflow()
-    w.write_tree('main.cgns')
-    try: os.unlink('main.cgns')
+    w.write_tree(str(tmp_path/'main.cgns'))
+    try: os.unlink(tmp_path/'main.cgns')
     except: pass
 
 
@@ -705,6 +705,19 @@ def test_equality_between_workflows():
 def test_prepare_assemble_1():
     w = get_workflow1()
     w.assemble()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_init_with_arg_Mesh():
+    w = Workflow(Mesh='mesh.cgns')
+    assert w.RawMeshComponents[0]['Source'] == 'mesh.cgns'
+    assert not hasattr(w, 'Mesh')
+    del w
+
+    w = Workflow(Mesh=dict(Source='mesh.cgns', Name='MyMesh'))
+    assert w.RawMeshComponents[0]['Source'] == 'mesh.cgns'
+    assert w.RawMeshComponents[0]['Name'] == 'MyMesh'
+    assert not hasattr(w, 'Mesh')
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

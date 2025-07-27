@@ -330,9 +330,6 @@ The `Initialization` attribute of the Workflow is a dictionnary with the foloowi
     If True, compute distances to walls during preprocess.
     By default False
 
-`KeepWallDistance` (bool, optional):
-    With `Method='copy'`, choose to copy variables `TurbulentDistance` and `TurbulentDistanceIndex` or not.
-    By default False
 
 ***********
 Extractions
