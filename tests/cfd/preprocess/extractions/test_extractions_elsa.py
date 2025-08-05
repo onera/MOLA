@@ -305,7 +305,7 @@ def get_workflow_1():
 
             self.Flow = dict(Pressure=1e5)
 
-            self.Turbulence = dict()
+            self.Turbulence = dict(Model='SA')
 
             self.tree = cgns.Tree()
 
