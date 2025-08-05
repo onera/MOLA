@@ -788,7 +788,7 @@ class WorkflowInterface(object):
             Frame : str = 'relative', # TODO add warning for fast (only 'absolute' possible)
             Override : bool = True, # if False, will tag with iteration
             ExtractAtEndOfRun : bool = True,  # if True, extract and save when the simulation ends, whatever ExtractionPeriod and SavePeriod
-            Container : str = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX,
+            Container : str = None,  # Default value depends on GridLocation
             GridLocation : str = 'Vertex',
             GhostCells : bool = False,
             TimeAveragingFirstIteration : int = 1000,
@@ -801,6 +801,11 @@ class WorkflowInterface(object):
         '''
         Fields (or sub-fields) extraction 
         '''
+        if Container is None:
+            if GridLocation == 'Vertex':
+                Container = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX
+            else:
+                Container = names.CONTAINER_OUTPUT_FIELDS_AT_CENTER
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_3D, self.get_default_values_from_local_signature()))
     
