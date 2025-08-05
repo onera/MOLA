@@ -74,6 +74,9 @@ def has_reached_timeout(elapsed_time, TimeOutInSeconds):
     return ReachedTimeOutMargin
 
 def check_convergence_criteria(coprocess_manager):
+    # Check if there is at least one criterion, otherwise return False
+    if len(coprocess_manager.workflow.ConvergenceCriteria) == 0:
+        return False
 
     has_reached_convergence_criteria = False
 

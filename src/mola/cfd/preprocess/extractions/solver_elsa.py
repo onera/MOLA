@@ -271,7 +271,7 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
 
     
     is_wall = 'Wall' in bc_type
-    is_inviscid_wall = is_wall and 'Inviscid' in bc_type
+    is_inviscid_wall = is_wall and ('Inviscid' in bc_type or workflow.Turbulence['Model']=='Euler')
     is_viscous_wall = is_wall and not is_inviscid_wall
 
     if is_wall:

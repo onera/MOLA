@@ -290,6 +290,21 @@ def outmfr2_interface(workflow, groupmassflow=1, **kwargs):
 
 def outradeq_interface(workflow, Family, **kwargs):
     
+    try:
+        # Case where Type='outradeq' (not to pass through MOLA OutflowRadialEquilibrium_interface)
+        # and all elsA parameters are direcly given
+        parameters = dict(
+            valve_type = kwargs['valve_type'], 
+            valve_ref_pres = kwargs['valve_ref_pres'],
+            valve_ref_mflow = kwargs['valve_ref_mflow'], 
+            valve_relax = kwargs['valve_relax'],
+            indpiv = kwargs['indpiv'],
+            dirorder = kwargs['dirorder'],
+            )
+        return parameters
+    except KeyError:
+        pass
+
     # Default values, will be updated below depending on the valve law
     valve_ref_pres = workflow.Flow['Pressure']
     valve_ref_mflow = workflow.Flow['MassFlow']
