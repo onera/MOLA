@@ -71,6 +71,7 @@ class WorkflowInterface(object):
         # If Mesh is given, use it to initialize RawMeshComponents and delete it
         if Mesh is not None:
             if isinstance(Mesh, dict):
+                Mesh.setdefault('Name','Base')
                 attributes['RawMeshComponents'] = [Mesh]
             elif isinstance(Mesh, str):
                 attributes['RawMeshComponents'] = [dict(Source=Mesh, Name='Base')]

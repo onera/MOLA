@@ -101,7 +101,9 @@ parameters of the turbomachine:
     Number of blades present in the provided mesh. 
     It is normally automatically computed.
 
+* `RowType` (str):
 
+  Should be 'compressor' (by default) or 'turbine'. It is only used to define postprocessing quantities like efficiency.
 
 ************************************
 Specific methods for WorkflowManager

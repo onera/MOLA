@@ -7,5 +7,4 @@ Workflows by application
 
    airfoil
    linear_cascade
-   rotating_component
    turbomachinery

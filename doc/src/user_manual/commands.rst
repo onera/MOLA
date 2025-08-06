@@ -12,22 +12,25 @@ The list of available commands may be displayed (with a short description for ea
 
     mola_available
 
+You can also use autocompletion in your terminal, by writing `mola_` and press TAB twice.
+
 The output of this command is:
 
 .. code-block:: text
 
-    mola_available  : Display all available MOLA commands
-    mola_clean      : Remove all MOLA log files, cache files, debug files, status files and plots
-    mola_plot       : Plot residuals, massflow, loads, etc.
-    mola_prepare    : Read a file with workflow parameters and apply methods prepare() and write_cfd_files()
-    mola_seelog     : Display the updated content of coprocess.log
-    mola_update     : Update workflow parameters
-    mola_version    : Display versions of modules loaded with MOLA
-    mola_watchdir   : watch the current directory files
-    mola_watchqueue : watch the SLURM job queue
+    mola_available        : Display all available MOLA commands
+    mola_clean            : Remove all MOLA log files, cache files, debug files, status files and plots
+    mola_merge_containers : Merge fields containers to facilitate visualization
+    mola_plot             : Plot residuals, massflow, loads, etc.
+    mola_prepare          : Read a file with workflow parameters and apply methods prepare() and write_cfd_files()
+    mola_repatriate       : Repatriate directories after submitting several simulations on sator at once
+    mola_seelog           : Display the updated content of coprocess.log
+    mola_update           : Update workflow parameters
+    mola_version          : Display versions of modules loaded with MOLA
+    mola_watchdir         : watch the current directory files
+    mola_watchqueue       : watch the SLURM job queue
 
-You may notice that each of them starts with the prefix `mola_*`. The only exception is the 
-graphical CGNS interface `treelab`, which is kind of an enhanced version of `cgnsview`.
+You may notice that each of them starts with the prefix `mola_*`. 
 
 .. note::
     

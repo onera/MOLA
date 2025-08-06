@@ -1,0 +1,1 @@
+../../../../../examples/open/workflow/rotating_component/turbomachinery/rotor37/run_sator.py

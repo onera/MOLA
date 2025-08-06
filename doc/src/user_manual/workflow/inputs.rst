@@ -331,6 +331,8 @@ The `Initialization` attribute of the Workflow is a dictionnary with the foloowi
     By default False
 
 
+.. _inputs-extractions:
+
 ***********
 Extractions
 ***********
