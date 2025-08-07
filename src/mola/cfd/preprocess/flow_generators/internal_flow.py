@@ -193,7 +193,7 @@ class InternalFlowGenerator(ExternalMPtTtFlowGenerator):
     @staticmethod
     def get_surface_of_inflow(workflow):
         try:
-            InflowBC = mesh_tools.get_bc_from_bc_type(workflow, ['Inflow*', 'inj*'])
+            InflowBC = mesh_tools.get_bc_from_bc_type(workflow, ['Inflow*', 'inj*', '*inlet*'])
             InflowFamily = InflowBC['Family']
         except MolaException:
             raise MolaException('Please provide a reference surface as "Surface" in ApplicationContext or provide a unique inflow BC in BoundaryConditions')

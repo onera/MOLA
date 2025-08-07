@@ -22,6 +22,7 @@ import Converter.PyTree as C
 import Converter.Internal as I
 
 from treelab import cgns
+from mola import naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola.cfd.preprocess.solver_specific_tools import solver_elsa
 from mola.cfd.preprocess.motion import motion
@@ -38,9 +39,11 @@ def define_bc_family(tree, Family, Value):
     return familyNode
 
 def impose_bc_fields(bc_node, ImposedVariables, GridLocation='FaceCenter', BCDataSetName='BCDataSet#Init', BCDataName='NeumannData'):
-    BCDataSet = cgns.Node(Name=BCDataSetName, Value='Null', Type='BCDataSet', Parent=bc_node)
-    cgns.Node(Name='GridLocation', Type='GridLocation', Value=GridLocation, Parent=BCDataSet)
-    BCDataSet.setParameters(BCDataName, ContainerType='BCData', **ImposedVariables)
+    if len(ImposedVariables) > 0:
+        # do not add a node BCDataSet_t if there is no variable to impose
+        BCDataSet = cgns.Node(Name=BCDataSetName, Value='Null', Type='BCDataSet', Parent=bc_node)
+        cgns.Node(Name='GridLocation', Type='GridLocation', Value=GridLocation, Parent=BCDataSet)
+        BCDataSet.setParameters(BCDataName, ContainerType='BCData', **ImposedVariables)
 
 def wall(workflow, Family, Motion=None, bctype_cgns='BCWallViscous', bctype_elsa='walladia'):
     '''
@@ -160,26 +163,33 @@ def nref(workflow, Family, **kwargs):
         variables_from_file += list(workflow.Turbulence['Conservatives'])
 
         set_physical_boundary(workflow, Family, 
-                            FamilyBC='BCFarfield', BCType='nref', interface_function=nref_interface,
+                            FamilyBC='BCFarfield', interface_function=nref_interface,
                             variables_from_file=variables_from_file,
                             **kwargs
                             )
 
 def inj1(workflow, Family, **kwargs):
     set_physical_boundary(workflow, Family, 
-                          FamilyBC='BCInflowSubsonic', BCType='inj1', interface_function=inj1_interface,
+                          FamilyBC='BCInflowSubsonic', interface_function=inj1_interface,
                           **kwargs
                           )
 
 def injmfr1(workflow, Family, **kwargs):
     set_physical_boundary(workflow, Family, 
-                          FamilyBC='BCInflowSubsonic', BCType='injmfr1', interface_function=injmfr1_interface,
+                          FamilyBC='BCInflowSubsonic', interface_function=injmfr1_interface,
+                          **kwargs
+                          )
+    
+def giles_inlet(workflow, Family, **kwargs):
+    set_physical_boundary(workflow, Family, 
+                          FamilyBC='BCInflowSubsonic', interface_function=giles_inlet_interface,
+                          force_parameters_at_bc_level=True,
                           **kwargs
                           )
 
 def outpres(workflow, Family, **kwargs):   
     set_physical_boundary(workflow, Family, 
-                          FamilyBC='BCOutflowSubsonic', BCType='outpres', interface_function=outpres_interface,
+                          FamilyBC='BCOutflowSubsonic', interface_function=outpres_interface,
                           **kwargs
                           )
 
@@ -188,18 +198,26 @@ def outsup(workflow, Family):
 
 def outmfr2(workflow, Family, **kwargs):
     set_physical_boundary(workflow, Family, 
-                          FamilyBC='BCOutflowSubsonic', BCType='outmfr2', interface_function=outmfr2_interface,
+                          FamilyBC='BCOutflowSubsonic', interface_function=outmfr2_interface,
                           **kwargs
                           )
   
-
+def giles_outlet(workflow, Family, **kwargs):
+    set_physical_boundary(workflow, Family, 
+                          FamilyBC='BCOutflowSubsonic', interface_function=giles_outlet_interface,
+                          force_parameters_at_bc_level=True,
+                          **kwargs
+                          )
 
 def nref_interface(workflow, **kwargs):
-    conservatives = workflow.Flow['Conservatives'] + workflow.Turbulence['Conservatives']
+    ImposedVariables = workflow.Flow['Conservatives'] + workflow.Turbulence['Conservatives']
     for key, value in kwargs.items():
-        if key in conservatives:
-            conservatives[key] = value
-    return conservatives
+        if key in ImposedVariables:
+            ImposedVariables[key] = value
+    NumericalParameters = dict(
+        type = 'nref',
+    )
+    return ImposedVariables, NumericalParameters
 
 def inj1_interface(workflow, **kwargs):
     '''
@@ -220,7 +238,10 @@ def inj1_interface(workflow, **kwargs):
         VelocityUnitVectorZ = VelocityUnitVectorZ,
         **boundary_conditions.get_turbulent_primitives(workflow, **kwargs)
         )
-    return ImposedVariables
+    NumericalParameters = dict(
+        type = 'inj1',
+    )
+    return ImposedVariables, NumericalParameters
        
 def injmfr1_interface(workflow, **kwargs):
     Surface = kwargs.get('Surface')
@@ -257,13 +278,19 @@ def injmfr1_interface(workflow, **kwargs):
         VelocityUnitVectorZ = VelocityUnitVectorZ,
         **boundary_conditions.get_turbulent_primitives(workflow, **kwargs)
         )
-    return ImposedVariables
+    NumericalParameters = dict(
+        type = 'injmfr1',
+    )
+    return ImposedVariables, NumericalParameters
 
 def outpres_interface(workflow, **kwargs):
     ImposedVariables = dict(
         Pressure = kwargs.get('Pressure', workflow.Flow['Pressure'])
         )
-    return ImposedVariables
+    NumericalParameters = dict(
+        type = 'outpres',
+    )
+    return ImposedVariables, NumericalParameters
 
 def outmfr2_interface(workflow, groupmassflow=1, **kwargs):
     MassFlow = kwargs.get('MassFlow')
@@ -284,9 +311,12 @@ def outmfr2_interface(workflow, groupmassflow=1, **kwargs):
 
     ImposedVariables = dict(
         globalmassflow = MassFlowOnBC,
-        groupmassflow = groupmassflow,
         )
-    return ImposedVariables
+    NumericalParameters = dict(
+        type = 'outmfr2',
+        groupmassflow = groupmassflow,
+    )
+    return ImposedVariables, NumericalParameters
 
 def outradeq_interface(workflow, Family, **kwargs):
     
@@ -350,13 +380,17 @@ def outradeq_interface(workflow, Family, **kwargs):
         raise MolaUserError(f"Valve law {ValveLaw['Type']} is not available with elsA. Available laws are 'Linear' and 'Quadratic'.")
 
     parameters = dict(
-        valve_type = valve_type, 
         valve_ref_pres = valve_ref_pres,
-        valve_ref_mflow = valve_ref_mflow, 
-        valve_relax = valve_relax,
         indpiv = indpiv,
         dirorder = dirorder,
         )
+    
+    if valve_type != 0:
+        parameters.update(dict(
+            valve_type = valve_type, 
+            valve_ref_mflow = valve_ref_mflow, 
+            valve_relax = valve_relax,
+            ))
     return parameters
 
 def outradeqhyb_interface(workflow, Family, **kwargs):
@@ -368,13 +402,22 @@ def outradeqhyb_interface(workflow, Family, **kwargs):
     return parameters
 
 def set_physical_boundary(workflow, Family, 
-                          FamilyBC, BCType, interface_function,
-                          File=None, variableForInterpolation='ChannelHeight', 
+                          FamilyBC, interface_function,
+                          File=None, variableForInterpolation='ChannelHeight',
+                          BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', 
+                          force_parameters_at_bc_level=False,  # Even if only scalar parameters are imposed, force BCDataSet to be written in each BC and not in Family
                           **kwargs 
                           ):
     
     kwargs['Family'] = Family
-    ImposedVariables = interface_function(workflow, **kwargs)
+    ImposedVariables, NumericalParameters = interface_function(workflow, **kwargs)
+    # Generally, except some cases due to how BC is implemented in elsa:
+    #    ImposedVariables -> in BCDataSet#Init
+    #    NumericalParameters -> in .Solver#BC
+
+    all_imposed_values_are_scalars = all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()])
+
+    FamilyNode = define_bc_family(workflow.tree, Family, FamilyBC)
 
     if File is not None:
 
@@ -383,108 +426,20 @@ def set_physical_boundary(workflow, Family,
             )
         for bc_path, ImposedVariables in input_data_from_file.items():  
             bc = workflow.tree.getAtPath(bc_path)
-            setBCwithImposedVariables(
-                workflow.tree, 
-                Family, 
-                ImposedVariables,
-                FamilyBC=FamilyBC, 
-                BCType=BCType, 
-                bc=bc,
-                variableForInterpolation=variableForInterpolation
-                )
-    elif not all([np.ndim(v) == 0 and not callable(v) for v in ImposedVariables.values()]):
+            _apply_BCDataSet_on_bc(bc, ImposedVariables, NumericalParameters, BCDataSetName, BCDataName, variableForInterpolation)
+
+    elif not all_imposed_values_are_scalars or force_parameters_at_bc_level:
         for bc in boundary_conditions.get_bc_nodes_from_family(workflow.tree, Family):
-            setBCwithImposedVariables(
-                workflow.tree, 
-                Family, 
-                ImposedVariables,
-                FamilyBC=FamilyBC, 
-                BCType=BCType, 
-                bc=bc,
-                variableForInterpolation=variableForInterpolation
-                )
+            _apply_BCDataSet_on_bc(bc, ImposedVariables, NumericalParameters, BCDataSetName, BCDataName, variableForInterpolation)
     else:
-        setBCwithImposedVariables(
-            workflow.tree, 
-            Family, 
-            ImposedVariables,
-            FamilyBC=FamilyBC, 
-            BCType=BCType, 
-            variableForInterpolation=variableForInterpolation
-            )
-        
-def setBCwithImposedVariables(tree, Family, ImposedVariables, FamilyBC, BCType,
-    bc=None, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
-    '''
-    Generic function to impose a Boundary Condition ``inj1``. The following
-    functions are more specific:
-
-    Parameters
-    ----------
-
-        workflow.tree : PyTree
-            Tree to modify
-
-        Family : str
-            Name of the family on which the boundary condition will be imposed
-
-        ImposedVariables : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value) or 'Radius'.riable names and values must be either:
-
-                * scalars: in that case they are imposed once for the
-                  family **Family** in the corresponding ``Family_t`` node.
-
-                * numpy arrays: in that case they are imposed for the ``BC_t``
-                  node **bc**.
-
-                * functions: in that case the function defined a profile depending on radius.
-                  It is evaluated in each cell on the **bc**.
-            
-            They may be a combination of three.
-
-        bc : PyTree
-            ``BC_t`` node on which the boundary condition will be imposed. Must
-            be :py:obj:`None` if the condition must be imposed once in the
-            ``Family_t`` node.
-
-        BCDataSetName : str
-            Name of the created node of type ``BCDataSet_t``. Default value is
-            'BCDataSet#Init'
-
-        BCDataName : str
-            Name of the created node of type ``BCData_t``. Default value is
-            'DirichletData'
-        
-        variableForInterpolation : str
-            When using a function to impose the radial profile of one or several quantities, 
-            it defines the variable used as the argument of this function.
-            Must be 'ChannelHeight' (default value), 'Radius', 'CoordinateX', 'CoordinateY' or 'CoordinateZ'.
-
-    See also
-    --------
-
-    setBC_inj1, setBC_outpres, setBC_outmfr2
-
-    '''
-
-    all_variables_are_scalar = all([np.ndim(v)==0 and not callable(v) for v in ImposedVariables.values()])
-
-    if all_variables_are_scalar:
         checkVariables(ImposedVariables)
         ImposedVariables = solver_elsa.translate_to_elsa(ImposedVariables)
-        FamilyNode = define_bc_family(tree, Family, FamilyBC)
-        FamilyNode.setParameters('.Solver#BC', type=BCType, **ImposedVariables)
+        ImposedVariables.update(NumericalParameters)
+        FamilyNode.setParameters('.Solver#BC', **ImposedVariables)    
 
-    else:
-        assert bc is not None
-        _apply_BCDataSet_on_bc(bc, ImposedVariables, BCType, BCDataSetName, BCDataName, variableForInterpolation)
+def _apply_BCDataSet_on_bc(bc: cgns.Node, ImposedVariables, NumericalParameters, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
 
-
-def _apply_BCDataSet_on_bc(bc: cgns.Node, ImposedVariables, BCType, BCDataSetName='BCDataSet#Init', BCDataName='DirichletData', variableForInterpolation='ChannelHeight'):
-
-    bc.setParameters('.Solver#BC', type=BCType)
+    bc.setParameters('.Solver#BC', **NumericalParameters)
     
     var2interp_value = None
     if any([callable(value) for value in ImposedVariables.values()]):
@@ -826,7 +781,7 @@ def outradeqhyb(workflow, Family, **kwargs):
     bc = trf.BCOutRadEqHyb(t, t.get(Name=Family, Type='Family'))
     bc.glob_border()
     bc.indpiv = params['indpiv']
-    if params['valve_type'] == 0:
+    if 'valve_type' not in params or params['valve_type'] == 0:
         bc.prespiv = params['valve_ref_pres']
     else:
         valve_law_dict = {1: 'SlopePsQ', 2: 'QTarget', 3: 'QLinear', 4: 'QHyperbolic'}
@@ -1159,11 +1114,14 @@ def stage_choro_hyb(workflow, Family, LinkedFamily):
     .. important : This function has a dependency to the ETC module.
     '''
     if not workflow.tree.isStructured():
-        raise MolaUserError(f'The boundary condition "stage_choro" on families {Family} and {LinkedFamily} is available only for structured mesh.')
+        # error for this BC with structured mesh for elsa<v5.4.02
+        # see https://elsa-e.onera.fr/issues/11891#note-33
+        raise MolaUserError((
+            f'The boundary condition "stage_choro_hyb" on families {Family} and {LinkedFamily} '
+            'is available only for structured mesh for elsa<v5.4.02. See https://elsa-e.onera.fr/issues/11891#note-33'
+        ))
 
     import etc.transform as trf
-
-    mola_logger.warning('These condition has not been validated yet in MOLA.')
 
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
@@ -1311,6 +1269,232 @@ def set_turbomachinery_interface_FamilyBC(t, left, right):
     rightFamily = t.get(Name=right, Type='Family', Depth=2)
     cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCOutflow', Parent=leftFamily)
     cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCInflow', Parent=rightFamily)
+
+def _compute_giles_monitoring_flag(tree):
+    '''
+    Search existing nodes 'monitoring_flag' in tree to get the next one. 
+    For instance, if there are already BCs with monitoring_flag=1 et 2, this function return 3
+    '''
+    flag = 1
+    nodes = tree.group(Name='type', Value='nscbc_in') \
+            + tree.group(Name='type', Value='nscbc_out') \
+            + tree.group(Name='type', Value='nscbc_mxpl')
+
+    for node in nodes:
+        monitoring_flag = [sibling for sibling in node.siblings() if sibling.name()=='monitoring_flag'][0].value()
+        if monitoring_flag >= flag:
+            flag = flag + 1 
+
+    return flag
+
+def giles_inlet_interface(workflow, Family, 
+                          NumberOfModes, # number of Fourier modes
+                          **kwargs
+                          ):  
+
+    # creation of dictionnary of keys for Giles inlet BC  
+    NumericalParameters = dict()
+
+    # keys relative to NSCBC
+    NumericalParameters['type'] = 'nscbc_in'                                                                   # mandatory key to have NSCBC-Giles treatment
+    NumericalParameters['nscbc_giles'] = 'statio'                                                              # mandatory key to have NSCBC-Giles treatment
+    NumericalParameters['nscbc_interpbc'] = 'linear'                                                           # mandatory value
+    NumericalParameters['nscbc_fluxt'] = kwargs.get('nscbc_fluxt', 'fluxBothTransv')                           # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv' 
+    NumericalParameters['nscbc_surf'] = kwargs.get('nscbc_surf',  'revolution')                                # recommended value - possible keys : 'flat', 'revolution' 
+    NumericalParameters['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                           # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
+    NumericalParameters['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale', workflow.Flow['SoundSpeed'])  # default value - sound velocity
+    NumericalParameters['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)                        # default value, could be updated by the user if convergence issue
+
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        NumericalParameters['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        NumericalParameters['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
+
+    # keys relative to the Giles treatment 
+    NumericalParameters['giles_opt'] = kwargs.get('giles_relax_opt', 'relax')                             # mandatory key for NSCBC-Giles treatment
+    NumericalParameters['giles_restric_relax'] = 'inactive'                                               # mandatory key for NSCBC-Giles treatment
+    NumericalParameters['giles_exact_lodi'] = kwargs.get('giles_exact_lodi',  'active')                   # recommended value - possible keys: 'inactive', 'partial', 'active'
+    NumericalParameters['giles_nbMode'] = NumberOfModes  # to be given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
+
+    # keys relative to the monitoring and radii calculus - monitoring data stored in LOGS
+    NumericalParameters['bnd_monitoring'] = 'active'                                                      # recommended value
+    NumericalParameters['monitoring_comp_rad'] = 'auto'                                                   # recommended value - possible keys: 'from_file', 'monofenetre'
+    NumericalParameters['monitoring_tol_rad'] = kwargs.get('monitoring_tol_rad',  1e-6)                   # recommended value
+    NumericalParameters['monitoring_var'] = 'psta pgen Tgen ux uy uz diffPgen diffTgen diffVel'
+    NumericalParameters['monitoring_file'] = f'{names.DIRECTORY_LOG}/{Family}_',
+    NumericalParameters['monitoring_period'] = kwargs.get('monitoring_period',  20)                       # recommended value
+    NumericalParameters['monitoring_flag'] = _compute_giles_monitoring_flag(workflow.tree)                # automatically computed
+
+    # keys relative to the inlet BC
+    NumericalParameters['nscbc_in_type'] = kwargs.get('nscbc_in_type','htpt')                             # 'htpt', 'htpt_reldir', 'htpt_tangcomp' 
+    # - numerics -
+    NumericalParameters['nscbc_relaxi1'] = kwargs.get('nscbc_relaxi1',  500.)                             # recommended value
+    NumericalParameters['nscbc_relaxi2'] = kwargs.get('nscbc_relaxi2',  500.)                             # recommended value
+    giles_relax_in = kwargs.get('giles_relax_in',  [200.,  500.,  1000.,  1000.])                        # recommended value
+    NumericalParameters['giles_relax_in1'] = giles_relax_in[0]
+    NumericalParameters['giles_relax_in2'] = giles_relax_in[1]
+    NumericalParameters['giles_relax_in3'] = giles_relax_in[2]
+    NumericalParameters['giles_relax_in4'] = giles_relax_in[3]   
+
+    # Imposed variables at boundary conditions
+    if 'File' not in kwargs:
+        ImposedVariables, _ = inj1_interface(workflow, **kwargs)
+        ImposedVariables['vtx'] = ImposedVariables.pop('VelocityUnitVectorX')
+        ImposedVariables.pop('VelocityUnitVectorY')
+        ImposedVariables.pop('VelocityUnitVectorZ')
+        ImposedVariables['vtr'] = kwargs.get('VelocityUnitVectorR', 0.)
+        ImposedVariables['vtt'] = kwargs.get('VelocityUnitVectorTheta', 0.)
+
+        ImposedVariables = solver_elsa.translate_to_elsa(ImposedVariables)
+        NumericalParameters.update(ImposedVariables)
+    
+    ImposedVariables = dict()
+
+    return ImposedVariables, NumericalParameters
+        
+def giles_outlet_interface(workflow, Family, 
+                          NumberOfModes,
+                          **kwargs
+                          ):  
+
+    # creation of dictionnary of keys for Giles outlet BC  
+    NumericalParameters = dict()
+
+    # keys relative to NSCBC
+    NumericalParameters['type'] = 'nscbc_out'                                                                   # mandatory key to have NSCBC-Giles treatment
+    NumericalParameters['nscbc_giles'] = 'statio'                                                               # mandatory key to have NSCBC-Giles treatment
+    NumericalParameters['nscbc_interpbc'] = 'linear'                                                            # mandatory value
+    NumericalParameters['nscbc_fluxt'] = kwargs.get('nscbc_fluxt', 'fluxBothTransv')                            # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv'
+    NumericalParameters['nscbc_surf'] = kwargs.get('nscbc_surf',  'revolution')                                 # recommended value - possible keys : 'flat', 'revolution'
+    NumericalParameters['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                            # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
+    NumericalParameters['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale', workflow.Flow['SoundSpeed']) # default value - reference sound velocity 
+    NumericalParameters['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)                         # default value, could be updated by the user if convergence issue
+
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        NumericalParameters['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        NumericalParameters['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
+
+    # keys relative to the Giles treatment 
+    NumericalParameters['giles_opt'] = 'relax'                                                        # mandatory key for NSCBC-Giles treatment
+    NumericalParameters['giles_restric_relax'] = 'inactive'                                           # mandatory key for NSCBC-Giles treatment
+    NumericalParameters['giles_exact_lodi'] = kwargs.get('giles_exact_lodi',  'active')               # recommended value - possible keys: 'inactive', 'partial', 'active'
+    NumericalParameters['giles_nbMode'] = NumberOfModes                                         # given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
+
+    # keys relative to the monitoring and radii calculus - monitoring data stored in LOGS
+    NumericalParameters['bnd_monitoring'] = 'active'                                                  # recommended value
+    NumericalParameters['monitoring_comp_rad'] = 'auto'                                               # recommended value - possible keys: 'from_file', 'monofenetre'
+    NumericalParameters['monitoring_tol_rad'] = kwargs.get('monitoring_tol_rad',  1e-6)               # recommended value
+    NumericalParameters['monitoring_var'] = 'psta'
+    NumericalParameters['monitoring_file'] = f'{names.DIRECTORY_LOG}/{Family}_',
+    NumericalParameters['monitoring_period'] = kwargs.get('monitoring_period',  20)                   # recommended value   
+    NumericalParameters['monitoring_flag'] = _compute_giles_monitoring_flag(workflow.tree)                            # automatically computed
+
+    # keys relative to the outlet NSCBC/Giles
+    NumericalParameters['nscbc_relaxo'] = kwargs.get('nscbc_relaxo',  200.)                           # recommended value
+    NumericalParameters['giles_relaxo'] = kwargs.get('giles_relaxo',  200.)                           # recommended value   
+
+    if 'File' not in kwargs:
+        # Parameters related to radial equilibrium
+        boundary_conditions.OutflowRadialEquilibrium_interface(workflow, kwargs)  # modify kwargs
+        outradeq_params = outradeq_interface(workflow, Family, **kwargs)
+
+        NumericalParameters.update(dict(
+            monitoring_pressure = outradeq_params['valve_ref_pres'],
+            monitoring_indpiv = outradeq_params['indpiv'],
+        ))
+        if 'valve_type' in outradeq_params:
+            NumericalParameters.update(dict(
+                valve_ref_type = outradeq_params['valve_type'],
+                monitoring_valve_ref_mflow = outradeq_params['valve_ref_mflow'],
+                valve_relax = outradeq_params['valve_relax'],
+            ))
+
+    ImposedVariables = dict()
+    return ImposedVariables, NumericalParameters
+
+def giles_stage_mxpl(workflow, Family, LinkedFamily,
+                    NumberOfModes,
+                    **kwargs
+                    ):  
+    
+    flag = _compute_giles_monitoring_flag(workflow.tree)
+
+    leftFamily = workflow.tree.get(Name=Family, Type='Family', Depth=2)
+    rightFamily = workflow.tree.get(Name=LinkedFamily, Type='Family', Depth=2)
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCOutflow', Parent=leftFamily)
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCInflow', Parent=rightFamily)
+
+    # creation of dictionnary of keys for Giles mxpl left 
+    DictKeysGilesMxpl = {}
+
+    # keys relative to NSCBC
+    DictKeysGilesMxpl['type'] = 'nscbc_mxpl'                                                        # mandatory key to have NSCBC-Giles treatment
+    DictKeysGilesMxpl['nscbc_giles'] = 'statio'                                                     # mandatory key to have NSCBC-Giles treatment
+    #DictKeysGilesMxpl['nscbc_interpbc'] = 'linear'                                                 # necessary for Mxpl?
+    DictKeysGilesMxpl['nscbc_fluxt'] = kwargs.get('nscbc_fluxt', 'fluxInviscidTransv')              # recommended value - possible keys : 'classic'; 'fluxInviscidTransv'; 'fluxBothTransv'
+    DictKeysGilesMxpl['nscbc_surf'] = kwargs.get('nscbc_surf',  'revolution')                       # recommended value - possible keys : 'flat', 'revolution'
+    DictKeysGilesMxpl['nscbc_outwave'] = kwargs.get('nscbc_outwave',  'grad_etat')                  # recommended value - possible keys : 'grad_etat'; 'extrap_flux'
+    DictKeysGilesMxpl['nscbc_velocity_scale'] = kwargs.get('nscbc_velocity_scale', workflow.Flow['SoundSpeed'])    # default value - reference sound velocity 
+    DictKeysGilesMxpl['nscbc_viscwall_len'] = kwargs.get('nscbc_viscwall_len', 5.e-4)               # default value, could be updated by the user if convergence issue
+
+    if kwargs.get('nscbc_viscwall_len_hub') is not None:
+        DictKeysGilesMxpl['nscbc_viscwall_len_hub'] = kwargs.get('nscbc_viscwall_len_hub')                    # value of nscbc_viscwall_len for the hub only
+    if kwargs.get('nscbc_viscwall_len_carter') is not None:
+        DictKeysGilesMxpl['nscbc_viscwall_len_carter'] = kwargs.get('nscbc_viscwall_len_carter')              # value of nscbc_viscwall_len for the hub only           
+
+    # keys relative to the Giles treatment 
+    DictKeysGilesMxpl['giles_opt'] = 'relax'                                                        # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesMxpl['giles_restric_relax'] = 'inactive'                                           # mandatory key for NSCBC-Giles treatment
+    DictKeysGilesMxpl['giles_exact_lodi'] = kwargs.get('giles_exact_lodi',  'partial')               # recommended value - possible keys: 'inactive', 'partial', 'active'
+    DictKeysGilesMxpl['giles_nbMode'] = NumberOfModes                         # given by the user - recommended value : ncells_theta/2 + 1 (odd_value)
+
+    # keys relative to the mxpl NSCBC/Giles
+    method = kwargs.get('method', 'Robust')
+    if method == 'Robust':
+        DictKeysGilesMxpl['nscbc_mxpl_type'] = kwargs.get('nscbc_mxpl_type',  'pshtpt')                 
+        DictKeysGilesMxpl['nscbc_mxpl_avermean'] = kwargs.get('nscbc_mxpl_avermean',  'pshtpt')         
+    elif method == 'Conservative':
+        DictKeysGilesMxpl['nscbc_mxpl_type'] = kwargs.get('nscbc_mxpl_type',  'flux')                 
+        DictKeysGilesMxpl['nscbc_mxpl_avermean'] = kwargs.get('nscbc_mxpl_avermean',  'flux')         
+    DictKeysGilesMxpl['nscbc_mxpl_flag'] = flag   # index gathering left and right BCs for one given Mxpl interface. automatically computed, different for each pair of Mxpl planes
+    DictKeysGilesMxpl['nscbc_relaxi1'] = kwargs.get('nscbc_relaxi1',  20.)                          # recommended value
+    DictKeysGilesMxpl['nscbc_relaxi2'] = kwargs.get('nscbc_relaxi2',  20.)                          # recommended value
+    DictKeysGilesMxpl['nscbc_relaxo'] = kwargs.get('nscbc_relaxo',  20.)                            # recommended value
+    DictKeysGilesMxpl['giles_relax_in1'] = kwargs.get('giles_relax_in1',  50.)                      # recommended value
+    DictKeysGilesMxpl['giles_relax_in2'] = kwargs.get('giles_relax_in2',  50.)                      # recommended value
+    DictKeysGilesMxpl['giles_relax_in3'] = kwargs.get('giles_relax_in3',  50.)                      # recommended value
+    DictKeysGilesMxpl['giles_relax_in4'] = kwargs.get('giles_relax_in4',  50.)                      # recommended value
+    DictKeysGilesMxpl['giles_relax_out'] = kwargs.get('giles_relax_out',  50.)                      # recommended value 
+
+    # keys relative to the monitoring and radii calculus - monitoring data stored in LOGS
+    DictKeysGilesMxpl['bnd_monitoring'] = 'active'                                                  # recommended value
+    DictKeysGilesMxpl['monitoring_comp_rad'] = 'auto'                                               # recommended value - possible keys: 'from_file', 'monofenetre'
+    DictKeysGilesMxpl['monitoring_tol_rad'] = kwargs.get('monitoring_tol_rad',  1e-6)               # recommended value - decrease value if the mesh is coarse
+    DictKeysGilesMxpl['monitoring_var'] = 'psta  pgen Tgen ux uy uz diffPgen diffTgen diffVel'
+    DictKeysGilesMxpl['monitoring_period'] = kwargs.get('monitoring_period',  20)                   # recommended value   
+
+    # define parameter for left and right interface
+    
+    LogRootName = f'Mxpl_{flag}_{flag+1}' # give a common LogRootName for the Mxpl interface (upstream and downstream)
+    DictKeysGilesMxpl_left = DictKeysGilesMxpl.copy()
+    DictKeysGilesMxpl_left['monitoring_flag'] = flag  # index gathering all BCs "left" for one given Mxpl interface. automatically computed, must be different from other Giles BC, including right BC of Mxpl
+    DictKeysGilesMxpl_left['monitoring_file'] = f'{names.DIRECTORY_LOG}/{LogRootName}_{flag}'
+    DictKeysGilesMxpl_right = DictKeysGilesMxpl.copy()
+    DictKeysGilesMxpl_right['monitoring_flag'] = flag+1  # index gathering all BCs "right" for one given Mxpl interface. automatically computed, must be different from other Giles BC, including left BC of Mxpl
+    DictKeysGilesMxpl_right['monitoring_file'] = f'{names.DIRECTORY_LOG}/{LogRootName}_{flag+1}'
+
+    # set the BCs left with keys
+    ListBCNodes_left = boundary_conditions.get_bc_nodes_from_family(workflow.tree, Family)
+    for BCNode_left in ListBCNodes_left:
+        BCNode_left.setParameters('.Solver#BC', **DictKeysGilesMxpl_left)
+
+    # set the BCs right with keys
+    ListBCNodes_right = boundary_conditions.get_bc_nodes_from_family(workflow.tree, LinkedFamily)
+    for BCNode_right in ListBCNodes_right:
+        BCNode_right.setParameters('.Solver#BC', **DictKeysGilesMxpl_right)
 
 def _fix_point_range_in_gc(t):
     # The algorithm to build a structured globborder

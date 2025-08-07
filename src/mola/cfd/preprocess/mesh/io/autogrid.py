@@ -57,8 +57,6 @@ AUTOGRID_SPECIAL_BASES = ['Numeca*', 'meridional_base', 'tools_base']
 
 
 def reader(w, component):
-
-    mola_logger.info(f'   - read component {component["Name"]} with Autogrid reader')
     
     # TODO These parameters should be managed by an interface
     #################################################################################

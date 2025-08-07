@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mola.logging import MolaException, MolaUserError
+from mola.logging import MolaException, MolaUserError, mola_logger, CYAN, ENDC
 from . import default, autogrid, utils, reader, writer, unstructured
 
 from treelab import cgns
@@ -30,9 +30,11 @@ def read(workflow):
     for component in workflow.RawMeshComponents:
         
         if 'Mesher' not in component or component['Mesher'] == 'default':
+            mola_logger.info(f'   - read component {component["Name"]} with {CYAN}default reader{ENDC}')
             base = default.reader(workflow, component)
 
         elif component['Mesher'].lower() == 'autogrid':
+            mola_logger.info(f'   - read component {component["Name"]} with {CYAN}Autogrid reader{ENDC}')
             base = autogrid.reader(workflow, component)
 
         else:

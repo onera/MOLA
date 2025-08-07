@@ -51,7 +51,7 @@ The following optional parameters can be used to modify or add elements in the r
 
   For instance:
 
-  .. code-block::python
+  .. code-block:: python
 
     Families=[
         dict(Name='Wall', Location='kmin'),
@@ -62,14 +62,14 @@ The following optional parameters can be used to modify or add elements in the r
   Each dict corresponds to an operation to apply on transformation on the mesh.
   Two kinds of operation are available for now:
 
-    * Scaling (which is redundant with the `Unit` parameter):
+  * Scaling (which is redundant with the `Unit` parameter):
 
-      >>> Positioning=[dict(Type='Scale', Scale=1e-3)]
+    >>> Positioning=[dict(Type='Scale', Scale=1e-3)]
 
-    * Translation and rotation, by giving an initial frame of reference and a requested frame:
+  * Translation and rotation, by giving an initial frame of reference and a requested frame:
 
-      .. code-block::python
-
+    .. code-block:: python  
+        
         Positioning=[
             dict(
                 Type='TranslationAndRotation',

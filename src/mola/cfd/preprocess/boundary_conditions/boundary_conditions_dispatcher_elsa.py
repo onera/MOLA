@@ -41,7 +41,8 @@ class BoundaryConditionsDispatcherElsa(BoundaryConditionsDispatcher):
             "ChorochronicInterface" : "chorochronic"
         }
 
-        self._without_generic_name = ['stage_mxpl', 'stage_red', 'outradeq']
+        self._without_generic_name = ['stage_mxpl', 'stage_red', 'outradeq', 
+                                      'giles_inlet', 'giles_outlet', 'giles_stage_mxpl']
 
         self._remove_unsupported_bcs_from_mapping()
 
