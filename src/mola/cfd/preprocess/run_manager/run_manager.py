@@ -60,10 +60,12 @@ def set_default(RunManagement, check_run_dir=True):
         machine = RunManagement['Machine']
         user = RunManagement.get('User')
         mola_target_path = RunManagement['mola_target_path']
-        mola_logger.info(f"> Run on a remote machine ({machine}):\n"
-                         f"    on path {path}\n"
-                         f"    sourcing {mola_target_path}"
-                         )
+        mola_logger.info((
+            f"> Run on a remote machine ({machine}):\n"
+            f"    on path {path}\n"
+            f"    sourcing {mola_target_path}"
+            ), rank=0
+        )
         
         if not SV.is_existing_path(mola_target_path, machine, user):
             raise MolaException(f"Cannot access to {mola_target_path}")

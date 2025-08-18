@@ -223,7 +223,7 @@ def get_fields_from_file(t, FamilyName, filename, var2interp):
 def recompute_turbulence_variables(workflow, **kwargs):
 
     if 'TurbulenceLevel' in kwargs or 'Viscosity_EddyMolecularRatio' in kwargs:   
-        mola_logger.info('  recomputing turbulent variables for this BC...')       
+        mola_logger.info('  recomputing turbulent variables for this BC...', rank=0)       
 
         workflow_copy = copy.copy(workflow)
         for name, value in kwargs.items():

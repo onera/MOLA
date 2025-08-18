@@ -151,7 +151,7 @@ class Workflow(object):
         self.set_workflow_parameters_in_tree()
 
     def initialize_flow(self):
-        mola_logger.info("🔥 initialize flow")
+        mola_logger.info("🔥 initialize flow", rank=0)
         initialization.apply(self)
         self.set_workflow_parameters_in_tree()
     

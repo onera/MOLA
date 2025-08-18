@@ -53,10 +53,18 @@ The following optional parameters can be used to modify or add elements in the r
 
   .. code-block:: python
 
-    Families=[
-        dict(Name='Wall', Location='kmin'),
-        dict(Name='Farfield', Location='remaining'),
+    Families = [
+        dict(Name='Wall', Location='kmin'),  # tag all BCs that correspond to k=0 (for all zones) with Family 'Wall'
+        dict(Name='Farfield', Location='remaining'),  # tag all remaining BCs with Family 'Farfield'
     ]
+
+  .. warning::
+
+    It is also possible to use the argument **planeTag** (possibly with a **tolerance**):
+
+    >>> Families = [dict(Name='SymmetryPlane', planeTag='planeXZ', tolerance=1e-8)]
+
+    Careful, the feature has not been tested yet.
 
 * ``Positioning`` (list of dict):
   Each dict corresponds to an operation to apply on transformation on the mesh.

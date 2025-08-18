@@ -27,7 +27,7 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
     import maia.pytree as PT
     from maia.algo.part.wall_distance import compute_projection_to
 
-    mola_logger.info('Parametrize domain with channel height (add FlowSolution#Height)')
+    mola_logger.info('Parametrize domain with channel height (add FlowSolution#Height)', rank=0)
 
     tree = to_partitioned(tree) 
 
@@ -176,15 +176,6 @@ import re
 def remove_maia_part_zone_suffix(zone_name : str) -> str:
     import re
     return re.sub(r'\.P\d+\.N\d+$', '', zone_name)
-
-def remove_maia_part_zone_suffix_from_tree(tree : cgns.Tree):
-    for zone in tree.zones():
-        previous_name = zone.name()
-        new_name = remove_maia_part_zone_suffix(previous_name)
-        zone.setName(new_name)
-        for node in tree.group(Value=previous_name):
-            node.setValue(new_name)
-
 
 
 def to_full_tree_at_rank_0(tree : cgns.Tree):

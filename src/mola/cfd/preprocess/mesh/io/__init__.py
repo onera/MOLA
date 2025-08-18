@@ -30,11 +30,11 @@ def read(workflow):
     for component in workflow.RawMeshComponents:
         
         if 'Mesher' not in component or component['Mesher'] == 'default':
-            mola_logger.info(f'   - read component {component["Name"]} with {CYAN}default reader{ENDC}')
+            mola_logger.info(f'   - read component {component["Name"]} with {CYAN}default reader{ENDC}', rank=0)
             base = default.reader(workflow, component)
 
         elif component['Mesher'].lower() == 'autogrid':
-            mola_logger.info(f'   - read component {component["Name"]} with {CYAN}Autogrid reader{ENDC}')
+            mola_logger.info(f'   - read component {component["Name"]} with {CYAN}Autogrid reader{ENDC}', rank=0)
             base = autogrid.reader(workflow, component)
 
         else:

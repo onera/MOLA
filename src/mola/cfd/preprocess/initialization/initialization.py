@@ -18,8 +18,7 @@
 from treelab import cgns
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException, MolaUserError
-from mola.cfd.preprocess.mesh.tools import to_partitioned, remove_maia_part_zone_suffix_from_tree
-from mola.cfd.preprocess.mesh.split import _assert_tree_has_good_distribution_assignment
+from mola.cfd.preprocess.mesh.tools import to_partitioned
 from .initialization_with_turbo import initialize_flow_with_turbo
 
 INIT_ANALYTICAL_METHODS = ['uniform', 'turbo']

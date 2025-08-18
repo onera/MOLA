@@ -1021,9 +1021,9 @@ def compute_RNA_ref_time(workflow, Family, LinkedFamily):
 
     msg = f'The reference time period for RNA interface is equal to {Dm}EO.'
     if np.isclose(Dm, 1) or np.isclose(Dm, K1/N1):
-        mola_logger.info(msg)
+        mola_logger.info(msg, rank=0)
     else:
-        mola_logger.warning(msg)
+        mola_logger.warning(msg, rank=0)
 
     return SectorPassagePeriod
 
@@ -1187,8 +1187,8 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
         Nharm_Row2 = Nblade_Row1
         mola_logger.warning(f'New number of harmonics for row 2 : {Nharm_Row2}')
 
-    mola_logger.info(f'      {Nharm_Row1} harmonics for {row1} family')
-    mola_logger.info(f'      {Nharm_Row2} harmonics for {row2} family')
+    mola_logger.info(f'      {Nharm_Row1} harmonics for {row1} family', rank=0)
+    mola_logger.info(f'      {Nharm_Row2} harmonics for {row2} family', rank=0)
 
     choroParamsRow1 = dict(
         f_freq = Nblade_Row2*np.abs(omega_Row1-omega_Row2)/(2*np.pi), 

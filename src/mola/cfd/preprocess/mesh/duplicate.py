@@ -212,7 +212,7 @@ def duplicate_workflow_with_maia(workflow):
         )
 
     if any([p['number_of_duplications']>0 for p in duplication_parameters.values()]):
-        mola_logger.info('Duplication:')
+        mola_logger.info('Duplication:', rank=0)
         workflow.tree = to_distributed(workflow.tree)
         workflow.tree = duplicate_with_maia(workflow.tree, duplication_parameters, merge_zones=workflow.tree.isUnstructured())
 
@@ -225,11 +225,11 @@ def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
         if dup_params['number_of_duplications'] == 0:
             continue
         elif dup_params['is_360']:
-            mola_logger.info(f"  > row {row} is replicated on 360 degrees")
+            mola_logger.info(f"  > row {row} is replicated on 360 degrees", rank=0)
             maia.algo.dist.duplicate_family_from_rotation_jns_to_360(dist_tree, row, comm)
         else:
             plurial = 's' if dup_params['number_of_duplications'] > 1 else ''
-            mola_logger.info(f"  > row {row} is replicated {dup_params['number_of_duplications']} time"+plurial)
+            mola_logger.info(f"  > row {row} is replicated {dup_params['number_of_duplications']} time"+plurial, rank=0)
             maia.algo.dist.duplicate_family_from_periodic_jns(dist_tree, row, dup_params['number_of_duplications'], comm)
         
     if merge_zones:
