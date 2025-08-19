@@ -199,7 +199,7 @@ def test_read_text_file_from_errors_sator():
         'so this line is registered as well\n'
         'and this one.\n')
     full_txt = 'This line will not be catched by scanner\nThis one neither\n'+expected_err_msg
-    FOP.save_file_maybe_remote(filename, full_txt, directory, machine='sator')
+    FOP.save_file_maybe_remote(filename, full_txt, directory, machine='sator', force_copy=True)
     err_msg = FOP.read_text_file_from_errors(directory+filename, 'sator')
     FOP.remove_path(directory+filename,'sator',file_only=True)
     assert 'SCANNED_ERRORS\n'+expected_err_msg+'\n' == err_msg

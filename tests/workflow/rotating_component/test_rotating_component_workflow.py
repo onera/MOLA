@@ -20,6 +20,7 @@ import numpy as np
 
 from treelab import cgns
 
+from mola.cfd.preprocess.mesh.tools import compute_azimuthal_extension
 from mola.cfd.preprocess.motion import motion
 from mola.logging import mola_logger, MolaAssertionError
 from mola.workflow.rotating_component.workflow import WorkflowRotatingComponent
@@ -250,9 +251,8 @@ def test_duplicate(tmp_path):
             assert w.tree.get(Type='Zone', Name=f'{name}.D0') is not None
             assert w.tree.get(Type='Zone', Name=f'{name}.D1') is not None
     else:
-        import maia
-        from mpi4py import MPI
-        if not w.tree.get(Name='NFaceElements'):
-            maia.algo.pe_to_nface(w.tree, MPI.COMM_WORLD)  # because for now, compute_azimuthal_extension_from_family use cassiopee and need NFaceElements
-        assert np.isclose(w.compute_azimuthal_extension_from_family(w.tree, 'Fluid', [1,0,0]), np.radians(90), rtol=1e-2)
-
+        # import maia
+        # from mpi4py import MPI
+        # if not w.tree.get(Name='NFaceElements'):
+        #     maia.algo.pe_to_nface(w.tree, MPI.COMM_WORLD)  # uncomment these lines only if compute_azimuthal_extension use cassiopee and need NFaceElements
+        assert np.isclose(compute_azimuthal_extension(w.tree, 'Fluid'), np.radians(90), rtol=1e-2)

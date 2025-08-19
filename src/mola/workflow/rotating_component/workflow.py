@@ -23,7 +23,7 @@ from treelab import cgns
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, redirect_streams_to_logger
 from mola.cfd.preprocess.mesh import duplicate
 from mola.cfd.preprocess.mesh.families import get_bc_family_nodes_from_patterns, get_bc_family_names_from_patterns
-from mola.cfd.preprocess.mesh.tools import parametrize_with_height
+from mola.cfd.preprocess.mesh.tools import parametrize_with_height, compute_azimuthal_extension
 from mola.cfd.preprocess import initialization
 
 from .. import Workflow
@@ -109,7 +109,7 @@ class WorkflowRotatingComponent(Workflow):
 
             if hasattr(self, 'BodyForceInputData') and row in self.BodyForceInputData:
                 # Replace the number of blades to be consistant with the body-force mesh
-                deltaTheta = self.compute_azimuthal_extension_from_family(self.tree, row, self.ApplicationContext['ShaftAxis'])
+                deltaTheta = compute_azimuthal_extension(self.tree, row)
                 rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
                 rowParams['NumberOfBladesInInitialMesh'] = 1
                 mola_logger.info(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
@@ -207,7 +207,11 @@ class WorkflowRotatingComponent(Workflow):
     @staticmethod
     def _get_row_from_BC_Family(tree, FamilyBoundary):
         # Get one bc attached to this family
+        from mpi4py.MPI import COMM_WORLD as comm
         one_bc_FamilyName = tree.get(Type='FamilyName', Value=FamilyBoundary)
+        nodes_on_all_ranks = comm.allgather(one_bc_FamilyName)
+        one_bc_FamilyName = [node for node in nodes_on_all_ranks if node is not None][0]
+
         if not one_bc_FamilyName:
             raise MolaException(
                 f'No FamilyName found with value {FamilyBoundary}. '
@@ -246,11 +250,11 @@ class WorkflowRotatingComponent(Workflow):
             Number of blades in the mesh for row **FamilyName**
 
         '''
-        deltaTheta = self.compute_azimuthal_extension_from_family(self.tree, FamilyName, self.ApplicationContext['ShaftAxis'])
+        deltaTheta = compute_azimuthal_extension(self.tree, FamilyName)
         # Compute number of blades in the mesh
         Nb = NumberOfBlades * deltaTheta / (2*np.pi)
         Nb = int(np.round(Nb))
-        mola_logger.info(f'Number of blades in initial mesh for {FamilyName}: {Nb}')
+        mola_logger.info(f'Number of blades in initial mesh for {FamilyName}: {Nb}', rank=0)
         if Nb < 1:
             raise MolaAssertionError(
                 f'The number of blades in initial mesh {FamilyName} cannot be computed correctly.'
@@ -259,62 +263,6 @@ class WorkflowRotatingComponent(Workflow):
                 ' in ApplicationContext to fix manually fix this.'
                 )
         return Nb
-
-    @staticmethod
-    def compute_azimuthal_extension_from_family(t, FamilyName, axis):
-        '''
-        Compute the azimuthal extension in radians of the mesh **t** for the row **FamilyName**.
-
-        .. warning:: This function needs to calculate the surface of the slice in X
-                    at Xmin + 5% (Xmax - Xmin). If this surface is crossed by a
-                    solid (e.g. a blade) or by the inlet boundary, the function
-                    will compute a wrong value of the number of blades inside the
-                    mesh.
-
-        Parameters
-        ----------
-
-            t : PyTree
-                mesh tree
-
-            FamilyName : str
-                Name of the row, identified by a ``FamilyName``.
-            
-            axis : list
-                Directing vector of the shaft axis.
-
-        Returns
-        -------
-
-            deltaTheta : float
-                Azimuthal extension in radians
-
-        '''
-        import Converter.PyTree as C
-        import Post.PyTree as P
-
-        if list(axis) != [1.0, 0.0, 0.0]:
-            # CAVEAT
-            raise MolaAssertionError('For now, this function only handles axis=[1., 0., 0.]')
-
-        # Extract zones in family
-        zonesInFamily = [z for z in t.zones() if z.get(Type='FamilyName', Value=FamilyName)]
-        # Slice in x direction at middle range
-        xmin = np.amin([np.amin(zone.x()) for zone in zonesInFamily])
-        xmax = np.amax([np.amax(zone.x()) for zone in zonesInFamily])
-        sliceX = P.isoSurfMC(zonesInFamily, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
-        # Compute Radius
-        C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
-        Rmin = C.getMinValue(sliceX, 'Radius')
-        Rmax = C.getMaxValue(sliceX, 'Radius')
-        # Compute surface
-        SurfaceTree = C.convertArray2Tetra(sliceX)
-        SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
-        Surface = P.integ(SurfaceTree, var='ones')[0]
-        # Compute deltaTheta
-        mola_logger.debug(f'Surface={Surface}, Rmax={Rmax}, Rmin={Rmin}')
-        deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
-        return deltaTheta
 
     def compute_fluxcoef_by_row(self):
         '''

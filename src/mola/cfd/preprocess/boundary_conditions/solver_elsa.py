@@ -555,56 +555,6 @@ def checkVariables(ImposedVariables):
         elif var in unitVectorComponent and not unitComponent(value):
             raise ValueError('{} must be between -1 and +1, but here it is equal to {}'.format(var, value))
 
-def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
-    '''
-    Get the *BCType* of BCs defined by a given family BC name.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            main CGNS tree
-
-        FamilyBCName : str
-            requested name of the *FamilyBC*
-
-    Returns
-    -------
-
-        BCType : str
-            the resulting *BCType*. Returns:py:obj:`None` if **FamilyBCName** is not
-            found
-    '''
-    FamilyNode = I.getNodeFromNameAndType(t, FamilyBCName, 'Family_t')
-    if not FamilyNode: return
-
-    FamilyBCNode = I.getNodeFromName1(FamilyNode, 'FamilyBC')
-    if not FamilyBCNode: return
-
-    FamilyBCNodeType = I.getValue(FamilyBCNode)
-    if FamilyBCNodeType != 'UserDefined': return FamilyBCNodeType
-
-    SolverBC = I.getNodeFromName1(FamilyNode,'.Solver#BC')
-    if SolverBC:
-        SolverBCType = I.getNodeFromName1(SolverBC,'type')
-        if SolverBCType:
-            BCType = I.getValue(SolverBCType)
-            return BCType
-
-    SolverOverlap = I.getNodeFromName1(FamilyNode,'.Solver#Overlap')
-    if SolverOverlap: return 'BCOverlap'
-
-    BCnodes = I.getNodesFromType(t, 'BC_t')
-    for BCnode in BCnodes:
-        FamilyNameNode = I.getNodeFromName1(BCnode, 'FamilyName')
-        if not FamilyNameNode: continue
-
-        FamilyNameValue = I.getValue( FamilyNameNode )
-        if FamilyNameValue == FamilyBCName:
-            BCType = I.getValue( BCnode )
-            if BCType != 'FamilySpecified': return BCType
-            break
-
 @mute_stdout
 def outradeq(workflow, Family, **kwargs):
     '''

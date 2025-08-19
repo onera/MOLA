@@ -24,48 +24,50 @@ structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 
 def apply(workflow):
 
-    t = workflow.tree
-    from mpi4py import MPI
-    mpi_size = MPI.COMM_WORLD.Get_size()
-    rank = MPI.COMM_WORLD.Get_rank()
-    if mpi_size > 1:
-        import maia
-        is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
-        if is_dist:
-            from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
-            t = to_full_tree_at_rank_0(workflow.tree)  
-            if rank==0:
-                t = cgns.castNode(t)          
+    if any(['Families' in component for component in workflow.RawMeshComponents]):
 
+        t = workflow.tree
+        from mpi4py import MPI
+        mpi_size = MPI.COMM_WORLD.Get_size()
+        rank = MPI.COMM_WORLD.Get_rank()
+        if mpi_size > 1:
+            import maia
+            is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
+            if is_dist:
+                from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
+                t = to_full_tree_at_rank_0(workflow.tree)  
+                if rank==0:
+                    t = cgns.castNode(t)          
 
-    if rank == 0:
-        for base in t.bases():
-            # Add new BC families
-            component = workflow.get_component(base.name())
-            try:
-                families = component['Families']
-            except: 
-                families = []
+        if rank == 0:
+            for base in t.bases():
+                # Add new BC families
+                component = workflow.get_component(base.name())
+                try:
+                    families = component['Families']
+                except: 
+                    families = []
 
-            for operation in families:
-                FamilyName = operation['Name']
-                location   = operation.get('Location')
-                set_bc_family_from_location(base, FamilyName, location)  # use cassiopee, and need a full_tree as input
+                for operation in families:
+                    FamilyName = operation['Name']
+                    location   = operation.get('Location')
+                    set_bc_family_from_location(base, FamilyName, location)  # use cassiopee, and need a full_tree as input
 
-            # NOTE The followong lines could be done on all rank whatever the framework, right ? 
-            # If so, they could be applied at the very begining of the function apply
-            # Add families that exist in zones or BC in base if needed
-            append_bc_families_to_base(base)  # use only treelab
-            append_zone_families_to_base(base)  # use only treelab
+        if mpi_size > 1:
+            MPI.COMM_WORLD.barrier()
+            workflow.tree = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=0)
+            workflow.tree = cgns.castNode(workflow.tree)
+            MPI.COMM_WORLD.barrier()
+        else:
+            workflow.tree = cgns.castNode(workflow.tree)
 
-            # Add a default family to untagged zones if needed
-            append_default_zone_family_to_zones(base)  # use only treelab
+    for base in workflow.tree.bases():
+        # Add families that exist in zones or BC in base if needed
+        append_bc_families_to_base(base)
+        append_zone_families_to_base(base)
 
-    if mpi_size > 1:
-        MPI.COMM_WORLD.barrier()
-        workflow.tree = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=0)
-        workflow.tree = cgns.castNode(workflow.tree)
-        MPI.COMM_WORLD.barrier()
+        # Add a default family to untagged zones if needed
+        append_default_zone_family_to_zones(base)
 
 def set_bc_family_from_location(base, FamilyName, location):
     import Converter.PyTree as C

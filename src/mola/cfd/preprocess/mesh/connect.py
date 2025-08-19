@@ -107,6 +107,13 @@ def apply_with_cassiopee(workflow):
                 mola_logger.debug(f'    RotationCenter = {rotationCenter}')
                 mola_logger.debug(f'    RotationAngle = {rotationAngle}')
                 mola_logger.debug(f'    Translation = {translation}')
+
+                if 'Families' in operation:
+                    # Remove BC attached to periodic Families if they exists
+                    for family in operation['Families']:
+                        for bc in C.getFamilyBCs(base, family):
+                            I._rmNode(base, bc)
+
                 if mpi_size > 1:
                     msg = ('cannot make periodic match using Cassiopee and MPI parallel execution:\n'
                            'https://elsa.onera.fr/issues/11706')
@@ -149,6 +156,13 @@ def apply_with_maia(workflow):
             mola_logger.debug(f'    RotationCenter = {rotation_center}')
             mola_logger.debug(f'    RotationAngle = {rotation_angle}')
             mola_logger.debug(f'    Translation = {translation}')
+
+            if 'Families' in operation:
+                # Remove BC attached to periodic Families if they exists
+                for bc in workflow.tree.group(Type='BC'):
+                    if bc.get(Type='FamilyName').value() in operation['Families']:
+                        bc.remove()
+
             # Work only on a top Tree, not on a Base
             connect_periodic_with_maia(workflow.tree, operation['Families'], rotation_center, rotation_angle, translation)
 
