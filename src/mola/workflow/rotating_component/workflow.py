@@ -21,7 +21,6 @@ import numpy as np
 from treelab import cgns
 
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, redirect_streams_to_logger
-from mola.cfd.preprocess.mesh import duplicate
 from mola.cfd.preprocess.mesh.families import get_bc_family_nodes_from_patterns, get_bc_family_names_from_patterns
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height, compute_azimuthal_extension
 from mola.cfd.preprocess import initialization
@@ -79,15 +78,9 @@ class WorkflowRotatingComponent(Workflow):
         self._blade_patterns = ['blade', 'aube', 'propeller', 'rotor', 'stator']
         self._shroud_patterns = ['shroud', 'carter']
 
-    def duplicate(self):
-        # duplicate.duplicate_workflow_with_cassiopee(self)
-        duplicate.duplicate_workflow_with_maia(self)
-
-    def process_mesh(self):
-        super().process_mesh()
-        self.set_default_parameters_for_rows()
-        self.compute_fluxcoef_by_row() 
-        self.duplicate()
+    def define_families(self):
+        super().define_families()
+        self.set_default_parameters_for_rows() 
 
     def initialize_flow(self):
         if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
@@ -116,7 +109,23 @@ class WorkflowRotatingComponent(Workflow):
 
             if "NumberOfBladesInInitialMesh" not in rowParams:
                 n = self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades'])
-                rowParams.setdefault('NumberOfBladesInInitialMesh', n)     
+                rowParams.setdefault('NumberOfBladesInInitialMesh', n)    
+
+            duplications_to_do = rowParams['NumberOfBladesSimulated'] - rowParams['NumberOfBladesInInitialMesh']
+            if duplications_to_do > 0:
+                operation = dict(
+                    Type = 'DuplicateByRotation',
+                    Family = row,
+                    NumberOfDuplications = duplications_to_do,
+                )
+                
+                # CAVEAT: works only for one component
+                if len(self.RawMeshComponents) > 1:
+                    raise MolaAssertionError('Multiple components are not supported yet in this case')
+                self.RawMeshComponents[0].setdefault('Positioning', [])
+                self.RawMeshComponents[0]['Positioning'].append(operation)
+        
+        self.compute_fluxcoef_by_row()
 
     def set_motion(self):
         for row, rowParams in self.ApplicationContext['Rows'].items():

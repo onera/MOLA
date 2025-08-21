@@ -533,14 +533,14 @@ def get_workflow1():
                             Axis2=[0,1,0],
                             Axis3=[0,0,1]),
                         ),
-                    dict(
-                        Type='DuplicateByRotation',
-                        RotationPoint=[0,0,0],
-                        RotationAxis=[0,0,1],
-                        RightHandRuleRotation=True,
-                        NumberOfInstances=4,
-                        AddInstancesAsNewComponents=True,
-                        ),
+                    # dict(
+                    #     Type='DuplicateByRotation',
+                    #     RotationPoint=[0,0,0],
+                    #     RotationAxis=[0,0,1],
+                    #     RightHandRuleRotation=True,
+                    #     NumberOfInstances=4,
+                    #     AddInstancesAsNewComponents=True,
+                    #     ),
                 ],
                 Connection = [
                     dict(Type='Match', Tolerance=1e-8),

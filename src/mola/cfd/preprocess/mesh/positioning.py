@@ -20,15 +20,15 @@ from treelab import cgns
 from mola.logging import mola_logger, MolaException
 from .tools import (to_partitioned_if_distributed,
                     to_distributed)
+from mola.cfd.preprocess.mesh.duplicate import duplicate
 
 def apply(workflow):
     if not all([('Positioning' in component) for component in workflow.RawMeshComponents]):
         return
     
-    tree_was_distributed = bool(workflow.tree.get(':CGNS#Distribution'))
-    workflow.tree = to_partitioned_if_distributed(workflow.tree)
-
     warning_flag_import_Transform = False
+
+    duplication_operations = []
 
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
@@ -65,9 +65,8 @@ def apply(workflow):
                     translate_and_rotate_with_cassiopee(base, translation, pt1, operation['InitialFrame'], operation['RequestedFrame'])
                     
             elif operation['Type'] == 'DuplicateByRotation':
-                ...
-                # TODO BEWARE!! duplicate Component, and handle it properly! 
-
+                duplication_operations.append(operation)
+        
         for zone in base.zones(): 
             try:
                 import Transform.PyTree as T
@@ -76,8 +75,10 @@ def apply(workflow):
                 if not warning_flag_import_Transform:
                     mola_logger.warning('Cannot check that the mesh is direct after Positioning operations')
                     warning_flag_import_Transform = True # To display this warning only once
+    
+    if len(duplication_operations) > 0:
+        workflow.tree = duplicate(workflow.tree, duplication_operations)
 
-    if tree_was_distributed: workflow.tree = to_distributed(workflow.tree)
 
 def rescale_with_cassiopee(t, scale):
     import Transform.PyTree as T

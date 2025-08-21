@@ -22,6 +22,9 @@ from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd.preprocess.mesh.tools import to_distributed
 
 def apply(workflow):
+
+    _clip_small_rotation_angles(workflow.tree)
+
     if not any([('Connection' in component) for component in workflow.RawMeshComponents]):
         return
     
@@ -41,7 +44,13 @@ def apply(workflow):
                  f'cassiopee reason: {reason_for_not_using_cassiopee}')
             raise MolaException(msg) from e
 
-        
+def _clip_small_rotation_angles(tree, tol=1e-12):
+    for perio in tree.group(Type='Periodic'):
+        RotationAngle = perio.get(Name='RotationAngle').value()
+        for i, angle in enumerate(RotationAngle):
+            if abs(angle) < tol:
+                RotationAngle[i] = 0. 
+
 def apply_with_cassiopee(workflow):
 
     from mpi4py import MPI
@@ -109,10 +118,12 @@ def apply_with_cassiopee(workflow):
                 mola_logger.debug(f'    Translation = {translation}')
 
                 if 'Families' in operation:
-                    # Remove BC attached to periodic Families if they exists
+                    # Remove BC attached to periodic Families if they exists (only needed for maia)
                     for family in operation['Families']:
-                        for bc in C.getFamilyBCs(base, family):
-                            I._rmNode(base, bc)
+                        for bc_node in C.getFamilyBCs(base, family):
+                            I._rmNode(base, bc_node)
+                        for family_node in I.getNodeFromName1(base, family):
+                            I._rmNode(base, family_node)
 
                 if mpi_size > 1:
                     msg = ('cannot make periodic match using Cassiopee and MPI parallel execution:\n'
@@ -156,12 +167,6 @@ def apply_with_maia(workflow):
             mola_logger.debug(f'    RotationCenter = {rotation_center}')
             mola_logger.debug(f'    RotationAngle = {rotation_angle}')
             mola_logger.debug(f'    Translation = {translation}')
-
-            if 'Families' in operation:
-                # Remove BC attached to periodic Families if they exists
-                for bc in workflow.tree.group(Type='BC'):
-                    if bc.get(Type='FamilyName').value() in operation['Families']:
-                        bc.remove()
 
             # Work only on a top Tree, not on a Base
             connect_periodic_with_maia(workflow.tree, operation['Families'], rotation_center, rotation_angle, translation)

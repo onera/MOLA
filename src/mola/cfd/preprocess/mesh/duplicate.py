@@ -18,12 +18,36 @@
 import numpy as np
 
 from treelab import cgns
-from mola.logging import mola_logger
-from mola.cfd.preprocess.mesh.tools import to_distributed
+from mola.logging import mola_logger, MolaException
+from mola.cfd.preprocess.mesh.tools import to_distributed, compute_azimuthal_extension
 
-def duplicate_workflow_with_cassiopee(workflow):
+def apply(workflow):
+
+    duplication_operations = []
+    for base in workflow.tree.bases():
+        component = workflow.get_component(base.name())
+        if 'Positioning' not in component: continue
+        for operation in component['Positioning']:
+            if operation['Type'] == 'DuplicateByRotation':
+                duplication_operations.append(operation)
+
+    if len(duplication_operations) > 0:
+        if workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess':
+            raise MolaException('Only SplittingAndDistribution Strategy "AtComputation" is compatible with duplication')
+        workflow.tree = duplicate(workflow.tree, duplication_operations)
+
+def duplicate(tree, duplication_operations, tool='maia'):
+
+    if tool == 'cassiopee':
+        tree = _duplicate_with_cassiopee(tree, duplication_operations)
+    else:
+        tree = _duplicate_with_maia(tree, duplication_operations)
+
+    return tree
+
+def _duplicate_with_cassiopee(tree, duplication_operations):
     '''
-    Duplicated the input PyTree **t**, already initialized.
+    Duplicated the input PyTree **tree**, already initialized.
     This function perform the following operations:
 
     #. Duplicate the mesh
@@ -34,54 +58,46 @@ def duplicate_workflow_with_cassiopee(workflow):
     #. Update connectivities and periodic boundary conditions
 
     .. warning:: This function does not rotate vectors in BCDataSet nodes.
-
-    Parameters
-    ----------
-
-        t : PyTree
-            input tree already initialized, but before setting boundary conditions
-
-        TurboConfiguration : dict
-            dictionary as provided by :py:func:`getTurboConfiguration`
-
-    Returns
-    -------
-
-        t : PyTree
-            tree after duplication
     '''
     import Converter.Internal as I
     import Connector.PyTree as X
 
-    t = workflow.tree
-
-    # Remove connectivities and periodic BCs
-    I._rmNodesByType(t, 'GridConnectivity1to1_t')
-
     angles4ConnectMatchPeriodic = []
-    for row, rowParams in workflow.ApplicationContext['Rows'].items():
-        nBlades = rowParams['NumberOfBlades']
-        nDupli = rowParams['NumberOfBladesSimulated']
-        nMesh = rowParams['NumberOfBladesInInitialMesh']
-        if nDupli > nMesh:
-            duplicate_with_cassiopee(t, row, nBlades, nDupli=nDupli, axis=(1,0,0))
+    for operation in duplication_operations:
+        Family = operation['Family']
+        NumberOfDuplications = operation['NumberOfDuplications']
+        # do this before removing connectivities, because method="from_periodic" uses Periodic nodes
+        azimuthal_extension = np.degrees(compute_azimuthal_extension(tree, Family))  # Cassiopee uses degrees by default
+        operation['azimuthal_extension'] = azimuthal_extension
 
-        angle = 360. / nBlades * nDupli
+        angle = azimuthal_extension * (NumberOfDuplications+1)
         if not np.isclose(angle, 360.):
             angles4ConnectMatchPeriodic.append(angle)
 
+    # Remove connectivities and periodic BCs
+    I._rmNodesByType(tree, 'GridConnectivity1to1_t')
+
+    for operation in duplication_operations:
+        __duplicate_with_cassiopee(
+            tree, 
+            operation['Family'], 
+            operation['NumberOfDuplications'], 
+            operation['azimuthal_extension'], 
+            axis=(1,0,0)
+            )
+
     # Connectivities
-    X.connectMatch(t, tol=1e-8)
+    X.connectMatch(tree, tol=1e-8)
     for angle in angles4ConnectMatchPeriodic:
         # Not full 360 simulation: periodic BC must be restored
-        t = X.connectMatchPeriodic(t, rotationAngle=[angle, 0., 0.], tol=1e-8)
+        tree = X.connectMatchPeriodic(tree, rotationAngle=[angle, 0., 0.], tol=1e-8)
 
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
-    for l in [2,3,4]: I._correctPyTree(t, level=l)
+    for l in [2,3,4]: I._correctPyTree(tree, level=l)
 
-    workflow.tree = cgns.castNode(t)
+    return cgns.castNode(tree)
 
-def duplicate_with_cassiopee(tree, rowFamily, nBlades, nDupli=None, merge=False, axis=(1,0,0),
+def __duplicate_with_cassiopee(tree, rowFamily, NumberOfDuplications, azimuthal_extension, merge=False, axis=(1,0,0),
     verbose=1, container='FlowSolution#Init',
     vectors2rotate=[['VelocityX','VelocityY','VelocityZ'],['MomentumX','MomentumY','MomentumZ']]):
     '''
@@ -149,18 +165,13 @@ def duplicate_with_cassiopee(tree, rowFamily, nBlades, nDupli=None, merge=False,
                 added automatically in the function.
 
     '''
+    mola_logger.debug(f'Duplicate {rowFamily} {NumberOfDuplications} times')
+
     import Converter.Internal as I
     import Transform.PyTree as T
 
     OLD_FlowSolutionCenters = I.__FlowSolutionCenters__
     I.__FlowSolutionCenters__ = container
-
-    if nDupli is None:
-        nDupli = nBlades # for a 360 configuration
-    if nDupli == nBlades:
-        if verbose>0: print('Duplicate {} over 360 degrees ({} blades in row)'.format(rowFamily, nBlades))
-    else:
-        if verbose>0: print('Duplicate {} on {} blades ({} blades in row)'.format(rowFamily, nDupli, nBlades))
 
     check = False
     vectors = []
@@ -183,8 +194,8 @@ def duplicate_with_cassiopee(tree, rowFamily, nBlades, nDupli=None, merge=False,
                 if verbose>1: print('  > zone {}'.format(zone_name))
                 check = True
                 zones2merge = [zone]
-                for n in range(nDupli-1):
-                    ang = 360./nBlades*(n+1)
+                for n in range(NumberOfDuplications):
+                    ang = azimuthal_extension*(n+1)
                     rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
                     I.setName(rot, "{}_{}".format(zone_name, n+2))
                     I._addChild(base, rot)
@@ -198,42 +209,38 @@ def duplicate_with_cassiopee(tree, rowFamily, nBlades, nDupli=None, merge=False,
                         disk_block = I.getNodeFromName(base, I.getName(node))
                         disk_block[0] = '{}_{:02d}'.format(zone_name, i)
                         I.createChild(disk_block, 'FamilyName', 'FamilyName_t', value=rowFamily)
-    if merge: PRE.autoMergeBCs(tree)
+    # if merge: PRE.autoMergeBCs(tree)
 
     I.__FlowSolutionCenters__ = OLD_FlowSolutionCenters
     assert check, 'None of the zones was duplicated. Check the name of row family'
 
-def duplicate_workflow_with_maia(workflow):
-    duplication_parameters = dict()
-    for row, rowParams in workflow.ApplicationContext['Rows'].items():
-        duplication_parameters[row] = dict(
-            number_of_duplications = rowParams['NumberOfBladesSimulated'] - rowParams['NumberOfBladesInInitialMesh'],
-            is_360 = rowParams['NumberOfBladesSimulated'] == rowParams['NumberOfBlades']
-        )
-
-    if any([p['number_of_duplications']>0 for p in duplication_parameters.values()]):
-        mola_logger.info('Duplication:', rank=0)
-        workflow.tree = to_distributed(workflow.tree)
-        workflow.tree = duplicate_with_maia(workflow.tree, duplication_parameters, merge_zones=workflow.tree.isUnstructured())
-
-def duplicate_with_maia(dist_tree, duplication_parameters, merge_zones=False):
+def _duplicate_with_maia(tree, duplication_operations, merge_zones=False):
     import maia
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
-    for row, dup_params in duplication_parameters.items():
-        if dup_params['number_of_duplications'] == 0:
-            continue
-        elif dup_params['is_360']:
-            mola_logger.info(f"  > row {row} is replicated on 360 degrees", rank=0)
-            maia.algo.dist.duplicate_family_from_rotation_jns_to_360(dist_tree, row, comm)
+    tree = to_distributed(tree)
+
+    for operation in duplication_operations:
+        Family = operation['Family']
+        NumberOfDuplications = operation['NumberOfDuplications']
+
+        AzimuthalExtension = compute_azimuthal_extension(tree, Family)
+        is_360 = np.isclose(AzimuthalExtension * (NumberOfDuplications+1), 360.)
+
+        if NumberOfDuplications == 0:
+            return
+        elif is_360:
+            mola_logger.info(f"  > row {Family} is replicated on 360 degrees", rank=0)
+            maia.algo.dist.duplicate_family_from_rotation_jns_to_360(tree, Family, comm)
         else:
-            plurial = 's' if dup_params['number_of_duplications'] > 1 else ''
-            mola_logger.info(f"  > row {row} is replicated {dup_params['number_of_duplications']} time"+plurial, rank=0)
-            maia.algo.dist.duplicate_family_from_periodic_jns(dist_tree, row, dup_params['number_of_duplications'], comm)
+            plurial = 's' if NumberOfDuplications > 1 else ''
+            mola_logger.info(f"  > row {Family} is replicated {NumberOfDuplications} time"+plurial, rank=0)
+            maia.algo.dist.duplicate_family_from_periodic_jns(tree, Family, NumberOfDuplications, comm)
         
     if merge_zones:
-        maia.algo.dist.merge_connected_zones(dist_tree, comm)    
+        maia.algo.dist.merge_connected_zones(tree, comm)    
 
-    return cgns.castNode(dist_tree)
+    tree = cgns.castNode(tree)
+    return tree
 

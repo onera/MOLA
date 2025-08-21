@@ -82,9 +82,11 @@ def get_bc_from_bc_type(workflow, bctypes):
 
 def get_surface_of_family(tree, Family):
     import Converter.PyTree as C
+    import Converter.Internal as I
     import Post.PyTree as P
     from mpi4py import MPI
 
+    tree = I.fixNGon(tree)  # it would be better without making a copy, but it would need adaptation latter for maia
     zones = C.extractBCOfName(tree, f'FamilySpecified:{Family}')
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
@@ -95,7 +97,7 @@ def get_surface_of_family(tree, Family):
     return Surface
 
 
-def compute_azimuthal_extension(tree, Family, method='from_periodic'):
+def compute_azimuthal_extension(tree, Family, method='from_periodic', axis=None):
     
     # Extract zones in family
     zonesInFamily = [z for z in tree.zones() if z.get(Type='FamilyName', Value=Family)]
@@ -104,9 +106,13 @@ def compute_azimuthal_extension(tree, Family, method='from_periodic'):
     base.addChildren(zonesInFamily)
 
     if method == 'from_slice':
-        dθ = _compute_azimuthal_extension_from_slice(sub_tree)
+        dθ = _compute_azimuthal_extension_from_slice(sub_tree, axis=axis)
     elif method == 'from_periodic':
-        dθ = _compute_azimuthal_extension_from_periodic(sub_tree)
+        try:
+            dθ = _compute_azimuthal_extension_from_periodic(sub_tree)
+        except MolaAssertionError as err:
+            mola_logger.warning(f'{err}\nTry to compute azimuthal extension with method "from_slice"')
+            dθ = _compute_azimuthal_extension_from_slice(sub_tree, axis=axis)
     else:
         raise MolaAssertionError(f'unknown {method=} for compute_azimuthal_extension')
     
@@ -152,7 +158,7 @@ def _compute_azimuthal_extension_from_slice(t, axis=None):
 def _compute_azimuthal_extension_from_periodic(t):
     periodic_node = t.get(Type='Periodic')
     if periodic_node is None:
-        raise MolaException(f'Cannot found a Periodic node in tree.')
+        raise MolaAssertionError(f'Cannot found a Periodic node in tree.')
     
     # RotationCenter = periodic_node.get(Name='RotationCenter').value()
     RotationAngle = periodic_node.get(Name='RotationAngle').value()
@@ -165,6 +171,18 @@ def _compute_azimuthal_extension_from_periodic(t):
         dθ = abs(RotationAngle[2])
     else:
         raise MolaException('Cannot found the rotation axis')
+
+    try:
+        unit = RotationAngle.get(Type='DimensionalUnits').value()[4]
+    except:
+        unit = 'Radian'
+
+    if unit =='Radian':
+        pass
+    elif unit == 'Degree':
+        dθ = np.radians(dθ)
+    else:
+        raise MolaException(f'unknown unit for rotation angle: {unit}. Must be Radian or Degree')
 
     return dθ
 
