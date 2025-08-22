@@ -31,6 +31,8 @@ from mola.cfd.preprocess.boundary_conditions import boundary_conditions
 from mola.cfd.preprocess.mesh.families import get_zone_family_from_bc_or_gc_family
 import mola.server as SV
 
+DEFAULT_NUMBER_OF_HARMONICS = 10
+
 def define_bc_family(tree, Family, Value):
     familyNode = tree.get(Name=Family, Type='Family', Depth=2)
     familyNode.findAndRemoveNode(Name='.Solver#BC', Depth=1)
@@ -977,7 +979,7 @@ def compute_RNA_ref_time(workflow, Family, LinkedFamily):
 
     return SectorPassagePeriod
 
-def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20, NumberOfHarmonicsForLinkedFamily=20, hybrid=True):
+def chorochronic(workflow, Family, LinkedFamily, NumbersOfHarmonics=DEFAULT_NUMBER_OF_HARMONICS, hybrid=False):
     '''
     Compute the parameters to run a chorochronic computation.
     
@@ -993,15 +995,14 @@ def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20, 
         LinkedFamily : str
             Name of the family on the second side of the chorochronic interface.
 
-        NumberOfHarmonicsForFamily : float
-            Number of harmonics of the first row.
-
-        NumberOfHarmonicsForLinkedFamily : float
-            Number of harmonics of the second row.
+        NumbersOfHarmonics : int or tuple
+            Numbers of harmonics of the first row and for the second row.
         
         hybrid : bool
             If True, use the `stage_choro_hyb` condition, else use `stage_choro`.
     '''   
+    if isinstance(NumbersOfHarmonics, int):
+        NumbersOfHarmonics = (NumbersOfHarmonics, NumbersOfHarmonics)
     if hybrid:
         stage_choro_hyb(workflow, Family, LinkedFamily)
     else:
@@ -1011,7 +1012,7 @@ def chorochronic(workflow, Family, LinkedFamily, NumberOfHarmonicsForFamily=20, 
     workflow.tree = cgns.castNode(workflow.tree)
     row1 = get_zone_family_from_bc_or_gc_family(workflow.tree, Family)
     row2 = get_zone_family_from_bc_or_gc_family(workflow.tree, LinkedFamily)
-    choroParamsRow1, choroParamsRow2 = compute_choro_parameters(workflow.ApplicationContext, row1, row2, Nharm_Row1=NumberOfHarmonicsForFamily, Nharm_Row2=NumberOfHarmonicsForLinkedFamily)
+    choroParamsRow1, choroParamsRow2 = compute_choro_parameters(workflow.ApplicationContext, row1, row2, Nharm_Row1=NumbersOfHarmonics[0], Nharm_Row2=NumbersOfHarmonics[1])
     add_choro_data(workflow.tree, row1, **choroParamsRow1) 
     add_choro_data(workflow.tree, row2, **choroParamsRow2) 
 
@@ -1063,13 +1064,15 @@ def stage_choro_hyb(workflow, Family, LinkedFamily):
 
     .. important : This function has a dependency to the ETC module.
     '''
-    if not workflow.tree.isStructured():
+    if workflow.tree.isStructured():
         # error for this BC with structured mesh for elsa<v5.4.02
         # see https://elsa-e.onera.fr/issues/11891#note-33
         raise MolaUserError((
             f'The boundary condition "stage_choro_hyb" on families {Family} and {LinkedFamily} '
             'is available only for structured mesh for elsa<v5.4.02. See https://elsa-e.onera.fr/issues/11891#note-33'
         ))
+    
+    mola_logger.warning('Condition stage_choro_hyb has not been validated yet through MOLA, hence there may be some unexpected behaviors!')
 
     import etc.transform as trf
 
@@ -1082,6 +1085,8 @@ def stage_choro_hyb(workflow, Family, LinkedFamily):
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageChoroHybFromFamily(workflow.tree, Family, LinkedFamily)
 
+    # FIXME this issue https://elsa-e.onera.fr/issues/11902
+    # indicates that values for parameters below may be wrong...
     stage.jtype = 'nomatch_rad_line'
     stage.stage_choro_type = 'characteristic'
     stage.harm_freq_comp = 1
@@ -1127,16 +1132,11 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
     omega_Row1 = ApplicationContext['ShaftRotationSpeed'] if ApplicationContext['Rows'][row1]['IsRotating'] else 0.
     omega_Row2 = ApplicationContext['ShaftRotationSpeed'] if ApplicationContext['Rows'][row2]['IsRotating'] else 0.
 
-    gcd = np.gcd(Nblade_Row1,Nblade_Row2)
-    if Nharm_Row1 < Nblade_Row1/gcd:
-        mola_logger.warning(f'The number of chorochronic harmonics for the first row is too low ({Nharm_Row1}). Recomputing...\n ')
-        Nharm_Row1 = Nblade_Row2
-
-    if Nharm_Row2 < Nblade_Row2/gcd:
-        mola_logger.warning(f'The number of chorochronic harmonics for the first row is too low ({Nharm_Row2}). Recomputing...\n ')
-        Nharm_Row2 = Nblade_Row1
-        mola_logger.warning(f'New number of harmonics for row 2 : {Nharm_Row2}')
-
+    if Nharm_Row1 < DEFAULT_NUMBER_OF_HARMONICS:
+        mola_logger.warning(f'The number of harmonics for row {row1} ({Nharm_Row1}) is lower than the recommended value ({DEFAULT_NUMBER_OF_HARMONICS}')
+    if Nharm_Row2 < DEFAULT_NUMBER_OF_HARMONICS:
+        mola_logger.warning(f'The number of harmonics for row {row2} ({Nharm_Row2}) is lower than the recommended value ({DEFAULT_NUMBER_OF_HARMONICS}')
+                            
     mola_logger.info(f'      {Nharm_Row1} harmonics for {row1} family', rank=0)
     mola_logger.info(f'      {Nharm_Row2} harmonics for {row2} family', rank=0)
 
@@ -1150,7 +1150,7 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
         )
     choroParamsRow2 = dict(
         f_freq = Nblade_Row1*np.abs(omega_Row1-omega_Row2)/(2*np.pi), 
-        f_omega = float(omega_Row1 - omega_Row2), 
+        f_omega = float(omega_Row2 - omega_Row1), 
         f_harm = float(Nharm_Row2), 
         f_relax = float(relax), 
         axis_ang_1 = Nblade_Row2, 
