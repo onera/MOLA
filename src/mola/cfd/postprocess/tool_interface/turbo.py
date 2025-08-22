@@ -22,6 +22,7 @@ Creation by recycling PostprocessTurbo.py of v1.18.1
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.cfd.postprocess.extractions_with_cassiopee.iso_surface import iso_surface
+from mola.logging import mola_logger
 
 # Cassiopee packages
 import Converter.PyTree   as C
@@ -84,18 +85,27 @@ def rename_variables_from_turbo_to_mola(tree):
     
     radial_base = tree.get(Type='CGNSBase', Name=RADIAL_PROFILES_BASE, Depth=1)
     average_base = tree.get(Type='CGNSBase', Name=AVERAGES_0D_BASE, Depth=1)
+    surfacesIso = getSurfacesFromInfo(tree, Type='IsoSurface')
 
-    for base in [radial_base, average_base]:
+    for base in [radial_base, average_base]+surfacesIso:
         if base is None:
             continue  # no data on this MPI rank
-        for node in base.group(Type='DataArray'):
-            new_name = _apply_rules(node.name())
-            # Check if another node at the same level has already that name
-            if any([sibling.name() == new_name for sibling in node.siblings(include_myself=False)]):
-                node.remove()
-            else:
-                node.setName(new_name)
 
+        # Rename variable node if needed
+        for fs in base.group(Type='FlowSolution'):
+            for node in fs.group(Type='DataArray', Depth=1):
+                new_name = _apply_rules(node.name())
+                if new_name == node.name():
+                    continue
+                # Check if another node at the same level has already that name
+                if any([sibling.name() == new_name for sibling in node.siblings(include_myself=False)]):
+                    node.remove()
+                    mola_logger.debug(f'Variable {new_name} already present in {base.name()}', rank=0)
+                else:
+                    node.setName(new_name)
+                    mola_logger.debug(f'rename {node.name()} to {new_name} in {base.name()}', rank=0)
+
+        # Rename variables in the value of node averageType
         for averageType in base.group(Name='averageType'):
             for node in averageType.group(Type='DataArray'):
                 variables = node.value()
