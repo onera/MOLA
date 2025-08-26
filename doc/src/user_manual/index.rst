@@ -14,4 +14,5 @@ Links between pages should be enough to let you discover MOLA from that.
    workflow/boundary_conditions
    workflow/workflows_by_application/index
    workflow/manager
+   workflow/debug
    commands

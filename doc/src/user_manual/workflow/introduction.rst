@@ -286,6 +286,11 @@ To launch several cases at once, you may use the `WorkflowManager`:
 More documentation is available in the section :ref:`WorkflowManager`.
 
 
+*************************
+Debugging workflow set-up
+*************************
+
+To get advices for debugging, see section :ref:`how-to-debug`
 
 
 ***********************
