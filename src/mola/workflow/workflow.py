@@ -35,6 +35,7 @@ from  mola.cfd.preprocess.mesh import (io,
                                     connect,
                                     split,
                                     families,
+                                    duplicate,
                                     overset)
 from  mola.cfd.preprocess import (flow_generators,
                                boundary_conditions,
@@ -87,6 +88,7 @@ class Workflow(object):
         self.positioning()
         self.connect()
         self.define_families()
+        self.duplicate()
         self.split_and_distribute()
 
     def check_consistency_between_solver_and_environment(self):
@@ -117,6 +119,11 @@ class Workflow(object):
     def define_families(self):
         mola_logger.info("  🏷 defining tags", rank=0)
         families.apply(self)
+        self.set_workflow_parameters_in_tree()
+
+    def duplicate(self):
+        mola_logger.info("  duplicate mesh", rank=0)
+        duplicate.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def read_meshes(self):
@@ -151,7 +158,7 @@ class Workflow(object):
         self.set_workflow_parameters_in_tree()
 
     def initialize_flow(self):
-        mola_logger.info("🔥 initialize flow")
+        mola_logger.info("🔥 initialize flow", rank=0)
         initialization.apply(self)
         self.set_workflow_parameters_in_tree()
     
@@ -470,7 +477,7 @@ class Workflow(object):
         if not has_crashed and not had_errors:
             
             if maybe_running:
-                msg_to_raise = 'did not completed'
+                msg_to_raise = 'simulation was aborted before completion'
             
             elif was_completed:
                 msg_to_raise = None

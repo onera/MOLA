@@ -20,6 +20,7 @@ import numpy as np
 
 from treelab import cgns
 
+from mola.cfd.preprocess.mesh.tools import compute_azimuthal_extension
 from mola.cfd.preprocess.motion import motion
 from mola.logging import mola_logger, MolaAssertionError
 from mola.workflow.rotating_component.workflow import WorkflowRotatingComponent
@@ -224,35 +225,18 @@ def test_parametrize_with_height(tmp_path):
     assert w.tree.get(Name='FlowSolution#Height', Type='FlowSolution')
 
 @pytest.mark.unit
+@pytest.mark.elsa
+@pytest.mark.sonics  # not available with fast due to the incompatibility between duplication and splitting with Cassiopee
 @pytest.mark.cost_level_2
 def test_duplicate(tmp_path):
     params = get_workflow_annular_sector_parameters(tmp_path)
     params['ApplicationContext']['Rows']['Fluid']['NumberOfBladesSimulated'] = 2
     w = WorkflowRotatingComponent(**params)
-    w.assemble()
-    if w.tree.isStructured():
-        for bc in w.tree.group(Type='BC'):
-            if bc.get(Type='FamilyName').value().startswith('PER'):
-                bc.remove()
-    w.positioning()
-    w.connect()
-    w.define_families()
-    w.set_default_parameters_for_rows()
-    w.compute_fluxcoef_by_row()
-    # import maia
-    # from mpi4py import MPI
-    # maia.io.dist_tree_to_file(w.tree,'debug.cgns',MPI.COMM_WORLD)
-    w.duplicate()
+    w.SplittingAndDistribution['Strategy'] = 'AtComputation'
+    w.process_mesh()
 
-    if w.tree.isStructured():
-        rotor_zone_names = ['blk-1']
-        for name in rotor_zone_names:
-            assert w.tree.get(Type='Zone', Name=f'{name}.D0') is not None
-            assert w.tree.get(Type='Zone', Name=f'{name}.D1') is not None
-    else:
-        import maia
-        from mpi4py import MPI
-        if not w.tree.get(Name='NFaceElements'):
-            maia.algo.pe_to_nface(w.tree, MPI.COMM_WORLD)  # because for now, compute_azimuthal_extension_from_family use cassiopee and need NFaceElements
-        assert np.isclose(w.compute_azimuthal_extension_from_family(w.tree, 'Fluid', [1,0,0]), np.radians(90), rtol=1e-2)
+    alpha = np.degrees(compute_azimuthal_extension(w.tree, 'Fluid'))
+    assert np.isclose(alpha, 90, rtol=1e-2), f'alpha = {alpha} degrees instead of 90'
 
+if __name__ == "__main__":
+    test_duplicate('.')

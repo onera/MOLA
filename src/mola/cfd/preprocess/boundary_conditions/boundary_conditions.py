@@ -45,6 +45,8 @@ def apply(workflow, selected_boundaries_conditions=None):
     # Deep copy to prevent modification on the Workflow attribute BoundaryConditions
     selected_boundaries_conditions = copy.deepcopy(selected_boundaries_conditions)
 
+    # workflow.tree = _add_skeleton_in_tree(workflow.tree)  # NOTE tests for MPI preprocess, not working yet
+
     for bc in selected_boundaries_conditions:
 
         _check_family_exists(workflow.tree, bc['Family'])
@@ -62,6 +64,8 @@ def apply(workflow, selected_boundaries_conditions=None):
             mola_logger.info(f'  > {bc_type} on family {bc["Family"]}', rank=0)
         
         _call_solver_specific_bc_preparation_function(workflow, bc_type, **bc)
+
+    # _force_unique_names_for_gc(workflow.tree) # NOTE tests for MPI preprocess, not working yet
 
     add_missing_PointRange_in_BCDataSet(workflow)
     fix_FaceCenter_in_BCDataSet(workflow.tree)
@@ -223,7 +227,7 @@ def get_fields_from_file(t, FamilyName, filename, var2interp):
 def recompute_turbulence_variables(workflow, **kwargs):
 
     if 'TurbulenceLevel' in kwargs or 'Viscosity_EddyMolecularRatio' in kwargs:   
-        mola_logger.info('  recomputing turbulent variables for this BC...')       
+        mola_logger.info('  recomputing turbulent variables for this BC...', rank=0)       
 
         workflow_copy = copy.copy(workflow)
         for name, value in kwargs.items():
@@ -328,13 +332,19 @@ def _instantiate_bc_dispatcher(workflow):
     return workflow._bc_dispatcher
 
 def get_fluxcoeff_on_bc(workflow, Family):
-    bcs = get_bc_nodes_from_family(workflow.tree, Family)
+    from mpi4py.MPI import COMM_WORLD as comm
     try:
-        bc = bcs[0]
-    except IndexError:
+        bc = get_bc_nodes_from_family(workflow.tree, Family)[0]
+    except:
+        bc = None
+    nodes_on_all_ranks = comm.allgather(bc)
+    bc = [node for node in nodes_on_all_ranks if node is not None][0]
+    if bc is None:
         raise MolaException(f'Cannot find a BC associated to Family {Family}')
+    
     zone = bc.getParent(Type='Zone_t')
-    row = zone.get(Type='FamilyName').value()
+    row = zone.get(Type='FamilyName', Depth=1).value()
+
     try:
         rowParams = workflow.ApplicationContext['Rows'][row]
     except:
@@ -383,3 +393,53 @@ def OutflowRadialEquilibrium_interface(workflow, bcparams):
                     f'Type={bcparams["ValveLaw"]["Type"]}, parameter ValveCoefficient must be defined and must be a float.'
                 ))
 
+def _add_skeleton_in_tree(tree):
+    from mpi4py import MPI
+    import Converter.Mpi as Cmpi
+    MPI.COMM_WORLD
+    
+    skeleton = Cmpi.convert2SkeletonTree(tree)
+    skeleton = Cmpi.allgatherTree(skeleton)
+    skeleton = cgns.castNode(skeleton)
+
+    tree = cgns.merge([tree, skeleton])
+    return tree
+
+def _force_unique_names_for_gc(tree):
+
+    def _get_new_name(name, all_gc_names):
+        for i in range(100):
+            new_name = f'{name}.{i}'
+            if new_name not in all_gc_names:
+                return new_name
+        raise MolaException(f'Could not find a new name for {gc.path()}')
+
+    def _set_new_gc_name(gc, new_name):
+        gc.setName(new_name)
+
+        # Change also donor gc name
+        try:
+            donor_gc_name = gc.get(Name='GridConnectivityDonorName').value()
+        except: 
+            # Check that this gc is a rotor/stator interface
+            assert gc.get(Type='GridConnectivityType').value() == 'Abutting', gc.path()
+            return
+        
+        donor_zone_name = gc.value()
+        donor_zone = tree.get(Type='Zone', Depth=2, Name=donor_zone_name)
+        zgc = donor_zone.get(Type='ZoneGridConnectivity', Depth=1)
+        donor_gc = zgc.get(Name=donor_gc_name, Depth=1)
+        donor_gc.get(Name='GridConnectivityDonorName').setValue(gc.name())
+
+    all_gc = tree.group(Type='GridConnectivity') + tree.group(Type='GridConnectivity1to1')
+    all_gc_names = set([gc.name() for gc in all_gc])
+    for gc in all_gc:
+        name = gc.name()
+        if '.' not in name or name in all_gc_names:
+            # Pick a new name based on the current one, and that is not already in all_gc_names
+            new_name = _get_new_name(name, all_gc_names)
+            # update the set of all gc names
+            all_gc_names.discard(name)
+            all_gc_names.add(new_name)
+            # 
+            _set_new_gc_name(gc, new_name)

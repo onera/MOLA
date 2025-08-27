@@ -1,3 +1,5 @@
+.. _example-rotor37:
+  
 ########
 Rotor 37 
 ########
@@ -19,6 +21,15 @@ see:
 
  * Agard-AR-355 , "CFD Validation for Propulsion System Components", May 1998:
    https://apps.dtic.mil/sti/pdfs/ADA349027.pdf
+
+In the following, the mesh has been generated with Autogrid5 from Cadence. 
+
+.. figure:: //stck/mola/data/open/mesh/rotor37/mesh_view.png
+  :width: 70%
+  :align: center
+
+  Input mesh generated with Autogrid5
+
 
 ***************
 RANS simulation

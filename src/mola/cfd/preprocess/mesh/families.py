@@ -24,48 +24,55 @@ structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 
 def apply(workflow):
 
-    t = workflow.tree
-    from mpi4py import MPI
-    mpi_size = MPI.COMM_WORLD.Get_size()
-    rank = MPI.COMM_WORLD.Get_rank()
-    if mpi_size > 1:
-        import maia
-        is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
-        if is_dist:
-            from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
-            t = to_full_tree_at_rank_0(workflow.tree)  
-            if rank==0:
-                t = cgns.castNode(t)          
+    if any(['Families' in component for component in workflow.RawMeshComponents]):
 
+        t = workflow.tree
+        from mpi4py import MPI
+        mpi_size = MPI.COMM_WORLD.Get_size()
+        rank = MPI.COMM_WORLD.Get_rank()
+        if mpi_size > 1:
+            import maia
+            is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
+            if is_dist:
+                from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
+                t = to_full_tree_at_rank_0(workflow.tree)  
+                if rank==0:
+                    t = cgns.castNode(t)          
 
-    if rank == 0:
-        for base in t.bases():
-            # Add new BC families
-            component = workflow.get_component(base.name())
-            try:
-                families = component['Families']
-            except: 
-                families = []
+        if rank == 0:
+            for base in t.bases():
+                # Add new BC families
+                component = workflow.get_component(base.name())
+                try:
+                    families = component['Families']
+                except: 
+                    families = []
 
-            for operation in families:
-                FamilyName = operation['Name']
-                location   = operation.get('Location')
-                set_family_from_location(base, FamilyName, location)
+                for operation in families:
+                    FamilyName = operation['Name']
+                    location   = operation.get('Location')
+                    set_bc_family_from_location(base, FamilyName, location)  # use cassiopee, and need a full_tree as input
 
-            # Add zone bamilies in base or zones if needed
-            appendFamiliesToBase(base)
-            append_default_family_to_zones(base)
+        if mpi_size > 1:
+            MPI.COMM_WORLD.barrier()
+            workflow.tree = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=0)
+            workflow.tree = cgns.castNode(workflow.tree)
+            MPI.COMM_WORLD.barrier()
+        else:
+            workflow.tree = cgns.castNode(workflow.tree)
 
-    if mpi_size > 1:
-        MPI.COMM_WORLD.barrier()
-        workflow.tree = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=0)
-        workflow.tree = cgns.castNode(workflow.tree)
-        MPI.COMM_WORLD.barrier()
+    for base in workflow.tree.bases():
+        # Add families that exist in zones or BC in base if needed
+        append_bc_families_to_base(base)
+        append_zone_families_to_base(base)
 
-def set_family_from_location(base, FamilyName, location):
+        # Add a default family to untagged zones if needed
+        append_default_zone_family_to_zones(base)
+
+def set_bc_family_from_location(base, FamilyName, location):
     import Converter.PyTree as C
 
-    mola_logger.info(f'setting Family {FamilyName} in base {base.name()}')
+    mola_logger.info(f'setting Family {FamilyName} in base {base.name()}', rank=0)
                     
     if shall_define_overlap_type_directly(FamilyName):
         specification = 'BCOverlap'
@@ -87,7 +94,7 @@ def set_family_from_location(base, FamilyName, location):
             raise ValueError(msg)
 
         for zone in base.zones():
-            WindowTags = getWindowTagsAtPlane(cgns.castNode(zone), planeTag=location)
+            WindowTags = get_window_tags_at_plane(cgns.castNode(zone), planeTag=location)
             for winTag in WindowTags:
                 C._addBC2Zone(zone, FamilyName, specification, winTag)
 
@@ -99,7 +106,7 @@ def shall_define_overlap_type_directly( family_name : str):
         return True
     return False
 
-def getWindowTagsAtPlane(zone : cgns.Zone, planeTag='planeXZ', tolerance=1e-8):
+def get_window_tags_at_plane(zone : cgns.Zone, planeTag='planeXZ', tolerance=1e-8):
     '''
     Returns the windows keywords of a structured zone that entirely lies (within
     a geometrical tolerance) on a plane provided by user.
@@ -158,7 +165,7 @@ def getWindowTagsAtPlane(zone : cgns.Zone, planeTag='planeXZ', tolerance=1e-8):
 
     return WindowTagsAtPlane
 
-def appendFamiliesToBase(base):
+def append_bc_families_to_base(base):
     cgns.castNode(base)
     AllFamilyNames = set()
     for zone in base.zones():
@@ -171,19 +178,25 @@ def appendFamiliesToBase(base):
     for FamilyName in AllFamilyNames:
         cgns.Node(Name=FamilyName, Type='Family', Parent=base)
 
-def append_default_family_to_zones(base, default_family_name='DefaultFamily'):
+def append_zone_families_to_base(base):
     families_to_add = []
     for zone in base.zones():
         FamilyName = zone.get(Type='FamilyName', Depth=1)
-        if not FamilyName:
-            cgns.Node(Name='FamilyName', Type='FamilyName', Value=default_family_name, Parent=zone)
-            if not default_family_name in families_to_add:
-                families_to_add.append(default_family_name)
-        elif not base.get(Type='Family', Name=FamilyName.value(), Depth=1):
+        if FamilyName is not None and not base.get(Type='Family', Name=FamilyName.value(), Depth=1):
             families_to_add.append(FamilyName.value())
 
     for family in families_to_add:
         cgns.Node(Name=family, Type='Family', Parent=base)
+
+def append_default_zone_family_to_zones(base, default_family_name='DefaultFamily'):
+    need_to_add_default_family = False
+    for zone in base.zones():
+        FamilyName = zone.get(Type='FamilyName', Depth=1)
+        if not FamilyName:
+            cgns.Node(Name='FamilyName', Type='FamilyName', Value=default_family_name, Parent=zone)
+
+    if need_to_add_default_family and not base.get(Name=default_family_name, Type='Family', Depth=1):
+        cgns.Node(Name=default_family_name, Type='Family', Parent=base)
 
 def join_families(t, pattern, mode=2):
     '''
@@ -374,60 +387,3 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
             BCType = I.getValue( BCnode )
             if BCType != 'FamilySpecified': return BCType
             break
-
-
-def joinFamilies(t, pattern):
-    '''
-    In the CGNS tree t, gather all the Families <ROW_I>_<PATTERN>_<SUFFIXE> into
-    Families <ROW_I>_<PATTERN>, so as many as rows.
-    Useful to join all the row_i_HUB* or (row_i_SHROUD*) together
-
-    Parameters
-    ----------
-
-        t : PyTree
-            A PyTree read by Cassiopee
-
-        pattern : str
-            The pattern used to gather CGNS families. Should be for example 'HUB' or 'SHROUD'
-    '''
-    fam2remove = []
-    fam2keep = []
-    # Loop on the BCs in the tree
-    for bc in I.getNodesFromType(t, 'BC_t'):
-        # Get BC family name
-        famBC_node = I.getNodeFromType(bc, 'FamilyName_t')
-        if not famBC_node: 
-            continue
-        famBC = I.getValue(famBC_node)
-        # Check if the pattern is present in FamilyBC name
-        if pattern not in famBC:
-            continue
-        # Split to get the short name based on pattern
-        split_fanBC = famBC.split(pattern)
-        assert len(split_fanBC) == 2, 'The pattern {} is present more than once in the FamilyBC {}. It must be more selective.'.format(
-            pattern, famBC)
-        preffix, suffix = split_fanBC
-        # Add the short name to the set fam2keep
-        short_name = '{}{}'.format(preffix, pattern)
-        if short_name not in fam2keep: 
-            fam2keep.append(short_name)
-        if suffix != '':
-            # Change the family name
-            I.setValue(famBC_node, '{}'.format(short_name))
-            if famBC not in fam2remove: 
-                fam2remove.append(famBC)
-
-    # Remove families
-    for fam in fam2remove:
-        print('Remove family {}'.format(fam))
-        I._rmNodesByNameAndType(t, fam, 'Family_t')
-
-    # Check that families to keep still exist
-    base = I.getNodeFromType(t, 'CGNSBase_t')
-    for fam in fam2keep:
-        fam_node = I.getNodeFromNameAndType(t, fam, 'Family_t')
-        if fam_node is None:
-            print('Add family {}'.format(fam))
-            I.newFamily(fam, parent=base)
-

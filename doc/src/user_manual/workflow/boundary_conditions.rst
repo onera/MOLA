@@ -287,10 +287,13 @@ ChorochronicInterface
 
 It defines a chorochronic interface ('stage_choro' in *elsA*), and update azimuthal periodic conditions
 as chorochronic conditions.
-The number of harmonics `NumberOfHarmonicsForFamily` and `NumberOfHarmonicsForLinkedFamily`
-can be modified and are set to 20 by default. 
+The numbers of harmonics for both families are set to 10 by default. They may be modified by setting
+the parameter `NumbersOfHarmonics` which is a tuple. 
+For instance, to set 16 harmonics for the upstream row and 12 harmonics for the downstream row:
 
-The parameter `hybrid` (:py:obj:`True` by default) indicates if structured or hybrid version of the condition is used.
+>>> dict(Type='ChorochronicInterface', Family='InterfaceUpstreamSide', LinkedFamily='InterfaceDownstreamSide', NumbersOfHarmonics=(16,12)) 
+
+The parameter `hybrid` (:py:obj:`False` by default) indicates if structured or hybrid version of the condition is used.
 
 
 

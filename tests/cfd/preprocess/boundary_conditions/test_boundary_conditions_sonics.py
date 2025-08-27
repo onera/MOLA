@@ -80,11 +80,7 @@ def test_RotorStatorInterface(tmp_path, interface_type):
     workflow = turbomachinery.Workflow(**params)
 
     workflow.prepare_job()
-    workflow.assemble()
-    workflow.positioning()
-    workflow.define_families() 
-    workflow.connect()
-    workflow.split_and_distribute() 
+    workflow.process_mesh()
     workflow.process_overset()
     workflow.compute_flow_and_turbulence()
     workflow.set_motion()

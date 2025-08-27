@@ -193,7 +193,7 @@ class InternalFlowGenerator(ExternalMPtTtFlowGenerator):
     @staticmethod
     def get_surface_of_inflow(workflow):
         try:
-            InflowBC = mesh_tools.get_bc_from_bc_type(workflow, ['Inflow*', 'inj*'])
+            InflowBC = mesh_tools.get_bc_from_bc_type(workflow, ['Inflow*', 'inj*', '*inlet*'])
             InflowFamily = InflowBC['Family']
         except MolaException:
             raise MolaException('Please provide a reference surface as "Surface" in ApplicationContext or provide a unique inflow BC in BoundaryConditions')
@@ -204,9 +204,9 @@ class InternalFlowGenerator(ExternalMPtTtFlowGenerator):
         except:
             pass
 
-        mola_logger.info(f'  > Reference surface = {Surface} m^2 (computed from inflow family {InflowFamily})')
+        mola_logger.info(f'  > Reference surface = {Surface} m^2 (computed from inflow family {InflowFamily})', rank=0)
         if Surface > np.pi*9:  
             # warning if the inflow surface is greater than a disk with a 3m radius
-            mola_logger.warning(f'This value is large, check the lenght unit of the mesh')
+            mola_logger.warning(f'This value is large, check the lenght unit of the mesh', rank=0)
         
         return Surface

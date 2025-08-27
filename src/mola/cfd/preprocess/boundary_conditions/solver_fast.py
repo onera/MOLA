@@ -122,7 +122,7 @@ def BCInj1(workflow, Family, **kwargs):
     
 def Inj1_interface(workflow, **kwargs):
     from mola.cfd.preprocess.boundary_conditions.solver_elsa import inj1_interface
-    ImposedVariables = inj1_interface(workflow, **kwargs)
+    ImposedVariables, _ = inj1_interface(workflow, **kwargs)
     # names of nodes has no importance, but the order is crucial ['dOx', 'dOy', 'dOz', 'pa', 'ha']
     order_of_variables = [
         'VelocityUnitVectorX',

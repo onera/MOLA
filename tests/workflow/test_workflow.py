@@ -533,14 +533,14 @@ def get_workflow1():
                             Axis2=[0,1,0],
                             Axis3=[0,0,1]),
                         ),
-                    dict(
-                        Type='DuplicateByRotation',
-                        RotationPoint=[0,0,0],
-                        RotationAxis=[0,0,1],
-                        RightHandRuleRotation=True,
-                        NumberOfInstances=4,
-                        AddInstancesAsNewComponents=True,
-                        ),
+                    # dict(
+                    #     Type='DuplicateByRotation',
+                    #     RotationPoint=[0,0,0],
+                    #     RotationAxis=[0,0,1],
+                    #     RightHandRuleRotation=True,
+                    #     NumberOfInstances=4,
+                    #     AddInstancesAsNewComponents=True,
+                    #     ),
                 ],
                 Connection = [
                     dict(Type='Match', Tolerance=1e-8),
@@ -918,7 +918,7 @@ def test_workflow_sphere_unstruct_local_euler(tmp_path):
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
-def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=True):
+def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path):
     w = get_workflow_sphere_struct_cassiopee_mpi_to_connect(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
@@ -931,7 +931,7 @@ def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path,remove_cfd_files=Tr
 @pytest.mark.integration
 @pytest.mark.cost_level_3
 @pytest.mark.mpi
-def test_workflow_sphere_struct_local_dist(tmp_path,remove_cfd_files=True):
+def test_workflow_sphere_struct_local_dist(tmp_path):
     w = get_workflow_sphere_struct_dist(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
@@ -1037,10 +1037,3 @@ if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
     test_workflow_cart_monoproc('test_workflow_cart_monoproc')
-    # test_workflow_sphere_struct_local_monoproc('sphere_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
-    # test_workflow_cart_monoproc('cart_monoproc_'+os.environ.get("MOLA_SOLVER"),False)
-    # test_workflow_sphere_struct_local_dist('sphere_dist_'+os.environ.get("MOLA_SOLVER"))
-    # test_workflow_sphere_struct_local_cassiopee_mpi('sphere_struct_cassmpi_'+os.environ.get("MOLA_SOLVER"),False)
-    # test_workflow_sphere_struct_local_dist('sphere_struct_dist_'+os.environ.get("MOLA_SOLVER"),False)
-    # test_workflow_sphere_unstruct_local('sphere_unstruct_local_'+os.environ.get("MOLA_SOLVER"))
-    # test_workflow_sphere_struct_local_monoproc('test_sphere', remove_cfd_files=False)

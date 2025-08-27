@@ -189,8 +189,6 @@ def translate_to_elsa(Variables, type='node'):
     else:
         CGNS2ElsaDict = cgns_to_elsa_extraction_name.copy()  # ensure not to modify the reference dict
 
-    elsAVariables = CGNS2ElsaDict.values()
-
     if isinstance(Variables, dict):
         NewVariables = dict()
         for var, value in Variables.items():

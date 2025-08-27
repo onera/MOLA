@@ -27,12 +27,12 @@ from mola.logging import RED, GREEN, YELLOW, ENDC
 
 def print_environment():
 
-    machine = os.getenv('MAC', 'UNKNOWN')
+    machine = os.getenv('MOLA_MACHINE', 'UNKNOWN')
     archi = os.getenv('ARCH', '-')
     mola_version = __version__
     if Version(mola_version).is_devrelease:
         mola_version = YELLOW + mola_version + ENDC
-    print(f"MOLA version {mola_version} at {machine} ({archi}")
+    print(f"MOLA version {mola_version} at {machine} ({archi})")
 
     vpython = sys.version_info
     print(f' --> Python {vpython.major}.{vpython.minor}.{vpython.micro}')
@@ -40,7 +40,7 @@ def print_environment():
     print_module_version('treelab')
     print_module_version('KCore', 'Cassiopee')
     print_module_version('maia')
-    print_module_version('VULCAINS')
+    # print_module_version('VULCAINS')
     print_module_version('turbo')
     print_module_version('Ersatz')
 

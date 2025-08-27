@@ -22,7 +22,7 @@ from treelab import cgns
 import maia.pytree as PT
 from mola.logging import MolaException
 from mola.cfd.preprocess.check import check
-from mola.cfd.preprocess.mesh.families import set_family_from_location
+from mola.cfd.preprocess.mesh.families import set_bc_family_from_location
 
 # --------------------------------- fixtures --------------------------------- #
 @pytest.fixture
@@ -40,7 +40,7 @@ def tree2D_with_bc_defined(grid2D):
     t = cgns.Tree(Base=grid2D)
 
     for location in ['imin', 'imax', 'jmin', 'jmax']:
-        set_family_from_location(t.bases()[0], 'FARFIELD',location)
+        set_bc_family_from_location(t.bases()[0], 'FARFIELD',location)
 
     return t
 
@@ -49,7 +49,7 @@ def tree2D_with_bc_undefined(grid2D):
     t = cgns.Tree(Base=grid2D)
 
     for location in ['imin', 'imax']:
-        set_family_from_location(t.bases()[0], 'FARFIELD',location)
+        set_bc_family_from_location(t.bases()[0], 'FARFIELD',location)
 
     return t
 
@@ -68,7 +68,7 @@ def tree3D_with_bc_defined(grid3D):
     t = cgns.Tree(Base=grid3D)
 
     for location in ['imin', 'imax', 'jmin', 'jmax', 'kmin', 'kmax']:
-        set_family_from_location(t.bases()[0], 'FARFIELD',location)
+        set_bc_family_from_location(t.bases()[0], 'FARFIELD',location)
 
     return t
 
@@ -77,7 +77,7 @@ def tree3D_with_bc_undefined(grid3D):
     t = cgns.Tree(Base=grid3D)
 
     for location in ['imin', 'imax', 'jmin', 'jmax']:
-        set_family_from_location(t.bases()[0], 'FARFIELD',location)
+        set_bc_family_from_location(t.bases()[0], 'FARFIELD',location)
 
     return t
 

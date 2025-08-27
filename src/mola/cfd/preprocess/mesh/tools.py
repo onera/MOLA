@@ -17,7 +17,7 @@
 
 import numpy as np
 from fnmatch import fnmatch
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.pytree.user.checker import (is_partitioned_for_use_in_maia,
                                       is_distributed_for_use_in_maia)
 from treelab import cgns
@@ -27,7 +27,7 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
     import maia.pytree as PT
     from maia.algo.part.wall_distance import compute_projection_to
 
-    mola_logger.info('Parametrize domain with channel height (add FlowSolution#Height)')
+    mola_logger.info('Parametrize domain with channel height (add FlowSolution#Height)', rank=0)
 
     tree = to_partitioned(tree) 
 
@@ -82,15 +82,110 @@ def get_bc_from_bc_type(workflow, bctypes):
 
 def get_surface_of_family(tree, Family):
     import Converter.PyTree as C
+    import Converter.Internal as I
     import Post.PyTree as P
+    from mpi4py import MPI
 
+    tree = I.fixNGon(tree)  # it would be better without making a copy, but it would need adaptation latter for maia
     zones = C.extractBCOfName(tree, f'FamilySpecified:{Family}')
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = P.integ(SurfaceTree, var='ones')[0]        # Compute normalization coefficient
-    mola_logger.debug(f'Surface of family {Family} = {Surface} m^2')
+    Surface = MPI.COMM_WORLD.allreduce(Surface, op=MPI.SUM)
+    mola_logger.debug(f'Surface of family {Family} = {Surface} m^2', rank=0)
 
     return Surface
+
+
+def compute_azimuthal_extension(tree, Family, method='from_periodic', axis=None):
+    
+    # Extract zones in family
+    zonesInFamily = [z for z in tree.zones() if z.get(Type='FamilyName', Value=Family)]
+    sub_tree = cgns.Tree()
+    base = cgns.Base(Parent=sub_tree)
+    base.addChildren(zonesInFamily)
+
+    if method == 'from_slice':
+        dθ = _compute_azimuthal_extension_from_slice(sub_tree, axis=axis)
+    elif method == 'from_periodic':
+        try:
+            dθ = _compute_azimuthal_extension_from_periodic(sub_tree)
+        except MolaAssertionError as err:
+            mola_logger.warning(f'{err}\nTry to compute azimuthal extension with method "from_slice"')
+            dθ = _compute_azimuthal_extension_from_slice(sub_tree, axis=axis)
+    else:
+        raise MolaAssertionError(f'unknown {method=} for compute_azimuthal_extension')
+    
+    return dθ
+
+def _compute_azimuthal_extension_from_slice(t, axis=None):
+    '''
+    Compute the azimuthal extension in radians of the mesh **t**.
+
+    .. warning:: This function needs to calculate the surface of the slice in X
+                at Xmin + 5% (Xmax - Xmin). If this surface is crossed by a
+                solid (e.g. a blade) or by the inlet boundary, the function
+                will compute a wrong value of the number of blades inside the
+                mesh.
+    '''
+    import Converter.PyTree as C
+    import Post.PyTree as P
+
+    if axis is None:
+        axis = [1.0, 0.0, 0.0]
+
+    if list(axis) != [1.0, 0.0, 0.0]:
+        # CAVEAT
+        raise MolaAssertionError('For now, this function only handles axis=[1., 0., 0.]')
+
+    # Slice in x direction at middle range
+    xmin = np.amin([np.amin(zone.x()) for zone in t])
+    xmax = np.amax([np.amax(zone.x()) for zone in t])
+    sliceX = P.isoSurfMC(t, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
+    # Compute Radius
+    C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
+    Rmin = C.getMinValue(sliceX, 'Radius')
+    Rmax = C.getMaxValue(sliceX, 'Radius')
+    # Compute surface
+    SurfaceTree = C.convertArray2Tetra(sliceX)
+    SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
+    Surface = P.integ(SurfaceTree, var='ones')[0]
+    # Compute deltaTheta
+    mola_logger.debug(f'Surface={Surface}, Rmax={Rmax}, Rmin={Rmin}')
+    deltaTheta = 2* Surface / (Rmax**2 - Rmin**2)
+    return deltaTheta
+
+def _compute_azimuthal_extension_from_periodic(t):
+    periodic_node = t.get(Type='Periodic')
+    if periodic_node is None:
+        raise MolaAssertionError(f'Cannot found a Periodic node in tree.')
+    
+    # RotationCenter = periodic_node.get(Name='RotationCenter').value()
+    RotationAngle = periodic_node.get(Name='RotationAngle').value()
+    # Translation = periodic_node.get(Name='Translation').value()
+    if np.isclose(RotationAngle[1], 0.) and np.isclose(RotationAngle[2], 0.):
+        dθ = abs(RotationAngle[0])
+    elif np.isclose(RotationAngle[0], 0.) and np.isclose(RotationAngle[2], 0.):
+        dθ = abs(RotationAngle[1])
+    elif np.isclose(RotationAngle[0], 0.) and np.isclose(RotationAngle[1], 0.):
+        dθ = abs(RotationAngle[2])
+    else:
+        raise MolaException('Cannot found the rotation axis')
+
+    try:
+        unit = RotationAngle.get(Type='DimensionalUnits').value()[4]
+    except:
+        unit = 'Radian'
+
+    if unit =='Radian':
+        pass
+    elif unit == 'Degree':
+        dθ = np.radians(dθ)
+    else:
+        raise MolaException(f'unknown unit for rotation angle: {unit}. Must be Radian or Degree')
+
+    return dθ
+
 
 def to_distributed(tree : cgns.Tree):
     from mpi4py import MPI
@@ -176,15 +271,6 @@ import re
 def remove_maia_part_zone_suffix(zone_name : str) -> str:
     import re
     return re.sub(r'\.P\d+\.N\d+$', '', zone_name)
-
-def remove_maia_part_zone_suffix_from_tree(tree : cgns.Tree):
-    for zone in tree.zones():
-        previous_name = zone.name()
-        new_name = remove_maia_part_zone_suffix(previous_name)
-        zone.setName(new_name)
-        for node in tree.group(Value=previous_name):
-            node.setValue(new_name)
-
 
 
 def to_full_tree_at_rank_0(tree : cgns.Tree):

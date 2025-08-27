@@ -240,11 +240,21 @@ What are run outputs ?
 In MOLA, outputs do not depend on the chosen solver, but only on what was asked 
 by user in Workflow inputs.
 
-First of all, the main.cgns is automatically updated at the end of the run to allow 
+First of all, file :mola_name:`FILE_INPUT_SOLVER` is automatically updated at the end of the run to allow 
 re-submiting the computation as it.
 
-Then, all outputs are stored in the :mola_name:`DIRECTORY_OUTPUT` directory.
+Then, all outputs are stored in the :mola_name:`DIRECTORY_OUTPUT` directory. 
+Generally, if not specific input arguments are given by the user, output data are written 
+in 3 different files (or less if not required): 
 
+* :mola_name:`FILE_OUTPUT_3D`: it contains 3D fields in the whole domain. 
+
+* :mola_name:`FILE_OUTPUT_2D`: it contains 2D extractions in space, like boundaries or slices.
+
+* :mola_name:`FILE_OUTPUT_1D`: it contains 1D signals, all indexed by iterations (or equivalently time).
+  It allows monitoring the evolution of quantities of interest during the simulation (like residuals, forces, probes, etc.).
+
+For more information about extractions, see the dedicated section :ref:`inputs-extractions`.
 
 
 ************************
@@ -276,6 +286,11 @@ To launch several cases at once, you may use the `WorkflowManager`:
 More documentation is available in the section :ref:`WorkflowManager`.
 
 
+*************************
+Debugging workflow set-up
+*************************
+
+To get advices for debugging, see section :ref:`how-to-debug`
 
 
 ***********************

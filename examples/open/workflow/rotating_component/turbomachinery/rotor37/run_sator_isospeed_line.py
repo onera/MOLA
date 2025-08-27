@@ -31,7 +31,7 @@ w = turbomachinery.Workflow(
     ),
 
     Numerics = dict(
-        NumberOfIterations = 5000,
+        NumberOfIterations = 10000,
         CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
     ),
 
@@ -57,33 +57,23 @@ w = turbomachinery.Workflow(
         ),
     ],
 
-    # Initialization = dict(
-    #     ParametrizeWithHeight = 'turbo'
-    # ),
-
     RunManagement=dict(
         JobName='rotor37',
         NumberOfProcessors=24,
         RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37_test',
-        RemovePreviousRunDirectory = True,
         AER='34790003F', # PDEV MOLA 2025
-        # TimeLimit = '00:30:00',
         ),
 
     )
 
-# w.prepare()
-# w.write_cfd_files()
-# w.submit()
 
-w.prepare_and_submit_remotely()
+import numpy as np
+manager = turbomachinery.WorkflowManager(w, root_directory='/tmp_user/sator/tbontemp/rotor37_multi')
+manager.add_isospeed_line(np.arange(0.2, 0.61, 0.05))
+manager.prepare()
+manager.submit()
 
-# import numpy as np
-# manager = turbomachinery.WorkflowManager(w, root_directory='/tmp_user/sator/tbontemp/rotor37_multi_elsa_none_cf_v5.3.03')
-# manager.add_isospeed_line(throttles=101325. * np.arange(0.2, 0.61, 0.05))
-# manager.prepare()
-# manager.submit()
-
+## To plot the result, use the following lines in the same directory where you executed lines above
 # manager = turbomachinery.WorkflowManager('workflow_manager.cgns')
 # perfo = manager.gather_performance('R37')
 # manager.plot_isospeed_lines(perfo)

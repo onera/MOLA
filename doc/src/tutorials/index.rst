@@ -11,4 +11,5 @@ The following tutorials are available:
 .. toctree::
     :maxdepth: 1
 
-    rotor37/index
+    rotor37/rotor37_tutorial
+    rotor37/rotor37_isospeedline_tutorial

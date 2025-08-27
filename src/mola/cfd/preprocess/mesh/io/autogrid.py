@@ -57,8 +57,6 @@ AUTOGRID_SPECIAL_BASES = ['Numeca*', 'meridional_base', 'tools_base']
 
 
 def reader(w, component):
-
-    mola_logger.info(f'   - read component {component["Name"]} with Autogrid reader')
     
     # TODO These parameters should be managed by an interface
     #################################################################################
@@ -317,7 +315,7 @@ def get_periodic_match_from_Autogrid_BladeNumber(mesh, Tolerance, blade_numbers=
     Connections = []
     for row, blade_number in blade_numbers.items():
         angle = 360./float(blade_number)
-        mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)))
+        mola_logger.info('  angle = {:g} deg ({} blades)'.format(angle, int(360./angle)), rank=0)
         Connections.append(
             dict(
                 Type='PeriodicMatch', 

@@ -75,7 +75,7 @@ def merge_all_unstructured_zones_from_families(t):
             if isinstance(value, np.ndarray) and isinstance(value.ravel()[0], np.int64):
                 node.setValue(value.astype(np.int32))
 
-    mola_logger.info('Merge unstructured zones by family')
+    mola_logger.info('Merge unstructured zones by family', rank=0)
 
     t = to_distributed(t)
 
@@ -97,7 +97,7 @@ def merge_all_unstructured_zones_from_families(t):
     for family, zone_paths in zonePathsByFamily.items():
         if len(zone_paths) < 2: continue
         base_name = zone_paths[0].split('/')[0]
-        mola_logger.info(f' --> merging zones of family {family}')
+        mola_logger.info(f' --> merging zones of family {family}', rank=0)
 
         try:
             maia.pytree.rm_nodes_from_name(t, 'NFaceElements')
@@ -114,6 +114,6 @@ def merge_all_unstructured_zones_from_families(t):
         value = gc.value()
         gc.setValue(value.split('/')[-1])
 
-    mola_logger.info(f' --> after merge, zones names are: {", ".join([z.name() for z in t.zones()])}')
+    mola_logger.info(f' --> after merge, zones names are: {", ".join([z.name() for z in t.zones()])}', rank=0)
     
     return t
