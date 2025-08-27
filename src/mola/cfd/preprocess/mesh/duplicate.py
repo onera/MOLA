@@ -26,10 +26,13 @@ def apply(workflow):
     duplication_operations = []
     for base in workflow.tree.bases():
         component = workflow.get_component(base.name())
-        if 'Positioning' not in component: continue
+        if 'Positioning' not in component: 
+            continue
         for operation in component['Positioning']:
             if operation['Type'] == 'DuplicateByRotation':
+                operation.setdefault('Tolerance', component['DefaultToleranceForConnection'])
                 duplication_operations.append(operation)
+        
 
     if len(duplication_operations) > 0:
         if workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess':
@@ -87,10 +90,11 @@ def _duplicate_with_cassiopee(tree, duplication_operations):
             )
 
     # Connectivities
-    X.connectMatch(tree, tol=1e-8)
+    tol = duplication_operations[0]['Tolerance']
+    X.connectMatch(tree, tol=tol)
     for angle in angles4ConnectMatchPeriodic:
         # Not full 360 simulation: periodic BC must be restored
-        tree = X.connectMatchPeriodic(tree, rotationAngle=[angle, 0., 0.], tol=1e-8)
+        tree = X.connectMatchPeriodic(tree, rotationAngle=[angle, 0., 0.], tol=tol)
 
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(tree, level=l)
@@ -237,10 +241,11 @@ def _duplicate_with_maia(tree, duplication_operations, merge_zones=False):
             plurial = 's' if NumberOfDuplications > 1 else ''
             mola_logger.info(f"  > row {Family} is replicated {NumberOfDuplications} time"+plurial, rank=0)
             maia.algo.dist.duplicate_family_from_periodic_jns(tree, Family, NumberOfDuplications, comm)
+        tree = cgns.castNode(tree)
         
     if merge_zones:
         maia.algo.dist.merge_connected_zones(tree, comm)    
+        tree = cgns.castNode(tree)
 
-    tree = cgns.castNode(tree)
     return tree
 

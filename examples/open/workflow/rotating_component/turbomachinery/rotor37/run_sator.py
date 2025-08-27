@@ -38,8 +38,8 @@ w = turbomachinery.Workflow(
     BoundaryConditions = [
         dict(Family='R37_INFLOW', Type='InflowStagnation'),
         dict(Family='R37_OUTFLOW', Type='OutflowRadialEquilibrium', 
-            #  ValveLaw=dict(Type='Quadratic', ValveCoefficient=0.1)
-            MassFlow=20.,
+             ValveLaw=dict(Type='Quadratic', ValveCoefficient=0.1)
+            # MassFlow=20.,
              )
     ],
 
@@ -64,7 +64,7 @@ w = turbomachinery.Workflow(
     RunManagement=dict(
         JobName='rotor37',
         NumberOfProcessors=24,
-        RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37_massflow_sonics',
+        RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37_test',
         RemovePreviousRunDirectory = True,
         AER='34790003F', # PDEV MOLA 2025
         # TimeLimit = '00:30:00',

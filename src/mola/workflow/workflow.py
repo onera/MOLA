@@ -477,7 +477,7 @@ class Workflow(object):
         if not has_crashed and not had_errors:
             
             if maybe_running:
-                msg_to_raise = 'did not completed'
+                msg_to_raise = 'simulation was aborted before completion'
             
             elif was_completed:
                 msg_to_raise = None

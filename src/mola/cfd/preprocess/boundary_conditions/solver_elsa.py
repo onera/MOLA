@@ -971,7 +971,7 @@ def compute_RNA_ref_time(workflow, Family, LinkedFamily):
     Dm = 2 / (K1/N1 + K2/N2)
     SectorPassagePeriod = LapPeriod / Dm
 
-    msg = f'The reference time period for RNA interface is equal to {Dm}EO.'
+    msg = f'The reference time period for RNA interface is equal to {1/Dm} rotation period.'
     if np.isclose(Dm, 1) or np.isclose(Dm, K1/N1):
         mola_logger.info(msg, rank=0)
     else:
