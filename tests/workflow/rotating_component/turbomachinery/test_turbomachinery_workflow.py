@@ -240,10 +240,12 @@ def test_compressor_example_local_rotor_only(tmp_path):
     extractions = cgns.load(str(tmp_path/names.DIRECTORY_OUTPUT/names.FILE_OUTPUT_2D), only_skeleton=True)
     assert signals.get(Name='Integral', Depth=1).get(Name='Rotor_INFLOW').get(Name='MassFlow') is not None
     assert signals.get(Name='Integral', Depth=1).get(Name='Rotor_OUTFLOW').get(Name='MassFlow') is not None
-    for var in ['MomentumX', 'ChannelHeight', 'PressureStagnationRel', 'VelocityRelRadius']:
-        assert extractions.get(Name='Iso_H_0.5', Depth=1).get(Name=var) is not None
-    for var in ['StagnationPressureRelDim', 'VelocityRadiusRel']:  # check these variables have been removed after turbo postprocess
-        assert extractions.get(Name='Iso_H_0.5', Depth=1).get(Name=var) is None
+    # after turbo postprocessing
+    if w.Solver == 'elsa':
+        for var in ['MomentumX', 'ChannelHeight', 'PressureStagnationRel', 'VelocityRelRadius']:
+            assert extractions.get(Name='Iso_H_0.5', Depth=1).get(Name=var) is not None
+        for var in ['StagnationPressureRelDim', 'VelocityRadiusRel']:  # check these variables have been removed after turbo postprocess
+            assert extractions.get(Name='Iso_H_0.5', Depth=1).get(Name=var) is None
 
 if __name__ == '__main__':
     test_compressor_example_local_rotor_only("mytest_compressor_example_local_rotor_only")
