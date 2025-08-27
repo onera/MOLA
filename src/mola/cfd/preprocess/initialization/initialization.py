@@ -46,7 +46,7 @@ def apply(workflow):
     is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
     is_part = bool(workflow.tree.get(':CGNS#GlobalNumbering'))
     is_maia_tree = is_dist or is_part
-    if is_maia_tree:
+    if is_maia_tree and workflow.Initialization['Method'] == 'copy':
         # 'copy' method is not available because splitting will be different
         mola_logger.warning("Method='copy' for initialization is not compatible with maia -> Method='interpolate' will be used instead.")
         workflow.Initialization['Method'] = 'interpolate'
