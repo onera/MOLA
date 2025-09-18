@@ -194,13 +194,16 @@ def to_distributed(tree : cgns.Tree):
     if bool(tree.get(':CGNS#Distribution')): 
         t = tree
     
-    elif bool(tree.get(':CGNS#GlobalNumbering')):
-        t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
-        t = cgns.castNode(t)
-        
     else:
-        t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-        t = cgns.castNode(t)
+        mola_logger.warning('convert tree to maia dist_tree')
+
+        if bool(tree.get(':CGNS#GlobalNumbering')):
+            t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
+            t = cgns.castNode(t)
+            
+        else:
+            t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+            t = cgns.castNode(t)
      
     return t
 
@@ -250,6 +253,8 @@ def to_partitioned_if_distributed(tree : cgns.Tree, cassiopee_distribution={}):
     from mpi4py import MPI
     import maia
 
+    mola_logger.warning('convert tree to maia part_tree')
+
     t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
 
     t = cgns.castNode(t)
@@ -266,7 +271,6 @@ def to_partitioned_if_distributed(tree : cgns.Tree, cassiopee_distribution={}):
         
     return t
 
-import re
 
 def remove_maia_part_zone_suffix(zone_name : str) -> str:
     import re
@@ -292,6 +296,8 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
                    
     if is_full or MPI.COMM_WORLD.Get_size() == 1:
         return tree
+    else:
+        mola_logger.warning('convert tree to maia full_tree')
     
     if is_part:
         additionnal_nodes_to_transfer = _get_additionnal_nodes_to_transfer(tree)

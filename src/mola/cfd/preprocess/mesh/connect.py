@@ -53,6 +53,8 @@ def _clip_small_rotation_angles(tree, tol=1e-12):
 
 def apply_with_cassiopee(workflow):
 
+    mola_logger.debug('connect with cassiopee')
+
     from mpi4py import MPI
     mpi_size = MPI.COMM_WORLD.Get_size()
     rank = MPI.COMM_WORLD.Get_rank()
@@ -153,6 +155,7 @@ def apply_with_cassiopee(workflow):
     workflow.tree = cgns.castNode(workflow.tree)
 
 def apply_with_maia(workflow):
+    mola_logger.debug('connect with maia')
     workflow.tree = to_distributed(workflow.tree)
 
     component = workflow.RawMeshComponents[0] # CAVEAT this prevents from connecting multiple raw mesh components using maia

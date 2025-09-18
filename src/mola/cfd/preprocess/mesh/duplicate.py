@@ -19,7 +19,7 @@ import numpy as np
 
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.mesh.tools import to_distributed, compute_azimuthal_extension
+from mola.cfd.preprocess.mesh.tools import to_distributed, to_full_tree_at_rank_0, compute_azimuthal_extension
 
 def apply(workflow):
 
@@ -42,8 +42,10 @@ def apply(workflow):
 def duplicate(tree, duplication_operations, tool='maia'):
 
     if tool == 'cassiopee':
+        mola_logger.debug('duplicate with cassiopee')
         tree = _duplicate_with_cassiopee(tree, duplication_operations)
     else:
+        mola_logger.debug('duplicate with maia')
         tree = _duplicate_with_maia(tree, duplication_operations)
 
     return tree
