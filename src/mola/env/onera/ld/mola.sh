@@ -28,7 +28,7 @@ module load python/3.10.8-gnu831
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 module load vscode
-module load pointwise/2022.1.2
+module load pointwise
 # # module load paraview/5.11.0 # provokes python and libraries incompatibilities
 module load occt/7.6.1-gnu831
 

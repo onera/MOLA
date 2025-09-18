@@ -215,11 +215,11 @@ def get_time_marching_template(Numerics):
     if Numerics['TimeMarching'] != 'Steady':
         raise MolaException(f"Only Steady simulations are implemented yet for soNICS with MOLA")
     
-    # CFL setting
-    if isinstance(Numerics['CFL'], float):
-        parameters['CFL'] = Numerics['CFL']
-    else:
-        parameters['CFL'] = Numerics['CFL']['EndValue']
+    # # CFL setting
+    # if isinstance(Numerics['CFL'], float):
+    #     parameters['CFL'] = Numerics['CFL']
+    # else:
+    #     parameters['CFL'] = Numerics['CFL']['EndValue']
 
     return features, parameters
 
@@ -284,16 +284,17 @@ def get_fluid_template(Fluid, TurbulenceModel):
     return features, parameters
         
 def get_cfl_function(cfl):
+    # NOTE: Careful, for miles, the argument in the lambda function must be named "it"
     if isinstance(cfl, dict):
         if cfl['EndIteration'] <= cfl['StartIteration'] \
             or cfl['EndValue'] <= cfl['StartValue']:
-            CFLfunction = lambda iteration: cfl
+            CFLfunction = lambda it: cfl
         else:
             a = (cfl['EndValue']-cfl['StartValue']) / (cfl['EndIteration']-cfl['StartIteration'])
-            linear_ramp = lambda iteration: cfl['StartValue'] + a * (iteration - cfl['StartIteration'])
-            CFLfunction = lambda iteration: min(linear_ramp(iteration), cfl['EndValue'])
+            linear_ramp = lambda it: cfl['StartValue'] + a * (it - cfl['StartIteration'])
+            CFLfunction = lambda it: min(linear_ramp(it), cfl['EndValue'])
     else:
-        CFLfunction = lambda iteration: cfl
+        CFLfunction = lambda it: cfl
     return CFLfunction
 
 def nested_dict_from_keys(d):

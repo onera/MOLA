@@ -76,20 +76,23 @@ def apply_to_solver(workflow):
     del workflow._coprocess_manager
  
 def get_iterators(workflow, config, hardware_target='cpu'): 
+    import miles
     import sonics.toolkit.triggers as triggers
     from sonics.toolkit.iterators import SteadyIterators
     
     execution_trigger = triggers.ExecutionTrigger(config, workflow.Numerics['NumberOfIterations'], nstep=2)
-    cfl_trigger = triggers.CflTrigger(config, get_cfl_function(workflow.Numerics['CFL']))
+
+    # CFL
+    # cfl_trigger = triggers.CflTrigger(config, get_cfl_function(workflow.Numerics['CFL']))
+    sched = miles.CFLScheduler(config, cfl=get_cfl_function(workflow.Numerics['CFL']))
+    cfl_trigger = sched.apply()[0]
 
     pytriggers = [
         execution_trigger,
         cfl_trigger,
     ]
 
-    if any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):
-        # TODO
-        import miles
+    if any([ext['Type'] == 'Residuals' for ext in workflow.Extractions]):    
         ext = miles.ResidualExtractor(
             config, 
             period=1, 
