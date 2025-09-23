@@ -160,8 +160,9 @@ def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
             if 'Data' in Extraction: del Extraction['Data']
             extraction_name = "\n" + pretty(Extraction) + "\n"
 
+        extraction_type = Extraction["Type"]
         raise MolaUserError((f'requested Source="{requested_source}" in'
-            f' Extraction named "{extraction_name}" does not match'
+            f' Extraction named "{extraction_name}" with type "{extraction_type}" does not match'
             f' any family from names {pretty(registered_family_names)} nor'
             f' from types {registered_bc_types}'+ "\n" + pretty(Extraction) + "\n"))
 
@@ -187,11 +188,8 @@ def get_bc_families_names_to_extract(workflow, Extraction, familiesBC=None):
 def update_extractions_from_convergence_criteria(workflow):
     # TODO PostprocessOperations has to be handle with 
     # workflow._interface.add_PostprocessOperations
-    for criterion in workflow.ConvergenceCriteria:
-        operation, var = _split_operations_on_variable(criterion['Variable'])
-        PostprocessOperation = dict(Type=operation, Variable=var, AtEndOfRunOnly=False)
-        
-        extraction_ok = False
+
+    def _get_extraction_from_source(source):
         for Extraction in workflow.Extractions:
             if Extraction['Type'] not in [
                 # 'Residuals', # FIXME do not have Source, so find out another way to detect it
@@ -199,21 +197,78 @@ def update_extractions_from_convergence_criteria(workflow):
                 'Integral']: 
                 continue
 
-            if criterion['ExtractionName'] == Extraction['Source']:
-                extraction_ok = True
-                vector_name = None
-                if var.endswith('X') or var.endswith('Y') or var.endswith('Z'):
-                    # var is a vector component
-                    vector_name = var[:-1]
-                if var not in Extraction['Fields'] and (vector_name and vector_name not in Extraction['Fields']):
-                    Extraction['Fields'].append(var)
-                if len(operation) > 0:
-                    if not 'PostprocessOperations' in Extraction:
-                        Extraction['PostprocessOperations'] = [PostprocessOperation]
-                    else:
-                        Extraction['PostprocessOperations'].append(PostprocessOperation)
+            if source == Extraction['Source']:
+                return Extraction
+        return None
+
+    def _append_var_to_extraction_if_needed(extraction, var):
+        vector_name = None
+        print(f' ahahah {var}')
+        if var.endswith('X') or var.endswith('Y') or var.endswith('Z'):
+            # var is a vector component
+            vector_name = var[:-1]
+        if var not in extraction['Fields'] or (vector_name and vector_name not in extraction['Fields']):
+            extraction['Fields'].append(var)
+            print(f' add {var}')
+
+    def _split_operations_on_variable(var: str, operations=None, full_name=None) -> tuple:
+        '''
+        Parameters
+        ----------
+        var : str
+            input variable name, for instance 'std-avg-MassFlow'
+        prefixes : str, optional
+            accumulator used by the recursive function. User must not use it. By default None
+
+        Returns
+        -------
+        tuple
+
+        Example
+        -------
+        _split_operations_on_variable('std-avg-MassFlow') returns ('std-avg', 'MassFlow')
+        '''
+        if full_name is None:
+            full_name = var
+        if operations is None: 
+            operations = []
+
+        for op in AVAILABLE_OPERATIONS_ON_SIGNALS:
+            prefix = op + '-'
+            if var.startswith(prefix):
+                operations.append(op)
+                var = var[len(prefix):]
+                operations, var = _split_operations_on_variable(var, operations, full_name=full_name)
+
+        # Check if there is still a dash
+        if '-' in var:
+            raise MolaUserError((
+                f'There is still a dash in the variable name "{var}" extracted from the requirement "{full_name}". '
+                'There should be an syntax error, check the input in ConvergenceCriteria.'
+            ))
+
+        operations.reverse()  # to have operations to apply for var
+        return operations, var
+
+    for criterion in workflow.ConvergenceCriteria:
+        operations, var = _split_operations_on_variable(criterion['Variable'])
         
-        if not extraction_ok:
+        # Search the extraction to modify
+        found_extraction = _get_extraction_from_source(criterion['ExtractionName'])
+
+        if found_extraction is not None:   
+            _append_var_to_extraction_if_needed(found_extraction, var)
+
+            for op in operations:
+                PostprocessOperation = dict(Type=op, Variable=var, AtEndOfRunOnly=False)
+                var = f'{op}-{var}'
+
+                if not 'PostprocessOperations' in found_extraction:
+                    found_extraction['PostprocessOperations'] = [PostprocessOperation]
+                elif not PostprocessOperation in found_extraction['PostprocessOperations']:
+                    found_extraction['PostprocessOperations'].append(PostprocessOperation)
+        
+        else:
             workflow._interface.add_to_Extractions_Integral(
                 Name=criterion['ExtractionName'],
                 Source=criterion['ExtractionName'],
@@ -224,38 +279,6 @@ def update_extractions_from_convergence_criteria(workflow):
                 workflow.Extractions[-1]['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][criterion['ExtractionName']]['FluxCoef']
             except:
                 workflow.Extractions[-1]['FluxCoef'] = 1.
-
-def _split_operations_on_variable(var: str, prefixes=None) -> tuple:
-    '''
-    Parameters
-    ----------
-    var : str
-        input variable name, for instance 'std-avg-MassFlow'
-    prefixes : str, optional
-        accumulator used by the recursive function. User must not use it. By default None
-
-    Returns
-    -------
-    tuple
-
-    Example
-    -------
-    _split_operations_on_variable('std-avg-MassFlow') returns ('std-avg', 'MassFlow')
-    '''
-    if prefixes is None: 
-        prefixes = ''
-
-    for op in AVAILABLE_OPERATIONS_ON_SIGNALS:
-        prefix = op + '-'
-        if var.startswith(prefix):
-            prefixes += prefix
-            var = var[len(prefix):]
-            prefixes, var = _split_operations_on_variable(var, prefixes)
-
-    # Remove final '-' if prefixes is not empty
-    if prefixes and prefixes[-1] == '-':
-        prefixes = prefixes[:-1]
-    return prefixes, var
 
 def print_extractions(Extractions: list):
 

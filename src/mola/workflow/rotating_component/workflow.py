@@ -100,7 +100,7 @@ class WorkflowRotatingComponent(Workflow):
             if not self.tree.get(Name=row, Type='Family', Depth=2):
                 raise MolaException(f'The family {row} given in ApplicationContext is not found in the mesh.')
 
-            if hasattr(self, 'BodyForceInputData') and row in self.BodyForceInputData:
+            if hasattr(self, 'BodyForceModeling') and row in self.BodyForceModeling:
                 # Replace the number of blades to be consistant with the body-force mesh
                 deltaTheta = compute_azimuthal_extension(self.tree, row)
                 rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
@@ -130,7 +130,7 @@ class WorkflowRotatingComponent(Workflow):
     def set_motion(self):
         for row, rowParams in self.ApplicationContext['Rows'].items():
 
-            IsModelledWithBodyForce = hasattr(self, 'BodyForceInputData') and row in self.BodyForceInputData
+            IsModelledWithBodyForce = hasattr(self, 'BodyForceModeling') and row in self.BodyForceModeling
 
             if (
                 not row in self.Motion 

@@ -33,7 +33,7 @@ def apply_to_solver(workflow):
 
     workflow.tree = merge_all_unstructured_zones_from_families(workflow.tree)
 
-    if (any_not_ngon or any_not_ngon) and tree_was_full:
+    if any_not_ngon and tree_was_full:
         workflow.tree = to_full_tree_at_rank_0(workflow.tree)
 
 def make_mesh_unstructured(t):

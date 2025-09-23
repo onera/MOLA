@@ -248,6 +248,9 @@ def main():
     parser.add_argument('--no-show', action='store_true', help='Do not show the figures on screen')
     args = parser.parse_args()
 
+    if not os.path.isfile(args.file):
+        raise MolaUserError(f'Cannot use mola_plot because file {args.file} does not exist.')
+    
     signals = cgns.load(args.file)
 
     operations = dict(

@@ -485,10 +485,10 @@ def get_miscellaneous_setup(workflow):
         muratiomax = 1.0e20,
     )
 
-    # TODO Check implementation for BodyForce and Chimera
-    if hasattr(workflow, 'BodyForce'):
-        MiscellaneousSetup['misc_source_term'] = 'active'
-        tag_zones_with_sourceterm(workflow.tree)
+    # TODO Check implementation for BodyForceModeling and Chimera
+    # if hasattr(workflow, 'BodyForceModeling'):
+    #     MiscellaneousSetup['misc_source_term'] = 'active'
+    #     tag_zones_with_sourceterm(workflow.tree)
 
     # Chimera parameters
     if workflow.has_overset_component():
