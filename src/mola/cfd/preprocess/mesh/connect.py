@@ -180,6 +180,10 @@ def apply_with_maia(workflow):
     workflow.tree = cgns.castNode(workflow.tree)
 
 def get_reason_why_maia_cannot_connect(workflow):
+
+    if workflow.Solver != 'sonics':
+        return f'Maia is not used with {workflow.Solver}'
+    
     if not workflow.tree.isUnstructured():
         return 'Periodic Match with Maia is possible only for unstructured mesh'
 

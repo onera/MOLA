@@ -269,11 +269,17 @@ def update_extractions_from_convergence_criteria(workflow):
                     found_extraction['PostprocessOperations'].append(PostprocessOperation)
         
         else:
+            PostprocessOperations = []
+            var_tmp = var
+            for op in operations:
+                PostprocessOperations.append(dict(Type=op, Variable=var_tmp, AtEndOfRunOnly=False))
+                var_tmp = f'{op}-{var_tmp}'
+
             workflow._interface.add_to_Extractions_Integral(
                 Name=criterion['ExtractionName'],
                 Source=criterion['ExtractionName'],
                 Fields=[var],
-                PostprocessOperations=[PostprocessOperation]
+                PostprocessOperations=PostprocessOperations
             )
             try:
                 workflow.Extractions[-1]['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][criterion['ExtractionName']]['FluxCoef']
