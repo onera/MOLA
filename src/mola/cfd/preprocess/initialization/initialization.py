@@ -174,6 +174,10 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
     workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
 
+    # # Careful: Are you sure you have to duplicate this mesh ? What if it is already duplicated ? 
+    # from mola.cfd.preprocess.mesh.duplicate import apply_duplication_on_tree
+    # tree_source = apply_duplication_on_tree(workflow, tree_source)
+
     for zone in workflow.tree.zones():
         FSpath = zone.path() + '/' + workflow.Initialization['SourceContainer']
         try:

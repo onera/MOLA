@@ -17,6 +17,7 @@
 
 import numpy as np
 from fnmatch import fnmatch
+from packaging.version import Version
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.pytree.user.checker import (is_partitioned_for_use_in_maia,
                                       is_distributed_for_use_in_maia)
@@ -24,6 +25,7 @@ from treelab import cgns
 
 def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='Vertex'):
     from mpi4py import MPI
+    import maia
     import maia.pytree as PT
     from maia.algo.part.wall_distance import compute_projection_to
 
@@ -31,8 +33,13 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
 
     tree = to_partitioned(tree) 
 
-    hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
-    shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
+    if Version(maia.__version__) > Version('1.7'):
+        # Change of name of the module "predicate" in "pred"
+        hub_bc_predicate = lambda n : any([PT.pred.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
+        shroud_bc_predicate = lambda n : any([PT.pred.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
+    else:
+        hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
+        shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
 
     if len(PT.get_nodes_from_predicate(tree, hub_bc_predicate)) == 0:
         raise MolaException(f'Cannot find hub families in tree from names {hub_families}')
