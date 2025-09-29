@@ -168,7 +168,8 @@ def _mergeBCData(zone, BCDataSetFaceCenterName='BCDataSet',
         nodes = dict()
         locations = dict()
         BCDataSets = I.getNodesFromType1(bc,'BCDataSet_t')
-        if not BCDataSets: continue
+        if not BCDataSets: 
+            continue
         sortNodesByName(BCDataSets)
         for bcds in BCDataSets:
             loc = _getBCDataSetLocation(bcds)
@@ -177,14 +178,18 @@ def _mergeBCData(zone, BCDataSetFaceCenterName='BCDataSet',
                 raise NotImplementedError(f'BCDataSet {path} must be located at FaceCenter, got {loc} instead')
 
             BCDatas = I.getNodesFromType1(bcds,'BCData_t')
-            if not BCDatas: continue
+            if not BCDatas: 
+                continue
             sortNodesByName(BCDatas)
             for bcd in BCDatas:
+                fields = I.getNodesFromType1(bcd,'DataArray_t')
+                if len(fields) == 0:
+                    # This BCData node contains no fields, it might be a extraction error.
+                    continue
                 nb += 1
                 tag = tags[nb]
                 locations[tag] = loc
                 containers_names[tag] = bcds[0]+'/'+bcd[0]
-                fields = I.getNodesFromType1(bcd,'DataArray_t')
                 for f in fields:
                     f[0] += tag
                     if tag in fields_names:

@@ -286,7 +286,10 @@ def extract_integral(output_tree, extraction) -> None:
         # The name of IntergralData_t node is <Family>-<SUFFIX>: with <SUFFIX> is given from .Solver#Output<SUFFIX>
         full_name_parts = IntegralDataNode.name().split('-#')
         family = full_name_parts[0]
-        suffix = full_name_parts[1][:-1]  # name of IntegralData ends with ":"
+        try:
+            suffix = full_name_parts[1][:-1]  # name of IntegralData ends with ":"
+        except: 
+            suffix = ''
         return family, suffix
 
     IntegralDataTree = cgns.Tree()

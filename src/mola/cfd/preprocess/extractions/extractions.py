@@ -203,13 +203,11 @@ def update_extractions_from_convergence_criteria(workflow):
 
     def _append_var_to_extraction_if_needed(extraction, var):
         vector_name = None
-        print(f' ahahah {var}')
         if var.endswith('X') or var.endswith('Y') or var.endswith('Z'):
             # var is a vector component
             vector_name = var[:-1]
         if var not in extraction['Fields'] or (vector_name and vector_name not in extraction['Fields']):
             extraction['Fields'].append(var)
-            print(f' add {var}')
 
     def _split_operations_on_variable(var: str, operations=None, full_name=None) -> tuple:
         '''
