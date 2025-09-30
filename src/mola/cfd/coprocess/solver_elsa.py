@@ -284,10 +284,11 @@ def extract_integral(output_tree, extraction) -> None:
 
     def get_family_and_suffix(IntegralDataNode):
         # The name of IntergralData_t node is <Family>-<SUFFIX>: with <SUFFIX> is given from .Solver#Output<SUFFIX>
-        full_name_parts = IntegralDataNode.name().split('-#')
+        name_without_double_points = IntegralDataNode.name()[:-1]  # remove final ':'
+        full_name_parts = name_without_double_points.split('-')
         family = full_name_parts[0]
         try:
-            suffix = full_name_parts[1][:-1]  # name of IntegralData ends with ":"
+            suffix = full_name_parts[1]
         except: 
             suffix = ''
         return family, suffix
@@ -296,21 +297,24 @@ def extract_integral(output_tree, extraction) -> None:
     base = cgns.Base(Name='Integral', Parent=IntegralDataTree)
 
     for IntegralDataNode in output_tree.group(Type='IntegralData', Depth=2):
-        family, suffix = get_family_and_suffix(IntegralDataNode)
+        family, _ = get_family_and_suffix(IntegralDataNode)
         if family == extraction['Source']: 
-            IntegralDataNode.dettach()
-            IntegralDataNode.setName('FlowSolution')
-            IntegralDataNode.setType('FlowSolution_t')
-            for n in IntegralDataNode.children(): 
+            data_node = IntegralDataNode.copy()
+            data_node.setName('FlowSolution')
+            data_node.setType('FlowSolution_t')
+            for n in data_node.children(): 
                 n.setType('DataArray_t')
-            translate_elsa_CGNS_field_names_to_MOLA(IntegralDataNode)
-            zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[IntegralDataNode])
+            translate_elsa_CGNS_field_names_to_MOLA(data_node)
+
+            zone = cgns.Zone(Name=extraction['Name'], Parent=base, Children=[data_node])
+
+            # sort data: keep only data required in extraction
+            POST.keep_only_requested_fields(base, extraction)
 
             # multiply integrated data by the FluxCoef
             for node in zone.group(Type='DataArray'):
                 if node.name() != 'Iteration':
                     node.setValue(node.value() * extraction['FluxCoef'])
-            break
 
     current_iteration_signals = mpi_allgather_and_merge_trees(IntegralDataTree)
 

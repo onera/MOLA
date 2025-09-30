@@ -237,8 +237,10 @@ def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
                         extraction['Fields'] += [field_name]
         
         # Always keep ChannelHeight is it exists (if the FlowSolution#Height has been kept)
-        if 'ChannelHeight' not in extraction['Fields']:
-            extraction['Fields'].append('ChannelHeight')
+        # Always keep Iteration is it exists (for an IntegralData)
+        for var in ['ChannelHeight', 'Iteration']:
+            if var not in extraction['Fields']:
+                extraction['Fields'].append(var)
 
         for zone in tree.zones():
             for container in zone.group(Type='FlowSolution_t', Depth=1):
