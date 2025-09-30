@@ -35,8 +35,8 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
 
     if Version(maia.__version__) > Version('1.7'):
         # Change of name of the module "predicate" in "pred"
-        hub_bc_predicate = lambda n : any([PT.pred.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
-        shroud_bc_predicate = lambda n : any([PT.pred.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
+        hub_bc_predicate    = PT.pred.any([PT.pred.belongs_to_family(family) for family in hub_families])
+        shroud_bc_predicate = PT.pred.any([PT.pred.belongs_to_family(family) for family in shroud_families])
     else:
         hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
         shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
@@ -56,6 +56,7 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
     for zone in PT.get_all_Zone_t(tree):
         d1 = PT.get_value(PT.get_node_from_path(zone, 'DistanceToHub/Distance'))
         d2 = PT.get_value(PT.get_node_from_path(zone, 'DistanceToShroud/Distance'))
+        d2[np.abs(d1) < 1e-16] = 1.  # if the hub radius tends to 0, regularize the expression 
         PT.new_FlowSolution(
             name='FlowSolution#Height', 
             loc=GridLocation, 

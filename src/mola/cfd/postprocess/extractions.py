@@ -224,28 +224,28 @@ def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
                     container.remove()
 
 def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
+    # Always keep ChannelHeight if it exists (if the FlowSolution#Height has been kept)
+    # Always keep Iteration if it exists (for an IntegralData)
+    VAR_TO_KEEP_IN_ALL_CASES = ['ChannelHeight', 'Iteration']
+
     if 'Fields' in extraction and extraction['Fields'] != 'all':
 
         if isinstance(extraction['Fields'], str):
             extraction['Fields'] = [extraction['Fields']]
 
+        var_to_keep = extraction['Fields'] + VAR_TO_KEEP_IN_ALL_CASES
+
         for vector_name in ['Momentum', 'Velocity', 'Vorticity','Force','Torque']:
-            if vector_name in extraction['Fields']:
+            if vector_name in var_to_keep:
                 for c in 'XYZ':
                     field_name = vector_name+c 
-                    if field_name not in extraction['Fields']:
-                        extraction['Fields'] += [field_name]
-        
-        # Always keep ChannelHeight is it exists (if the FlowSolution#Height has been kept)
-        # Always keep Iteration is it exists (for an IntegralData)
-        for var in ['ChannelHeight', 'Iteration']:
-            if var not in extraction['Fields']:
-                extraction['Fields'].append(var)
+                    if field_name not in var_to_keep:
+                        var_to_keep += [field_name]
 
         for zone in tree.zones():
             for container in zone.group(Type='FlowSolution_t', Depth=1):
                 for field in container.group(Type='DataArray_t', Depth=1):
                     field_name = field.name()
 
-                    if field.name() not in extraction['Fields']:
+                    if field.name() not in var_to_keep:
                         field.remove()
