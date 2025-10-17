@@ -61,4 +61,4 @@ export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
 export ELSA_NOLOG=ON
 # ELSA_MEMORY_VERBOSE=TRUE https://elsa.onera.fr/issues/10621#note-19
 
-export SONICSVERSION=0.6.18
+export SONICSVERSION=0.6.16
