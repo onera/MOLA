@@ -119,6 +119,16 @@ def apply_with_cassiopee(workflow):
                 mola_logger.debug(f'    RotationAngle = {rotationAngle}')
                 mola_logger.debug(f'    Translation = {translation}')
 
+                if 'Families' in operation:
+                    # Remove BC attached to periodic Families if they exists (only needed for maia)
+                    # Needed here if the connection is used BEFORE process_mesh for SoNICS
+                    for family in operation['Families']:
+                        mola_logger.warning(f'{family=}')
+                        for bc_node in C.getFamilyBCs(base, family):
+                            I._rmNode(base, bc_node)
+                        if family_node := I.getNodeFromName1(base, family):
+                            I._rmNode(base, family_node)
+
                 if mpi_size > 1:
                     msg = ('cannot make periodic match using Cassiopee and MPI parallel execution:\n'
                            'https://elsa.onera.fr/issues/11706')
