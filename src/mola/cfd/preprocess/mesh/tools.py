@@ -147,8 +147,8 @@ def _compute_azimuthal_extension_from_slice(t, axis=None):
         raise MolaAssertionError('For now, this function only handles axis=[1., 0., 0.]')
 
     # Slice in x direction at middle range
-    xmin = np.amin([np.amin(zone.x()) for zone in t])
-    xmax = np.amax([np.amax(zone.x()) for zone in t])
+    xmin = np.amin([np.amin(zone.x()) for zone in t.zones()])
+    xmax = np.amax([np.amax(zone.x()) for zone in t.zones()])
     sliceX = P.isoSurfMC(t, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
     # Compute Radius
     C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
