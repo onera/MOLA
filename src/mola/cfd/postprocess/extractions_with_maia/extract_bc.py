@@ -58,10 +58,14 @@ def extract_bc_from_family(tree, Family, comm):
 
 def extract_bc_from_zsr(tree: cgns.Tree, Family, comm):
     
+    rank = comm.Get_rank()
     extracted_zones = []
 
-    all_zones_names = comm.allgather([z.name() for z in tree.zones()])
-    all_zones_names = list(set([item for sublist in all_zones_names for item in sublist]))
+    all_zones_names = comm.gather([z.name() for z in tree.zones()])
+    if rank == 0:
+        all_zones_names = list(set([item for sublist in all_zones_names for item in sublist]))
+    comm.barrier()
+    all_zones_names = comm.bcast(all_zones_names, root=0)  # to be sure to have zones in the same order on all ranks
 
     # HACK extract_part_from_zsr works only for tree with one zone
     # see https://gitlab.onera.net/numerics/mesh/maia/-/issues/219
@@ -87,8 +91,13 @@ def extract_bc_from_zsr(tree: cgns.Tree, Family, comm):
                         zsr_names.append(zsr.name())
 
         # Gather zsr_names on all ranks and make a list with unique names
-        all_zsr_names = comm.allgather(zsr_names)
-        shared_zsr_names = list(set([item for sublist in all_zsr_names for item in sublist]))
+        all_zsr_names = comm.gather(zsr_names)
+        if rank == 0:
+            shared_zsr_names = list(set([item for sublist in all_zsr_names for item in sublist]))
+        else: 
+            shared_zsr_names = None
+        comm.barrier()
+        shared_zsr_names = comm.bcast(shared_zsr_names, root=0)  # to be sure to have names in the same order on all ranks
 
         for zsr_name in shared_zsr_names:
             extracted_tree = maia.algo.part.extract_part_from_zsr(tree_with_one_zone, zsr_name, comm, containers_name=[]) 

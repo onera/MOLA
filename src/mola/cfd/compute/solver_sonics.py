@@ -122,7 +122,7 @@ def get_iterators(workflow, config, hardware_target='cpu'):
         pytriggers.append(fields_and_bc_extraction_trigger)
 
     if any([ext['Type'] == 'Integral' for ext in workflow.Extractions]):
-        pytriggers += get_integral_triggers(workflow, config, hardware_target)
+        pytriggers += get_integral_triggers(workflow, config)
 
     if any([bc['Type'] == 'OutflowRadialEquilibrium' for bc in workflow.BoundaryConditions]):
         for bc in workflow.BoundaryConditions:
@@ -162,7 +162,7 @@ def is_a_bc_with_valve_law(bc):
     else:
         False
 
-def get_integral_triggers(workflow, config, hardware_target):
+def get_integral_triggers(workflow, config):
     from miles.trigger import IntegralDataExtractor
     import sonics.toolkit.triggers as triggers
 
@@ -192,6 +192,7 @@ def get_integral_triggers(workflow, config, hardware_target):
                 # THIS LINE IS MANDATORY, else NaN or deadlock
                 elt_location = treg.cell if guards.cell_center in conf else treg.vertex
                 extracts += df.create_zones(treg.dummy(treg.conservatives(treg.full)), elt_location)
+                extracts += df.create_zones(treg.dummy(treg.grad(treg.primitives(treg.mean_flow))), elt_location)
 
                 elt_location = treg.face if guards.cell_center in conf else treg.dual_facet
                 sonics_fields = translate_extraction_variables_to_sonics(fields, solver)
@@ -212,7 +213,6 @@ def get_integral_triggers(workflow, config, hardware_target):
                 config,
                 get_extract_funtion_for_trigger(family, extraction['Fields']),
                 niter=workflow.Numerics['NumberOfIterations'],
-                # hardware_target=hardware_target,
                 )
 
             pytriggers.append(integral_extraction_trigger)

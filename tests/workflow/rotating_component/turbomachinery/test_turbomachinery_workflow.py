@@ -210,7 +210,7 @@ def test_extractions_definition_coherency(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.elsa  
-# @pytest.mark.sonics
+@pytest.mark.sonics
 @pytest.mark.cost_level_4
 def test_compressor_example_local_stage(tmp_path):
     w = get_compressor_example(tmp_path)
