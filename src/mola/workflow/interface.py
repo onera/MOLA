@@ -887,9 +887,9 @@ class WorkflowInterface(object):
         Necessary     : bool  = False,
         Sufficient    : bool  = True,
         *,
-        ExtractionName: str   = 'MyFamily',
-        Variable      : str   = 'std-MyVariable',
-        Threshold     : float = 1e-3,
+        ExtractionName: str,
+        Variable      : str,
+        Threshold     : float,
         ):
         self.ConvergenceCriteria.append(self._get_comp(
             WorkflowInterface.add_to_ConvergenceCriteria, self.get_default_values_from_local_signature()))

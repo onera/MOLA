@@ -53,6 +53,8 @@ def _clip_small_rotation_angles(tree, tol=1e-12):
 
 def apply_with_cassiopee(workflow):
 
+    mola_logger.debug('connect with cassiopee')
+
     from mpi4py import MPI
     mpi_size = MPI.COMM_WORLD.Get_size()
     rank = MPI.COMM_WORLD.Get_rank()
@@ -119,10 +121,12 @@ def apply_with_cassiopee(workflow):
 
                 if 'Families' in operation:
                     # Remove BC attached to periodic Families if they exists (only needed for maia)
+                    # Needed here if the connection is used BEFORE process_mesh for SoNICS
                     for family in operation['Families']:
+                        mola_logger.warning(f'{family=}')
                         for bc_node in C.getFamilyBCs(base, family):
                             I._rmNode(base, bc_node)
-                        for family_node in I.getNodeFromName1(base, family):
+                        if family_node := I.getNodeFromName1(base, family):
                             I._rmNode(base, family_node)
 
                 if mpi_size > 1:
@@ -153,6 +157,7 @@ def apply_with_cassiopee(workflow):
     workflow.tree = cgns.castNode(workflow.tree)
 
 def apply_with_maia(workflow):
+    mola_logger.debug('connect with maia')
     workflow.tree = to_distributed(workflow.tree)
 
     component = workflow.RawMeshComponents[0] # CAVEAT this prevents from connecting multiple raw mesh components using maia
@@ -177,6 +182,10 @@ def apply_with_maia(workflow):
     workflow.tree = cgns.castNode(workflow.tree)
 
 def get_reason_why_maia_cannot_connect(workflow):
+
+    if workflow.Solver != 'sonics':
+        return f'Maia is not used with {workflow.Solver}'
+    
     if not workflow.tree.isUnstructured():
         return 'Periodic Match with Maia is possible only for unstructured mesh'
 

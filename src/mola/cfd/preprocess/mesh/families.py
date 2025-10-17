@@ -260,11 +260,28 @@ def join_families(t, pattern, mode=2):
 
     # Check that families to keep still exist
     base = t.get(Type='CGNSBase')
+    added_families = []
     for fam in fam2keep:
         fam_node = t.get(Name=fam, Type='Family', Depth=2)
         if fam_node is None:
-            mola_logger.debug(f'Add family {fam}')
+            added_families.append(fam)
             cgns.Node(Name=fam, Type='Family', Parent=base)
+
+    # Print information on which families were added or removed
+    logger_text = ''  
+
+    if len(fam2remove) == 1:
+        logger_text += f'Remove family {fam2remove[0]}\n'
+    elif len(fam2remove) > 1:
+        logger_text += f'Remove the following families: {", ".join(fam2remove)}\n'
+
+    if len(added_families) == 1:
+        logger_text += f'Add family {added_families[0]}'
+    elif len(added_families) > 1:
+        logger_text += f'Add the following families: {", ".join(added_families)}'
+    
+    if len(logger_text) > 0:
+        mola_logger.warning(logger_text)
 
 def get_family_to_BCType( t : cgns.Tree ) -> dict:
     families_to_bctype = dict()

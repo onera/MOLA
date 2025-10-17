@@ -48,7 +48,7 @@ w = Workflow(
 
     Extractions=[
         # dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
-        # dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer'], ExtractAtEndOfRun=True),
+        # dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'SkinFriction', 'BoundaryLayer'], ExtractAtEndOfRun=True),
         # dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1e-6, ExtractAtEndOfRun=True),
         dict(Type='3D', Fields=['PressureStagnation', 'Pressure', 'Mach', 'Entropy'], ExtractAtEndOfRun=True),
         ],

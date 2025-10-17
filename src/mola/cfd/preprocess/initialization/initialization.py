@@ -174,6 +174,10 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
     workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
 
+    # # Careful: Are you sure you have to duplicate this mesh ? What if it is already duplicated ? 
+    # from mola.cfd.preprocess.mesh.duplicate import apply_duplication_on_tree
+    # tree_source = apply_duplication_on_tree(workflow, tree_source)
+
     for zone in workflow.tree.zones():
         FSpath = zone.path() + '/' + workflow.Initialization['SourceContainer']
         try:
@@ -217,7 +221,6 @@ def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
             raise MolaException(f'{FlowSolution_name} is missing in zone {zone.name()}')
 
 def compute_wall_distance_if_needed(workflow):
-    mola_logger.info(" - computing wall distance", rank=0)
     init_opts = workflow.Initialization
     if workflow.Turbulence['Model'] == 'Euler':
         init_opts['ComputeWallDistanceAtPreprocess'] = False
@@ -226,6 +229,7 @@ def compute_wall_distance_if_needed(workflow):
         init_opts['WallDistanceComputingTool'] = 'cassiopee'
 
     if init_opts['ComputeWallDistanceAtPreprocess']:
+        mola_logger.info(" - computing wall distance", rank=0)
         tool = init_opts['WallDistanceComputingTool']
         if tool == 'maia':
             workflow.tree = compute_wall_distance_with_maia(workflow.tree)
@@ -234,7 +238,7 @@ def compute_wall_distance_if_needed(workflow):
         else:
             raise MolaUserError(f"unsupported Initialization/WallDistanceComputingTool={tool}")
         
-    force_grid_location_as_first_sibling(workflow.tree) # HACK
+        force_grid_location_as_first_sibling(workflow.tree) # HACK
 
 def compute_wall_distance_with_maia(tree: cgns.Tree):
     import maia

@@ -68,7 +68,24 @@ def add_fields_and_bc_extractions(workflow):
         elt_location = treg.cell if sonics.spl.guards.cell_center in conf else treg.vertex
         # dual_location = treg.face if sonics.spl.guards.cell_center in conf else treg.edge
 
+        if sonics.spl.guards.space_dim_3d not in conf:
+            # 2D case
+            elt_location = treg.face if sonics.spl.guards.cell_center in conf else treg.vertex
+            bc_location  = treg.edge if sonics.spl.guards.cell_center in conf else treg.dual_facet
+        else:
+            # 3D case
+            elt_location = treg.cell if sonics.spl.guards.cell_center in conf else treg.vertex
+            bc_location  = treg.face if sonics.spl.guards.cell_center in conf else treg.dual_facet
+
         extracts = []
+
+        # HACK Add "dummy" variables to prevent deadlock
+        extracts = df.create_zones(treg.dummy(treg.conservatives(treg.full)), elt_location)
+        # extracts += df.create_zones(treg.dummy(treg.primitives(treg.mean_flow)), elt_location)
+        extracts += df.create_zones(treg.dummy(treg.grad(treg.primitives(treg.mean_flow))), elt_location)
+        # extracts += df.create_zones(treg.dummy(treg.interp_on(treg.grad(treg.Velocity), treg.cell)), elt_location)
+
+        # Real extractions
         extracts += df.create_zones(treg.conservatives(treg.full), elt_location)
         # extracts += df.create_zones(treg.SurfaceNormal, treg.face)
         # extracts += df.create_zones(treg.primitives(treg.full), elt_location)
@@ -89,11 +106,9 @@ def add_fields_and_bc_extractions(workflow):
             if extraction['GridLocation'] == 'CellCenter':
                 if not sonics.spl.guards.cell_center:
                     raise MolaUserError('Cannot extract a BC at "Vertex" because SoNICS will run at CellCenter')
-                bc_location = treg.face 
             else:
                 if sonics.spl.guards.cell_center:
                     raise MolaUserError('Cannot extract a BC at "CellCenter" because SoNICS will run at Vertex')
-                bc_location = treg.dual_facet
 
             families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
             fields = translate_extraction_variables_to_sonics(extraction['Fields'], solver)

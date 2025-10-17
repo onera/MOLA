@@ -19,12 +19,16 @@ import numpy as np
 
 from treelab import cgns
 from mola.logging import mola_logger, MolaException
-from mola.cfd.preprocess.mesh.tools import to_distributed, compute_azimuthal_extension
+from mola.cfd.preprocess.mesh.tools import to_distributed, to_full_tree_at_rank_0, compute_azimuthal_extension
 
 def apply(workflow):
 
+    dup_tree = apply_duplication_on_tree(workflow, workflow.tree)
+    workflow.tree = dup_tree 
+
+def apply_duplication_on_tree(workflow, tree):
     duplication_operations = []
-    for base in workflow.tree.bases():
+    for base in tree.bases():
         component = workflow.get_component(base.name())
         if 'Positioning' not in component: 
             continue
@@ -33,17 +37,23 @@ def apply(workflow):
                 operation.setdefault('Tolerance', component['DefaultToleranceForConnection'])
                 duplication_operations.append(operation)
         
-
     if len(duplication_operations) > 0:
         if workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess':
             raise MolaException('Only SplittingAndDistribution Strategy "AtComputation" is compatible with duplication')
-        workflow.tree = duplicate(workflow.tree, duplication_operations)
+        if workflow.Solver == 'sonics':
+            tool = 'maia'
+        else:
+            tool = 'cassiopee'
+        tree = duplicate(tree, duplication_operations, tool=tool)
+    return tree
 
 def duplicate(tree, duplication_operations, tool='maia'):
 
     if tool == 'cassiopee':
+        mola_logger.debug('duplicate with cassiopee')
         tree = _duplicate_with_cassiopee(tree, duplication_operations)
     else:
+        mola_logger.debug('duplicate with maia')
         tree = _duplicate_with_maia(tree, duplication_operations)
 
     return tree
@@ -81,6 +91,10 @@ def _duplicate_with_cassiopee(tree, duplication_operations):
     I._rmNodesByType(tree, 'GridConnectivity1to1_t')
 
     for operation in duplication_operations:
+
+        plurial = 's' if operation['NumberOfDuplications'] > 1 else ''
+        mola_logger.info(f"  > row {operation['Family']} is replicated {operation['NumberOfDuplications']} time"+plurial, rank=0)
+
         __duplicate_with_cassiopee(
             tree, 
             operation['Family'], 
@@ -192,16 +206,17 @@ def __duplicate_with_cassiopee(tree, rowFamily, NumberOfDuplications, azimuthal_
         for zone in I.getZones(base):
             zone_name = I.getName(zone)
             FamilyNameNode = I.getNodeFromName1(zone, 'FamilyName')
-            if not FamilyNameNode: continue
+            if not FamilyNameNode: 
+                continue
             zone_family = I.getValue(FamilyNameNode)
             if zone_family == rowFamily:
-                if verbose>1: print('  > zone {}'.format(zone_name))
+                if verbose>1: print(f'  > zone {zone_name}')
                 check = True
                 zones2merge = [zone]
                 for n in range(NumberOfDuplications):
                     ang = azimuthal_extension*(n+1)
                     rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
-                    I.setName(rot, "{}_{}".format(zone_name, n+2))
+                    I.setName(rot, f"{zone_name}_{n+2}")
                     I._addChild(base, rot)
                     zones2merge.append(rot)
                 if merge:
@@ -211,7 +226,7 @@ def __duplicate_with_cassiopee(tree, rowFamily, NumberOfDuplications, azimuthal_
                     for i, node in enumerate(I.getZones(tree_dist)):
                         I._addChild(base, node)
                         disk_block = I.getNodeFromName(base, I.getName(node))
-                        disk_block[0] = '{}_{:02d}'.format(zone_name, i)
+                        disk_block[0] = f'{zone_name}_{i:02d}'
                         I.createChild(disk_block, 'FamilyName', 'FamilyName_t', value=rowFamily)
     # if merge: PRE.autoMergeBCs(tree)
 

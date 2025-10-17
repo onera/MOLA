@@ -17,6 +17,7 @@
 
 import numpy as np
 from fnmatch import fnmatch
+from packaging.version import Version
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.pytree.user.checker import (is_partitioned_for_use_in_maia,
                                       is_distributed_for_use_in_maia)
@@ -24,6 +25,7 @@ from treelab import cgns
 
 def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='Vertex'):
     from mpi4py import MPI
+    import maia
     import maia.pytree as PT
     from maia.algo.part.wall_distance import compute_projection_to
 
@@ -31,8 +33,13 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
 
     tree = to_partitioned(tree) 
 
-    hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
-    shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
+    if Version(maia.__version__) > Version('1.7'):
+        # Change of name of the module "predicate" in "pred"
+        hub_bc_predicate    = PT.pred.any([PT.pred.belongs_to_family(family) for family in hub_families])
+        shroud_bc_predicate = PT.pred.any([PT.pred.belongs_to_family(family) for family in shroud_families])
+    else:
+        hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
+        shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
 
     if len(PT.get_nodes_from_predicate(tree, hub_bc_predicate)) == 0:
         raise MolaException(f'Cannot find hub families in tree from names {hub_families}')
@@ -49,6 +56,7 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
     for zone in PT.get_all_Zone_t(tree):
         d1 = PT.get_value(PT.get_node_from_path(zone, 'DistanceToHub/Distance'))
         d2 = PT.get_value(PT.get_node_from_path(zone, 'DistanceToShroud/Distance'))
+        d2[np.abs(d1) < 1e-16] = 1.  # if the hub radius tends to 0, regularize the expression 
         PT.new_FlowSolution(
             name='FlowSolution#Height', 
             loc=GridLocation, 
@@ -139,8 +147,8 @@ def _compute_azimuthal_extension_from_slice(t, axis=None):
         raise MolaAssertionError('For now, this function only handles axis=[1., 0., 0.]')
 
     # Slice in x direction at middle range
-    xmin = np.amin([np.amin(zone.x()) for zone in t])
-    xmax = np.amax([np.amax(zone.x()) for zone in t])
+    xmin = np.amin([np.amin(zone.x()) for zone in t.zones()])
+    xmax = np.amax([np.amax(zone.x()) for zone in t.zones()])
     sliceX = P.isoSurfMC(t, 'CoordinateX', value=xmin+0.05*(xmax-xmin))
     # Compute Radius
     C._initVars(sliceX, '{Radius}=({CoordinateY}**2+{CoordinateZ}**2)**0.5')
@@ -194,13 +202,16 @@ def to_distributed(tree : cgns.Tree):
     if bool(tree.get(':CGNS#Distribution')): 
         t = tree
     
-    elif bool(tree.get(':CGNS#GlobalNumbering')):
-        t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
-        t = cgns.castNode(t)
-        
     else:
-        t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-        t = cgns.castNode(t)
+        mola_logger.warning('convert tree to maia dist_tree')
+
+        if bool(tree.get(':CGNS#GlobalNumbering')):
+            t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
+            t = cgns.castNode(t)
+            
+        else:
+            t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+            t = cgns.castNode(t)
      
     return t
 
@@ -250,6 +261,8 @@ def to_partitioned_if_distributed(tree : cgns.Tree, cassiopee_distribution={}):
     from mpi4py import MPI
     import maia
 
+    mola_logger.warning('convert tree to maia part_tree')
+
     t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
 
     t = cgns.castNode(t)
@@ -266,7 +279,6 @@ def to_partitioned_if_distributed(tree : cgns.Tree, cassiopee_distribution={}):
         
     return t
 
-import re
 
 def remove_maia_part_zone_suffix(zone_name : str) -> str:
     import re
@@ -292,6 +304,8 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
                    
     if is_full or MPI.COMM_WORLD.Get_size() == 1:
         return tree
+    else:
+        mola_logger.warning('convert tree to maia full_tree')
     
     if is_part:
         additionnal_nodes_to_transfer = _get_additionnal_nodes_to_transfer(tree)

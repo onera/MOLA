@@ -87,7 +87,7 @@ def test_prepare(tmp_path, size):
 
         Extractions=[
             dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure']),
-            dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'Friction', 'BoundaryLayer']),
+            dict(Type='BC', Source='BCWall*', Name='ByFamily', Fields=['NormalVector', 'SkinFriction', 'BoundaryLayer']),
             dict(Type='IsoSurface', Name='MySurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1.e-6),
             dict(Type='3D', Fields=['Density','MomentumX','MomentumY','MomentumZ'],
                  GridLocation='CellCenter', GhostCells = False),

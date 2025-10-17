@@ -172,11 +172,37 @@ def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True, add_cellN
         **options
     )
 
-    SolverOutput_node = EoRnode.get(Name=solver_output_name, Depth=1)
-    if not SolverOutput_node:
-        EoRnode.setParameters(solver_output_name, **output_keys)
-    else:
-        update_existing_solver_output(SolverOutput_node, output_keys)
+    add_variables_in_right_solver_output(EoRnode, output_keys)
+
+def add_variables_in_right_solver_output(root_node, output_keys, solver_output_name='.Solver#Output', force_new_solver_output=False):
+
+    def create_names_generator():
+        # Generator that returns .Solver#Output, .Solver#Output#2, .Solver#Output#3, ...
+        yield solver_output_name
+        for suffix in range(2, 100):
+            yield f"{solver_output_name}#{suffix}"
+
+    names_generator = create_names_generator()
+
+    # Search for a .Solver#Output with same parameters
+    for name in names_generator:
+        solver_ouput = root_node.get(Name=name, Depth=1)
+        if not solver_ouput:
+            break  # this name is not already used
+        elif force_new_solver_output:
+            continue
+        else:
+            params = root_node.getParameters(solver_ouput.name())
+            if all([
+                key not in params or params[key] == value
+                for key, value in output_keys.items() if key != 'var'
+            ]):
+                # All parameters correspond! This .SolverOutput node can be simply updated just by modifying its "var" node
+                update_existing_solver_output(solver_ouput, output_keys)
+                return name
+
+    root_node.setParameters(name, **output_keys)
+    return name
                 
 def process_extractions_of_type_bc_and_integral(workflow):
 
@@ -202,17 +228,19 @@ def add_2d_extractions_in_SolverOutput(FamilyNode, Extraction, workflow):
         elsa_var_list = translate_to_elsa(fields_to_extract, type='var')       
         output_keys = get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list)
 
-        solver_output_name = '.Solver#Output#1'
-        SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
-        if not SolverOutput_node:
-            FamilyNode.setParameters(solver_output_name, **output_keys)
-        else:
-            n = 2
-            while SolverOutput_node is not None and n < 100:
-                solver_output_name = f'.Solver#Output#{n}'
-                SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
-                n += 1
-            FamilyNode.setParameters(solver_output_name, **output_keys)
+        # solver_output_name = '.Solver#Output#1'
+        # SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
+        # if not SolverOutput_node:
+        #     FamilyNode.setParameters(solver_output_name, **output_keys)
+        # else:
+        #     n = 2
+        #     while SolverOutput_node is not None and n < 100:
+        #         solver_output_name = f'.Solver#Output#{n}'
+        #         SolverOutput_node = FamilyNode.get(Name=solver_output_name, Depth=1)
+        #         n += 1
+        #     FamilyNode.setParameters(solver_output_name, **output_keys)
+        # Extraction['_ElsaSolverOutputName'] = solver_output_name
+        solver_output_name = add_variables_in_right_solver_output(FamilyNode, output_keys)
         Extraction['_ElsaSolverOutputName'] = solver_output_name
 
     else:
@@ -320,7 +348,7 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
             ExtractVariablesList.remove('BoundaryLayer')
 
     if ExtractBCType == 'BCWallInviscid':
-        ViscousKeys = ['BoundaryLayer', 'yPlus', 'Friction',
+        ViscousKeys = ['BoundaryLayer', 'yPlus', 'SkinFriction',
                        'geomdepdom','delta_cell_max','delta_compute',
                        'vortratiolim','shearratiolim','pressratiolim']
         for vk in ViscousKeys:

@@ -34,34 +34,28 @@ BoundaryConditionsNamesInSONICS = bc_dispatcher.get_all_specific_names()
 # For each boundary condition, this generic function does the job
 def function_generator(bc_type):
 
-    if bc_type.startswith('GC'):
-        def set_gc(workflow, **kwargs):
-            import miles
+    def set_bc(workflow, **kwargs):
+        import miles
 
-            ### Check on MPI size, until mixing plane is made available for NumberOfProcessors>1
-            from mpi4py import MPI
-            size = MPI.COMM_WORLD.Get_size()
-            if bc_type == 'GCMixingPlane' and size>1:
-                raise MolaException('For now, MixingPlane in SoNICS is available only for a simulation on one MPI rank.')
-            ### End of MPI check
+        Family = kwargs.pop('Family')
+        kwargs = mola_to_miles(workflow, Family, bc_type, kwargs)
 
-            Family = kwargs.pop('Family')
+        if bc_type.startswith('GC'):
+
+            # ### Check on MPI size, until mixing plane is made available for NumberOfProcessors>1
+            # if bc_type == 'GCMixingPlane' and workflow.RunManagement['NumberOfProcessors']>1:
+            #     raise MolaException('For now, MixingPlane in SoNICS is available only for a simulation on one MPI rank.')
+            # ### End of MPI check
+
             LinkedFamily = kwargs.pop('LinkedFamily')
-            miles.set_gc(workflow.tree, bc_type, Family, LinkedFamily)
-            workflow.tree = cgns.castNode(workflow.tree)
-            
-        return set_gc
-    
-    else:
-        def set_bc(workflow, **kwargs):
-            import miles
-
-            Family = kwargs.pop('Family')
-            kwargs = mola_to_miles(workflow, Family, bc_type, kwargs)
+            miles.set_gc(workflow.tree, bc_type, Family, LinkedFamily, **kwargs)
+        
+        else:
             miles.set_bc(workflow.tree, bc_type, Family, **kwargs)
-            workflow.tree = cgns.castNode(workflow.tree)
-            
-        return set_bc
+        
+        workflow.tree = cgns.castNode(workflow.tree)
+        
+    return set_bc
 
 # Define functions with the write name to be called from .boundary_conditions
 for fun_name in BoundaryConditionsNamesInSONICS:

@@ -224,26 +224,40 @@ def keep_only_requested_containers(tree : cgns.Tree, extraction : dict):
                     container.remove()
 
 def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
+    # Always keep ChannelHeight if it exists (if the FlowSolution#Height has been kept)
+    # Always keep Iteration if it exists (for an IntegralData)
+    VAR_TO_KEEP_IN_ALL_CASES = ['ChannelHeight', 'Iteration']
+    BL_VARIABLES = ['beta0', 'line_cell_count', 'delta_cell_count', 
+                'delta', 'delta1', 'delta1i', 'delta2', 'delta2i', 
+                'h', 'hi', 'runit', 'theta11', 'theta11i', 'theta12', 
+                'theta12i', 'theta22', 'theta22i', 'theta1_th', 'theta2_th', 
+                'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector', 'bl_ue', 'bl_prof']
+
     if 'Fields' in extraction and extraction['Fields'] != 'all':
 
         if isinstance(extraction['Fields'], str):
             extraction['Fields'] = [extraction['Fields']]
 
-        for vector_name in ['Momentum', 'Velocity', 'Vorticity','Force','Torque']:
-            if vector_name in extraction['Fields']:
+        var_to_keep = extraction['Fields'] + VAR_TO_KEEP_IN_ALL_CASES
+
+        if 'yPlus' in var_to_keep:
+            var_to_keep.append(['WallCellSize'])  
+
+        if 'BoundaryLayer' in var_to_keep:
+            var_to_keep.extend(BL_VARIABLES)
+
+        # NOTE Careful, all possible vectors must be listed below, otherwise component variables will be deleted!
+        for vector_name in ['Momentum', 'Velocity', 'Vorticity', 'SkinFriction', 'Force','Torque']:
+            if vector_name in var_to_keep:
                 for c in 'XYZ':
                     field_name = vector_name+c 
-                    if field_name not in extraction['Fields']:
-                        extraction['Fields'] += [field_name]
-        
-        # Always keep ChannelHeight is it exists (if the FlowSolution#Height has been kept)
-        if 'ChannelHeight' not in extraction['Fields']:
-            extraction['Fields'].append('ChannelHeight')
+                    if field_name not in var_to_keep:
+                        var_to_keep += [field_name]
 
         for zone in tree.zones():
             for container in zone.group(Type='FlowSolution_t', Depth=1):
                 for field in container.group(Type='DataArray_t', Depth=1):
                     field_name = field.name()
 
-                    if field.name() not in extraction['Fields']:
+                    if field.name() not in var_to_keep:
                         field.remove()

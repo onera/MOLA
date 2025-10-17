@@ -64,3 +64,40 @@ you can write the tree just before this step to try to understand what is wrong:
       You need to be sure that the tree is effectively distributed at this stage, 
       and that probably won't be the case. Hence, this method is not recommended.
 
+============
+Known issues
+============
+
+-----------------------
+Mesh file in ADF format
+-----------------------
+
+What's the error
+^^^^^^^^^^^^^^^^
+
+If the mesh file that you want to read is not in HDF format but in ADF format, you will have this error message:
+
+.. code-block::
+
+  File "/stck/mola/treelab/v0.4.3/ld_elsA/lib/python3.8/site-packages/treelab/cgns/read_write/h5py2cgns.py", line 52, in load
+    f = load_h5(filename)
+  File "/stck/mola/treelab/v0.4.3/ld_elsA/lib/python3.8/site-packages/treelab/cgns/read_write/h5py2cgns.py", line 72, in load_h5
+    f = h5py.File(filename, permission, track_order=True)
+  File "/opt/tools/python/3.8.14-gnu831/lib/python3.8/site-packages/h5py/_hl/files.py", line 533, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/opt/tools/python/3.8.14-gnu831/lib/python3.8/site-packages/h5py/_hl/files.py", line 226, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 106, in h5py.h5f.open
+  OSError: Unable to open file (file signature not found)
+
+Possible workaround
+^^^^^^^^^^^^^^^^^^^
+
+Just use the following command to convert your mesh in HDF format:
+
+>>> adf2hdf mesh.cgns
+
+You may also look at the settings of your mesher to export the mesh file directly in the right format.
+

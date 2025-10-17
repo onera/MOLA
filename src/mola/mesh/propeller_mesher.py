@@ -1129,7 +1129,7 @@ def getEulerAngles(RotationAxis, PhaseDirection=(0,1,0)):
             transformation angles [degree]
     '''
 
-    # TODO propagate PhaseDirection up to BodyForceInputData (user-level)
+    # TODO propagate PhaseDirection up to BodyForceModeling (user-level)
     FrenetDEST = getFrenetFromRotationAxisAndPhaseDirection(RotationAxis,PhaseDirection)
 
 

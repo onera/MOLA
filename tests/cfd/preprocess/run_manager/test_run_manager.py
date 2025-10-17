@@ -38,7 +38,6 @@ def test_set_default():
         NumberOfProcessors = 1,
         NumberOfThreads = 96,
         RunDirectory = '.',
-        Machine='juno',
         Scheduler = 'SLURM',
         RemovePreviousRunDirectory = False,
         QuitMarginBeforeTimeOutInSeconds = 300,

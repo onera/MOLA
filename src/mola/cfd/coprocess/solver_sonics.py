@@ -87,8 +87,9 @@ def perform_extractions(workflow, coprocess_manager):
 def get_output_tree(coprocess_manager):
     # output_tree is set in compute/solver_sonics.py
     output_tree = coprocess_manager.output_tree
-    for zc in output_tree.group(Type='ZoneGridConnectivity', Depth=3):
-        zc.findAndRemoveNodes(Name='*#Vtx')  # otherwise, error in the function centers_to_nodes below
+    for gc in output_tree.group(Type='GridConnectivity'):
+        if gc.get(Type='GridLocation').value() == 'Vertex':
+            gc.remove()  # otherwise, error in the function centers_to_nodes below
     # partionning
     part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD)
     maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
@@ -129,6 +130,10 @@ def extract_fields(output_tree, extraction):
     t.findAndRemoveNodes(Name='GlobalConvergenceHistory', Depth=2)
     t.findAndRemoveNodes(Type='IntegralData', Depth=2)
     t.findAndRemoveNodes(Type='ZoneSubRegion', Depth=2)
+
+    for gc in t.group(Type='GridConnectivity'):
+        if gc.get(Type='GridLocation').value() == 'Vertex':
+            gc.remove()
 
     POST.keep_only_requested_containers(t, extraction)
     POST.keep_only_requested_fields(t, extraction)
