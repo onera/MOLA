@@ -57,7 +57,7 @@ def translate_extraction_variables_to_sonics(Variables, solver):
 
         # NormalVector = treg.SurfaceNormal,
         yPlus = treg.XYZPlusMeshSize,
-        Friction = treg.SkinFriction,
+        SkinFriction = treg.SkinFriction,
 
         Force = treg.conv_flux(treg.Momentum), 
         MassFlow = treg.conv_flux(treg.Density),
@@ -102,7 +102,7 @@ def translate_extraction_variables_to_sonics_function(Variables):
 
         # NormalVector = treg.SurfaceNormal,
         yPlus = lambda treg: treg.XYZPlusMeshSize,
-        Friction = lambda treg: treg.SkinFriction,
+        SkinFriction = lambda treg: treg.SkinFriction,
 
         # HACK for integral outputs, need treg.dummy
         # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks

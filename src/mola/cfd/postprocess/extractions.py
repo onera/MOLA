@@ -235,7 +235,8 @@ def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
 
         var_to_keep = extraction['Fields'] + VAR_TO_KEEP_IN_ALL_CASES
 
-        for vector_name in ['Momentum', 'Velocity', 'Vorticity','Force','Torque']:
+        # NOTE Careful, all possible vectors must be listed below, otherwise component variables will be deleted!
+        for vector_name in ['Momentum', 'Velocity', 'Vorticity', 'SkinFriction', 'Force','Torque']:
             if vector_name in var_to_keep:
                 for c in 'XYZ':
                     field_name = vector_name+c 

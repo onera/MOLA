@@ -174,7 +174,7 @@ def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True, add_cellN
 
     add_variables_in_right_solver_output(EoRnode, output_keys)
 
-def add_variables_in_right_solver_output(root_node, output_keys, solver_output_name='.Solver#Output'):
+def add_variables_in_right_solver_output(root_node, output_keys, solver_output_name='.Solver#Output', force_new_solver_output=False):
 
     def next_name_to_test():
         # Generator that returns .Solver#Output, .Solver#Output#2, .Solver#Output#3, ...
@@ -187,6 +187,9 @@ def add_variables_in_right_solver_output(root_node, output_keys, solver_output_n
         solver_ouput = root_node.get(Name=name, Depth=1)
         if not solver_ouput:
             break  # this name is not already used
+        elif force_new_solver_output:
+            name = next(next_name_to_test)
+            continue
         else:
             params = root_node.getParameters(solver_ouput.name())
             if all([
@@ -344,7 +347,7 @@ def adapt_variables_for_2d_extraction(workflow, Extraction, ExtractBCType):
             ExtractVariablesList.remove('BoundaryLayer')
 
     if ExtractBCType == 'BCWallInviscid':
-        ViscousKeys = ['BoundaryLayer', 'yPlus', 'Friction',
+        ViscousKeys = ['BoundaryLayer', 'yPlus', 'SkinFriction',
                        'geomdepdom','delta_cell_max','delta_compute',
                        'vortratiolim','shearratiolim','pressratiolim']
         for vk in ViscousKeys:

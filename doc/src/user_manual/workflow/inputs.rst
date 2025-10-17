@@ -399,7 +399,7 @@ to extract pressure and friction on all walls (of type `WallViscous`), we write:
 
 .. code-block:: python
 
-    dict(Type = 'BC', Source = 'WallViscous', Fields = ['Pressure', 'Friction']) 
+    dict(Type = 'BC', Source = 'WallViscous', Fields = ['Pressure', 'SkinFriction']) 
 
 .. admonition:: Default values
 

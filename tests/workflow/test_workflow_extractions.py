@@ -299,7 +299,7 @@ def test_bc_one_run(tmp_path, niter=10):
 
     w._interface.add_to_Extractions_BC(
         Name=basename,
-        Fields=['Pressure','MomentumX','MomentumY','MomentumZ'],
+        Fields=['Pressure', 'SkinFriction'],
         File=separated_filename,
         Source='Ground',
     )
@@ -312,7 +312,7 @@ def test_bc_one_run(tmp_path, niter=10):
     w.assert_completed_without_errors()
 
     assert_file_containing_expected_field_at_expected_container(
-        separated_filename, basename, ['Pressure'],
+        separated_filename, basename, ['Pressure', 'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ'],
         names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, tmp_path)
 
 
