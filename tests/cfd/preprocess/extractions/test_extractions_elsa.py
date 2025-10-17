@@ -352,7 +352,7 @@ def test_add_2d_extractions_in_SolverOutput_wall():
         pressratiolim=workflow.SolverParameters['model']['pressratiolim'],
         geomdepdom=2,
         delta_cell_max=300,
-        var=['psta', 'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+        var=['psta', 'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector']
     )
 
     assert solver_output == solver_output_ref
@@ -414,7 +414,7 @@ def test_add_multiple_2d_extractions_in_SolverOutput_wall():
         pressratiolim=workflow.SolverParameters['model']['pressratiolim'],
         geomdepdom=2,
         delta_cell_max=300,
-        var=['psta', 'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue']
+        var=['psta', 'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector']
     )
     assert solver_output == solver_output_ref
 
