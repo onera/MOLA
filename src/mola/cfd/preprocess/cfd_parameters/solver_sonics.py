@@ -156,6 +156,9 @@ def get_sonics_config(workflow):
         **flux_parameters, 
         **time_parameters,
     )
+    if workflow.ProblemDimension == 2:
+        my_config.set(use_cache_blocking=False)  # HACK Segmentation fault if not
+        
     update_config_with_user_parameters(my_config, workflow)
 
     return my_config

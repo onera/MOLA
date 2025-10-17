@@ -19,5 +19,8 @@
 def apply_to_solver(workflow):
     InitialSolutionContainer = 'Fields@Cell@Init'
     for node in workflow.tree.group(Name='FlowSolution#Init'):
-        node.setName(InitialSolutionContainer)    
+        node.setName(InitialSolutionContainer)  
+
+        if workflow.ProblemDimension == 2:  
+            node.findAndRemoveNode(Name='MomentumZ')
 

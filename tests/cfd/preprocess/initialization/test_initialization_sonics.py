@@ -24,6 +24,7 @@ pytestmark = pytest.mark.sonics
 
 class FakeWorkflow():
     def __init__(self):
+        self.ProblemDimension = 3
         # Build a base with two identical zones
         base = cgns.Node( Name='Base', Type='Base')
         z1 = cgns.Node( Name='Zone1', Type='Zone', Parent=base)
