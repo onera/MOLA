@@ -56,29 +56,45 @@ def extract_bc_from_family(tree, Family, comm):
     return surface
 
 
-def extract_bc_from_zsr(tree, Family, comm):
-    zsr_names = []
-    for zone in tree.zones():
-        for zsr in zone.group(Type='ZoneSubRegion'):
-            # a ZSR range is specified by one of PointRange, PointList, BCRegionName or GridConnectivityRegionName
-            # see http://cgns.github.io/CGNS_docs_current/sids/gridflow.html#ZoneSubRegion
-            BCRegionName = zsr.get(Name='BCRegionName')
-            if BCRegionName:
-                bc = zone.get(Type='BC', Name=BCRegionName.value())
-                FamilyName_nodes = bc.group(Type='FamilyName') + bc.group(Type='AdditionalFamilyName')
-                if any([node.value() == Family for node in FamilyName_nodes]):
-                    zsr_names.append(zsr.name())
+def extract_bc_from_zsr(tree: cgns.Tree, Family, comm):
+    
+    extracted_zones = []
 
-    # Gather zsr_names on all ranks and make a list with unique names
-    all_zsr_names = comm.allgather(zsr_names)
-    shared_zsr_names = list(set([item for sublist in all_zsr_names for item in sublist]))
+    all_zones_names = comm.allgather([z.name() for z in tree.zones()])
+    all_zones_names = list(set([item for sublist in all_zones_names for item in sublist]))
 
-    zones = []
-    for zsr_name in shared_zsr_names:
-        extracted_tree = maia.algo.part.extract_part_from_zsr(tree, zsr_name, comm, containers_name=[]) 
-        extracted_tree = cgns.castNode(extracted_tree)
-        # HACK
-        extracted_tree.findAndRemoveNodes(Type='ZoneBC')
-        zones.extend(extracted_tree.zones())
+    # HACK extract_part_from_zsr works only for tree with one zone
+    # see https://gitlab.onera.net/numerics/mesh/maia/-/issues/219
+    for zone_name in all_zones_names:
+        zone = tree.get(Type='Zone', Name=zone_name, Depth=2)
+        zsr_names = []
 
-    return zones
+        # make a shallow copy of tree with only the current zone
+        tree_with_one_zone = tree.copy()
+        for z in tree_with_one_zone.zones():
+            if z.name() != zone_name:
+                z.remove()
+
+        if zone is not None:
+            for zsr in zone.group(Type='ZoneSubRegion'):
+                # a ZSR range is specified by one of PointRange, PointList, BCRegionName or GridConnectivityRegionName
+                # see http://cgns.github.io/CGNS_docs_current/sids/gridflow.html#ZoneSubRegion
+                BCRegionName = zsr.get(Name='BCRegionName')
+                if BCRegionName:
+                    bc = zone.get(Type='BC', Name=BCRegionName.value())
+                    FamilyName_nodes = bc.group(Type='FamilyName') + bc.group(Type='AdditionalFamilyName')
+                    if any([node.value() == Family for node in FamilyName_nodes]):
+                        zsr_names.append(zsr.name())
+
+        # Gather zsr_names on all ranks and make a list with unique names
+        all_zsr_names = comm.allgather(zsr_names)
+        shared_zsr_names = list(set([item for sublist in all_zsr_names for item in sublist]))
+
+        for zsr_name in shared_zsr_names:
+            extracted_tree = maia.algo.part.extract_part_from_zsr(tree_with_one_zone, zsr_name, comm, containers_name=[]) 
+            extracted_tree = cgns.castNode(extracted_tree)
+            # HACK
+            extracted_tree.findAndRemoveNodes(Type='ZoneBC')
+            extracted_zones.extend(extracted_tree.zones())
+
+    return extracted_zones

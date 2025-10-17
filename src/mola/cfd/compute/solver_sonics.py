@@ -266,7 +266,7 @@ def get_integral_triggers(workflow, config, hardware_target):
             # # extractor.add_matplotlib_callback(pattern_png,legend=True,grid={"ls":":"},
             # #     yscale="log",xlabel="Iterations",period=10,start_iter=100)
             # # extractor.add_print_callback(period=50)
-            # integral_extraction_trigger = extractor.apply(niter=workflow.Numerics['NumberOfIterations'])
+            # integral_extraction_trigger = extractor.apply(niter=workflow.Numerics['NumberOfIterations'])[0]
             # pytriggers.append(integral_extraction_trigger)
 
     return pytriggers
