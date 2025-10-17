@@ -176,19 +176,20 @@ def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True, add_cellN
 
 def add_variables_in_right_solver_output(root_node, output_keys, solver_output_name='.Solver#Output', force_new_solver_output=False):
 
-    def next_name_to_test():
+    def create_names_generator():
         # Generator that returns .Solver#Output, .Solver#Output#2, .Solver#Output#3, ...
         yield solver_output_name
         for suffix in range(2, 100):
             yield f"{solver_output_name}#{suffix}"
 
+    names_generator = create_names_generator()
+
     # Search for a .Solver#Output with same parameters
-    for name in next_name_to_test():
+    for name in names_generator:
         solver_ouput = root_node.get(Name=name, Depth=1)
         if not solver_ouput:
             break  # this name is not already used
         elif force_new_solver_output:
-            name = next(next_name_to_test)
             continue
         else:
             params = root_node.getParameters(solver_ouput.name())

@@ -311,8 +311,13 @@ def test_bc_one_run(tmp_path, niter=10):
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
+    if w.Solver == 'fast':
+        expected_fields = ['Pressure']
+    else:
+        expected_fields = ['Pressure', 'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ']
+
     assert_file_containing_expected_field_at_expected_container(
-        separated_filename, basename, ['Pressure', 'SkinFrictionX', 'SkinFrictionY', 'SkinFrictionZ'],
+        separated_filename, basename, expected_fields,
         names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, tmp_path)
 
 

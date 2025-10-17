@@ -134,7 +134,7 @@ ElsaCGNS2MOLA = dict(
 # Integral data (flux_*) and MOLA shortcuts (not official CGNS names)
 cgns_to_elsa_extraction_name.update(dict(
     Coordinates              = 'xyz',
-    BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue',
+    BoundaryLayer            = 'bl_quantities_2d bl_quantities_3d bl_ue_vector',
     NormalVector             = 'normalvector',
     Momentum                 = 'rovx rovy rovz',
     SkinFriction             = 'frictionvector', 
