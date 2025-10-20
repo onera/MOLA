@@ -226,7 +226,12 @@ The following parameters are editable:
 
   * ``'smith'``  
 
-  * ``'SA'``  
+  * ``'SA'``
+
+  .. note:: 
+    
+    The correspondence between these names and parameters in elsA may be found on this page: 
+    https://elsa-doc.onera.fr/MU_tuto/latest/MU-98057/Textes/turbmods.html#nasa-named-turbulence-models-mapping
 
 * ``TurbulenceCutOffRatio`` (float):
   The minimum allowed value of the turbulence quantities based upon 
