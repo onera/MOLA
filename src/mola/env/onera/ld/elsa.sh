@@ -20,10 +20,10 @@ source $SCRIPT_DIR/../network.sh
 
 source /stck/elsa/Public/$ELSAVERSION/Dist/bin/local-os8_mpi/.env_elsA &>/dev/null
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode/1.99.3
+module load vscode
 module load pointwise
-# # module load paraview/5.11.0 # provokes python and libraries incompatibilities
-module load occt/7.6.1-gnu831
+module load paraview
+module load occt
 
 export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 

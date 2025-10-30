@@ -33,7 +33,7 @@ source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode/1.99.3
+module load vscode
 
 export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 
@@ -51,15 +51,6 @@ export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 # maia
 module use --append /home/sonics/LD8/modules/
 module load maia/$MAIAVERSION-dsi-ompi405 &> /dev/null
-
-# # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
-# pdf()
-# {
-#     export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-#     export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
-#     okular "$1" &
-#     export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
-# }
 
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
