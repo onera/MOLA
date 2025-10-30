@@ -102,6 +102,12 @@ def pytest_collection_modifyitems(config, items):
             f"  {new_line_double_space.join(not_tagged_tests)}"
         )
     
+    # Ignore tests with marker "user_case" except it is explicitely asked with pytest -m user_case
+    if not config.option.markexpr:
+        for item in items:
+            if "user_case" in item.keywords:
+                item.add_marker(pytest.mark.skip(reason="Use pytest -m user_case to force test"))
+
 def skip_if_not_on_onera_network(item):
     skip_onera = pytest.mark.skip(reason="test available on ONERA machines only")
     if ("network_onera" in item.keywords) and (SV.get_network() != 'onera'):
