@@ -604,20 +604,6 @@ def outradeq(workflow, Family, **kwargs):
         indpiv : int
             Index of the cell where the pivot value is imposed.
 
-        ReferenceValues : :py:class:`dict` or :py:obj:`None`
-            as produced by :py:func:`computeReferenceValues`
-
-        TurboConfiguration : :py:class:`dict` or :py:obj:`None`
-            as produced by :py:func:`getTurboConfiguration`
-
-        method : optional, str
-            Method used to compute the globborder. The default value is
-            ``'globborder_dict'``, it corresponds to the ETC topological
-            algorithm.
-            Another possible value is ``'poswin'`` to use the geometrical
-            algorithm in *turbo* (in this case, *turbo* environment must be
-            sourced).
-
     '''
     if not workflow.tree.isStructured():
         raise MolaUserError(f'The boundary condition "outradeq" on Family {Family} is available only for structured mesh.')
