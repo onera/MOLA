@@ -59,19 +59,41 @@ def initialize_flow_with_turbo(workflow, FlowSolution_name):
     else: 
         mask = compute_mask(t)
 
-    def getInletPlane(t, row, rowParams):
-        try: 
+    def getPlane(t, row, rowParams, Extractions, plane_type):
+        try:
             return rowParams['InletPlane']
+        
         except KeyError:
-            zones = C.getFamilyZones(t, row)
-            return C.getMinValue(zones, 'CoordinateX')
+            try:
+                for ext in Extractions:
+                    try:
+                        Type = ext['Type']
+                        IsoSurfaceField = ext['IsoSurfaceField']
+                        IsoSurfaceValue = ext['IsoSurfaceValue']
+                        ReferenceRow = ext['OtherOptions']['ReferenceRow']
+                        tag = ext['OtherOptions']['tag']
+                    except:
+                        continue
 
-    def getOutletPlane(t, row, rowParams):
-        try: 
-            return rowParams['OutletPlane']
-        except KeyError:
-            zones = C.getFamilyZones(t, row)
-            return C.getMaxValue(zones, 'CoordinateX')
+                    if Type == 'IsoSurface' and ReferenceRow == row and tag == plane_type:
+                        if IsoSurfaceField in ['CoordinateX', 'x', 'X']:
+                            plane_points = [[IsoSurfaceValue, -999.],[IsoSurfaceValue, 999.]]
+                            return plane_points
+                        elif IsoSurfaceField in ['CoordinateR', 'r', 'R', 'radius', 'Radius']:
+                            plane_points = [[-999., IsoSurfaceValue], [999., IsoSurfaceValue]]
+                            return plane_points
+                    
+                raise KeyError
+
+            except KeyError:
+                zones = C.getFamilyZones(t, row)
+                return C.getMinValue(zones, 'CoordinateX')
+
+    def getInletPlane(t, row, rowParams, Extractions):
+        return getPlane(t, row, rowParams, Extractions, 'InletPlane')
+
+    def getOutletPlane(t, row, rowParams, Extractions):
+        return getPlane(t, row, rowParams, Extractions, 'OutletPlane')
 
     class RefState():
         def __init__(self):
@@ -84,9 +106,10 @@ def initialize_flow_with_turbo(workflow, FlowSolution_name):
             self.Lref  = 1.
 
     planes_data = []
+    config = 'axial'  # by default
 
     row, rowParams = list(workflow.ApplicationContext['Rows'].items())[0]
-    xIn = getInletPlane(t, row, rowParams)
+    plane_points = getInletPlane(t, row, rowParams, workflow.Extractions)
     alpha = 0.  # workflow.ApplicationContext['AngleOfAttackDeg']
     planes_data.append(
         dict(
@@ -95,13 +118,15 @@ def initialize_flow_with_turbo(workflow, FlowSolution_name):
             Pt = 1.,
             Tt = 1.,
             massflow = workflow.Flow['MassFlow'],
-            plane_points = [[xIn,-999.],[xIn,999.]],
+            plane_points = plane_points,
             plane_name = '{}_InletPlane'.format(row)
         )
     )
 
     for row, rowParams in workflow.ApplicationContext['Rows'].items():
-        xOut = getOutletPlane(t, row, rowParams)
+        plane_points = getOutletPlane(t, row, rowParams, workflow.Extractions)
+        if plane_points[0][0] == -999. and plane_points[1][0] == 999.:
+            config = 'centrifugal'
         omega = workflow.ApplicationContext['ShaftRotationSpeed'] if rowParams['IsRotating'] else 0.
         beta1 = rowParams.get('FlowAngleAtRootDeg', 0.)
         beta2 = rowParams.get('FlowAngleAtTipDeg', 0.)
@@ -111,15 +136,22 @@ def initialize_flow_with_turbo(workflow, FlowSolution_name):
                 omega = omega,
                 beta = [beta1, beta2],
                 Csir = Csir,
-                plane_points = [[xOut,-999.],[xOut,999.]],
+                plane_points = plane_points,
                 plane_name = '{}_OutletPlane'.format(row)
                 )
         )
 
+    if workflow.Name == 'WorkflowLinearCascade':
+        config = 'linear'
+        lin_axis = workflow.lin_axis
+    else:
+        lin_axis = 'XY'  # whatever, this value is not used
+
     # > Initialization
     with redirect_streams_to_null():
         t = TI.initialize(t, mask, RefState(), planes_data,
-                config='axial', # 'axial' or 'centrifugal' or 'linear'
+                config=config,
+                lin_axis = lin_axis,
                 constant_data=workflow.Turbulence['Conservatives'],
                 turbvarsname=list(workflow.Turbulence['Conservatives']),
                 velocity='absolute',

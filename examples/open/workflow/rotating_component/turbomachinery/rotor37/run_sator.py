@@ -9,6 +9,7 @@ w = turbomachinery.Workflow(
 
     ApplicationContext = dict(
         ShaftRotationSpeed = -1800., 
+        ShaftRotatingSpeedUnit = 'rad/s',
 
         Rows = dict(
             R37 = dict(

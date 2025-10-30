@@ -11,8 +11,9 @@ w = turbomachinery.Workflow(
     ],
 
     ApplicationContext = dict(
-        # Shaft speed in rad/s
-        ShaftRotationSpeed = -1800., 
+        # Shaft speed
+        ShaftRotationSpeed = -1800.,  # given in rad/s, so it needs to be specified
+        ShaftRotationSpeedUnit = 'rad/s',  # otherwise default unit is 'rpm'
         # Hub rotation speed
         # List of tuples. Each tuple (xmin, xmax) corresponds to a CoordinateX
         # interval where the speed at hub wall is ShaftRotationSpeed. It is zero

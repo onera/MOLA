@@ -55,7 +55,7 @@ parameters of the turbomachine:
   The rotation speed of the shaft.
 
 * `ShaftRotationSpeedUnit` (str):
-  Could be either "rad/s" or "rpm". The default value is "rad/s".
+  Could be either "rpm" or "rad/s". The default value is "rpm".
 
 * `ShaftAxis` (list, tuple, numpy.ndarray):
   The default value is [1,0,0] (X-axis).

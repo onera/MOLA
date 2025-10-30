@@ -129,8 +129,8 @@ Here, we justify briefly choices that have been made:
   If the mesh had been generated with other software, then it would be necessary to write `Mesher='default'`
   to prevent these automatic adjustments, and add other parameters if needed.
 
-* **ApplicationContext**: The rotation speed is indicated, by default in rad/s. It is also possible to indicate 
-  `ShaftRotationSpeedUnit='rpm'` if the given value is in rotations per minute. 
+* **ApplicationContext**: The rotation speed is indicated, by default in RPM (rotations per minute). It is also possible to indicate 
+  `ShaftRotationSpeedUnit='rad/s'`. 
   
   ⚠ Be careful to the sign of **ShaftRotationSpeed**. A positive value means a rotation from y-axis towards z-axis.
 

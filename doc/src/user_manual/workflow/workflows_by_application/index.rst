@@ -6,5 +6,7 @@ Workflows by application
    :maxdepth: 1
 
    airfoil
+   airplane
    linear_cascade
    turbomachinery
+   propeller
