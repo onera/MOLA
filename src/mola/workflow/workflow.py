@@ -256,7 +256,7 @@ class Workflow(object):
                 scheduler_options['ntasks'] = 1
 
             job_text = get_job_text(solver, RunManagement, scheduler_options)+'\n\n'
-            job_text += f'mola_prepare {names.FILE_INPUT_WORKFLOW}\n'
+            job_text += f'mola_prepare {names.FILE_INPUT_WORKFLOW} 1>stdout-preprocess.log 2>stderr-preprocess.log\n'
             SV.save_file_maybe_remote(names.FILE_JOB_PREPARE, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'], force_copy=True)
 
         write_job_prepare(self.RunManagement, self.RunManagement['SchedulerOptions'], self.Solver)
