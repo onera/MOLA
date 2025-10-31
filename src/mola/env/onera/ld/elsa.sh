@@ -50,19 +50,6 @@ export TURBO_COMPILER='gcc'
 export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
 export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
-# VPM
-export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/ld/$ARCH
-export PATH=$VPMPATH:$VPMPATH/lib:$PATH
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
-export LD_LIBRARY_PATH=$VPMPATH:$VPMPATH/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=$VPMPATH:$PYTHONPATH
-export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
-# replaces module load intel/21.2.0 since this module
-# brakes MPI https://elsa.onera.fr/issues/10933#note-16
-export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/opt/tools/intel/oneapi/mpi/2021.6.0/lib/release:$LD_LIBRARY_PATH
-
-
 # external python dependencies
 export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
 export PATH=$MOLAext/ld8/bin:$PATH

@@ -18,8 +18,6 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-export MAIAVERSION=1.6.0 #dev #1.4
-
 # main version. 24/06/2025 to be avoided because or random BUG https://github.com/onera/Fast/issues/89
 # export MACHINE=ld
 # export CASSIOPEE_VERSION=main
@@ -27,8 +25,12 @@ export MAIAVERSION=1.6.0 #dev #1.4
 # source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 # dev version (CAVEAT very unstable)
+# export MACHINE=ld
+# export CASSIOPEE=/stck/cassiope/git/Cassiopee/
+# source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
 export MACHINE=ld
-export CASSIOPEE=/stck/cassiope/git/Cassiopee/
+export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 

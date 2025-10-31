@@ -33,8 +33,11 @@ export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 # source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 # dev version (CAVEAT very unstable)
+# export MACHINE=juno
+# export CASSIOPEE=/stck/cassiope/git/Cassiopee/
+# source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 export MACHINE=juno
-export CASSIOPEE=/stck/cassiope/git/Cassiopee/
+export CASSIOPEE=/tmp_user/juno/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 
