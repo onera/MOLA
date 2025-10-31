@@ -26,6 +26,7 @@ from mola.cfd.preprocess.extractions.extractions import get_familiesBC_nodes, ge
 
 def apply_to_solver(workflow):
 
+    check_not_extraction_BC_if_unstructured(workflow)  # FIXME also tests in worklow/test_workflow.py are currently deactivated
     add_extractions_for_restart(workflow)
     add_extractions_for_overset_components(workflow)
     process_extractions_of_type_field(workflow)
@@ -40,6 +41,14 @@ def apply_to_solver(workflow):
         # elif Extraction['Type'] == 'Integral':
         #     Extraction['ExtractionPeriod'] = Extraction['SavePeriod']
             
+def check_not_extraction_BC_if_unstructured(workflow):
+    if not workflow.tree.isStructured():
+        for extraction in workflow.Extractions:
+            if extraction['Type'] == 'BC':
+                raise MolaException((
+                    'Extraction with Type="BC" is currently not possible with elsA with MOLA.\n'
+                    f'In this case, extraction on {extraction["Source"]} of {extraction["Fields"]} is not possible.'
+                ))
 
 def add_extractions_for_overset_components(workflow):
     if workflow.has_overset_component():

@@ -40,15 +40,6 @@ export PYTHONPATH=/stck/lbernard/treelab/dev/src:$PYTHONPATH # ONLY DURING DEV
 # module use --append /scratchm/sonics/usr/modules/
 # module load maia/$MAIAVERSION-dsi-cfd6
 
-# VPM
-export VPMPATH=/stck/lbernard/VPM/$VPMVERSION/spiro/$ARCH
-export PATH=$VPMPATH:$PATH
-export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/lib
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/stck/benoit/opencascade/lib:/opt/tools/hdf5-1.10.5-intel-19-impi-19/lib
-export PYTHONPATH=$VPMPATH:$PYTHONPATH
-export PYTHONPATH=$VPMPATH/lib/python3.7/site-packages:$PYTHONPATH
-
 # turbo
 export PYTHONPATH=/stck/jmarty/TOOLS/turbo/install/$TURBOVERSION/env_elsA_v5.3.01/spiro-el8_mpi/lib/python3.8/site-packages/:$PYTHONPATH
 

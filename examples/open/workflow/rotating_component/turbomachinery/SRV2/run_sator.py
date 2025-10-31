@@ -23,8 +23,8 @@ w = turbomachinery.Workflow(
     ],
 
     ApplicationContext = dict(
-        ShaftRotationSpeed = 40000., 
-        ShaftRotationSpeedUnit = 'rpm',
+        # ShaftRotationSpeed = 40000., 
+        ShaftRotationSpeed = 20000., 
         # HubRotationIntervals = [dict(xmin=..., xmax=...)],
         # HubRotationIntervals = [(..., ...)],
         # HubRotationIntervals = hub_rotation_function,
@@ -32,8 +32,8 @@ w = turbomachinery.Workflow(
             Impeller = dict(
                 IsRotating = True,
                 NumberOfBlades = 13,
-                # FlowAngleAtRootDeg = -35.,
-                # FlowAngleAtTipDeg = -35.,
+                FlowAngleAtRootDeg = -35.,
+                FlowAngleAtTipDeg = -35.,
             )
         )
     ),
@@ -61,17 +61,17 @@ w = turbomachinery.Workflow(
     ],
 
     Initialization = dict(
-        # Method = 'turbo',
-        Method = 'interpolate',
-        Source = 'init.cgns',
+        Method = 'turbo',
+        # Method = 'interpolate',
+        # Source = 'init.cgns',
         ParametrizeWithHeight = 'turbo',
     ),
 
     Extractions = [
         dict(Type='IsoSurface', Name='Iso_H_0.9_relative', Frame='relative', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9, Fields=Fields),
         dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9, Fields=Fields),
-        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.02, Fields=Fields, OtherOptions=dict(tag='InletPlane', ReferenceRow='row_1')),
-        dict(Type='IsoSurface', IsoSurfaceField='CoordinateR', IsoSurfaceValue=0.2, Fields=Fields, OtherOptions=dict(tag='OutletPlane', ReferenceRow='row_1')),
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.02, Fields=Fields, OtherOptions=dict(tag='InletPlane', ReferenceRow='Impeller')),
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateR', IsoSurfaceValue=0.2, Fields=Fields, OtherOptions=dict(tag='OutletPlane', ReferenceRow='Impeller')),
     ],
 
     ConvergenceCriteria = [
@@ -84,18 +84,26 @@ w = turbomachinery.Workflow(
 
     RunManagement=dict(
         JobName='SRV2',
-        RunDirectory=f'/tmp_user/sator/tbontemp/.test_user_case/SRV2_2/',
+        RunDirectory=f'/tmp_user/sator/tbontemp/.test_user_case/SRV2_new/',
         NumberOfProcessors=48,
+        RemovePreviousRunDirectory = True,
         AER = '34790003F', # PDEV MOLA 2025
         ),
 
+    SolverParameters = dict(
+        numerics = dict(
+            psiroe = 0.1,
+            limiter = 'minmod',
+        )
+    ),
+
     )
 
-# w.prepare()
-# w.write_cfd_files()
-# w.submit()
+w.prepare()
+w.write_cfd_files()
+w.submit()
 
-w.prepare_and_submit_remotely()
+# w.prepare_and_submit_remotely()
 
 # ps_out = np.arange(1.8e5, 3.4e5+1, 0.2e5)
 # manager = turbomachinery.WorkflowManager(w)

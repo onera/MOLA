@@ -43,14 +43,6 @@ export FI_PROVIDER=tcp
 # module use --append /tmp_user/juno/sonics/usr/modules/
 # module load maia/$MAIAVERSION-dsi-cfd6
 
-# VPM
-export VPMPATH=/tmp_user/juno/lbernard/VPM/$VPMVERSION/juno_elsA/$ARCH
-export PATH=$VPMPATH:$PATH
-export LD_LIBRARY_PATH=$VPMPATH/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=$VPMPATH:$LD_LIBRARY_PATH
-export PYTHONPATH=$VPMPATH:$PYTHONPATH
-export PYTHONPATH=$VPMPATH/lib/python3.8/site-packages:$PYTHONPATH
-
 # Treelab
 # NOTE installation hint:
 # python3 -m pip install --no-deps --prefix=/stck/mola/treelab/v0.4.3/juno_elsA mola-treelab==0.4.3

@@ -33,7 +33,6 @@ export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
 export MACHINE=sator_sph
-export CASSIOPEE_VERSION=v4.0  #main
 export CASSIOPEE=/tmp_user/sator/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 

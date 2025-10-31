@@ -32,7 +32,7 @@ def get_compressor_example_parameters(RunDirectory):
     ],
 
     ApplicationContext = dict(
-        ShaftRotationSpeed = 6000 * np.pi / 30., 
+        ShaftRotationSpeed = 6000., 
         Rows = dict(
             Rotor = dict(IsRotating=True, NumberOfBlades=30), 
             Stator = dict(NumberOfBlades=40),
@@ -90,7 +90,7 @@ def get_compressor_example_rotor_only_parameters(RunDirectory):
     ],
 
     ApplicationContext = dict(
-        ShaftRotationSpeed = 6000 * np.pi / 30., 
+        ShaftRotationSpeed = 6000., 
         Rows = dict(
             Rotor = dict(IsRotating=True, NumberOfBlades=30), 
         )

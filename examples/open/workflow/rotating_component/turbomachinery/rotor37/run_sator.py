@@ -9,6 +9,7 @@ w = turbomachinery.Workflow(
 
     ApplicationContext = dict(
         ShaftRotationSpeed = -1800., 
+        ShaftRotatingSpeedUnit = 'rad/s',
 
         Rows = dict(
             R37 = dict(
@@ -64,7 +65,7 @@ w = turbomachinery.Workflow(
     RunManagement=dict(
         JobName='rotor37',
         NumberOfProcessors=24,
-        RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37_test',
+        RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37',
         RemovePreviousRunDirectory = True,
         AER='34790003F', # PDEV MOLA 2025
         # TimeLimit = '00:30:00',

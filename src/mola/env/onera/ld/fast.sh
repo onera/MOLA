@@ -18,8 +18,6 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-export MAIAVERSION=1.6.0 #dev #1.4
-
 # main version. 24/06/2025 to be avoided because or random BUG https://github.com/onera/Fast/issues/89
 # export MACHINE=ld
 # export CASSIOPEE_VERSION=main
@@ -27,13 +25,17 @@ export MAIAVERSION=1.6.0 #dev #1.4
 # source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 # dev version (CAVEAT very unstable)
+# export MACHINE=ld
+# export CASSIOPEE=/stck/cassiope/git/Cassiopee/
+# source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+
 export MACHINE=ld
-export CASSIOPEE=/stck/cassiope/git/Cassiopee/
+export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode/1.99.3
+module load vscode
 
 export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 
@@ -51,15 +53,6 @@ export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 # maia
 module use --append /home/sonics/LD8/modules/
 module load maia/$MAIAVERSION-dsi-ompi405 &> /dev/null
-
-# # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
-# pdf()
-# {
-#     export OLD_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-#     export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
-#     okular "$1" &
-#     export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
-# }
 
 
 export PYTHONPATH=$MOLA:$PYTHONPATH

@@ -18,11 +18,9 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-export MAIAVERSION=1.4
-
 # TODO use stable release
 export MACHINE=sator_sph
-export CASSIOPEE=/tmp_user/sator/cassiope/git/Cassiopee/ 
+export CASSIOPEE=/tmp_user/sator/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 unset I_MPI_PMI_LIBRARY

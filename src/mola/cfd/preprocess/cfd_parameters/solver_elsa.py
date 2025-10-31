@@ -45,6 +45,9 @@ AvailableTurbulenceModels = K_OMEGA_MODELS + [
     'SA',
     ]
 
+# NOTE The following dictionary relates NASA names (https://turbmodels.larc.nasa.gov/) 
+# for turbulence models to elsa parameters. 
+# See https://elsa-doc.onera.fr/MU_tuto/latest/MU-98057/Textes/turbmods.html#nasa-named-turbulence-models-mapping
 TURBULENCE_ELSA_KEYS = {
 
     'SA': dict(

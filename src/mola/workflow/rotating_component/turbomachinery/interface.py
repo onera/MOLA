@@ -40,7 +40,7 @@ class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
             ShaftAxis : Union[list,
                             tuple,
                             np.ndarray] = [1,0,0],
-            ShaftRotationSpeedUnit : str = 'rad/s', 
+            ShaftRotationSpeedUnit : str = 'rpm', 
             HubRotationIntervals : list = None,
             Surface : float = None,
             NormalizationCoefficient : dict = None,

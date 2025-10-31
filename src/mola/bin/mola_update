@@ -6,20 +6,40 @@ import argparse
 
 from treelab import cgns
 import mola.naming_conventions as names
+from mola.logging import MolaException
 
 parser = argparse.ArgumentParser('Update parser')
 parser.add_argument('-f', '--filename',  type=str, default=names.FILE_INPUT_SOLVER, 
                     help=f'Input filename (default is {names.FILE_INPUT_SOLVER})')
-parser.add_argument('-niter', '--NumberOfIterations',  type=int, help='Number of iterations')
+parser.add_argument('-niter', '--NumberOfIterations', type=int, help='Number of iterations')
+parser.add_argument('-p', '--param', type=str, help=f'Name of a parameters that is written only once in {names.CONTAINER_WORKFLOW_PARAMETERS}')
+parser.add_argument('-v', '--value', help=f'New value for the given parameter (with option -p or --param)')
 args = parser.parse_args()
 
 try:
-    WorkflowParameters = cgns.load_from_path(args.filename, 'WorkflowParameters')
+    WorkflowParameters = cgns.load_from_path(args.filename, names.CONTAINER_WORKFLOW_PARAMETERS)
 except:
-    from mola.logging import MolaException
     raise MolaException(f'Unable to read {args.filename}')
 
-if isinstance(args.NumberOfIterations, int):
+# Search param only in SolverParameters to prevent issues
+SolverParameters = WorkflowParameters.get(Name='SolverParameters')
+if args.param is not None:
+    if args.param in ['NumberOfIterations', 'niter']:
+        raise MolaException(f'You cannot modify this parameter with option --param. Please use the dedicated option (see doc with --help)')
+    if args.value is None:
+        raise MolaException(f'You must prescribe a new value for {args.param} with option -v or --value')
+    if not isinstance(args.value, (int, float)):
+        # For type str, writting a string with a different length that the previous one raises an error in saveThisNodeOnly method
+        raise MolaException(f'Only int or float values can be modified with this function ({args.value} is of type {type(args.value)})')
+    node = SolverParameters.get(Name=args.param)
+    if node is None:
+        raise MolaException(f'Unable to find parameter "{args.param}" in {args.filename}')
+    node.setValue(args.value)
+    node.saveThisNodeOnly(args.filename)  
+    print(f'{args.param} has been updated to {args.value}')
+
+
+if args.NumberOfIterations is not None:
     node = WorkflowParameters.get(Name='NumberOfIterations')
     node.setValue(args.NumberOfIterations)
     node.saveThisNodeOnly(args.filename)  

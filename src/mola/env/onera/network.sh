@@ -49,10 +49,6 @@ export MPI_COMM_MAX=8192
 export PYTHONUNBUFFERED=true # cf ticket 9685, but simulation is slower cf ticket 10472
 
 export TREELABVERSION=v0.4.3
-export MAIAVERSION=1.6 
-export VPMVERSION=Dev
-export TURBOVERSION=v1.3.1
-export ERSTAZVERSION=v1.6.3
 
 export ELSAVERSION=v5.4.01  #v5.3.03
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
@@ -62,3 +58,8 @@ export ELSA_NOLOG=ON
 # ELSA_MEMORY_VERBOSE=TRUE https://elsa.onera.fr/issues/10621#note-19
 
 export SONICSVERSION=0.6.16
+
+export CASSIOPEE_VERSION=v4.0  # For Fast and SoNICS. For elsA, keep the version loaded with the solver
+export MAIAVERSION=1.6  # For Fast. For elsA and SoNICS, keep the version loaded with the solver
+export TURBOVERSION=v1.3.1
+export ERSTAZVERSION=v1.6.3
