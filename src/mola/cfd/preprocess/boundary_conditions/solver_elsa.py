@@ -198,6 +198,12 @@ def outpres(workflow, Family, **kwargs):
 def outsup(workflow, Family):
     define_bc_family(workflow.tree, Family, 'BCOutflowSupersonic')
 
+def outmfr1(workflow, Family, **kwargs):
+    set_physical_boundary(workflow, Family, 
+                          FamilyBC='BCOutflowSubsonic', interface_function=outmfr1_interface,
+                          **kwargs
+                          )
+
 def outmfr2(workflow, Family, **kwargs):
     set_physical_boundary(workflow, Family, 
                           FamilyBC='BCOutflowSubsonic', interface_function=outmfr2_interface,
@@ -291,6 +297,33 @@ def outpres_interface(workflow, **kwargs):
         )
     NumericalParameters = dict(
         type = 'outpres',
+    )
+    return ImposedVariables, NumericalParameters
+
+def outmfr1_interface(workflow, **kwargs):
+
+    SurfacicMassFlow = kwargs.get('SurfacicMassFlow')
+    if not SurfacicMassFlow:
+
+        from mola.cfd.preprocess.mesh.tools import get_surface_of_family
+        surface = get_surface_of_family(workflow.tree, kwargs['Family'])
+
+        MassFlow = kwargs.get('MassFlow')
+        if not MassFlow:
+            MassFlow = workflow.Flow.get('MassFlow')
+
+        try:
+            fluxcoeff = workflow.ApplicationContext['NormalizationCoefficient'][kwargs['Family']]['FluxCoef']
+        except: 
+            fluxcoeff = 1.
+
+        SurfacicMassFlow = MassFlow / surface / fluxcoeff
+
+    ImposedVariables = dict(
+        surf_massflow = SurfacicMassFlow,
+        )
+    NumericalParameters = dict(
+        type = 'outmfr1',
     )
     return ImposedVariables, NumericalParameters
 

@@ -29,7 +29,7 @@ class BoundaryConditionsDispatcherElsa(BoundaryConditionsDispatcher):
             "InflowMassFlow" : "injmfr1",
             "OutflowPressure" : "outpres",
             "OutflowSupersonic" : "outsup",
-            "OutflowMassFlow" : "outmfr2",
+            "OutflowMassFlow" : "outmfr1",  #"outmfr2",
             "OutflowRadialEquilibrium" : "outradeqhyb",
             "Wall": "walladia",
             "WallViscous" : "walladia",
@@ -41,7 +41,7 @@ class BoundaryConditionsDispatcherElsa(BoundaryConditionsDispatcher):
             "ChorochronicInterface" : "chorochronic"
         }
 
-        self._without_generic_name = ['stage_mxpl', 'stage_red', 'outradeq', 
+        self._without_generic_name = ['stage_mxpl', 'stage_red', 'outradeq', 'outmfr2',
                                       'giles_inlet', 'giles_outlet', 'giles_stage_mxpl']
 
         self._remove_unsupported_bcs_from_mapping()

@@ -166,6 +166,8 @@ def get_sonics_config(workflow):
 def update_config_with_user_parameters(my_config, workflow):
     if 'features' in workflow.SolverParameters:
         features = workflow.SolverParameters.pop('features')
+        if not isinstance(features, list): 
+            features = [features]  # Force type as list, if SolverParameters has been read from a file (workflow.cgns)
         workflow.tree.getAtPath(
             Path=f'CGNSTree/{workflow._workflow_parameters_container_}/SolverParameters/features'
             ).remove()
