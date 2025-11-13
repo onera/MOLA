@@ -188,7 +188,7 @@ class WorkflowRotatingComponent(Workflow):
 
             if not 'HubRotationIntervals' in self.ApplicationContext:
                 # Assume that hub rotates at the same speed that the zone family
-                mola_logger.warning(f'Assume that motion is uniform on bc family "{bc_family_name}".')
+                mola_logger.user_warning(f'Assume that motion is uniform on bc family "{bc_family_name}".')
                 row_family = self._get_row_from_BC_Family(self.tree, bc_family_name)
                 try:
                     self.BoundaryConditions.append(

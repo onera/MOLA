@@ -184,7 +184,7 @@ def update_config_with_user_parameters(my_config, workflow):
 def get_spatial_fluxes_template(Numerics, TurbulenceModel):
     scheme = Numerics['Scheme']
     if Numerics['Scheme'] != 'Roe':
-        mola_logger.warning(f'sonics Scheme={scheme} not implemented, using Roe instead')
+        mola_logger.user_warning(f'sonics Scheme={scheme} not implemented, using Roe instead')
     Numerics['Scheme'] = 'Roe'
 
     features = []

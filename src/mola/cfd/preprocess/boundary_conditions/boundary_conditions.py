@@ -74,7 +74,7 @@ def _adapt_bc_to_euler(workflow):
     if workflow.Turbulence['Model'] == 'Euler':
         for bc in workflow.BoundaryConditions:
             if bc['Type'] in ['WallViscous']:
-                mola_logger.warning(
+                mola_logger.user_warning(
                     f"Inconsistency between BC {bc['Family']} of type {bc['Type']} and the Euler model.\n"
                     "-> Type is automatically changed into WallInviscid."
                     )

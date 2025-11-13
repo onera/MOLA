@@ -110,7 +110,7 @@ def get_turbulence_setup( Turbulence : dict ) -> dict:
 
     else: # RANS modeling
         if requested_model != 'SA':
-            mola_logger.warning("RANS model %s not implemented in Fast. Switching to 'SA'"%requested_model)
+            mola_logger.user_warning("RANS model %s not implemented in Fast. Switching to 'SA'"%requested_model)
             Turbulence['Model'] = 'SA' 
         
         Parameters['Num2Zones']['ransmodel'] = 'SA'
@@ -123,7 +123,7 @@ def get_spatial_fluxes(Numerics : dict):
     Parameters = dict(Num2Base={}, Num2Zones={})
 
     if Numerics['Scheme'] == 'Jameson':
-        mola_logger.warning("Jameson scheme not implemented in Fast. Switching to Roe.")
+        mola_logger.user_warning("Jameson scheme not implemented in Fast. Switching to Roe.")
         Numerics['Scheme'] = "Roe"
 
     # Convective flux 

@@ -119,7 +119,7 @@ def compute_azimuthal_extension(tree, Family, method='from_periodic', axis=None)
         try:
             dθ = _compute_azimuthal_extension_from_periodic(sub_tree)
         except MolaAssertionError as err:
-            mola_logger.warning(f'{err}\nTry to compute azimuthal extension with method "from_slice"')
+            mola_logger.user_warning(f'{err}\nTry to compute azimuthal extension with method "from_slice"')
             dθ = _compute_azimuthal_extension_from_slice(sub_tree, axis=axis)
     else:
         raise MolaAssertionError(f'unknown {method=} for compute_azimuthal_extension')
@@ -203,7 +203,7 @@ def to_distributed(tree : cgns.Tree):
         t = tree
     
     else:
-        mola_logger.warning('convert tree to maia dist_tree')
+        mola_logger.debug('convert tree to maia dist_tree')
 
         if bool(tree.get(':CGNS#GlobalNumbering')):
             t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
@@ -261,7 +261,7 @@ def to_partitioned_if_distributed(tree : cgns.Tree, cassiopee_distribution={}):
     from mpi4py import MPI
     import maia
 
-    mola_logger.warning('convert tree to maia part_tree')
+    mola_logger.debug('convert tree to maia part_tree')
 
     t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
 
@@ -305,7 +305,7 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
     if is_full or MPI.COMM_WORLD.Get_size() == 1:
         return tree
     else:
-        mola_logger.warning('convert tree to maia full_tree')
+        mola_logger.debug('convert tree to maia full_tree')
     
     if is_part:
         additionnal_nodes_to_transfer = _get_additionnal_nodes_to_transfer(tree)

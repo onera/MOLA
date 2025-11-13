@@ -38,6 +38,7 @@ def apply_duplication_on_tree(workflow, tree):
                 duplication_operations.append(operation)
         
     if len(duplication_operations) > 0:
+        mola_logger.info("  duplicate mesh", rank=0)
         if workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess':
             raise MolaException('Only SplittingAndDistribution Strategy "AtComputation" is compatible with duplication')
         if workflow.Solver == 'sonics':

@@ -26,6 +26,12 @@ def apply(workflow):
     unstructured.apply(workflow)
 
 def read(workflow):
+    
+    if len(workflow.RawMeshComponents) > 1:
+        mola_logger.info("  📖 reading and 🧩assembling meshes", rank=0)
+    else:
+        mola_logger.info("  📖 reading mesh", rank=0)
+    
     meshes = []
     for component in workflow.RawMeshComponents:
         

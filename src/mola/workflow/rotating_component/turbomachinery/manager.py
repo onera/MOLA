@@ -73,7 +73,7 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         job_name = self.base_workflow.RunManagement.get('JobName', 'isospeed')
 
         if ParallelMode and initialize_from_previous:
-            mola_logger.warning('Because ParallelMode=True, initialize_from_previous is set to False.')
+            mola_logger.user_warning('Because ParallelMode=True, initialize_from_previous is set to False.')
             initialize_from_previous = False
 
         outflow_family, throttle_key = self._get_family_and_throttle_key()

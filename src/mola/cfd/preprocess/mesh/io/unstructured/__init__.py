@@ -28,7 +28,7 @@ def convert_elements_to_ngon(t):
     from mpi4py import MPI
     import maia
 
-    mola_logger.warning('Some cells are not NGon: converting to NGon')
+    mola_logger.user_warning('Some cells are not NGon: converting to NGon')
     
     t = to_distributed(t)
 

@@ -22,7 +22,7 @@ from mola.cfd.preprocess.mesh.tools import to_distributed, to_full_tree_at_rank_
 
 def apply_to_solver(workflow):
     if not workflow.tree.isUnstructured():
-        mola_logger.warning('Make mesh fully unstructured for SoNICS')
+        mola_logger.user_warning('Make mesh fully unstructured for SoNICS')
         workflow.tree = make_mesh_unstructured(workflow.tree)
         
     any_not_ngon = any([elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in workflow.tree.getElementsTypes()])

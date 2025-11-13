@@ -25,6 +25,7 @@ import mola.pytree.InternalShortcuts as J
 import mola.mesh.ExtractSurfacesProcessor as ESP
 import mola.mesh.surface as GSD
 import mola.mesh.volume as GVD
+from mola.logging import mola_logger
 
 from treelab import cgns
 
@@ -167,6 +168,8 @@ def addOversetData(t, InputMeshes, depth=2, optimizeOverlap=False,
     '''
 
     if not hasAnyOversetData(InputMeshes): return t  
+
+    mola_logger.info("  📎 adding overset data", rank=0)
 
     overset_path = os.path.join(run_directory,names.DIRECTORY_OVERSET)
     try: os.makedirs(overset_path)

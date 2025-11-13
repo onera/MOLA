@@ -48,7 +48,7 @@ def apply(workflow):
     is_maia_tree = is_dist or is_part
     if is_maia_tree and workflow.Initialization['Method'] == 'copy':
         # 'copy' method is not available because splitting will be different
-        mola_logger.warning("Method='copy' for initialization is not compatible with maia -> Method='interpolate' will be used instead.")
+        mola_logger.user_warning("Method='copy' for initialization is not compatible with maia -> Method='interpolate' will be used instead.")
         workflow.Initialization['Method'] = 'interpolate'
 
     initialize_flow_with_given_method = initialization_functions[workflow.Initialization['Method']]

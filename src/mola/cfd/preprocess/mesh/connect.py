@@ -27,6 +27,8 @@ def apply(workflow):
 
     if not any([('Connection' in component) for component in workflow.RawMeshComponents]):
         return
+
+    mola_logger.info("  🔗 connecting mesh", rank=0)
     
     reason_for_not_using_maia = get_reason_why_maia_cannot_connect(workflow)
     use_maia = not bool(reason_for_not_using_maia)
@@ -89,7 +91,7 @@ def apply_with_cassiopee(workflow):
                 tolerance = operation['Tolerance']
             except KeyError:
                 tolerance = component['DefaultToleranceForConnection']
-                mola_logger.warning(f'    connection tolerance not defined. Using tolerance={tolerance}')
+                mola_logger.user_warning(f'    connection tolerance not defined. Using tolerance={tolerance}')
             
             if ConnectionType == 'Match':
                 C._rmBCOfType(base,'BCMatch') # HACK https://elsa.onera.fr/issues/11400
@@ -108,7 +110,7 @@ def apply_with_cassiopee(workflow):
                     ratio = operation['Ratio']
                 except KeyError:
                     ratio = 2
-                    mola_logger.warning(f'    NearMatch ratio was not defined. Using ratio={ratio}')
+                    mola_logger.user_warning(f'    NearMatch ratio was not defined. Using ratio={ratio}')
                 base_out = Xmpi.connectNearMatch(base, ratio=ratio, tol=tolerance, dim=base_dim)
 
             elif ConnectionType == 'PeriodicMatch':
@@ -123,7 +125,7 @@ def apply_with_cassiopee(workflow):
                     # Remove BC attached to periodic Families if they exists (only needed for maia)
                     # Needed here if the connection is used BEFORE process_mesh for SoNICS
                     for family in operation['Families']:
-                        mola_logger.warning(f'{family=}')
+                        mola_logger.user_warning(f'{family=}')
                         for bc_node in C.getFamilyBCs(base, family):
                             I._rmNode(base, bc_node)
                         if family_node := I.getNodeFromName1(base, family):
