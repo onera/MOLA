@@ -396,6 +396,9 @@ def outradeq_interface(workflow, Family, **kwargs):
             valve_type = 2
             fluxcoeff = boundary_conditions.get_fluxcoeff_on_bc(workflow, Family)
             valve_ref_mflow = kwargs['MassFlow'] / fluxcoeff
+            pref = kwargs.get('PressureRef')
+            if pref is not None:
+                valve_ref_pres = pref 
 
     elif ValveLaw['Type'] == 'Linear':
         valve_type = 1
