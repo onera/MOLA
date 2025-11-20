@@ -1,0 +1,7 @@
+@import 'theme.css';
+/* for the Read the Docs theme */
+
+.wy-nav-content {
+    max-width: 90 !important;
+    /* Default value seems to be 800*/
+}
