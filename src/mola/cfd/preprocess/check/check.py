@@ -74,7 +74,7 @@ def check_empty_bc(workflow):
 
     # CAUTION BUG https://elsa.onera.fr/issues/12076#note-5
     if workflow.Solver == 'sonics': 
-        mola_logger.warning(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
+        mola_logger.user_warning(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
         return
     
     I._adaptPE2NFace(t)
@@ -136,13 +136,12 @@ def _raise_undefined_bc_error_saving_undefined_bc_surfaces(t, rank):
     import Converter.Internal as I
 
     C._fillEmptyBCWith(t,'UNDEFINED','UNDEFINED_t')
-    # C.convertPyTree2File(t,f'dbg_tree_{rank}.cgns')
     surfs = C.extractBCOfType(t,'UNDEFINED_t')
     if not surfs:
         raise MolaException("expected undefined BC but finnally did not found them")
     I._rmNodesByType(surfs,'FlowSolution_t')
-    C.convertPyTree2File(surfs,f'dbg_undefined_bc_{rank}.cgns')
-    raise MolaException(f'UNDEFINED BC IN TREE, CHECK dbg_undefined_bc_{rank}.cgns')
+    C.convertPyTree2File(surfs,f'debug_undefined_bc_{rank}.cgns')
+    raise MolaException(f'UNDEFINED BC IN TREE, CHECK debug_undefined_bc_{rank}.cgns')
 
 
 

@@ -49,7 +49,7 @@ def update_motion_with_defaults(Motion):
 
     RotationSpeed = Motion.setdefault('RotationSpeed', [0., 0., 0.])
     if isinstance(RotationSpeed, (int, float)):
-        mola_logger.warning('No rotation axis for motion: set to x-axis by default.')
+        mola_logger.user_warning('No rotation axis for motion: set to x-axis by default.')
         Motion['RotationSpeed'] = [RotationSpeed, 0., 0.]
     Motion.setdefault('RotationAxisOrigin', [0., 0., 0.])
     Motion.setdefault('TranslationSpeed', [0., 0., 0.])

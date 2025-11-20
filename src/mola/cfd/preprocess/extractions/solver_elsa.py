@@ -139,7 +139,7 @@ def is_zone_in_extraction_family(zone, Extraction):
 def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True, add_cellN_field=False): 
     
     if Extraction['Fields'] == []: 
-        mola_logger.warning(f'Caution: the list of fields in Extraction of name {Extraction["Name"]} is empty')
+        mola_logger.user_warning(f'Caution: the list of fields in Extraction of name {Extraction["Name"]} is empty')
         return
 
     EoRnode = zone.get(Name=Extraction['Container'], Type='FlowSolution', Depth=1) 
@@ -325,7 +325,7 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
 
             if Extraction['Frame'] == 'absolute' and not workflow.tree.isStructured():
                 output_keys["writingframe"] = "relative" # TODO identify elsA ticket
-                mola_logger.warning(f"Extraction {Extraction['Name']} requested absolute frame, but elsA cannot extract bc wall quantities in absolute frame for not structured grids. Switching to relative.")
+                mola_logger.user_warning(f"Extraction {Extraction['Name']} requested absolute frame, but elsA cannot extract bc wall quantities in absolute frame for not structured grids. Switching to relative.")
             
             boundary_layer_requested = any([v.startswith('bl_') for v in elsa_var_list])
             

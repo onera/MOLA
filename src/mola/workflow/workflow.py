@@ -102,41 +102,33 @@ class Workflow(object):
         run_manager.apply(self)
 
     def assemble(self):
-        mola_logger.info("  🧩 assembling meshes", rank=0)
         self.read_meshes()
         self.set_workflow_parameters_in_tree()
 
     def positioning(self):
-        mola_logger.info("  👇 positioning meshes", rank=0)
         positioning.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def connect(self):
-        mola_logger.info("  🔗 connecting meshes", rank=0)
         connect.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def define_families(self):
-        mola_logger.info("  🏷 defining tags", rank=0)
         families.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def duplicate(self):
-        mola_logger.info("  duplicate mesh", rank=0)
         duplicate.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def read_meshes(self):
-        mola_logger.info("  📖 reading meshes", rank=0)
         io.apply(self)
 
     def split_and_distribute(self):
-        mola_logger.info("  🪚 splitting and distributing meshes", rank=0)
         split.apply(self)
         self.set_workflow_parameters_in_tree()
 
     def process_overset(self):
-        mola_logger.info("  📎 adding overset data", rank=0)
         self.tree = overset.addOversetData(self.tree, self.RawMeshComponents, 
                         run_directory=self.RunManagement["RunDirectory"],
                         **self.Overset)
@@ -298,7 +290,7 @@ class Workflow(object):
 
     def merge(self, other_workflow):
         # TODO Still in development, not validated
-        mola_logger.warning(f'Merge workflows')
+        mola_logger.user_warning(f'Merge workflows')
 
         self._merge_trees(other_workflow)
 

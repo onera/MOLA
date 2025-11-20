@@ -70,7 +70,7 @@ def translate_extraction_variables_to_sonics(Variables, solver):
             if var_tr not in sonics_var:
                 sonics_var.append(var_tr)
         else:
-            mola_logger.warning(f'Unkwnown variable for SoNICS: {var}. It is ignored.', rank=0)
+            mola_logger.user_warning(f'Unkwnown variable for SoNICS: {var}. It is ignored.', rank=0)
     return sonics_var
 
 def translate_extraction_variables_to_sonics_function(Variables):
@@ -117,7 +117,7 @@ def translate_extraction_variables_to_sonics_function(Variables):
             if var_tr not in sonics_var:
                 sonics_var.append(var_tr)
         else:
-            mola_logger.warning(f'Unkwnown variable for SoNICS: {var}. It is ignored.', rank=0)
+            mola_logger.user_warning(f'Unkwnown variable for SoNICS: {var}. It is ignored.', rank=0)
 
     sonics_var_fun = lambda treg: [var(treg) for var in sonics_var]
     return sonics_var_fun

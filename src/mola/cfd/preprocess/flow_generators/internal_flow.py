@@ -207,6 +207,6 @@ class InternalFlowGenerator(ExternalMPtTtFlowGenerator):
         mola_logger.info(f'  > Reference surface = {Surface} m^2 (computed from inflow family {InflowFamily})', rank=0)
         if Surface > np.pi*9:  
             # warning if the inflow surface is greater than a disk with a 3m radius
-            mola_logger.warning(f'This value is large, check the lenght unit of the mesh', rank=0)
+            mola_logger.user_warning(f'This value is large, check the lenght unit of the mesh', rank=0)
         
         return Surface

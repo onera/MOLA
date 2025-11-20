@@ -26,7 +26,7 @@ import logging
 import warnings
 import numpy as np
 
-from .formatters import CustomFormatter
+from .formatters import CustomFormatter, YELLOW, ENDC
 import mola.naming_conventions as names
     
 class MaxLevelFilter(logging.Filter):
@@ -104,6 +104,13 @@ class MolaLogger(logging.Logger):
     
     def info(self, msg, rank=None, *args, **kwargs):
         if self._has_something_to_write(rank): 
+            super().info(self.preffix+msg, *args, **kwargs)
+
+    def user_warning(self, msg, rank=None, *args, **kwargs):
+        # Not a real Python warning, just a message with INFO level, 
+        # but tagged as a "User warning" and colored in yellow to catch user attention
+        if self._has_something_to_write(rank): 
+            msg = f'{YELLOW}User warning: {msg}{ENDC}'
             super().info(self.preffix+msg, *args, **kwargs)
     
     def warning(self, msg, rank=None, *args, **kwargs):

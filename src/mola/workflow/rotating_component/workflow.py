@@ -83,6 +83,26 @@ class WorkflowRotatingComponent(Workflow):
         self.set_default_parameters_for_rows() 
 
     def initialize_flow(self):
+        if self.Initialization['Method'] in ['copy', 'interpolate']:
+            mola_logger.info("🔥 prepare source tree for initialization", rank=0)
+            # We need to check if the source mesh and the target mesh has the same 
+            # azimuthal extension. Otherwise, we need to duplicate accordly the source mesh
+            self.Initialization['Source'] = cgns.load(self.Initialization['Source'])
+
+            # Check the azimuthal extension of the source mesh
+            # CAVEAT: Only for one row for now -> either the source tree is from a steady simulation with one blade per row, 
+            # or it is already duplicated for all rows as in the target tree
+            for row, rowParams in self.ApplicationContext['Rows'].items():
+                if not self.Initialization['Source'].get(Name=row, Type='Family', Depth=2):
+                    row = None
+                n = self.get_number_of_blades_in_mesh_from_family(self.Initialization['Source'], row, rowParams['NumberOfBlades'])
+
+                if n != rowParams['NumberOfBladesSimulated']:
+                    from mola.cfd.preprocess.mesh.duplicate import apply_duplication_on_tree
+                    mola_logger.info('  source mesh is duplicated to initialize the flow')
+                    self.Initialization['Source'] = apply_duplication_on_tree(self, self.Initialization['Source'])
+                    break
+
         if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
             self.parametrize_with_height()
             super().initialize_flow()
@@ -95,6 +115,8 @@ class WorkflowRotatingComponent(Workflow):
 
     def set_default_parameters_for_rows(self):
 
+        some_duplication_has_been_done = False
+
         for row, rowParams in self.ApplicationContext['Rows'].items():
 
             if not self.tree.get(Name=row, Type='Family', Depth=2):
@@ -102,13 +124,14 @@ class WorkflowRotatingComponent(Workflow):
 
             if hasattr(self, 'BodyForceModeling') and row in self.BodyForceModeling:
                 # Replace the number of blades to be consistant with the body-force mesh
-                deltaTheta = compute_azimuthal_extension(self.tree, row)
-                rowParams['NumberOfBlades'] = int(2*np.pi / deltaTheta)
+                azimuthal_extension = compute_azimuthal_extension(self.tree, row, axis=self.ApplicationContext['ShaftAxis'])
+                rowParams['NumberOfBlades'] = int(2*np.pi / azimuthal_extension)
                 rowParams['NumberOfBladesInInitialMesh'] = 1
                 mola_logger.info(f'Number of blades for {row}: {rowParams["NumberOfBlades"]} (got from the body-force mesh)')
 
             if "NumberOfBladesInInitialMesh" not in rowParams:
-                n = self.get_number_of_blades_in_mesh_from_family(row, rowParams['NumberOfBlades'])
+                azimuthal_extension = compute_azimuthal_extension(self.tree, row, axis=self.ApplicationContext['ShaftAxis'])
+                n = self.get_number_of_blades_in_mesh_from_family(self.tree, row, rowParams['NumberOfBlades'], azimuthal_extension)
                 rowParams.setdefault('NumberOfBladesInInitialMesh', n)    
 
             duplications_to_do = rowParams['NumberOfBladesSimulated'] - rowParams['NumberOfBladesInInitialMesh']
@@ -122,9 +145,43 @@ class WorkflowRotatingComponent(Workflow):
                 # CAVEAT: works only for one component
                 if len(self.RawMeshComponents) > 1:
                     raise MolaAssertionError('Multiple components are not supported yet in this case')
-                self.RawMeshComponents[0].setdefault('Positioning', [])
-                self.RawMeshComponents[0]['Positioning'].append(operation)
-        
+                component = self.RawMeshComponents[0]
+                component.setdefault('Positioning', [])
+                component['Positioning'].append(operation)
+
+                some_duplication_has_been_done = True
+
+        if some_duplication_has_been_done:
+            # HACK if duplication is done with Cassiopee, connectivities are lost
+            # In the following block, new connections are added to workflow, 
+            # to be done after duplication with Cassiopee 
+
+            # component.setdefault('Connection', [])
+            component['Connection'] = []
+
+            if not any([elem['Type']=='Match' for elem in component['Connection']]):
+                component['Connection'].append(dict(Type='Match', Tolerance=component['DefaultToleranceForConnection']))
+
+            for row, rowParams in self.ApplicationContext['Rows'].items():
+                azimuthal_extension = compute_azimuthal_extension(self.tree, row, axis=self.ApplicationContext['ShaftAxis'])
+                duplications_to_do = rowParams['NumberOfBladesSimulated'] - rowParams['NumberOfBladesInInitialMesh']
+                angle = np.degrees(azimuthal_extension) * (duplications_to_do+1)
+
+                if not np.isclose(angle, 360.):
+                    RotationAngle = angle*self.ApplicationContext['ShaftAxis']
+                    # check if the same connection PeriodicMatch does not already exist with the same angle
+                    if not any([elem['Type']=='PeriodicMatch' and 
+                                np.allclose(elem['RotationAngle'], RotationAngle) 
+                                for elem in component['Connection']]):
+                        component['Connection'].append(
+                            dict(
+                                Type='PeriodicMatch', 
+                                Tolerance=component['DefaultToleranceForConnection'], 
+                                RotationAngle=RotationAngle,
+                                Families=(f'{row}_PER1', f'{row}_PER2'),
+                                )
+                            )
+                        
         self.compute_fluxcoef_by_row()
 
     def set_motion(self):
@@ -188,7 +245,7 @@ class WorkflowRotatingComponent(Workflow):
 
             if not 'HubRotationIntervals' in self.ApplicationContext:
                 # Assume that hub rotates at the same speed that the zone family
-                mola_logger.warning(f'Assume that motion is uniform on bc family "{bc_family_name}".')
+                mola_logger.user_warning(f'Assume that motion is uniform on bc family "{bc_family_name}".')
                 row_family = self._get_row_from_BC_Family(self.tree, bc_family_name)
                 try:
                     self.BoundaryConditions.append(
@@ -249,7 +306,8 @@ class WorkflowRotatingComponent(Workflow):
 
         return hub_rotation_function     
 
-    def get_number_of_blades_in_mesh_from_family(self, FamilyName, NumberOfBlades):
+    @staticmethod
+    def get_number_of_blades_in_mesh_from_family(tree, FamilyName, NumberOfBlades, azimuthal_extension=None):
         '''
         Compute the number of blades for the row **FamilyName** in the mesh.
 
@@ -259,9 +317,10 @@ class WorkflowRotatingComponent(Workflow):
             Number of blades in the mesh for row **FamilyName**
 
         '''
-        deltaTheta = compute_azimuthal_extension(self.tree, FamilyName)
+        if azimuthal_extension is None:
+            azimuthal_extension = compute_azimuthal_extension(tree, FamilyName)
         # Compute number of blades in the mesh
-        Nb = NumberOfBlades * deltaTheta / (2*np.pi)
+        Nb = NumberOfBlades * azimuthal_extension / (2*np.pi)
         Nb = int(np.round(Nb))
         mola_logger.info(f'Number of blades in initial mesh for {FamilyName}: {Nb}', rank=0)
         if Nb < 1:

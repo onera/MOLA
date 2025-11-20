@@ -38,7 +38,7 @@ def apply_to_solver(workflow):
 
                 for field in Extraction['Fields'][:]:
                     if field not in ALLOWED_EXTRACTIONS:
-                        mola_logger.warning(f'field "{field}" not supported in fast, skipping')
+                        mola_logger.user_warning(f'field "{field}" not supported in fast, skipping')
                         Extraction['Fields'].remove(field)
 
 def add_convergence_history(t, niter):

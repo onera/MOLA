@@ -32,7 +32,7 @@ def _must_split_at_preprocess_with_cassiopee(split_opts):
     strategy = split_opts['Strategy']
     if strategy != 'AtPreprocess':
         msg = f'fast solver requires splitting in preprocess, switching strategy from "{strategy}" to "AtPreprocess"'
-        mola_logger.warning(msg)
+        mola_logger.user_warning(msg)
         split_opts['Strategy'] = 'AtPreprocess'
         split_opts['Splitter'] = 'Cassiopee'
 
@@ -40,6 +40,6 @@ def _must_distribute_with_cassiopee(split_opts):
     if split_opts['Distributor'].lower() != 'cassiopee':
         distributor = split_opts['Distributor']
         msg = f'fast solver requires to pre-assign mpi ranks in preprocess, for doing this switching distributor from distributor "{distributor}" to "Cassiopee"'
-        mola_logger.warning(msg)
+        mola_logger.user_warning(msg)
         split_opts['Distributor'] = 'Cassiopee'
 

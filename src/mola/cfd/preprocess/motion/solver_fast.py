@@ -47,7 +47,7 @@ def _must_be_unsteady_if_has_motion(Motion, Numerics, DefaultAzimutalStepInDegre
         Numerics["TimeMarching"] = "Unsteady"
         if not 'TimeStep' in Numerics or Numerics['TimeStep'] is None:
             msg = f'fast solver requires unsteady simulation if it has Motion. Using TimeStep={DefaultTimeStep} (ΔΨ={DefaultAzimutalStepInDegrees}°)'
-            mola_logger.warning(msg)
+            mola_logger.user_warning(msg)
             Numerics["TimeStep"] = DefaultTimeStep
 
 

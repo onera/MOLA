@@ -5,22 +5,20 @@ MOLA documentation
 Welcome to **MOLA** (Modular Orchestration Library for Aerodynamics)
 documentation website.
 
-Current documentation version is: |version|.
+MOLA is an `ONERA <https://www.onera.fr>`_ code [#f1]_
+that implements user-level workflows and tools for aerodynamic analysis. These
+tools are essentially interfaces of multiple simulation techniques for computational fluid dynamics (CFD), 
+with solvers `elsA <https://elsa.onera.fr>`_, `SoNICS <https://gitlab.onera.net/numerics/solver/sonics>`_ 
+and `Fast <https://onera.github.io/Fast/>`_.
+      
+Current documentation is for version |version|. 
+You may take note of what has changed compared with previous versions in the :doc:`changelog` section.
 
 Please note the `GitLab page <https://gitlab.onera.net/numerics/mola>`_ of MOLA
 and its associated `Issues <https://gitlab.onera.net/numerics/mola/-/issues>`_ section where
 you can make suggestions or report bugs.
 
-
-MOLA is an `ONERA <https://www.onera.fr>`_ code [#f1]_
-that implements user-level workflows and tools for aerodynamic analysis. These
-tools are essentially interfaces of multiple simulation techniques such as
-computational fluid dynamics (CFD), blade-element momentum theory (BEMT) and
-vortex particle method (VPM).
-
-Some CFD worfklows include automatic mesh generation, and all of them include
-preprocessing using `Cassiopee <https://elsa.onera.fr/Cassiopee>`_ and computation
-using `elsA <https://elsa.onera.fr>`_ solver.
+MOLA is distributed under licence `LGPLv3 <https://www.gnu.org/licenses/lgpl-3.0.en.html>`_.
 
 
 .. toctree::

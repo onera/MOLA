@@ -26,6 +26,8 @@ def apply(workflow):
     if not all([('Positioning' in component) for component in workflow.RawMeshComponents]):
         return
     
+    mola_logger.info("  👇 positioning mesh", rank=0)
+    
     warning_flag_import_Transform = False
 
     duplication_operations = []
@@ -38,6 +40,7 @@ def apply(workflow):
         for operation in component['Positioning']:
             if operation['Type'] == 'Scale':
                 s = float(operation['Scale'])
+                mola_logger.info(f"    - rescaling component {component['Name']} with factor {s}", rank=0)
                 try:
                     rescale_with_maia(base, s)
                 except (ImportError, AttributeError):
@@ -48,6 +51,10 @@ def apply(workflow):
                 pt1 = np.array(operation['RequestedFrame']['Point'])
                 pt0 = np.array(operation['InitialFrame']['Point'])
                 translation = pt1 - pt0
+                if np.any(translation != 0): 
+                    mola_logger.info(f"    - translating component {component['Name']} with vector {translation}", rank=0)
+                if np.any(operation['InitialFrame'] != operation['RequestedFrame']):
+                    mola_logger.info(f"    - rotate component {component['Name']} around point {pt1} to transform frame {_pretty_print_frame(operation['InitialFrame'])} into {_pretty_print_frame(operation['RequestedFrame'])}", rank=0)
                 try:
                     if operation['InitialFrame'] == operation['RequestedFrame']:
                         translate_and_rotate_with_maia(base, translation)
@@ -64,8 +71,8 @@ def apply(workflow):
                 except (ImportError, AttributeError, MolaException):
                     translate_and_rotate_with_cassiopee(base, translation, pt1, operation['InitialFrame'], operation['RequestedFrame'])
                     
-            elif operation['Type'] == 'DuplicateByRotation':
-                duplication_operations.append(operation)
+            # elif operation['Type'] == 'DuplicateByRotation':
+            #     duplication_operations.append(operation)
         
         for zone in base.zones(): 
             try:
@@ -76,8 +83,8 @@ def apply(workflow):
                     mola_logger.warning('Cannot check that the mesh is direct after Positioning operations')
                     warning_flag_import_Transform = True # To display this warning only once
     
-    if len(duplication_operations) > 0:
-        workflow.tree = duplicate(workflow.tree, duplication_operations)
+    # if len(duplication_operations) > 0:   # it is done in a separated method of workflow, because it needs connectivities and families to be correctly done
+    #     workflow.tree = duplicate(workflow.tree, duplication_operations)
 
 
 def rescale_with_cassiopee(t, scale):
@@ -107,3 +114,16 @@ def translate_and_rotate_with_maia(t, translation=[0,0,0], rotation_center=[0,0,
         rotation_center=rotation_center, 
         rotation_angle=rotation_angle
         )
+
+def _pretty_print_frame(frame):
+    def _pretty_axis(axis):
+        if np.allclose(axis, [1,0,0]):
+            return 'x'
+        elif np.allclose(axis, [0,1,0]):
+            return 'y'
+        elif np.allclose(axis, [0,0,1]):
+            return 'z'
+        else: 
+            return str(axis)
+    frame_to_print = f"({_pretty_axis(frame['Axis1'])},{_pretty_axis(frame['Axis2'])},{_pretty_axis(frame['Axis3'])})"
+    return frame_to_print

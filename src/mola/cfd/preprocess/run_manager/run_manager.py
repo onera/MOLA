@@ -71,7 +71,7 @@ def set_default(RunManagement, check_run_dir=True):
             raise MolaException(f"Cannot access to {mola_target_path}")
         
         if RunManagement['RemovePreviousRunDirectory']:
-            mola_logger.warning('Remove previous run directory')
+            mola_logger.user_warning('Remove previous run directory')
             SV.remove_path(path, machine, user, file_only=False)
         elif check_run_dir and SV.is_existing_path(f'{path}/{names.FILE_INPUT_SOLVER}', machine, user):
             raise MolaException(f"Run Directory {path} already exists")

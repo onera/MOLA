@@ -571,7 +571,7 @@ class WorkflowSequentialManager():
         for workflow in self.workflows:
             mola_logger.info(f"\n{CYAN}  > preparing {workflow.RunManagement['RunDirectory']}...{ENDC}")
             if self.skip_if_exists and SV.is_directory(workflow.RunManagement['RunDirectory'], self.machine):
-                mola_logger.warning(f"Skip directory {workflow.RunManagement['RunDirectory']} that already exists")
+                mola_logger.user_warning(f"Skip directory {workflow.RunManagement['RunDirectory']} that already exists")
                 previous_workflow = workflow
                 continue
             else:
@@ -630,7 +630,7 @@ class WorkflowSequentialManager():
 
             SV.submit_command(command, self.machine)
         else:
-            mola_logger.warning(f'  > job sequence in {self.root_directory} was not submitted, because all cases were already existing.')
+            mola_logger.user_warning(f'  > job sequence in {self.root_directory} was not submitted, because all cases were already existing.')
 
     @staticmethod
     def _build_loop_on_cases(sequence_of_paths, sequential_job_filename):

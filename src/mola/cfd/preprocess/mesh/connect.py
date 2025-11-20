@@ -25,8 +25,12 @@ def apply(workflow):
 
     _clip_small_rotation_angles(workflow.tree)
 
-    if not any([('Connection' in component) for component in workflow.RawMeshComponents]):
+    if not any([('Connection' in component) 
+                and len(component['Connection'])>0 
+                for component in workflow.RawMeshComponents]):
         return
+
+    mola_logger.info("  🔗 connecting mesh", rank=0)
     
     reason_for_not_using_maia = get_reason_why_maia_cannot_connect(workflow)
     use_maia = not bool(reason_for_not_using_maia)
@@ -76,7 +80,8 @@ def apply_with_cassiopee(workflow):
         base_dim = base.dim()
 
         if 'Connection' not in component: continue
-        _check_connections(component['Connection'])
+        # _check_connections(component['Connection'])
+        component['Connection'] = _reorder_connections(component['Connection'])
         I._adaptPE2NFace(base)  # For NGon mesh, generate NGonFace nodes if they don't exist using ParentElements n
 
         mola_logger.info(f'   - connections for base {base_name}:', rank=0)
@@ -84,18 +89,18 @@ def apply_with_cassiopee(workflow):
         for operation in component['Connection']:
             # if mpi_size > 1: raise MolaException('unable to connect mesh using MPI parallel mode and Cassiopee')
             ConnectionType = operation['Type']
-            mola_logger.info(f'    > connecting type {ConnectionType}', rank=0)
             try: 
                 tolerance = operation['Tolerance']
             except KeyError:
                 tolerance = component['DefaultToleranceForConnection']
-                mola_logger.warning(f'    connection tolerance not defined. Using tolerance={tolerance}')
+                mola_logger.user_warning(f'    connection tolerance not defined. Using tolerance={tolerance}')
             
             if ConnectionType == 'Match':
                 C._rmBCOfType(base,'BCMatch') # HACK https://elsa.onera.fr/issues/11400
                 # HACK Xmpi.connectMatch works only for structured mesh, 
                 # whereas X.connectMatch works also for unstructured mesh.
                 # See https://elsa-e.onera.fr/issues/11719
+                mola_logger.info(f'    > connecting type {ConnectionType}', rank=0)
                 if mpi_size == 1:
                     base_out = X.connectMatch(base, tol=tolerance, dim=base_dim)
                 elif base.isStructured():
@@ -104,26 +109,36 @@ def apply_with_cassiopee(workflow):
                     raise MolaAssertionError('connectMatch in parallel works only for structured mesh.')
 
             elif ConnectionType == 'NearMatch':
+                mola_logger.info(f'    > connecting type {ConnectionType}', rank=0)
                 try: 
                     ratio = operation['Ratio']
                 except KeyError:
                     ratio = 2
-                    mola_logger.warning(f'    NearMatch ratio was not defined. Using ratio={ratio}')
+                    mola_logger.user_warning(f'    NearMatch ratio was not defined. Using ratio={ratio}')
                 base_out = Xmpi.connectNearMatch(base, ratio=ratio, tol=tolerance, dim=base_dim)
 
             elif ConnectionType == 'PeriodicMatch':
-                rotationCenter = operation.get('RotationCenter', [0., 0., 0.])
-                rotationAngle = operation.get('RotationAngle', [0., 0., 0.])
+                rotation_center = operation.get('RotationCenter', [0., 0., 0.])
+                rotation_angle = operation.get('RotationAngle', [0., 0., 0.])
                 translation = operation.get('Translation', [0., 0., 0.])
-                mola_logger.debug(f'    RotationCenter = {rotationCenter}')
-                mola_logger.debug(f'    RotationAngle = {rotationAngle}')
-                mola_logger.debug(f'    Translation = {translation}')
+
+                msg = ''
+                if not np.allclose(rotation_angle, 0.):
+                    msg += f' with rotation angle of {rotation_angle} degrees'
+                if not np.allclose(rotation_center, 0.):
+                    msg += f' around point {rotation_center}'
+                if not np.allclose(translation, 0.):
+                    msg += f' with translation of {translation} meters'
+                if len(msg) == 0:
+                    # nothing to do!
+                    continue
+                mola_logger.info(f'    > connecting type {ConnectionType}{msg}', rank=0)
 
                 if 'Families' in operation:
                     # Remove BC attached to periodic Families if they exists (only needed for maia)
                     # Needed here if the connection is used BEFORE process_mesh for SoNICS
                     for family in operation['Families']:
-                        mola_logger.warning(f'{family=}')
+                        mola_logger.debug(f'remove Family {family}')
                         for bc_node in C.getFamilyBCs(base, family):
                             I._rmNode(base, bc_node)
                         if family_node := I.getNodeFromName1(base, family):
@@ -135,8 +150,8 @@ def apply_with_cassiopee(workflow):
                     raise MolaException(msg)
                 base_out = X.connectMatchPeriodic(
                     base,
-                    rotationCenter=rotationCenter,
-                    rotationAngle=rotationAngle,
+                    rotationCenter=rotation_center,
+                    rotationAngle=rotation_angle,
                     translation=translation,
                     tol=tolerance,
                     dim=base_dim
@@ -169,9 +184,18 @@ def apply_with_maia(workflow):
             rotation_center = operation.get('RotationCenter', [0., 0., 0.])
             rotation_angle = operation.get('RotationAngle', [0., 0., 0.])
             translation = operation.get('Translation', [0., 0., 0.])
-            mola_logger.debug(f'    RotationCenter = {rotation_center}')
-            mola_logger.debug(f'    RotationAngle = {rotation_angle}')
-            mola_logger.debug(f'    Translation = {translation}')
+
+            msg = ''
+            if not np.allclose(rotation_angle, 0.):
+                msg += f' with rotation angle of {rotation_angle} degrees'
+            if not np.allclose(rotation_center, 0.):
+                msg += f' around point {rotation_center}'
+            if not np.allclose(translation, 0.):
+                msg += f' with translation of {translation} meters'
+            if len(msg) == 0:
+                # nothing to do!
+                continue
+            mola_logger.info(f'    > connecting type {ConnectionType}{msg}', rank=0)
 
             # Work only on a top Tree, not on a Base
             connect_periodic_with_maia(workflow.tree, operation['Families'], rotation_center, rotation_angle, translation)
@@ -212,7 +236,24 @@ def _check_connections(connections):
             if connection['Type'] == 'Match':
                 if i != 0:
                     raise MolaAssertionError("Type='Match' cannot be used after another type oc connection")
+                
+def _reorder_connections(connections):
+    '''
+    If there is one ConnectionType == 'Match' in **connections**, there must be only one
+    and it must be the first element of the list.
+    '''
+    reordered_connections = []
+    connect_match = None
+    for connection in connections:
+        if connection['Type'] != 'Match':
+            reordered_connections.append(connection)
+        else:
+            connect_match = connection
+    
+    if connect_match:
+        reordered_connections.insert(0, connect_match)
 
+    return reordered_connections
 
 def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, translation):
     # tolerance is relative with maia, to 0.01 by default

@@ -71,7 +71,7 @@ def add_reynolds_to_reference_state(workflow):
         L = workflow.ApplicationContext['Length']
     except:
         L = 1.0
-        mola_logger.warning(f"Undefined Length in application context. Using Length={L} for computing Reynolds.")
+        mola_logger.user_warning(f"Undefined Length in application context. Using Length={L} for computing Reynolds.")
 
     Reynolds = ρ*U*L/μ
 

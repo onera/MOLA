@@ -26,6 +26,8 @@ def apply(workflow):
 
     if any(['Families' in component for component in workflow.RawMeshComponents]):
 
+        mola_logger.info("  🏷 defining tags", rank=0)
+
         t = workflow.tree
         from mpi4py import MPI
         mpi_size = MPI.COMM_WORLD.Get_size()
@@ -271,17 +273,17 @@ def join_families(t, pattern, mode=2):
     logger_text = ''  
 
     if len(fam2remove) == 1:
-        logger_text += f'Remove family {fam2remove[0]}\n'
+        logger_text += f'Remove family {fam2remove[0]}. '
     elif len(fam2remove) > 1:
-        logger_text += f'Remove the following families: {", ".join(fam2remove)}\n'
+        logger_text += f'Remove the following families: {", ".join(fam2remove)}. '
 
     if len(added_families) == 1:
-        logger_text += f'Add family {added_families[0]}'
+        logger_text += f'Add family {added_families[0]}.'
     elif len(added_families) > 1:
-        logger_text += f'Add the following families: {", ".join(added_families)}'
+        logger_text += f'Add the following families: {", ".join(added_families)}.'
     
     if len(logger_text) > 0:
-        mola_logger.warning(logger_text)
+        mola_logger.user_warning(logger_text)
 
 def get_family_to_BCType( t : cgns.Tree ) -> dict:
     families_to_bctype = dict()

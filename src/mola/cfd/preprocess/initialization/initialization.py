@@ -48,7 +48,7 @@ def apply(workflow):
     is_maia_tree = is_dist or is_part
     if is_maia_tree and workflow.Initialization['Method'] == 'copy':
         # 'copy' method is not available because splitting will be different
-        mola_logger.warning("Method='copy' for initialization is not compatible with maia -> Method='interpolate' will be used instead.")
+        mola_logger.user_warning("Method='copy' for initialization is not compatible with maia -> Method='interpolate' will be used instead.")
         workflow.Initialization['Method'] = 'interpolate'
 
     initialize_flow_with_given_method = initialization_functions[workflow.Initialization['Method']]
@@ -104,32 +104,29 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     from mpi4py import MPI
     import maia
 
-    if isinstance(workflow.Initialization['Source'], str):
-        mola_logger.info(f" - initialize flow by interpolation from {workflow.Initialization['Source']}", rank=0)
-        tree_source = maia.io.file_to_dist_tree(workflow.Initialization['Source'], MPI.COMM_WORLD)
-        tree_source = cgns.castNode(tree_source)
-    else:
-        mola_logger.info(f" - initialize flow by interpolation from the given tree", rank=0)
-        tree_source = workflow.Initialization['Source']
+    source_tree_repr = workflow.Initialization['Source'] if isinstance(workflow.Initialization['Source'], str) else 'given tree'
+    mola_logger.info(f" - initialize flow by interpolation of {source_tree_repr}", rank=0)
+    
+    source_tree = cgns.load(workflow.Initialization['Source'], backend='maia')
 
     workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
     # Rename FlowSolution nodes in the source tree if needed
     if workflow.Initialization['SourceContainer'] != FlowSolution_name:
-        for FS in tree_source.group(Name=workflow.Initialization['SourceContainer'], Type='FlowSolution'):
+        for FS in source_tree.group(Name=workflow.Initialization['SourceContainer'], Type='FlowSolution'):
             FS.setName(FlowSolution_name)
 
     # Check that all needed quantities are indeed in the container
     varNames = list(workflow.Flow['ReferenceState'])
-    for FS in tree_source.group(Name=FlowSolution_name, Type='FlowSolution'):
+    for FS in source_tree.group(Name=FlowSolution_name, Type='FlowSolution'):
         for var in varNames:
             if FS.get(Name=var, Depth=1) is None:
                 raise MolaException(f'{var} cannot be found in {FS.path()}')
     
-    tree_source = to_partitioned(tree_source)
+    source_tree = to_partitioned(source_tree)
     workflow.tree = to_partitioned(workflow.tree)
 
     maia.algo.part.interpolate(
-        tree_source, 
+        source_tree, 
         workflow.tree, 
         MPI.COMM_WORLD, 
         containers_name=[FlowSolution_name], 
@@ -138,9 +135,9 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
         n_closest_pt=4,
         )
     
-    if maia.pytree.get_node_from_name(tree_source, 'FlowSolution#Height'):
+    if maia.pytree.get_node_from_name(source_tree, 'FlowSolution#Height'):
         maia.algo.part.interpolate(
-            tree_source, 
+            source_tree, 
             workflow.tree, 
             MPI.COMM_WORLD, 
             containers_name=['FlowSolution#Height'], 
@@ -162,29 +159,21 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
+    source_tree_repr = workflow.Initialization['Source'] if isinstance(workflow.Initialization['Source'], str) else 'given tree'
+    mola_logger.info(f" - initialize flow by copy of {source_tree_repr}", rank=0)
+
     # FIXME Won't work if workflow.tree is a dist_tree or a part_tree (because zone names are modified)
-    if isinstance(workflow.Initialization['Source'], str):
-        mola_logger.info(f" - initialize flow by copy of {workflow.Initialization['Source']}", rank=0)
-        errtag = workflow.Initialization['Source']
-        tree_source = cgns.load(workflow.Initialization['Source'])
-    else:
-        mola_logger.info(f" - initialize flow by copy of the given tree", rank=0)
-        tree_source = workflow.Initialization['Source']
-        errtag = 'source tree'
+    source_tree = cgns.load(workflow.Initialization['Source'])
 
     workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
-
-    # # Careful: Are you sure you have to duplicate this mesh ? What if it is already duplicated ? 
-    # from mola.cfd.preprocess.mesh.duplicate import apply_duplication_on_tree
-    # tree_source = apply_duplication_on_tree(workflow, tree_source)
 
     for zone in workflow.tree.zones():
         FSpath = zone.path() + '/' + workflow.Initialization['SourceContainer']
         try:
-            FlowSolutionInSourceTree = tree_source.getAtPath(FSpath)
+            FlowSolutionInSourceTree = source_tree.getAtPath(FSpath)
             assert FlowSolutionInSourceTree is not None
         except:
-            raise MolaException(f"The node {FSpath} is not found in {errtag}")
+            raise MolaException(f"The node {FSpath} is not found in {source_tree_repr}")
 
         #Rename the container if needed
         if workflow.Initialization['SourceContainer'] != FlowSolution_name:
@@ -200,7 +189,7 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
         # Copy ChannelHeight if possible
         try:
             FSpath = zone.path() + '/FlowSolution#Height'
-            FlowSolutionHeightInSourceTree = tree_source.getAtPath(FSpath)
+            FlowSolutionHeightInSourceTree = source_tree.getAtPath(FSpath)
             assert FlowSolutionInSourceTree is not None
             zone.addChild(FlowSolutionHeightInSourceTree, override_sibling_by_name=True)
         except:

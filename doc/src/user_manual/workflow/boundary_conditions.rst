@@ -145,7 +145,10 @@ The second choice is to set the `MassFlow` to target on the boundary condition:
         MassFlow=10.  # mass flow rate on 360°
         )
 
-.. note:: It corresponds to `valve_type=2` in elsA and `valve_type='BCValveLawQTarget'` in SoNICS.
+.. note:: 
+    
+    It corresponds to `valve_type=2` in elsA and `valve_type='BCValveLawQTarget'` in SoNICS. 
+    The parameter `valve_ref_pres` (usually not useful) can be modified with the MOLA name `PressureRef`.
 
 
 Another choice is to use a valve law, to mimic channel opening/closing that would be done in an experimental test.

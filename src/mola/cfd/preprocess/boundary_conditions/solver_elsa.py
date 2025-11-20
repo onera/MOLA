@@ -396,6 +396,9 @@ def outradeq_interface(workflow, Family, **kwargs):
             valve_type = 2
             fluxcoeff = boundary_conditions.get_fluxcoeff_on_bc(workflow, Family)
             valve_ref_mflow = kwargs['MassFlow'] / fluxcoeff
+            pref = kwargs.get('PressureRef')
+            if pref is not None:
+                valve_ref_pres = pref 
 
     elif ValveLaw['Type'] == 'Linear':
         valve_type = 1
@@ -1152,9 +1155,9 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
     omega_Row2 = ApplicationContext['ShaftRotationSpeed'] if ApplicationContext['Rows'][row2]['IsRotating'] else 0.
 
     if Nharm_Row1 < DEFAULT_NUMBER_OF_HARMONICS:
-        mola_logger.warning(f'The number of harmonics for row {row1} ({Nharm_Row1}) is lower than the recommended value ({DEFAULT_NUMBER_OF_HARMONICS}')
+        mola_logger.user_warning(f'The number of harmonics for row {row1} ({Nharm_Row1}) is lower than the recommended value ({DEFAULT_NUMBER_OF_HARMONICS}')
     if Nharm_Row2 < DEFAULT_NUMBER_OF_HARMONICS:
-        mola_logger.warning(f'The number of harmonics for row {row2} ({Nharm_Row2}) is lower than the recommended value ({DEFAULT_NUMBER_OF_HARMONICS}')
+        mola_logger.user_warning(f'The number of harmonics for row {row2} ({Nharm_Row2}) is lower than the recommended value ({DEFAULT_NUMBER_OF_HARMONICS}')
                             
     mola_logger.info(f'      {Nharm_Row1} harmonics for {row1} family', rank=0)
     mola_logger.info(f'      {Nharm_Row2} harmonics for {row2} family', rank=0)

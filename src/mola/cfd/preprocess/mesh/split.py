@@ -31,6 +31,8 @@ def apply(workflow):
     if workflow.SplittingAndDistribution['Splitter'].lower() == 'cassiopee' and not workflow.tree.isStructured():
         raise MolaAssertionError('Incompatibility of SplittingAndDistribution with mesh: Cassiopee cannot be used to split unstructured mesh.')
 
+    mola_logger.info("  🪚 splitting and distributing mesh", rank=0)
+
     nproc = workflow.RunManagement['NumberOfProcessors']
     workflow.SplittingAndDistribution.setdefault('NumberOfParts',nproc)
     workflow.SplittingAndDistribution.setdefault('ComponentsToSplit', [])
@@ -120,7 +122,7 @@ def _split_with_cassiopee(tRef, basesToSplit, basesNotToSplit, ProcPointsLoad, N
         NbOfZonesAfterSplit = tSplit.numberOfZones()
         HasDegeneratedZones = False
         if NbOfZonesAfterSplit < remainingNProcs:
-            mola_logger.warning(f'Number of zones after split ({NbOfZonesAfterSplit}) is less than expected procs ({remainingNProcs})')
+            mola_logger.user_warning(f'Number of zones after split ({NbOfZonesAfterSplit}) is less than expected procs ({remainingNProcs})')
             mola_logger.debug('attempting T.splitNParts()...')
             tSplit = T.splitNParts(tToSplit, remainingNProcs)
             tSplit = cgns.castNode(tSplit)

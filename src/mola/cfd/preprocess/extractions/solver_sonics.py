@@ -33,7 +33,7 @@ def adapt_extractions(Extractions):
             ext['SavePeriod'] = 1000000000 # Only done at the end of the simulation
             ext['ExtractAtEndOfRun'] = True
         # elif ext['Type'] == '3D':
-        #     mola_logger.warning('output container for extraction 3D is changed to Fields@Vertex@End')
+        #     mola_logger.user_warning('output container for extraction 3D is changed to Fields@Vertex@End')
         #     ext['Container'] = 'Fields@Vertex@End'
             
 def add_AllZones_family(tree):

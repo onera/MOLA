@@ -34,7 +34,7 @@ remove_logs() {
     # remove logs
     rm -rf LOGS *.log elsA_MPI_* 
     # remove core files in case of bugs
-    rm -f bk00* core* 
+    rm -f bk00* core* debug_* dbg_*
     # remove MOLA status files
     rm -f COMPLETED FAILED NEWJOB_REQUIRED ERROR_PREPARING_WORKFLOW
 }

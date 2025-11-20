@@ -194,6 +194,9 @@ def valve_law_interface(workflow, **kwargs):
         valve_type = 'BCValveLawQTarget'
         fluxcoeff = get_fluxcoeff_on_bc(workflow, kwargs['Family'])
         valve_ref_mflow = kwargs['MassFlow'] / fluxcoeff
+        pref = kwargs.get('PressureRef')
+        if pref is not None:
+            valve_ref_pres = pref 
         
     elif ValveLaw['Type'] == 'Linear':
         valve_type = 'BCValveLawSlopePsQ'
