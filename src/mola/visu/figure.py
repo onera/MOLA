@@ -41,12 +41,13 @@ import CPlot.PyTree as CPlot
 from treelab import cgns
 
 from mola.logging import mola_logger
+from mola import naming_conventions as names
 from .helpers import xyz_to_pixel
 
 
 class Figure():
 
-    def __init__(self, window_in_pixels=(1200,800), dpi=100, camera={}, filename=None, background='gradient', Elements=[]):
+    def __init__(self, window_in_pixels=(1200,800), dpi=100, camera={}, filename=None, background='white', Elements=[]):
         self.window_in_pixels = window_in_pixels
         self.dpi = dpi
         self.camera = camera
@@ -57,12 +58,16 @@ class Figure():
         
         self.fig = None
 
-    def plot_surfaces(self, surfaces, filename=None, Elements=None,
+    def plot_surfaces(
+            self, 
+            surfaces=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D), 
+            filename=None, 
+            Elements=None,
             default_vertex_container='FlowSolution#InitV',
             default_centers_container='BCDataSet',
-            offscreen=5 # https://elsa.onera.fr/issues/10948#note-14
+            offscreen=5 # https://elsa.onera.fr/issues/10948#note-14 
             ):
-        
+                    
         if filename:
             self.filename = filename
             self.fig = None  # init fig to call _create_overlap next time
@@ -83,12 +88,7 @@ class Figure():
                         Viridis=17, Inferno=19, Magma=21, Plasma=23, Jet=25,
                         Greys=27, NiceBlue=29, Greens=31)
 
-        if isinstance(surfaces,str):
-            t = cgns.load(surfaces)
-        elif isinstance(surfaces, cgns.Tree):
-            t = surfaces
-        else:
-            t = cgns.castNode(surfaces)
+        t = cgns.load(surfaces)
 
         DIRECTORY_FRAMES = self.filename.split(os.path.sep)[:-1]    
         try: os.makedirs(os.path.join(*DIRECTORY_FRAMES))
@@ -353,13 +353,7 @@ class Figure():
         
         return cbar
 
-    def _load_signals(self, signals: Union[str, cgns.Tree]):
-        if isinstance(signals, str):
-            self.signals = cgns.load(signals)
-        else:
-            self.signals = signals
-
-    def plot_signals(self, signals: Union[str, cgns.Tree, None], left=0.05, right=0.5, bottom=0.05, top=0.4,
+    def plot_signals(self, signals: Union[str, cgns.Tree, None]=None, left=0.05, right=0.5, bottom=0.05, top=0.4,
             xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
             background_opacity=1.0, font_color='black', 
             curves=[dict(zone_name='BLADES',x='Iteration',y='MomentumXFlux',
@@ -368,9 +362,12 @@ class Figure():
         
         if not self.fig: 
             self._create_overlap()
-
-        if not self.signals or (signals is not None): 
-            self._load_signals(signals)
+     
+        if signals is None:
+            if not self.signals:
+                self.signals = cgns.load(os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D))
+        else:
+            self.signals = cgns.load(signals)
         
         ax = self.fig.add_axes([left,bottom,right-left,top-bottom])
 
