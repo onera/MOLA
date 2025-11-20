@@ -38,26 +38,93 @@ def apply_duplication_on_tree(workflow, tree):
                 duplication_operations.append(operation)
         
     if len(duplication_operations) > 0:
-        mola_logger.info("  duplicate mesh", rank=0)
+        mola_logger.info("  ➕ duplicate mesh", rank=0)
         if workflow.SplittingAndDistribution['Strategy'].lower() == 'atpreprocess':
             raise MolaException('Only SplittingAndDistribution Strategy "AtComputation" is compatible with duplication')
-        if workflow.Solver == 'sonics':
-            tool = 'maia'
-        else:
-            tool = 'cassiopee'
-        tree = duplicate(tree, duplication_operations, tool=tool)
+        
+        tool = 'maia' if workflow.Solver == 'sonics' else 'cassiopee'
+
+        tree = duplicate(tree, duplication_operations, workflow, tool=tool)
     return tree
 
-def duplicate(tree, duplication_operations, tool='maia'):
+def duplicate(tree, duplication_operations, workflow, tool='maia'):
+
+    tree.force_shorter_zone_names = force_shorter_zone_names.__get__(tree, cgns.Tree)
+    tree.force_shorter_zone_names(max_length=20)
 
     if tool == 'cassiopee':
         mola_logger.debug('duplicate with cassiopee')
         tree = _duplicate_with_cassiopee(tree, duplication_operations)
+        workflow.connect()
     else:
         mola_logger.debug('duplicate with maia')
         tree = _duplicate_with_maia(tree, duplication_operations)
 
     return tree
+
+# HACK treelab: to transfer to treelab
+def force_shorter_zone_names(self, max_length=32, verbose=False):
+    # 32 is the max length for a node name as defined by the CGNS standard
+    # https://cgns.org/standard/SIDS/convention.html#data-structure-notation-conventions
+    assert max_length <= 32
+
+    def create_names_generators_by_family():
+
+        MAX_NUMBER_OF_FIGURES = 4
+        ROOT_NAME = 'Zone'
+
+        assert len(ROOT_NAME)+MAX_NUMBER_OF_FIGURES <= max_length
+
+        existing_zone_names = [z.name() for z in self.zones()]
+
+        def create_names_generator():
+            for suffix in range(1, pow(10, MAX_NUMBER_OF_FIGURES)):
+                name = f"{ROOT_NAME}{suffix}"
+                if name not in existing_zone_names:
+                    yield name
+
+        generators = dict(default=create_names_generator())
+
+        zones_families = []
+        for z in self.zones():
+            FamilyName = z.get(Type='FamilyName', Depth=1)
+            if FamilyName:
+                zones_families.append(FamilyName.value())
+
+        for family in zones_families:
+
+            assert len(ROOT_NAME)+1+len(family)+MAX_NUMBER_OF_FIGURES <= max_length
+        
+            def gen(family):
+                for suffix in range(1, pow(10, MAX_NUMBER_OF_FIGURES)):
+                    name = f"{ROOT_NAME}_{family}{suffix}"
+                    if name not in existing_zone_names:
+                        yield name
+            generators[family] = gen(family)
+        
+        return generators
+
+    names_generators = create_names_generators_by_family()
+
+    for zone in self.zones():
+        if len(zone.name()) > max_length:
+            try:
+                family = zone.get(Type='FamilyName', Depth=1).value()
+            except:
+                family = 'default'
+
+            new_name = next(names_generators[family])
+            if verbose:
+                print(f'rename zone {zone.name()} to {new_name}')
+
+            # First change all nodes values in the tree containing that zone name
+            nodes_with_zone_name_as_value = self.group(Value=zone.name(), Type='GridConnectivity1to1_t')
+            for node in nodes_with_zone_name_as_value:
+                node.setValue(new_name)
+
+            # Finally change zone name
+            zone.setName(new_name)
+
 
 def _duplicate_with_cassiopee(tree, duplication_operations):
     '''
@@ -103,13 +170,6 @@ def _duplicate_with_cassiopee(tree, duplication_operations):
             operation['azimuthal_extension'], 
             axis=(1,0,0)
             )
-
-    # Connectivities
-    tol = duplication_operations[0]['Tolerance']
-    X.connectMatch(tree, tol=tol)
-    for angle in angles4ConnectMatchPeriodic:
-        # Not full 360 simulation: periodic BC must be restored
-        tree = X.connectMatchPeriodic(tree, rotationAngle=[angle, 0., 0.], tol=tol)
 
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
     for l in [2,3,4]: I._correctPyTree(tree, level=l)

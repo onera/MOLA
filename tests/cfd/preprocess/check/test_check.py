@@ -116,7 +116,7 @@ def test_raise_undefined_bc_error_saving_undefined_bc_surfaces(tree_dispatcher):
         if "UNDEFINED BC IN TREE" not in str(e):
             raise MolaException("unexpected error in test") from e
         
-        os.unlink('dbg_undefined_bc_0.cgns')
+        os.unlink('debug_undefined_bc_0.cgns')
         
 
 

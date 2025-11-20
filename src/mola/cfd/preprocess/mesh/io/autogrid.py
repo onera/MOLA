@@ -160,6 +160,14 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
         new_fam_name : str
             new name, without wildcards
 
+        Examples
+        --------
+
+        >>> mesh.rename_family('BLADE', 'Blade')    # Rename Family BLADE to Blade
+        >>> mesh.rename_family('BLADE*', 'Blade')   # Rename Family BLADE to Blade and BLADE_TIP to Blade_TIP
+        >>> mesh.rename_family('*BLADE', 'Blade')   # Rename Family BLADE to Blade and rotor_BLADE to rotor_Blade
+        >>> mesh.rename_family('*BLADE*', 'Blade')  # Rename Family BLADE to Blade and rotor_BLADE_TIP to rotor_Blade_TIP
+
         '''
         def update_new_fam_name(name, pattern, replacement):
             if '*' not in pattern:

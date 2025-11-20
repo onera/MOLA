@@ -18,7 +18,7 @@
 import numpy as np
 from fnmatch import fnmatch
 from packaging.version import Version
-from mola.logging import mola_logger, MolaException, MolaAssertionError
+from mola.logging import mola_logger, MolaException, MolaAssertionError, YELLOW, ENDC
 from mola.pytree.user.checker import (is_partitioned_for_use_in_maia,
                                       is_distributed_for_use_in_maia)
 from treelab import cgns
@@ -108,10 +108,13 @@ def get_surface_of_family(tree, Family):
 def compute_azimuthal_extension(tree, Family, method='from_periodic', axis=None):
     
     # Extract zones in family
-    zonesInFamily = [z for z in tree.zones() if z.get(Type='FamilyName', Value=Family)]
-    sub_tree = cgns.Tree()
-    base = cgns.Base(Parent=sub_tree)
-    base.addChildren(zonesInFamily)
+    if Family is None:
+        sub_tree = tree
+    else:
+        zonesInFamily = [z for z in tree.zones() if z.get(Type='FamilyName', Value=Family)]
+        sub_tree = cgns.Tree()
+        base = cgns.Base(Parent=sub_tree)
+        base.addChildren(zonesInFamily)
 
     if method == 'from_slice':
         dθ = _compute_azimuthal_extension_from_slice(sub_tree, axis=axis)
@@ -119,7 +122,7 @@ def compute_azimuthal_extension(tree, Family, method='from_periodic', axis=None)
         try:
             dθ = _compute_azimuthal_extension_from_periodic(sub_tree)
         except MolaAssertionError as err:
-            mola_logger.user_warning(f'{err}\nTry to compute azimuthal extension with method "from_slice"')
+            mola_logger.debug(f'{err} {YELLOW}--> Try to compute azimuthal extension with method "from_slice"{ENDC}')
             dθ = _compute_azimuthal_extension_from_slice(sub_tree, axis=axis)
     else:
         raise MolaAssertionError(f'unknown {method=} for compute_azimuthal_extension')

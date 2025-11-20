@@ -71,8 +71,8 @@ def apply(workflow):
                 except (ImportError, AttributeError, MolaException):
                     translate_and_rotate_with_cassiopee(base, translation, pt1, operation['InitialFrame'], operation['RequestedFrame'])
                     
-            elif operation['Type'] == 'DuplicateByRotation':
-                duplication_operations.append(operation)
+            # elif operation['Type'] == 'DuplicateByRotation':
+            #     duplication_operations.append(operation)
         
         for zone in base.zones(): 
             try:
@@ -83,8 +83,8 @@ def apply(workflow):
                     mola_logger.warning('Cannot check that the mesh is direct after Positioning operations')
                     warning_flag_import_Transform = True # To display this warning only once
     
-    if len(duplication_operations) > 0:
-        workflow.tree = duplicate(workflow.tree, duplication_operations)
+    # if len(duplication_operations) > 0:   # it is done in a separated method of workflow, because it needs connectivities and families to be correctly done
+    #     workflow.tree = duplicate(workflow.tree, duplication_operations)
 
 
 def rescale_with_cassiopee(t, scale):
