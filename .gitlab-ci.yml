@@ -183,8 +183,6 @@ compile_doc:
     - source $MOLA_ENV_ELSA
   script: 
     - cd doc
-    - make install_theme
-    - export PYTHONPATH="$(pwd)/theme":$PYTHONPATH
     - make doc
   artifacts:   
     paths:
