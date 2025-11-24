@@ -219,7 +219,7 @@ def allclose_lists(l1, l2, tol_abs=None, tol_rel=1e-6, empty_eq_None=True):
     return True
 
 
-def run_as_mpi_subprocess(func, size, extra_env=None, *func_args, **func_kwargs):
+def run_as_mpi_subprocess(func, size=None, extra_env=None, *func_args, **func_kwargs):
     # Extract and clean function source
     src_lines = inspect.getsourcelines(func)[0]
     src_lines = [line for line in src_lines if not line.strip().startswith("@")]
@@ -258,9 +258,13 @@ if __name__ == "__main__":
             run_env.update(extra_env)
 
         if "SLURM_JOB_ID" in run_env:
-            launcher = ["srun", "-n", str(size)]
+            launcher = ["srun"]
+            if size is not None:
+                launcher.extend(["-n", str(size)])
         else:
-            launcher = ["mpirun", "-np", str(size)]
+            launcher = ["mpirun"]
+            if size is not None:
+                launcher.extend(["-np", str(size)])
 
         cmd = launcher + ["python3", tmp_file_path]
         result = subprocess.run(

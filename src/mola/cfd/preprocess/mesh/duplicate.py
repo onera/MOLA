@@ -18,7 +18,7 @@
 import numpy as np
 
 from treelab import cgns
-from mola.logging import mola_logger, MolaException
+from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola.cfd.preprocess.mesh.tools import to_distributed, to_full_tree_at_rank_0, compute_azimuthal_extension
 
 def apply(workflow):
@@ -49,8 +49,75 @@ def apply_duplication_on_tree(workflow, tree):
 
 def duplicate(tree, duplication_operations, workflow, tool='maia'):
 
-    tree.force_shorter_zone_names = force_shorter_zone_names.__get__(tree, cgns.Tree)
-    tree.force_shorter_zone_names(max_length=20)
+    ####################################################################################
+    # HACK treelab: to transfer to treelab
+    def forceShorterZoneNames(self, max_length=32, verbose=False):
+        # 32 is the max length for a node name as defined by the CGNS standard
+        # https://cgns.org/standard/SIDS/convention.html#data-structure-notation-conventions
+        assert max_length <= 32
+
+        def create_names_generators_by_family():
+
+            MAX_NUMBER_OF_FIGURES = 4
+            ROOT_NAME = 'Zone'
+
+            assert len(ROOT_NAME)+MAX_NUMBER_OF_FIGURES <= max_length
+
+            existing_zone_names = [z.name() for z in self.zones()]
+
+            def create_names_generator():
+                for suffix in range(1, pow(10, MAX_NUMBER_OF_FIGURES)):
+                    name = f"{ROOT_NAME}{suffix}"
+                    if name not in existing_zone_names:
+                        yield name
+
+            generators = dict(default=create_names_generator())
+
+            zones_families = []
+            for z in self.zones():
+                FamilyName = z.get(Type='FamilyName', Depth=1)
+                if FamilyName:
+                    zones_families.append(FamilyName.value())
+
+            for family in zones_families:
+
+                assert len(ROOT_NAME)+1+len(family)+MAX_NUMBER_OF_FIGURES <= max_length
+            
+                def gen(family):
+                    for suffix in range(1, pow(10, MAX_NUMBER_OF_FIGURES)):
+                        name = f"{ROOT_NAME}_{family}{suffix}"
+                        if name not in existing_zone_names:
+                            yield name
+                generators[family] = gen(family)
+            
+            return generators
+
+        names_generators = create_names_generators_by_family()
+
+        for zone in self.zones():
+            if len(zone.name()) > max_length:
+                try:
+                    family = zone.get(Type='FamilyName', Depth=1).value()
+                except:
+                    family = 'default'
+
+                new_name = next(names_generators[family])
+                if verbose:
+                    print(f'rename zone {zone.name()} to {new_name}')
+
+                # First change all nodes values in the tree containing that zone name
+                nodes_with_zone_name_as_value = self.group(Value=zone.name(), Type='GridConnectivity1to1_t')
+                for node in nodes_with_zone_name_as_value:
+                    node.setValue(new_name)
+
+                # Finally change zone name
+                zone.setName(new_name)
+
+    tree.forceShorterZoneNames = forceShorterZoneNames.__get__(tree, cgns.Tree)
+    ####################################################################################
+    
+    with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG'):
+        tree.forceShorterZoneNames(max_length=20)
 
     if tool == 'cassiopee':
         mola_logger.debug('duplicate with cassiopee')
@@ -61,70 +128,6 @@ def duplicate(tree, duplication_operations, workflow, tool='maia'):
         tree = _duplicate_with_maia(tree, duplication_operations)
 
     return tree
-
-# HACK treelab: to transfer to treelab
-def force_shorter_zone_names(self, max_length=32, verbose=False):
-    # 32 is the max length for a node name as defined by the CGNS standard
-    # https://cgns.org/standard/SIDS/convention.html#data-structure-notation-conventions
-    assert max_length <= 32
-
-    def create_names_generators_by_family():
-
-        MAX_NUMBER_OF_FIGURES = 4
-        ROOT_NAME = 'Zone'
-
-        assert len(ROOT_NAME)+MAX_NUMBER_OF_FIGURES <= max_length
-
-        existing_zone_names = [z.name() for z in self.zones()]
-
-        def create_names_generator():
-            for suffix in range(1, pow(10, MAX_NUMBER_OF_FIGURES)):
-                name = f"{ROOT_NAME}{suffix}"
-                if name not in existing_zone_names:
-                    yield name
-
-        generators = dict(default=create_names_generator())
-
-        zones_families = []
-        for z in self.zones():
-            FamilyName = z.get(Type='FamilyName', Depth=1)
-            if FamilyName:
-                zones_families.append(FamilyName.value())
-
-        for family in zones_families:
-
-            assert len(ROOT_NAME)+1+len(family)+MAX_NUMBER_OF_FIGURES <= max_length
-        
-            def gen(family):
-                for suffix in range(1, pow(10, MAX_NUMBER_OF_FIGURES)):
-                    name = f"{ROOT_NAME}_{family}{suffix}"
-                    if name not in existing_zone_names:
-                        yield name
-            generators[family] = gen(family)
-        
-        return generators
-
-    names_generators = create_names_generators_by_family()
-
-    for zone in self.zones():
-        if len(zone.name()) > max_length:
-            try:
-                family = zone.get(Type='FamilyName', Depth=1).value()
-            except:
-                family = 'default'
-
-            new_name = next(names_generators[family])
-            if verbose:
-                print(f'rename zone {zone.name()} to {new_name}')
-
-            # First change all nodes values in the tree containing that zone name
-            nodes_with_zone_name_as_value = self.group(Value=zone.name(), Type='GridConnectivity1to1_t')
-            for node in nodes_with_zone_name_as_value:
-                node.setValue(new_name)
-
-            # Finally change zone name
-            zone.setName(new_name)
-
 
 def _duplicate_with_cassiopee(tree, duplication_operations):
     '''

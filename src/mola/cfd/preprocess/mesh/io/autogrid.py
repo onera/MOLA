@@ -144,8 +144,9 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
 
     apply_cleaning_macro_autogrid(mesh)
 
-    #TODO put that function in treelab as a method of Tree and Base
-    def rename_family(mesh: cgns.Tree, current_fam_name: str, new_fam_name: str):
+    ####################################################################################
+    # HACK treelab: to transfer to treelab
+    def renameFamily(mesh: cgns.Tree, current_fam_name: str, new_fam_name: str):
         '''
         Rename a Family in the tree, or all families which match a given pattern. 
 
@@ -210,7 +211,10 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
 
                 # Change also the value of all nodes FamilyName_t or AdditionalFamilyName_t related to that Family                
                 for node in mesh.group(Type='*FamilyName', Value=family):
-                    node.setValue(updated_new_fam_name)    
+                    node.setValue(updated_new_fam_name)  
+
+    mesh.renameFamily = renameFamily.__get__(mesh, cgns.Tree)  
+    ####################################################################################
 
     def get_unique_zone_family_name(mesh: cgns.Tree):
         zone_families = []
@@ -235,12 +239,12 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
     # Family name "Propeller" is mandatory for WorkflowPropeller
 
     # For butterfly mesh, Autogrid uses default family names
-    rename_family(mesh, 'inlet_bulb', 'Propeller')
-    rename_family(mesh, 'outlet_bulb', 'Propeller')
+    mesh.renameFamily('inlet_bulb', 'Propeller')
+    mesh.renameFamily('outlet_bulb', 'Propeller')
 
     mesh.findAndRemoveNode(Name='Propeller', Type='Family', Depth=2)  # for next line. This family will be recreated after
     zone_family_name = get_unique_zone_family_name(mesh)  # at this stage, there must be only one family of zones remaining
-    rename_family(mesh, f'*{zone_family_name}*', 'Propeller')
+    mesh.renameFamily(f'*{zone_family_name}*', 'Propeller')
 
     # rename blade family
     guess_names_for_blade_family = [
@@ -249,15 +253,15 @@ def apply_cleaning_macro_autogrid_propeller(mesh: cgns.Tree):
         ]
     for fam in guess_names_for_blade_family:
         if mesh.get(Type='Family', Name=fam, Depth=2) is not None:
-            rename_family(mesh, fam, 'BLADE')
+            mesh.renameFamily(fam, 'BLADE')
     # Put blade tip in a different family, to let the possibility to user to use WallInscid BC if wanted
     # FIXME Incompatible with WorkflowPropeller _compute_maximum_blade_radius
-    # rename_family(mesh, 'Propeller_far_field_SOLID_1', 'BLADE_TIP') 
+    # mesh.renameFamily('Propeller_far_field_SOLID_1', 'BLADE_TIP') 
 
     # For convenience
-    rename_family(mesh, 'FAR_FIELD', 'FARFIELD')
+    mesh.renameFamily('FAR_FIELD', 'FARFIELD')
     join_families(mesh, 'HUB')
-    rename_family(mesh, '*HUB*', 'SPINNER')
+    mesh.renameFamily('*HUB*', 'SPINNER')
 
     # Remove BC Families *__CON_* at the interface of Propeller and Farfield zones
     # If the mesh is well defined, these BC are redundant with GC already well defined

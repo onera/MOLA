@@ -21,8 +21,10 @@ from packaging.version import Version
 from mola.logging import mola_logger, MolaException, MolaAssertionError, YELLOW, ENDC
 from mola.pytree.user.checker import (is_partitioned_for_use_in_maia,
                                       is_distributed_for_use_in_maia)
+from mola.cfd import parallel_execution_with_maia
 from treelab import cgns
 
+@parallel_execution_with_maia()
 def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='Vertex'):
     from mpi4py import MPI
     import maia
@@ -41,9 +43,11 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
         hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
         shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
 
-    if len(PT.get_nodes_from_predicate(tree, hub_bc_predicate)) == 0:
+    hub_was_not_found = MPI.COMM_WORLD.reduce(len(PT.get_nodes_from_predicate(tree, hub_bc_predicate)) == 0, op=MPI.LAND)
+    if hub_was_not_found:
         raise MolaException(f'Cannot find hub families in tree from names {hub_families}')
-    if len(PT.get_nodes_from_predicate(tree, shroud_bc_predicate)) == 0:
+    shroud_was_not_found = MPI.COMM_WORLD.reduce(len(PT.get_nodes_from_predicate(tree, shroud_bc_predicate)) == 0, op=MPI.LAND)
+    if shroud_was_not_found:
         raise MolaException(f'Cannot find shroud families in tree from names {shroud_families}')
     
     # TODO make this operation separately for each row family to prevent errors

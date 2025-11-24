@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from treelab import cgns
-from mola.cfd import apply_to_solver
+from mola.cfd import apply_to_solver, parallel_execution_with_maia
 from mola.logging import mola_logger, MolaException, MolaUserError
 from mola.cfd.preprocess.mesh.tools import to_partitioned
 from .initialization_with_turbo import initialize_flow_with_turbo
@@ -229,6 +229,7 @@ def compute_wall_distance_if_needed(workflow):
         
         force_grid_location_as_first_sibling(workflow.tree) # HACK
 
+@parallel_execution_with_maia()
 def compute_wall_distance_with_maia(tree: cgns.Tree):
     import maia
     import maia.pytree as PT
