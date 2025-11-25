@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="141.08mm"
+   height="40mm"
+   viewBox="0 0 141.08 40"
+   version="1.1"
+   id="svg9450"
+   inkscape:version="1.2 (dc2aeda, 2022-05-15)"
+   sodipodi:docname="mola_light.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview9452"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.4984147"
+     inkscape:cx="181.85887"
+     inkscape:cy="162.17139"
+     inkscape:window-width="1920"
+     inkscape:window-height="1016"
+     inkscape:window-x="0"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs9447">
+    <clipPath
+       id="presentation_clip_path"
+       clipPathUnits="userSpaceOnUse">
+      <rect
+         x="0"
+         y="0"
+         width="14200"
+         height="4000"
+         id="rect833" />
+    </clipPath>
+  </defs>
+  <g
+     inkscape:label="Calque 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-31.873793,-64.756243)">
+    <g
+       style="fill-rule:evenodd;stroke-width:28.222;stroke-linejoin:round"
+       id="g994"
+       transform="matrix(0.01,0,0,0.01,30.953793,64.756243)">
+      <g
+         id="g895">
+        <g
+           id="id2"
+           class="Master_Slide">
+          <g
+             id="bg-id2"
+             class="Background" />
+          <g
+             id="bo-id2"
+             class="BackgroundObjects" />
+        </g>
+      </g>
+      <g
+         class="SlideGroup"
+         id="g930">
+        <g
+           id="g928">
+          <g
+             id="container-id1">
+            <g
+               id="id1"
+               class="Slide"
+               clip-path="url(#presentation_clip_path)">
+              <g
+                 class="Page"
+                 id="g924">
+                <g
+                   class="com.sun.star.drawing.PolyPolygonShape"
+                   id="g902">
+                  <g
+                     id="id3">
+                    <rect
+                       class="BoundingBox"
+                       stroke="none"
+                       fill="none"
+                       x="240"
+                       y="442"
+                       width="2251"
+                       height="3172"
+                       id="rect897" />
+                    <path
+                       fill="#207068"
+                       stroke="none"
+                       d="M 240,442 880,559 2490,2009 880,3459 339,3612 1065,2009 Z"
+                       id="path899" />
+                  </g>
+                </g>
+                <g
+                   class="com.sun.star.drawing.TextShape"
+                   id="g915">
+                  <g
+                     id="id4">
+                    <rect
+                       class="BoundingBox"
+                       stroke="none"
+                       fill="none"
+                       x="3040"
+                       y="-304"
+                       width="13539"
+                       height="5852"
+                       id="rect904" />
+                    <text
+                       class="TextShape"
+                       id="text912"
+                       style="fill:#207068;fill-opacity:1"><tspan
+                         class="TextParagraph"
+                         font-family="Calibri, sans-serif"
+                         font-size="4812px"
+                         font-weight="400"
+                         id="tspan910"
+                         style="fill:#207068;fill-opacity:1"><tspan
+                           class="TextPosition"
+                           x="3290"
+                           y="3432"
+                           id="tspan908"
+                           style="fill:#207068;fill-opacity:1"><tspan
+                             fill="#13433e"
+                             stroke="none"
+                             id="tspan906"
+                             style="fill:#207068;fill-opacity:1">mola</tspan></tspan></tspan></text>
+                  </g>
+                </g>
+                <g
+                   class="com.sun.star.drawing.ClosedBezierShape"
+                   id="g922">
+                  <g
+                     id="id5">
+                    <rect
+                       class="BoundingBox"
+                       stroke="none"
+                       fill="none"
+                       x="92"
+                       y="1456"
+                       width="2574"
+                       height="2089"
+                       id="rect917" />
+                    <path
+                       fill="#40e0d0"
+                       stroke="none"
+                       d="M 2664,3543 C 1689,457 -16,1607 98,1959 212,2309 1572,1155 2664,3543 Z"
+                       id="path919" />
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -13,7 +13,7 @@ authors:
     affiliation: ONERA
 repository-code: 'https://github.com/onera/MOLA'
 abstract: >-
-  MOLA (Modular Orchetration Library for Aerodynamics) is an
+  MOLA (Modular Orchestration Library for Aerodynamics) is an
   ONERA Python code that implements user-level workflows and
   tools for aerodynamic analysis.
 license: LGPL-3.0

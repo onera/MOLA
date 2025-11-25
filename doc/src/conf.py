@@ -73,10 +73,18 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = 'pydata_sphinx_theme'
 html_style = '_static/css/custom.css'
 
+# html_logo = str(Path('_static/icons/mola_logo.png'))
+html_favicon = str(Path('_static/mola_icon.svg'))
+
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
+    "logo": {
+      "image_light": "_static/mola_light.svg",  # should be in _static directory, not in a subdir like _static/icons/
+      "image_dark" : "_static/mola_dark.svg",   # should be in _static directory, not in a subdir like _static/icons/
+    },
+
     "navbar_start": ["navbar-logo"], #"navbar-version"],
     "navbar_align": "content",
     "header_links_before_dropdown": 5,
@@ -111,15 +119,12 @@ html_theme_options = {
         {
             'name':'MOLA v1',
             'url':'https://numerics.gitlab-pages.onera.net/mola/v1.19', 
-            'icon':'_static/icons/mola_v1.png', 
+            'icon':'_static/icons/mola_v1.svg', 
             'type': 'local',
             },
 
     ],
 }
-
-html_logo = str(Path('_static/icons/mola_logo.png'))
-html_favicon = str(Path('_static/icons/mola_icon.ico'))
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

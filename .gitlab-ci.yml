@@ -111,7 +111,7 @@ test_integration_sonics:
   stage: test-integration
   needs: ["test_unit_sonics"]
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=1:00:00"
   before_script:
     - source $MOLA_ENV_SONICS
   script:
