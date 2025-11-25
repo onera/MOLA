@@ -93,11 +93,13 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
     ----------
 
     number_of_cells_limit : int
+
         If the number of cells in the mesh is below this number, then the function is applied sequentially (like without the decorator).
         Otherwise, the decorator is fully applied and the function is applied in paralllel.
         The default value is 1e5.
 
     second_tree : bool
+
         If True, then the decorated function is expected to have two trees as the first two arguments. 
         Both will be written in temporary files. 
         Only one tree is returned.
@@ -105,7 +107,7 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
     Examples 
     --------
     
-    ..code-block::python
+    .. code-block::python
 
         @parallel_execution_with_maia()
         def my_function(tree, arg1, arg2, option=None):

@@ -227,10 +227,6 @@ class CoprocessManager():
         elif is_cgns and data.get(Name=':CGNS#Ppart', Depth=3):
             io_tool = 'pypart'
 
-        elif "signals" in filename and self.workflow.Solver == 'sonics':
-            # tmp HACK FIXME otherwise, bases are empty, don't know why...
-            io_tool = 'treelab'
-
         elif self.workflow.SplittingAndDistribution['Splitter'].lower() in ['cassiopee', 'pypart']:
             io_tool = 'cassiopee_mpi' 
         
