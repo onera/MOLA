@@ -1,9 +1,11 @@
 
-.PHONY=doc,update_theme,archive_doc
+.PHONY=doc,install_doc_requirements,archive_doc
 
 doc:
-	pip3 install sphinx==6.2 --upgrade
 	sphinx-build -b html src html
+
+install_doc_requirements:
+	pip3 install -r requirements.txt
 
 archive_doc:
 	tar -cvzf html.tar.gz html/
