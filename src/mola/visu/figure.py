@@ -63,7 +63,7 @@ class Figure():
             surfaces=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D), 
             filename=None, 
             Elements=None,
-            default_vertex_container='FlowSolution#InitV',
+            default_vertex_container='FlowSolution#EndOfRunV',
             default_centers_container='BCDataSet',
             offscreen=5 # https://elsa.onera.fr/issues/10948#note-14 
             ):
@@ -356,9 +356,15 @@ class Figure():
     def plot_signals(self, signals: Union[str, cgns.Tree, None]=None, left=0.05, right=0.5, bottom=0.05, top=0.4,
             xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
             background_opacity=1.0, font_color='black', 
-            curves=[dict(zone_name='BLADES',x='Iteration',y='MomentumXFlux',
-                         plot_params={})], 
+            curves=None,
             iterationTracer=None):
+        
+        if curves is None:
+            return
+        elif isinstance(curves, dict):
+            curves = [curves]
+        else:
+            assert isinstance(curves, list)
         
         if not self.fig: 
             self._create_overlap()
@@ -372,6 +378,13 @@ class Figure():
         ax = self.fig.add_axes([left,bottom,right-left,top-bottom])
 
         for curve in curves:
+            # Available parameters in curve: zone_name, x, y, include_last_point_label, plot_params
+            curve.setdefault('include_last_point_label', False)
+            curve.setdefault('multiply_by', 1)
+            curve.setdefault('plot_params', {})
+            if len(curves) > 1:
+                curve['plot_params'].setdefault('label', curve['zone_name'])
+
             zone = self.signals.group(Type='Zone_t', Name=curve['zone_name'])
             if not zone: raise ValueError(f'zone {curve["zone_name"]} not found in arrays')
             if len(zone) > 1:
@@ -379,6 +392,7 @@ class Figure():
             zone = zone[0]
 
             x, y = zone.fields([curve['x'],curve['y']], BehaviorIfNotFound='raise')
+            y *= curve['multiply_by']
 
             if xmax is not None:
                 interval = x <= xmax
@@ -399,7 +413,6 @@ class Figure():
                 except:
                     pass
             
-            curve.setdefault('include_last_point_label',False)
             if curve['include_last_point_label']:
                 ax.text(x[-1], y[-1], "%g"%y[-1],
                         horizontalalignment='right',
@@ -419,6 +432,9 @@ class Figure():
         if isinstance(figure_name,str): ax.set_title(figure_name)
         ax.patch.set_alpha(background_opacity)
         self.axes += [ ax ]
+
+        if len(curves) > 1:
+            ax.legend()
 
         ax.spines['bottom'].set_color(font_color)
         ax.spines['top'].set_color(font_color) 
