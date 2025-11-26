@@ -1,32 +1,28 @@
 [
     {
-        "name": "development",
+        "name": "dev",
         "version": "Dev",
-        "url": "../Dev/"
+        "url": "https://numerics.gitlab-pages.onera.net/mola/Dev/index.html"
     },
     {
         "name": "v1.19",
         "version": "v1.19",
-        "url": "../v1.19/"
+        "url": "https://numerics.gitlab-pages.onera.net/mola/v1.19/index.html"
     },
     {
-        "name": "v1.18",
         "version": "v1.18",
-        "url": "../v1.18/"
+        "url": "https://numerics.gitlab-pages.onera.net/mola/v1.18/index.html"
     },
     {
-        "name": "v1.17",
         "version": "v1.17",
-        "url": "../v1.17/"
+        "url": "https://numerics.gitlab-pages.onera.net/mola/v1.17/index.html"
     },
     {
-        "name": "v1.16",
         "version": "v1.16",
-        "url": "../v1.16/"
+        "url": "https://numerics.gitlab-pages.onera.net/mola/v1.16/index.html"
     },
     {
-        "name": "v1.15",
         "version": "v1.15",
-        "url": "../v1.15/"
+        "url": "https://numerics.gitlab-pages.onera.net/mola/v1.15/index.html"
     }
 ]

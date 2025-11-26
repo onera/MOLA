@@ -27,8 +27,6 @@ ulimit -s unlimited # in order to allow arbitrary use of stack (required by VPM)
 unset I_MPI_PMI_LIBRARY
 
 # Treelab
-# NOTE installation hint:
-# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export TREELABPATH=/tmp_user/sator/mola/treelab/$TREELABVERSION/sator_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH

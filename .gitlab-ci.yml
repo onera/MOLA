@@ -199,7 +199,7 @@ pages:    # Name to use for doc deployment
   before_script:
     - source $MOLA_ENV_DEFAULT
     - MOLA_VERSION=$(python3 -c "import mola; print(mola.__version__)")
-    - DOC_DIR_NAME=Dev  #"v${MOLA_VERSION}"
+    - DOC_DIR_NAME=Dev
   script: # doc directory has to be moved to the working directory and be renamed "public" 
     # copy existing doc for previous versions
     - rsync -avL --exclude="$DOC_DIR_NAME" /stck/mola/html/ public

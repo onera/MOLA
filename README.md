@@ -42,7 +42,8 @@ workflow.submit()
 ```
 
 ## Documentation
-For documentation, examples, major changes, please consult the [documentation site](https://gitlab.onera.net/numerics/mola/-/wikis/home)
+
+For documentation, examples, major changes, please consult the [documentation site](http://numerics.gitlab-pages.onera.net/mola/)
 
 ## Contributing
 

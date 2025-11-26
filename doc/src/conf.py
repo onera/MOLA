@@ -23,7 +23,6 @@ project = 'MOLA'
 copyright = 'ONERA'
 authors = ["Luis Bernardos", "Thomas Bontemps"],
 version = __version__
-stable_release = 'v1.19'
 # available versions are to be written in _static/versions.json
 
 # -- General configuration ---------------------------------------------------
@@ -91,7 +90,7 @@ html_theme_options = {
     'navbar_end': ['theme-switcher', 'navbar-icon-links', 'version-switcher'],
     "switcher": {
         "json_url": "https://numerics.gitlab-pages.onera.net/mola/Dev/_static/versions.json",
-        "version_match": stable_release,
+        "version_match": "Dev",
         },
 
     "navbar_persistent": ["search-button"],
@@ -115,12 +114,6 @@ html_theme_options = {
             'url':'https://github.com/Luispain/treelab', 
             'icon':'_static/icons/treelab.png', 
             'type': 'local'
-            },
-        {
-            'name':'MOLA v1',
-            'url':'https://numerics.gitlab-pages.onera.net/mola/v1.19', 
-            'icon':'_static/icons/mola_v1.svg', 
-            'type': 'local',
             },
 
     ],

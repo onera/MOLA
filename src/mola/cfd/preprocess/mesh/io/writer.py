@@ -97,27 +97,6 @@ def write_with_maia(w, tree, dst):
     from mpi4py import MPI
     import maia
 
-
-    ####################################################################################
-    # HACK treelab: to transfer to treelab
-    def is_empty(zone):
-        GridCoordinates = zone.get(Type='GridCoordinates', Depth=1)
-        if GridCoordinates is None:
-            return True
-        coord = GridCoordinates.get(Type='DataArray')
-        if coord is None or coord.value() is None:
-            return True
-        
-        return False
-
-    def removeEmptyZones(tree):
-        for zone in tree.zones():
-            if is_empty(zone): 
-                zone.remove()
-    
-    # tree.removeEmptyZones = removeEmptyZones.__get__(tree, cgns.Tree)
-    ####################################################################################
-
     def get_links_for_maia(tree):
         links = tree.getLinks()
         for l in links:
@@ -130,14 +109,14 @@ def write_with_maia(w, tree, dst):
     links = get_links_for_maia(tree)
     MPI.COMM_WORLD.barrier()
     if maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
-        removeEmptyZones(tree)
+        tree.removeEmptyZones()
         # maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, single_file=True, links=links)
         tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
         maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
 
 
     elif maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
-        removeEmptyZones(tree)
+        tree.removeEmptyZones()
         maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
     
     else:

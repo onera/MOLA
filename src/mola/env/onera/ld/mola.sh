@@ -33,8 +33,6 @@ module load paraview
 module load occt
 
 # Treelab
-# NOTE installation hint:
-# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/v0.1.0/ld_elsA mola-treelab
 export DIST="ld"
 MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export DIST="visung"; fi
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA

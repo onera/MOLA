@@ -48,7 +48,9 @@ export MPI_GROUP_MAX=8192
 export MPI_COMM_MAX=8192
 export PYTHONUNBUFFERED=true # cf ticket 9685, but simulation is slower cf ticket 10472
 
-export TREELABVERSION=v0.4.3
+export TREELABVERSION=v0.4.4
+# NOTE installation hint:
+# python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/$TREELABVERSION/ld_elsA mola-treelab==$TREELABVERSION
 
 export ELSAVERSION=v5.4.01  #v5.3.03
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
