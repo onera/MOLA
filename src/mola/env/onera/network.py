@@ -10,8 +10,8 @@ PathsToEnvironments = {
 def guess_localhost():
     import os
     cluster = os.getenv('ONERA_CLUSTERNAME', 'ld')
-    if cluster == 'visung':
-        cluster = 'ld'  # same environment on ld and visung
+    if cluster in ['visung', 'spiro']:
+        cluster = 'ld'  # same environment on ld, visung and spiro
     return cluster
 
 if __name__ == '__main__':

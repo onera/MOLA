@@ -44,8 +44,6 @@ export FI_PROVIDER=tcp
 # module load maia/$MAIAVERSION-dsi-cfd6
 
 # Treelab
-# NOTE installation hint:
-# python3 -m pip install --no-deps --prefix=/stck/mola/treelab/v0.4.3/juno_elsA mola-treelab==0.4.3
 export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_elsA
 # export TREELABPATH=/stck/lbernard/treelab/dev # ONLY DURING DEV (replaces stable version)
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
