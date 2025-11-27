@@ -21,8 +21,6 @@ from mola.logging import mola_logger, MolaException, MolaUserError
 from mola.cfd.preprocess.mesh.tools import to_partitioned
 from .initialization_with_turbo import initialize_flow_with_turbo
 
-INIT_ANALYTICAL_METHODS = ['uniform', 'turbo']
-
 def apply(workflow):
     '''
     Initialize the flow solution.

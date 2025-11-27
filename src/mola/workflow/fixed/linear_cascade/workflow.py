@@ -57,7 +57,7 @@ class WorkflowLinearCascade(Workflow):
         super().compute_flow_and_turbulence()
 
     def initialize_flow(self):
-        if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
+        if self.Initialization['Method'] == 'turbo':
             self.parametrize_with_height()
             super().initialize_flow()
 

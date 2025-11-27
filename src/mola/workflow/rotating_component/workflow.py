@@ -103,7 +103,7 @@ class WorkflowRotatingComponent(Workflow):
                     self.Initialization['Source'] = apply_duplication_on_tree(self, self.Initialization['Source'])
                     break
 
-        if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
+        if self.Initialization['Method'] == 'turbo':
             self.parametrize_with_height()
             super().initialize_flow()
 

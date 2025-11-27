@@ -9,7 +9,7 @@ size = comm.Get_size()
 # set the different field elements to include in the image
 Elements = [
             dict(extraction_name='Iso_H_0.9',
-                color='Iso:MachNumberRel', colormap='Diverging', shadow=False, levels=[21, 0, 2], iso_line=1),
+                color='Iso:MachNumberRel', colormap='Diverging', shadow=False, levels=[21, 0.4, 1.6]) #, iso_line=1),
             ]
 
 # Create a figure
@@ -25,7 +25,7 @@ fig = visu.Figure(
 
 
 # generate the CPlot image of the field elements (will write an image)
-fig.plot_surfaces(default_vertex_container='FlowSolution#EndOfRunV')
+fig.plot_surfaces()
 # include matplotlib components, such as colorbar and a 2D curve plot
 fig.add_colorbar(
     field_name='MachNumberRel', colorbar_title = r'$\bf{M_{rel}}$ (-)',
@@ -39,7 +39,8 @@ ax = fig.plot_signals(left=0.6, right=0.92, bottom=0.5, top=0.8,
             curves=[
                 dict(zone_name='R37_INFLOW',x='Iteration',y='MassFlow', multiply_by=-1),
                 dict(zone_name='R37_OUTFLOW',x='Iteration',y='MassFlow'),
-                ]
+                ],
+            ylim=[19,22]
             )
 
 fig.save()
