@@ -336,6 +336,8 @@ class CoprocessManager():
 
             PostprocessOperations = extraction.get('PostprocessOperations', [])
 
+            if not extraction['IsToExtract']: continue
+
             for operation in PostprocessOperations:
                 AtEndOfRunOnly = operation.get('AtEndOfRunOnly', True)
                 is_to_postprocess = self.status=='TO_FINALIZE' or not AtEndOfRunOnly
@@ -344,7 +346,7 @@ class CoprocessManager():
 
                 if operation['Type'] in AVAILABLE_OPERATIONS_ON_SIGNALS:
                     if 'Data' not in extraction:
-                        raise KeyError(f"no Data in extraction:\n{extraction}")
+                        raise MolaException(f"no Data in extraction {extraction['Name']}: \n{pretty(extraction)}")
 
                     # ex: PostprocessOperations = [dict(Type='avg', Variable='MassFlow')]
                     self.mola_logger.debug(f"  compute {operation['Type']}-{operation['Variable']} on {extraction['Name']}", rank=0)

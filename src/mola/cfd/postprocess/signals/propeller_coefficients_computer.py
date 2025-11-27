@@ -73,7 +73,7 @@ def _update_torque_coefficients(coefs : dict, tx, ty, tz, ApplicationContext : d
     if np.linalg.norm(rotation_center) != 0:
         raise NotImplementedError("rotatation center must be (0,0,0)")
 
-    RPS = getRPS(ApplicationContext)
+    RPS = np.abs(getRPS(ApplicationContext))
     RPM = 60 * RPS
 
     Torque = fields.project_load(tx,ty,tz,-axis)
