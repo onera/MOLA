@@ -32,7 +32,7 @@ The previous line should have the following output in the console:
 
     source /stck/mola/2.0.0/mola/mola/env/onera/ld/elsa.sh
 
-That line could also have been source directly, but hence there is also a dependance to the machine (e.g. `ld` here).
+That line could also have been sourced directly, but hence there is also a dependance to the machine (e.g. `ld` here).
 
 .. important::
 

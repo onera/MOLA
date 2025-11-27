@@ -63,7 +63,7 @@ class Figure():
             surfaces=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D), 
             filename=None, 
             Elements=None,
-            default_vertex_container='FlowSolution#EndOfRunV',
+            default_vertex_container=names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX,
             default_centers_container='BCDataSet',
             offscreen=5 # https://elsa.onera.fr/issues/10948#note-14 
             ):

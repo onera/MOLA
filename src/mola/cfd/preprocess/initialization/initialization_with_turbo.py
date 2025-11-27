@@ -143,7 +143,7 @@ def initialize_flow_with_turbo(workflow, FlowSolution_name):
 
     if workflow.Name == 'WorkflowLinearCascade':
         config = 'linear'
-        lin_axis = workflow.lin_axis
+        lin_axis = workflow.ApplicationContext['lin_axis']
     else:
         lin_axis = 'XY'  # whatever, this value is not used
 

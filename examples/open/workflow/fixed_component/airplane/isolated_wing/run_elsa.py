@@ -3,6 +3,8 @@ import numpy as np
 
 # WorkflowAirplane().print_interface();exit()
 
+assert solver == 'elsa'
+
 w = WorkflowAirplane(
 
     RawMeshComponents=[
@@ -52,22 +54,22 @@ w = WorkflowAirplane(
         dict(Family='SYMMETRY', Type='SymmetryPlane'),
     ],
 
-    ConvergenceCriteria = [
-        dict(
-            ExtractionName = 'WING',
-            Variable = "std-CL",
-            Threshold = 1e-3,
-        ),
-        dict(
-            ExtractionName = 'WING',
-            Variable = "CL",
-            Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
-        )
-    ],
+    # ConvergenceCriteria = [
+    #     dict(
+    #         ExtractionName = 'WING',
+    #         Variable = "rsd-CD",
+    #         Threshold = 1e-4,
+    #     ),
+    #     dict(
+    #         ExtractionName = 'WING',
+    #         Variable = "CL",
+    #         Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
+    #     )
+    # ],
 
     RunManagement = dict(
         NumberOfProcessors = 8,
-        RunDirectory = f'example_{solver}_test3',
+        RunDirectory = f'example_{solver}',
         Scheduler = 'local',
         TimeLimit = '3:00:00',
     ),

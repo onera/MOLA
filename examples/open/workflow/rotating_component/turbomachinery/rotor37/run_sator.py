@@ -9,7 +9,7 @@ w = turbomachinery.Workflow(
 
     ApplicationContext = dict(
         ShaftRotationSpeed = -1800., 
-        ShaftRotatingSpeedUnit = 'rad/s',
+        ShaftRotationSpeedUnit = 'rad/s',
 
         Rows = dict(
             R37 = dict(
@@ -32,7 +32,8 @@ w = turbomachinery.Workflow(
     ),
 
     Numerics = dict(
-        NumberOfIterations = 5000,
+        NumberOfIterations = 10000,
+        MinimumNumberOfIterations = 5000, 
         CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
     ),
 
@@ -41,7 +42,12 @@ w = turbomachinery.Workflow(
         dict(Family='R37_OUTFLOW', Type='OutflowRadialEquilibrium', 
              ValveLaw=dict(Type='Quadratic', ValveCoefficient=0.1)
             # MassFlow=20.,
-             )
+             ),
+        # dict(Family='R37_INFLOW', Type='giles_inlet', NumberOfModes=29),  # NumberOfModes = Nb_cells_in_theta / 2 + 1 
+        # dict(Family='R37_OUTFLOW', Type='giles_outlet', NumberOfModes=29,
+        #      ValveLaw=dict(Type='Quadratic', ValveCoefficient=0.1)
+        #     # MassFlow=20.,
+        #      ),
     ],
 
     Extractions = [
@@ -54,7 +60,7 @@ w = turbomachinery.Workflow(
         dict(
             ExtractionName = 'R37_INFLOW',
             Variable  = 'rsd-MassFlow',
-            Threshold = 1e-4,
+            Threshold = 1e-5,
         ),
     ],
 
@@ -65,7 +71,7 @@ w = turbomachinery.Workflow(
     RunManagement=dict(
         JobName='rotor37',
         NumberOfProcessors=24,
-        RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37',
+        RunDirectory='/tmp_user/sator/$USER/.test_user_case/rotor37',
         RemovePreviousRunDirectory = True,
         AER='34790003F', # PDEV MOLA 2025
         # TimeLimit = '00:30:00',

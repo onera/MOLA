@@ -9,7 +9,7 @@ w = turbomachinery.Workflow(
 
     ApplicationContext = dict(
         ShaftRotationSpeed = -1800., 
-        ShaftRotatingSpeedUnit = 'rad/s',
+        ShaftRotationSpeedUnit = 'rad/s',
 
         Rows = dict(
             R37 = dict(
@@ -44,6 +44,10 @@ w = turbomachinery.Workflow(
              )
     ],
 
+    Initialization = dict(
+        ParametrizeWithHeight = 'turbo'
+    ),
+
     Extractions = [
         dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.03, Fields=['Conservatives'], OtherOptions=dict(tag='InletPlane', ReferenceRow='R37')),
         dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=0.07, Fields=['Conservatives'], OtherOptions=dict(tag='OutletPlane', ReferenceRow='R37')),
@@ -54,14 +58,14 @@ w = turbomachinery.Workflow(
         dict(
             ExtractionName = 'R37_INFLOW',
             Variable  = 'rsd-MassFlow',
-            Threshold = 1e-4,
+            Threshold = 1e-5,
         ),
     ],
 
     RunManagement=dict(
         JobName='rotor37',
         NumberOfProcessors=24,
-        RunDirectory='/tmp_user/sator/tbontemp/.test_user_case/rotor37_test',
+        RunDirectory='/tmp_user/sator/$USER/.test_user_case/rotor37',
         AER='34790003F', # PDEV MOLA 2025
         ),
 
@@ -69,7 +73,7 @@ w = turbomachinery.Workflow(
 
 
 import numpy as np
-manager = turbomachinery.WorkflowManager(w, root_directory='/tmp_user/sator/tbontemp/rotor37_multi')
+manager = turbomachinery.WorkflowManager(w, root_directory='/tmp_user/sator/$USER/.test_user_case/rotor37_multi')
 manager.add_isospeed_line(np.arange(0.2, 0.61, 0.05))
 manager.prepare()
 manager.submit()

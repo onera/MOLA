@@ -27,51 +27,9 @@ from mola.cfd.preprocess.motion.motion import all_families_are_fixed
 TURBULENCE_SONICS_KEYS = {
 
     'SA': dict(
-        features = ['spalart_standard'],
+        features = ['spalart_standard'],  # in fact it is this model: https://doi.org/10.1016/S1270-9638(02)01148-3
         parameters = dict(),
     ),
-
-    # 'Wilcox2006-klim': dict(
-    #     turbmod        = 'komega_kok',
-    #     kok_diff_cor   = 'wilcox2006',
-    #     sst_cor        = 'active',
-    #     sst_version    = 'wilcox2006',
-    #     k_prod_limiter = 20.,
-    #     k_prod_compute = 'from_sij',
-    #     zhenglim       = 'inactive',
-    #     omega_prolong  = 'linear_extrap',
-    # ),
-    
-    # 'Wilcox2006-klim-V': dict(
-    #     turbmod        = 'komega_kok',
-    #     kok_diff_cor   = 'wilcox2006',
-    #     sst_cor        = 'active',
-    #     sst_version    = 'wilcox2006',
-    #     k_prod_limiter = 20.,
-    #     k_prod_compute = 'from_vorticity',
-    #     zhenglim       = 'inactive',
-    #     omega_prolong  = 'linear_extrap',
-    # ),
-
-    # 'Wilcox2006': dict(
-    #     turbmod        = 'komega_kok',
-    #     kok_diff_cor   = 'wilcox2006',
-    #     sst_cor        = 'active',
-    #     sst_version    = 'wilcox2006',
-    #     k_prod_compute = 'from_sij',
-    #     zhenglim       = 'inactive',
-    #     omega_prolong  = 'linear_extrap',
-    # ),
-    
-    # 'Wilcox2006-V': dict(
-    #     turbmod        = 'komega_kok',
-    #     kok_diff_cor   = 'wilcox2006',
-    #     sst_cor        = 'active',
-    #     sst_version    = 'wilcox2006',
-    #     k_prod_compute = 'from_vorticity',
-    #     zhenglim       = 'inactive',
-    #     omega_prolong  = 'linear_extrap',
-    # ),
 
     'SST-2003': dict(
         features = ['sst/std_sij', 'k_prod/from_sij'],
@@ -212,7 +170,7 @@ def get_time_marching_template(Numerics):
     features = [
         "time_algo/steady",
         "ode/implicit",
-        "time_step/spectral",
+        # "time_step/spectral",
     ]
 
     parameters = dict()

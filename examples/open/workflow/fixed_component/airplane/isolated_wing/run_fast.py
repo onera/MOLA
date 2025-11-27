@@ -50,18 +50,18 @@ w = WorkflowAirplane(
         dict(Family='SYMMETRY', Type='SymmetryPlane'),
     ],
 
-    ConvergenceCriteria = [
-        dict(
-            ExtractionName = 'WING',
-            Variable = "std-CL",
-            Threshold = 1e-3,
-        ),
-        dict(
-            ExtractionName = 'WING',
-            Variable = "CL",
-            Threshold = -1e9, # HINT just for showing Variable progress in coprocess.log
-        )
-    ],
+    # ConvergenceCriteria = [
+    #     dict(
+    #         ExtractionName = 'WING',
+    #         Variable = "rsd-CD",
+    #         Threshold = 1e-4,
+    #     ),
+    #     dict(
+    #         ExtractionName = 'WING',
+    #         Variable = "CL",
+    #         Threshold = -1e9, # HINT just for showing Variable progress in coprocess.log
+    #     )
+    # ],
 
     RunManagement = dict(
         NumberOfProcessors = 1, # CAVEAT cannot be >1 until solved https://github.com/onera/Fast/issues/90 
