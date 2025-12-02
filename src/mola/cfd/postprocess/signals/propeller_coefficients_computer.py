@@ -76,7 +76,7 @@ def _update_torque_coefficients(coefs : dict, tx, ty, tz, ApplicationContext : d
     RPS = getRPS(ApplicationContext)
     RPM = 60 * RPS
 
-    Torque = fields.project_load(tx,ty,tz,np.sign(RPS)*axis)
+    Torque = fields.project_load(tx,ty,tz,-np.sign(RPS)*axis)
     Power = Torque * np.abs(RPM) * np.pi/30
 
     Thrust = coefs['Thrust']
