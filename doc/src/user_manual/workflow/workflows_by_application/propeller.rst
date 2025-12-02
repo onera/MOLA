@@ -91,13 +91,13 @@ parameters of the propeller:
 * `NumberOfBlades` (int): Number of blades in the real machine on 360°.
 
 * `NumberOfBladesSimulated` (int): 
-Number of blades to simulate. 
-If needed (`NumberOfBladesSimulated<NumberOfBladesInInitialMesh`), mesh will be replicated to fit this value.
-Default Value is 1.
+  Number of blades to simulate. 
+  If needed (`NumberOfBladesSimulated<NumberOfBladesInInitialMesh`), mesh will be replicated to fit this value.
+  Default Value is 1.
 
 * `NumberOfBladesInInitialMesh` (int): 
-Number of blades present in the provided mesh. 
-It is normally automatically computed.
+  Number of blades present in the provided mesh. 
+  It is normally automatically computed.
 
 
 ************************************
