@@ -4,6 +4,8 @@ Workflow airfoil
 
 .. py:currentmodule::  mola.workflow.fixed.airfoil
 
+:fas:`person-digging;sd-text-warning` Work in progress :fas:`person-digging;sd-text-warning`
+
 The Workflow airfoil can be imported with:
 
 .. code-block:: python

@@ -78,15 +78,19 @@ def duplicate_rows(tree, **rows_to_duplicate):
     TypeError
         The input tree must be either a top tree or a base.
     '''
-    from mola.cfd.preprocess.mesh.duplicate import duplicate_with_maia
+    from mola.cfd.preprocess.mesh.duplicate import _duplicate_with_maia, _duplicate_with_cassiopee
     from mola.cfd.preprocess.mesh.tools import to_distributed
 
-    if isinstance(t, (cgns.Tree, cgns.Base)):
-        t = to_distributed(to_distributed)
-        duplication_parameters = dict((row, dict(number_of_duplications=n_dupli, is_360=False)) for row, n_dupli in rows_to_duplicate.items())
-        duplicate_with_maia(t, duplication_parameters, merge_zones=True)
+    if isinstance(tree, (cgns.Tree, cgns.Base)):
+        tree = to_distributed(tree)
+        # duplication_parameters = dict((row, dict(number_of_duplications=n_dupli, is_360=False)) for row, n_dupli in rows_to_duplicate.items())
+        duplication_operations = [
+            dict(Family=row, NumberOfDuplications=n_dupli)
+            for row, n_dupli in rows_to_duplicate.items()
+        ]
+        # tree = _duplicate_with_maia(tree, duplication_operations, merge_zones=True)
+        tree = _duplicate_with_cassiopee(tree, duplication_operations)
     else:
         raise TypeError('The input tree must be either a top tree or a base')
 
-    tree = cgns.castNode(tree)
     return tree

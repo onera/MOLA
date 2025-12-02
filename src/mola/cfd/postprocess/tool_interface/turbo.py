@@ -629,7 +629,8 @@ def computeVariablesOnIsosurface(w, surfaces, variables, config='annular', lin_a
         # Caution: cannot do a return here, because it seems to be a barrier hidden inside _computeOtherFields
         variables = []
     else:
-        for v in varAtNodes: C._node2Center__(surfacesIso, v)
+        for v in varAtNodes: 
+            C._node2Center__(surfacesIso, v)
 
     for surface in surfacesIso:
         for fsname in [I.__FlowSolutionNodes__, I.__FlowSolutionCenters__]:

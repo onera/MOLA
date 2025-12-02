@@ -1,351 +1,351 @@
-User interface of [1mWorkflow[0m:
-[1mname[0m ([96mallowed types[0m) : [95mdefault value[0m
+User interface of Workflow:
+name (allowed types) : default value
 
-Attribute [4m[1mSolver[0m is set using:
+Attribute Solver is set using:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory:
-      [1msolver_name[0m ([96mstr[0m)
+      solver_name (str)
     
     
-Attribute [4m[1mRawMeshComponents[0m is set using:
+Attribute RawMeshComponents is set using:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory:
-      [1muser_list[0m ([96mlist[0m)
+      user_list (list)
     
     
-where each item is a [96mdict[0m with these authorized keys:
+where each item is a dict with these authorized keys:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mName[0m ([96mstr[0m)
-      [1mSource[0m ([96mstr[0m, [96mTree[0m, [96mBase[0m, [96mZone[0m)
+      Name (str)
+      Source (str, Tree, Base, Zone)
     Optional:
-      [1mMesher[0m ([96mstr[0m) : [95mNone[0m
-      [1mUnit[0m ([96mstr[0m) : [95mm[0m
-      [1mCleaningMacro[0m ([96mstr[0m) : [95mNone[0m
-      [1mFamilies[0m ([96mlist[0m) : [95mNone[0m
-      [1mPositioning[0m ([96mlist[0m) : [95mNone[0m
-      [1mConnection[0m ([96mlist[0m) : [95mNone[0m
-      [1mOversetOptions[0m ([96mdict[0m) : [95mNone[0m
+      Mesher (str) : None
+      Unit (str) : m
+      CleaningMacro (str) : None
+      Families (list) : None
+      Positioning (list) : None
+      Connection (list) : None
+      OversetOptions (dict) : None
     
     
-Attribute [4m[1mFluid[0m is set using:
+Attribute Fluid is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mGamma[0m ([96mfloat[0m) : [95m1.4[0m
-      [1mIdealGasConstant[0m ([96mfloat[0m) : [95m287.053[0m
-      [1mPrandtl[0m ([96mfloat[0m) : [95m0.72[0m
-      [1mPrandtlTurbulent[0m ([96mfloat[0m) : [95m0.9[0m
-      [1mSutherlandConstant[0m ([96mfloat[0m) : [95m110.4[0m
-      [1mSutherlandViscosity[0m ([96mfloat[0m) : [95m1.78938e-05[0m
-      [1mSutherlandTemperature[0m ([96mfloat[0m) : [95m288.15[0m
+      Gamma (float) : 1.4
+      IdealGasConstant (float) : 287.053
+      Prandtl (float) : 0.72
+      PrandtlTurbulent (float) : 0.9
+      SutherlandConstant (float) : 110.4
+      SutherlandViscosity (float) : 1.78938e-05
+      SutherlandTemperature (float) : 288.15
     
     
-Attribute [4m[1mFlow[0m is set using:
+Attribute Flow is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mGenerator[0m ([96mstr[0m) : [95mExternal_rho_T_V[0m
+      Generator (str) : External_rho_T_V
     
     
-Attribute [4m[1mTurbulence[0m is set using:
+Attribute Turbulence is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mViscosity_EddyMolecularRatio[0m ([96mfloat[0m) : [95m0.1[0m
-      [1mLevel[0m ([96mfloat[0m) : [95m0.001[0m
-      [1mModel[0m ([96mstr[0m) : [95mWilcox2006-klim[0m
-      [1mTurbulenceCutOffRatio[0m ([96mfloat[0m) : [95m1e-08[0m
-      [1mTransitionMode[0m ([96mstr[0m) : [95mNone[0m
+      Viscosity_EddyMolecularRatio (float) : 0.1
+      Level (float) : 0.001
+      Model (str) : Wilcox2006-klim
+      TurbulenceCutOffRatio (float) : 1e-08
+      TransitionMode (str) : None
     
     
-Attribute [4m[1mBoundaryConditions[0m is set using:
+Attribute BoundaryConditions is set using:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory:
-      [1muser_list[0m ([96mlist[0m)
+      user_list (list)
     
     
-where each item is a [96mdict[0m with these authorized keys:
+where each item is a dict with these authorized keys:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mFamily[0m ([96mstr[0m)
-      [1mType[0m ([96mstr[0m)
+      Family (str)
+      Type (str)
     
     
-Attribute [4m[1mSplittingAndDistribution[0m is set using:
+Attribute SplittingAndDistribution is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mStrategy[0m ([96mstr[0m) : [95mAtPreprocess[0m
-      [1mSplitter[0m ([96mstr[0m) : [95mCassiopee[0m
-      [1mDistributor[0m ([96mstr[0m) : [95mCassiopee[0m
-      [1mComponentsToSplit[0m ([96mstr[0m, [96mNoneType[0m, [96mlist[0m) : [95mall[0m
-      [1mNumberOfParts[0m ([96mint[0m) : [95mNone[0m
-      [1mCoresPerNode[0m ([96mint[0m) : [95m48[0m
+      Strategy (str) : AtPreprocess
+      Splitter (str) : Cassiopee
+      Distributor (str) : Cassiopee
+      ComponentsToSplit (str, NoneType, list) : all
+      NumberOfParts (int) : None
+      CoresPerNode (int) : 48
     
     
-Attribute [4m[1mNumerics[0m is set using:
+Attribute Numerics is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mScheme[0m ([96mstr[0m) : [95mJameson[0m
-      [1mTimeMarching[0m ([96mstr[0m) : [95mSteady[0m
-      [1mNumberOfIterations[0m ([96mint[0m) : [95m10000[0m
-      [1mMinimumNumberOfIterations[0m ([96mint[0m) : [95m1000[0m
-      [1mIterationAtInitialState[0m ([96mint[0m) : [95m1[0m
-      [1mTimeAtInitialState[0m ([96mfloat[0m) : [95m0.0[0m
-      [1mTimeMarchingOrder[0m ([96mint[0m) : [95m2[0m
-      [1mTimeStep[0m ([96mfloat[0m) : [95mNone[0m
-      [1mCFL[0m ([96mfloat[0m, [96mdict[0m) : [95m10.0[0m
+      Scheme (str) : Jameson
+      TimeMarching (str) : Steady
+      NumberOfIterations (int) : 10000
+      MinimumNumberOfIterations (int) : 1000
+      IterationAtInitialState (int) : 1
+      TimeAtInitialState (float) : 0.0
+      TimeMarchingOrder (int) : 2
+      TimeStep (float) : None
+      CFL (float, dict) : 10.0
     
     
-Attribute [4m[1mBodyForceModeling[0m is set using:
+Attribute BodyForceModeling is set using:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory:
-      [1muser_list[0m ([96mlist[0m)
+      user_list (list)
     
     
-where each item is a [96mdict[0m with these authorized keys:
+where each item is a dict with these authorized keys:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mToBeImplmented[0m ([96mstr[0m) : [95mNotYetImplemented[0m
+      ToBeImplmented (str) : NotYetImplemented
     
     
-Attribute [4m[1mMotion[0m is set using:
+Attribute Motion is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mmotion_per_family_dict[0m ([96mdict[0m) : [95mNone[0m
+      motion_per_family_dict (dict) : None
     
     
-Attribute [4m[1mInitialization[0m is set using:
+Attribute Initialization is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mMethod[0m ([96mstr[0m) : [95muniform[0m
-      [1mSource[0m ([96mstr[0m, [96mTree[0m, [96mBase[0m, [96mZone[0m) : [95mNone[0m
-      [1mSourceContainer[0m ([96mstr[0m) : [95mNone[0m
-      [1mComputeWallDistanceAtPreprocess[0m ([96mbool[0m) : [95mFalse[0m
+      Method (str) : uniform
+      Source (str, Tree, Base, Zone) : None
+      SourceContainer (str) : None
+      ComputeWallDistanceAtPreprocess (bool) : False
     
     
-Attribute [4m[1mExtractionsDefaults[0m is set using:
+Attribute ExtractionsDefaults is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1muser_list[0m ([96mlist[0m) : [95mNone[0m
+      user_list (list) : None
     
     
-where each item is a [96mdict[0m with these authorized keys:
+where each item is a dict with these authorized keys:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mReferenceParameter[0m ([96mstr[0m)
+      ReferenceParameter (str)
     Optional:
-      [1mType[0m ([96mstr[0m) : [95mNone[0m
-      [1mFile[0m ([96mstr[0m) : [95mNone[0m
-      [1mExtractionsPeriod[0m ([96mint[0m) : [95mNone[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95mNone[0m
-      [1mFrame[0m ([96mstr[0m) : [95mNone[0m
-      [1mOverride[0m ([96mbool[0m) : [95mNone[0m
-      [1mContainer[0m ([96mstr[0m) : [95mNone[0m
-      [1mGridLocation[0m ([96mstr[0m) : [95mNone[0m
-      [1mGhostCells[0m ([96mbool[0m) : [95mNone[0m
-      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95mNone[0m
-      [1mTimeAveraging[0m ([96mbool[0m) : [95mNone[0m
+      Type (str) : None
+      File (str) : None
+      ExtractionsPeriod (int) : None
+      SavePeriod (int) : None
+      Frame (str) : None
+      Override (bool) : None
+      Container (str) : None
+      GridLocation (str) : None
+      GhostCells (bool) : None
+      TimeAveragingFirstIteration (int) : None
+      TimeAveraging (bool) : None
     
     
-Attribute [4m[1mExtractions[0m is set using:
+Attribute Extractions is set using:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory:
-      [1muser_list[0m ([96mlist[0m)
+      user_list (list)
     
     
-where each item is a [96mdict[0m with these authorized keys:
-if [1mType[0m ([96mstr[0m) == [95m"3D"[0m
+where each item is a dict with these authorized keys:
+if Type (str) == "3D"
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mType[0m ([96mstr[0m)
+      Type (str)
     Optional:
-      [1mFields[0m ([96mlist[0m) : [95mNone[0m
-      [1mFile[0m ([96mstr[0m) : [95mfields.cgns[0m
-      [1mName[0m ([96mstr[0m) : [95mNone[0m
-      [1mExtractionPeriod[0m ([96mint[0m) : [95m5000[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95m5000[0m
-      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
-      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
-      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
-      [1mContainer[0m ([96mstr[0m) : [95mFlowSolution#Output[0m
-      [1mGridLocation[0m ([96mstr[0m) : [95mVertex[0m
-      [1mGhostCells[0m ([96mbool[0m) : [95mFalse[0m
-      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
-      [1mTimeAveraging[0m ([96mbool[0m) : [95mFalse[0m
-      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
-      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+      Fields (list) : None
+      File (str) : fields.cgns
+      Name (str) : None
+      ExtractionPeriod (int) : 5000
+      SavePeriod (int) : 5000
+      Frame (str) : relative
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      Container (str) : FlowSolution#Output
+      GridLocation (str) : Vertex
+      GhostCells (bool) : False
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveraging (bool) : False
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
     
     
-where each item is a [96mdict[0m with these authorized keys:
-if [1mType[0m ([96mstr[0m) == [95m"BC"[0m
+where each item is a dict with these authorized keys:
+if Type (str) == "BC"
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mType[0m ([96mstr[0m)
-      [1mSource[0m ([96mstr[0m)
+      Type (str)
+      Source (str)
     Optional:
-      [1mFields[0m ([96mlist[0m) : [95m[][0m
-      [1mFile[0m ([96mstr[0m) : [95mextractions.cgns[0m
-      [1mName[0m ([96mstr[0m) : [95mByFamily[0m
-      [1mExtractionPeriod[0m ([96mint[0m) : [95m100[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
-      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
-      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
-      [1mGridLocation[0m ([96mstr[0m) : [95mCellCenter[0m
-      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
-      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
-      [1mTimeAveragingIterations[0m ([96mint[0m) : [95m1000[0m
-      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
-      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+      Fields (list) : []
+      File (str) : extractions.cgns
+      Name (str) : ByFamily
+      ExtractionPeriod (int) : 100
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      GridLocation (str) : CellCenter
+      Frame (str) : relative
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveragingIterations (int) : 1000
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
     
     
-where each item is a [96mdict[0m with these authorized keys:
-if [1mType[0m ([96mstr[0m) == [95m"Integral"[0m
+where each item is a dict with these authorized keys:
+if Type (str) == "Integral"
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mType[0m ([96mstr[0m)
-      [1mSource[0m ([96mstr[0m)
-      [1mFields[0m ([96mlist[0m)
+      Type (str)
+      Source (str)
+      Fields (list)
     Optional:
-      [1mFile[0m ([96mstr[0m) : [95msignals.cgns[0m
-      [1mName[0m ([96mstr[0m) : [95mByFamily[0m
-      [1mExtractionPeriod[0m ([96mint[0m) : [95m1[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
-      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
-      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
-      [1mFrame[0m ([96mstr[0m) : [95mabsolute[0m
-      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
-      [1mTimeAveragingIterations[0m ([96mint[0m) : [95m1000[0m
-      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
-      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+      File (str) : signals.cgns
+      Name (str) : ByFamily
+      ExtractionPeriod (int) : 1
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      Frame (str) : absolute
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveragingIterations (int) : 1000
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
     
     
-where each item is a [96mdict[0m with these authorized keys:
-if [1mType[0m ([96mstr[0m) == [95m"Interpolation"[0m
+where each item is a dict with these authorized keys:
+if Type (str) == "Interpolation"
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mType[0m ([96mstr[0m)
-      [1mSource[0m ([96mstr[0m, [96mTree[0m, [96mBase[0m, [96mZone[0m)
+      Type (str)
+      Source (str, Tree, Base, Zone)
     Optional:
-      [1mFields[0m ([96mlist[0m) : [95mNone[0m
-      [1mFile[0m ([96mstr[0m) : [95mextractions.cgns[0m
-      [1mName[0m ([96mstr[0m) : [95mNone[0m
-      [1mExtractionPeriod[0m ([96mint[0m) : [95m100[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
-      [1mInterpolationOrder[0m ([96mint[0m) : [95m0[0m
-      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
-      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mFalse[0m
-      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
-      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+      Fields (list) : None
+      File (str) : extractions.cgns
+      Name (str) : None
+      ExtractionPeriod (int) : 100
+      SavePeriod (int) : 100
+      InterpolationOrder (int) : 0
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : False
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
     
     
-where each item is a [96mdict[0m with these authorized keys:
-if [1mType[0m ([96mstr[0m) == [95m"IsoSurface"[0m
+where each item is a dict with these authorized keys:
+if Type (str) == "IsoSurface"
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mType[0m ([96mstr[0m)
-      [1mIsoSurfaceField[0m ([96mstr[0m)
-      [1mIsoSurfaceValue[0m ([96mfloat[0m)
-      [1mIsoSurfaceContainer[0m ([96mstr[0m)
+      Type (str)
+      IsoSurfaceField (str)
+      IsoSurfaceValue (float)
+      IsoSurfaceContainer (str)
     Optional:
-      [1mFields[0m ([96mlist[0m) : [95mNone[0m
-      [1mFile[0m ([96mstr[0m) : [95mextractions.cgns[0m
-      [1mName[0m ([96mstr[0m) : [95mNone[0m
-      [1mExtractionPeriod[0m ([96mint[0m) : [95m100[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
-      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
-      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
-      [1mGridLocation[0m ([96mstr[0m) : [95mVertex[0m
-      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
-      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
-      [1mTimeAveragingIterations[0m ([96mint[0m) : [95m1000[0m
-      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
-      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+      Fields (list) : None
+      File (str) : extractions.cgns
+      Name (str) : None
+      ExtractionPeriod (int) : 100
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      GridLocation (str) : Vertex
+      Frame (str) : relative
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveragingIterations (int) : 1000
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
     
     
-where each item is a [96mdict[0m with these authorized keys:
-if [1mType[0m ([96mstr[0m) == [95m"Probe"[0m
+where each item is a dict with these authorized keys:
+if Type (str) == "Probe"
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mType[0m ([96mstr[0m)
-      [1mPosition[0m ([96mlist[0m, [96mtuple[0m, [96mndarray[0m)
+      Type (str)
+      Position (list, tuple, ndarray)
     Optional:
-      [1mFields[0m ([96mlist[0m) : [95mNone[0m
-      [1mFile[0m ([96mstr[0m) : [95msignals.cgns[0m
-      [1mName[0m ([96mstr[0m) : [95mNone[0m
-      [1mExtractionPeriod[0m ([96mint[0m) : [95m1[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
-      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
-      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
-      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
-      [1mTimeAveragingFirstIteration[0m ([96mint[0m) : [95m1000[0m
-      [1mTimeAveragingIterations[0m ([96mint[0m) : [95m1000[0m
-      [1mPostprocessOperations[0m ([96mlist[0m) : [95mNone[0m
-      [1mOtherOptions[0m ([96mdict[0m) : [95mNone[0m
+      Fields (list) : None
+      File (str) : signals.cgns
+      Name (str) : None
+      ExtractionPeriod (int) : 1
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      Frame (str) : relative
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveragingIterations (int) : 1000
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
     
     
-where each item is a [96mdict[0m with these authorized keys:
-if [1mType[0m ([96mstr[0m) == [95m"Residuals"[0m
+where each item is a dict with these authorized keys:
+if Type (str) == "Residuals"
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mType[0m ([96mstr[0m)
+      Type (str)
     Optional:
-      [1mFile[0m ([96mstr[0m) : [95msignals.cgns[0m
-      [1mExtractionPeriod[0m ([96mint[0m) : [95m1[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95m100[0m
-      [1mOverride[0m ([96mbool[0m) : [95mTrue[0m
-      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
+      File (str) : signals.cgns
+      ExtractionPeriod (int) : 1
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
     
     
-where each item is a [96mdict[0m with these authorized keys:
-if [1mType[0m ([96mstr[0m) == [95m"Restart"[0m
+where each item is a dict with these authorized keys:
+if Type (str) == "Restart"
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mType[0m ([96mstr[0m)
+      Type (str)
     Optional:
-      [1mFields[0m ([96mlist[0m) : [95mNone[0m
-      [1mFile[0m ([96mstr[0m) : [95mmain.cgns[0m
-      [1mExtractionPeriod[0m ([96mint[0m) : [95m1000000000[0m
-      [1mSavePeriod[0m ([96mint[0m) : [95m1000000000[0m
-      [1mExtractAtEndOfRun[0m ([96mbool[0m) : [95mTrue[0m
-      [1mFrame[0m ([96mstr[0m) : [95mrelative[0m
-      [1mContainer[0m ([96mstr[0m) : [95mNone[0m
-      [1mGridLocation[0m ([96mstr[0m) : [95mCellCenter[0m
-      [1mGhostCells[0m ([96mbool[0m) : [95mFalse[0m
+      Fields (list) : None
+      File (str) : main.cgns
+      ExtractionPeriod (int) : 1000000000
+      SavePeriod (int) : 1000000000
+      ExtractAtEndOfRun (bool) : True
+      Frame (str) : relative
+      Container (str) : None
+      GridLocation (str) : CellCenter
+      GhostCells (bool) : False
     
     
-Attribute [4m[1mConvergenceCriteria[0m is set using:
+Attribute ConvergenceCriteria is set using:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory:
-      [1muser_list[0m ([96mlist[0m)
+      user_list (list)
     
     
-where each item is a [96mdict[0m with these authorized keys:
+where each item is a dict with these authorized keys:
     parameters provided by WorkflowInterface (highest priority):
     Mandatory keyword-only:
-      [1mExtractionName[0m ([96mstr[0m)
-      [1mVariable[0m ([96mstr[0m)
-      [1mThreshold[0m ([96mfloat[0m)
+      ExtractionName (str)
+      Variable (str)
+      Threshold (float)
     Optional:
-      [1mNecessary[0m ([96mbool[0m) : [95mFalse[0m
-      [1mSufficient[0m ([96mbool[0m) : [95mTrue[0m
+      Necessary (bool) : False
+      Sufficient (bool) : True
     
     
-Attribute [4m[1mRunManagement[0m is set using:
+Attribute RunManagement is set using:
     parameters provided by WorkflowInterface (highest priority):
     Optional:
-      [1mJobName[0m ([96mstr[0m) : [95mNone[0m
-      [1mRunDirectory[0m ([96mstr[0m, [96mPosixPath[0m) : [95m.[0m
-      [1mNumberOfProcessors[0m ([96mint[0m) : [95m1[0m
-      [1mNumberOfThreads[0m ([96mint[0m) : [95mNone[0m
-      [1mMachine[0m ([96mstr[0m) : [95mNone[0m
-      [1mUser[0m ([96mstr[0m) : [95mNone[0m
-      [1mTimeLimit[0m ([96mstr[0m, [96mfloat[0m) : [95mNone[0m
-      [1mQuitMarginBeforeTimeOutInSeconds[0m ([96mint[0m) : [95m300[0m
-      [1mLauncherCommand[0m ([96mstr[0m) : [95mauto[0m
-      [1mFilesAndDirectories[0m ([96mlist[0m) : [95m[][0m
-      [1mmola_target_path[0m ([96mstr[0m) : [95mNone[0m
-      [1mScheduler[0m ([96mstr[0m) : [95mNone[0m
-      [1mAER[0m ([96mstr[0m) : [95mNone[0m
+      JobName (str) : None
+      RunDirectory (str, PosixPath) : .
+      NumberOfProcessors (int) : 1
+      NumberOfThreads (int) : None
+      Machine (str) : None
+      User (str) : None
+      TimeLimit (str, float) : None
+      QuitMarginBeforeTimeOutInSeconds (int) : 300
+      LauncherCommand (str) : auto
+      FilesAndDirectories (list) : []
+      mola_target_path (str) : None
+      Scheduler (str) : None
+      AER (str) : None
     
     
-Attribute [4m[1mApplicationContext[0m is set using:
-Attribute [4m[1mSolverParameters[0m is set using:
+Attribute ApplicationContext is set using:
+Attribute SolverParameters is set using:
 

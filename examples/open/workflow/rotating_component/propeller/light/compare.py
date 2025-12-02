@@ -26,6 +26,7 @@ plt.xlabel(x_name)
 plt.ylabel(y_name)
 plt.grid()
 plt.tight_layout()
+plt.savefig(f'light_propeller_{y_name}_convergence_comparison.png')
 plt.show()
 
 

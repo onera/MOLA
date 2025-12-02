@@ -58,7 +58,7 @@ w = WorkflowAirplane(
 
     RunManagement = dict(
         NumberOfProcessors = 1,
-        RunDirectory = '/tmp_user/sator/lbernard/test_v2/isolated_wing',
+        RunDirectory = '/tmp_user/sator/$USER/.test_user_case/isolated_wing',
         Machine='sator',
         TimeLimit = '00:30:00',
         AER='34790003F',

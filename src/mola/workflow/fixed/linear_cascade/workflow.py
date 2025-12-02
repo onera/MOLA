@@ -15,9 +15,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import numpy as np
 
 from treelab import cgns
+import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola.math_tools import rotate_3d_vector_from_axis_and_angle_in_degrees
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height
@@ -33,20 +35,19 @@ class WorkflowLinearCascade(Workflow):
         self._interface = WorkflowLinearCascadeInterface(self, **kwargs)
 
     def compute_flow_and_turbulence(self):
-        alpha = self.ApplicationContext.get('AngleOfAttackDeg')
-        if alpha is not None:
+        periodic_direction = self.get_periodic_direction()
+        if np.isclose(abs(np.dot(periodic_direction, np.array([0,1,0]))), 1):
+            periodic_direction = np.array([0,1,0])
+            self.ApplicationContext['lin_axis'] = 'XY'
+        if np.isclose(abs(np.dot(periodic_direction, np.array([0,0,1]))), 1):
+            periodic_direction = np.array([0,0,-1])
+            self.ApplicationContext['lin_axis'] = 'XZ'
+        else:
+            self.ApplicationContext['lin_axis'] = None
+
+        if self.ApplicationContext.get('AngleOfAttackDeg') is not None:
             # Otherwise, Flow['Direction'] will be kept as given by user or default
             flow_direction = self.Flow['Direction'] # assume main axis is X
-            periodic_direction = self.get_periodic_direction()
-            if np.isclose(abs(np.dot(periodic_direction, np.array([0,1,0]))), 1):
-                periodic_direction = np.array([0,1,0])
-                self.lin_axis = 'XY'
-            if np.isclose(abs(np.dot(periodic_direction, np.array([0,0,1]))), 1):
-                periodic_direction = np.array([0,0,-1])
-                self.lin_axis = 'XZ'
-            else:
-                self.lin_axis = None
-
             self.Flow['Direction'] = rotate_3d_vector_from_axis_and_angle_in_degrees(
                 flow_direction, 
                 np.cross(flow_direction, periodic_direction),
@@ -56,7 +57,7 @@ class WorkflowLinearCascade(Workflow):
         super().compute_flow_and_turbulence()
 
     def initialize_flow(self):
-        if self.Initialization['Method'] in initialization.INIT_ANALYTICAL_METHODS:
+        if self.Initialization['Method'] == 'turbo':
             self.parametrize_with_height()
             super().initialize_flow()
 
@@ -102,15 +103,15 @@ class WorkflowLinearCascade(Workflow):
         return periodic_direction
     
     def parametrize_with_height(self):
-        self.Initialization.setdefault('ParametrizeWithHeight', None)
-        if self.Initialization['ParametrizeWithHeight'] is None \
-            and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
-            self.Initialization['ParametrizeWithHeight'] = 'maia'
+        self.Initialization.setdefault('ParametrizeWithHeight', 'maia')  # Force computation of this parameter, allowing postprocess
+        # if self.Initialization['ParametrizeWithHeight'] is None \
+        #     and any([ext['Type'] == 'IsoSurface' and ext['IsoSurfaceField'] == 'ChannelHeight' for ext in self.Extractions]):
+        #     self.Initialization['ParametrizeWithHeight'] = 'maia'
 
         if self.Initialization['ParametrizeWithHeight'] == 'maia':
             self.parametrize_with_height_with_maia()
         elif self.Initialization['ParametrizeWithHeight'] == 'turbo':
-            self.parametrize_with_height_with_turbo(self.lin_axis)
+            self.parametrize_with_height_with_turbo(self.ApplicationContext['lin_axis'])
     
     def parametrize_with_height_with_maia(self, hub_families=['hub', 'moyeu'], 
                                 shroud_families=['shroud', 'carter'], GridLocation='Vertex'):
@@ -157,3 +158,104 @@ class WorkflowLinearCascade(Workflow):
         I.__FlowSolutionNodes__ = OLD_FlowSolutionNodes
 
         self.tree = cgns.castNode(self.tree)
+
+    def postprocess(
+        self, 
+        input_signals=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D),
+        input_extractions=os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D),
+        output_signals=None, 
+        output_extractions=None,
+        **kwargs
+        ):
+        '''
+        kwargs are parameters for postprocess_turbomachinery
+        '''     
+        import Converter.Mpi as Cmpi
+        import Distributor2.PyTree as D2
+        from mola.cfd.postprocess.tool_interface.turbo import postprocess_with_turbo
+  
+        if output_signals is None:
+            output_signals = input_signals
+        if output_extractions is None:
+            output_extractions = input_extractions
+
+
+        kwargs['config'] = 'linear' 
+        kwargs['lin_axis'] = self.ApplicationContext['lin_axis']
+        # ApplicationContext['Rows'] is mandatory for postprocess
+        self.ApplicationContext['Rows'] = []
+        for ext in self.Extractions:
+            try:
+                row = ext['OtherOptions']['ReferenceRow']
+            except KeyError:
+                continue
+            else:
+                self.ApplicationContext['Rows'].append(row)
+                break
+
+        signals = cgns.load(input_signals)
+        # Read in parallel 
+        surfaces = Cmpi.convertFile2SkeletonTree(input_extractions)
+        D2._distribute(surfaces, Cmpi.size, useCom=0, algorithm='fast')
+        Cmpi._readZones(surfaces, input_extractions, rank=Cmpi.rank)
+        Cmpi._convert2PartialTree(surfaces)
+        surfaces = cgns.castNode(surfaces)
+        Cmpi.barrier()
+
+        surfaces, signals = postprocess_with_turbo(self, surfaces, signals, **kwargs)
+        Cmpi.barrier()
+        Cmpi.convertPyTree2File(surfaces, output_extractions)
+        if Cmpi.rank == 0: 
+            signals.save(output_signals)
+        Cmpi.barrier()
+
+    def after_compute(self, logger):
+        from mpi4py import MPI
+        rank = MPI.COMM_WORLD.Get_rank()
+
+        postprocess_possible = self.tree.get(Name='ChannelHeight') is not None \
+            and isinstance(self.ApplicationContext['lin_axis'], str)
+        if not postprocess_possible:
+            return
+        
+        # check required variables are present
+        for extraction in self.Extractions:
+            if extraction['Type'] == 'IsoSurface':
+                if not 'Fields' in extraction or \
+                    not all([v in extraction['Fields'] for v in self.Flow['Conservatives']]):
+                    logger.warning(
+                        ('postprocess is available only if all conservative quantities '
+                         'were extracted on each isosurface.'), 
+                         rank=0)
+                    return
+        
+        if self.Solver.lower() != 'elsa':
+            logger.warning(f'For now, postprocess is available only with elsa solver.', rank=0)
+            return
+
+        logger.info('try to postprocess...', rank=0)
+        try:
+            self.postprocess()
+        except Exception as err:
+            logger.error(f'  > postprocess failed', rank=0)
+
+            # TODO remove this redirect because it is not working since it does
+            # not show the error on stderr.log file. Just let Python fail as usual
+            # if rank == 0:
+            #     # Add error message to file stderr.log 
+            #     with open(names.FILE_STDERR, 'a') as f:
+            #         f.write(str(err)+'\n')
+            #     # Write file FAILED
+            #     with open(names.FILE_JOB_FAILED, 'w') as f: 
+            #         f.write(names.FILE_JOB_FAILED)
+            # MPI.COMM_WORLD.Abort(1)
+
+            raise ValueError('turbomachinery postprocess failed, see full traceback') from err
+
+        else:
+            logger.info(f'  > postprocess done.', rank=0)
+
+        try:
+            self.plot_radial_profiles()
+        except Exception as err:
+            logger.warning(f'Cannot plot radial profiles', rank=0)

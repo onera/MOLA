@@ -64,6 +64,7 @@ class WorkflowLinearCascadeInterface(WorkflowInterface):
                                   cgns.Zone ]  = None,
             SourceContainer : str = None,
             ComputeWallDistanceAtPreprocess : bool = False,
+            WallDistanceComputingTool : str = 'maia',
             ParametrizeWithHeight : str = None, # parameter specific to that workflow
             ):
         self.Initialization = self._get_comp(

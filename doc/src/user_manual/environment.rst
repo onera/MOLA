@@ -23,16 +23,16 @@ For instance, on ONERA network and for a simulation with elsA, you would source:
 
 .. code::  
     
-    source /stck/mola/2.0.0/mola/env/onera/env.sh elsa
+    source /stck/mola/2.0/mola/env/onera/env.sh elsa
 
 This command finds on which machine of the network your are working on, and source the corresponding environment file. 
 The previous line should have the following output in the console:
 
 .. code::
 
-    source /stck/mola/2.0.0/mola/mola/env/onera/ld/elsa.sh
+    source /stck/mola/2.0/mola/mola/env/onera/ld/elsa.sh
 
-That line could also have been source directly, but hence there is also a dependance to the machine (e.g. `ld` here).
+That line could also have been sourced directly, but hence there is also a dependance to the machine (e.g. `ld` here).
 
 .. important::
 
@@ -68,7 +68,7 @@ The command `mola_version` print a message indicating the main available librari
 
 .. code-block:: text
 
-    MOLA version 2.0.0 at ld (avx512)
+    MOLA version 2.0 at ld (avx512)
     --> Python 3.8.14
     --> treelab 0.4.3
     --> Cassiopee 4.0

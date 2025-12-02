@@ -34,9 +34,8 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
                     dict(Type="compute_propeller_coefficients", AtEndOfRunOnly=False),
                     dict(Type='avg', Variable='Thrust', AtEndOfRunOnly=False),
                     dict(Type='std', Variable='Thrust', AtEndOfRunOnly=False),
-                    # TODO https://gitlab.onera.net/numerics/solver/sonics/-/issues/83
-                    # dict(Type='avg', Variable='Power'),
-                    # dict(Type='std', Variable='Power'),
+                    dict(Type='avg', Variable='Power', AtEndOfRunOnly=False),
+                    dict(Type='std', Variable='Power', AtEndOfRunOnly=False),
                 ]
             )
 

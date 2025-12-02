@@ -32,7 +32,6 @@ export OMPI_MCA_mca_base_component_show_load_errors=0
 
 # Treelab
 export DIST="ld"
-MAC0=$(echo $KC | grep 'visung'); if [ "$MAC0" != "" ]; then export DIST="visung"; fi
 export TREELABPATH=/stck/mola/treelab/$TREELABVERSION/${DIST}_elsA
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH

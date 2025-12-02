@@ -30,6 +30,11 @@ In the following, the mesh has been generated with Autogrid5 from Cadence.
 
   Input mesh generated with Autogrid5
 
+.. figure:: flow_r37.png
+  :width: 100%
+  :align: center
+
+  Relative Mach number at 90% span
 
 ***************
 RANS simulation

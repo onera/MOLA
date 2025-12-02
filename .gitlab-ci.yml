@@ -183,6 +183,7 @@ compile_doc:
     - source $MOLA_ENV_ELSA
   script: 
     - cd doc
+    - make install_doc_requirements
     - make doc
   artifacts:   
     paths:

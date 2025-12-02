@@ -50,18 +50,18 @@ w = WorkflowAirplane(
         dict(Family='SYMMETRY', Type='SymmetryPlane'),
     ],
 
-    ConvergenceCriteria = [
-        dict(
-            ExtractionName = 'WING',
-            Variable = "std-CL",
-            Threshold = 1e-3,
-        ),
-        dict(
-            ExtractionName = 'WING',
-            Variable = "CL",
-            Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
-        )
-    ],
+    # ConvergenceCriteria = [
+    #     dict(
+    #         ExtractionName = 'WING',
+    #         Variable = "rsd-CD",
+    #         Threshold = 1e-4,
+    #     ),
+    #     dict(
+    #         ExtractionName = 'WING',
+    #         Variable = "CL",
+    #         Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
+    #     )
+    # ],
 
     RunManagement = dict(
         NumberOfProcessors = 8,

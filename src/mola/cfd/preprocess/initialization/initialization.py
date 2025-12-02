@@ -21,8 +21,6 @@ from mola.logging import mola_logger, MolaException, MolaUserError
 from mola.cfd.preprocess.mesh.tools import to_partitioned
 from .initialization_with_turbo import initialize_flow_with_turbo
 
-INIT_ANALYTICAL_METHODS = ['uniform', 'turbo']
-
 def apply(workflow):
     '''
     Initialize the flow solution.
@@ -115,12 +113,26 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
         for FS in source_tree.group(Name=workflow.Initialization['SourceContainer'], Type='FlowSolution'):
             FS.setName(FlowSolution_name)
 
+    # Remove other containers
+    for FS in source_tree.group(Type='FlowSolution'):
+        if FS.name() != FlowSolution_name:
+            FS.remove()
+
     # Check that all needed quantities are indeed in the container
     varNames = list(workflow.Flow['ReferenceState'])
     for FS in source_tree.group(Name=FlowSolution_name, Type='FlowSolution'):
         for var in varNames:
+            warning_msg_already_printed = False
             if FS.get(Name=var, Depth=1) is None:
-                raise MolaException(f'{var} cannot be found in {FS.path()}')
+                if var in workflow.Turbulence['Conservatives']:
+                    # For turbulent values, allow using the reference state if not provided
+                    if not warning_msg_already_printed:
+                        new_field = {var: workflow.Flow['ReferenceState'][var]}
+                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
+                        warning_msg_already_printed = True
+                        source_tree.newFields(new_field, Container=FlowSolution_name, GridLocation='CellCenter')
+                else:
+                    raise MolaException(f'{var} cannot be found in {FS.path()}')
     
     source_tree = to_partitioned(source_tree)
     workflow.tree = to_partitioned(workflow.tree)
@@ -181,8 +193,17 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
         # Check that all needed quantities are indeed in the container
         for var in list(workflow.Flow['ReferenceState']):
+            warning_msg_already_printed = False
             if FlowSolutionInSourceTree.get(Name=var, Depth=1) is None:
-                raise MolaException(f'{var} cannot be found in {FSpath}')
+                if var in workflow.Turbulence['Conservatives']:
+                    # For turbulent values, allow using the reference state if not provided
+                    if not warning_msg_already_printed:
+                        new_field = {var: workflow.Flow['ReferenceState'][var]}
+                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
+                        warning_msg_already_printed = True
+                        zone.newFields(new_field, Container=FlowSolution_name, GridLocation='CellCenter')
+                else:
+                    raise MolaException(f'{var} cannot be found in {FSpath}')
 
         zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
 
