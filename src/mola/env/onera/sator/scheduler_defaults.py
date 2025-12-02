@@ -1,4 +1,4 @@
-MOLA_PATH = '/tmp_user/sator/$USER/MOLA/Dev/src'
+MOLA_PATH = '/tmp_user/sator/mola/v2.0/src'
 
 JOB_SCHEDULER = 'SLURM'
 

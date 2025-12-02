@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-__version__ = '2.0.0dev'
+__version__ = '2.0'
 __MOLA_PATH__ = os.path.sep.join(__file__.split(os.path.sep)[:-2])
 __ONLY_DOC__ = 0 # set to True for sphinx compilation
 
