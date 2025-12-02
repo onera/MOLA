@@ -57,31 +57,39 @@ your experience by facilitating the data configuration.
 Currently, available applicative workflows are:
 
 
-.. grid:: 3
+.. grid:: 2
 
     .. grid-item-card::
-        :img-top: ../../examples/img/thumb_airfoil.png
-        :link: workflows_by_applications/airfoil.html
+        :img-top: workflows_by_application/images/wing.png
+        :link: workflows_by_application/airplane.html
 
-        **airfoil**
+        **airplane**
         ^^^
-        for 2D airfoil simulation, useful to compute polars
+        for airplane or wing simulations
 
     .. grid-item-card::
-        :img-top: ../../examples/img/flow_lmfa.png
-        :link: workflows_by_applications/linear_cascade.html
+        :img-top: workflows_by_application/images/spleen.png
+        :link: workflows_by_application/linear_cascade.html
 
         **linear_cascade**
         ^^^
         for configurations with a periodicity by translation
 
     .. grid-item-card::
-        :img-top: ../../examples/img/thumb_r37.png
-        :link: workflows_by_applications/turbomachinery.html
+        :img-top: workflows_by_application/images/rotor37_360.png
+        :link: workflows_by_application/turbomachinery.html
 
         **turbomachinery**
         ^^^
         for fan, compressor and turbine applications
+    
+    .. grid-item-card::
+        :img-top: workflows_by_application/images/propeller.png
+        :link: workflows_by_application/propeller.html
+
+        **propeller**
+        ^^^
+        for propellers applications
 
 
 Once you have imported the right module, you may instanciate a Workflow with the command:
