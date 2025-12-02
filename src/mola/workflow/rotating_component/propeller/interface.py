@@ -25,7 +25,8 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
         super().__init__(workflow, tree, **kwargs)
         if tree is None:
             self.add_to_Extractions_BC(Source='WallViscous', # FIXME elsa extraction of Pressure in WallInviscid
-                Fields=['Pressure', 'BoundaryLayer', 'yPlus'])
+                Fields=['Pressure', #'BoundaryLayer', 'yPlus'
+                        ])
             self.add_to_Extractions_Integral(
                 Source='Wall*',
                 Fields=['Force', 'Torque'],
