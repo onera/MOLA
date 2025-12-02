@@ -195,12 +195,13 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
         for var in list(workflow.Flow['ReferenceState']):
             warning_msg_already_printed = False
             if FlowSolutionInSourceTree.get(Name=var, Depth=1) is None:
-                # For turbulent values, allow using the reference state if not provided
-                if not warning_msg_already_printed:
-                    new_field = {var: workflow.Flow['ReferenceState'][var]}
-                    mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
-                    warning_msg_already_printed = True
-                    zone.newFields(new_field, Container=FlowSolution_name, GridLocation='CellCenter')
+                if var in workflow.Turbulence['Conservatives']:
+                    # For turbulent values, allow using the reference state if not provided
+                    if not warning_msg_already_printed:
+                        new_field = {var: workflow.Flow['ReferenceState'][var]}
+                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
+                        warning_msg_already_printed = True
+                        zone.newFields(new_field, Container=FlowSolution_name, GridLocation='CellCenter')
                 else:
                     raise MolaException(f'{var} cannot be found in {FSpath}')
 
