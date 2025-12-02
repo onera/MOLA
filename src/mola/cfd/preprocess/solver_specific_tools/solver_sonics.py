@@ -23,6 +23,9 @@ SonicsCGNS2MOLA = {
     'conv_flux(Momentum)X': 'ForceX',
     'conv_flux(Momentum)Y': 'ForceY',
     'conv_flux(Momentum)Z': 'ForceZ',
+    'conv_torqueX': 'TorqueX',
+    'conv_torqueY': 'TorqueY',
+    'conv_torqueZ': 'TorqueZ',
     'conv_flux(Density)': 'MassFlow',
 }
 
@@ -59,7 +62,9 @@ def translate_extraction_variables_to_sonics(Variables, solver):
         yPlus = treg.XYZPlusMeshSize,
         SkinFriction = treg.SkinFriction,
 
+        # FIXME for Force and Torque, we should extract the sum ofocnv and diff fluxes
         Force = treg.conv_flux(treg.Momentum), 
+        Torque = treg.conv_torque, 
         MassFlow = treg.conv_flux(treg.Density),
     )
     
@@ -107,6 +112,7 @@ def translate_extraction_variables_to_sonics_function(Variables):
         # HACK for integral outputs, need treg.dummy
         # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
         Force = lambda treg: treg.conv_flux(treg.Momentum), 
+        Torque = lambda treg: treg.conv_torque, 
         MassFlow = lambda treg: treg.conv_flux(treg.Density),
     )
     
