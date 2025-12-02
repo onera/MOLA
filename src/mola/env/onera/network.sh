@@ -52,7 +52,7 @@ export TREELABVERSION=v0.4.4
 # NOTE installation hint:
 # python3 -m pip install --force-reinstall --no-cache-dir --ignore-installed --prefix=/stck/mola/treelab/$TREELABVERSION/ld_elsA mola-treelab==$TREELABVERSION
 
-export ELSAVERSION=v5.4.01  #v5.3.03
+export ELSAVERSION=v5.4.01 
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849

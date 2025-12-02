@@ -16,12 +16,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-# Detection machine
-KC=`uname -n`
-EL8=`uname -r|grep el8`
-MAC0=$(echo $KC | grep 'cluster'); if [ "$MAC0" != "" ]; then export MAC="cluster"; fi
-MAC0=$(echo $KC | grep 'node'); if [ "$MAC0" != "" ]; then export MAC="cluster"; fi
-MAC0=$(echo $KC | grep 'local'); if [ "$MAC0" != "" ]; then export MAC="local"; fi
+SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+export MOLA_MACHINE=$(python3 $SCRIPT_DIR/network.py)
 
 if [ "$1" = "" ]; then
     export MOLA_SOLVER=mola
@@ -29,7 +25,6 @@ else
     export MOLA_SOLVER=$1
 fi
 
-SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/network.sh
 
 # source the environment associated to the current machine and MOLA_SOLVER

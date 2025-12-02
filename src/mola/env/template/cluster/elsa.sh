@@ -18,13 +18,21 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-######################################################################
+########################################################################
 # COMPLETE HERE ENVIRONMENT 
-# module load ...
-######################################################################
+
+# source <ELSA_PATH> &>/dev/null
+
+# # Treelab
+# export TREELABPATH=<TREELAB_PATH>
+# export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
+# export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
+########################################################################
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH
 
 export PYTHONEXE=python3
 alias python=python3
+
+export MOLA_SOLVER=elsa
