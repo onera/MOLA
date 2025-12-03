@@ -99,11 +99,8 @@ def merge_all_unstructured_zones_from_families(t):
         base_name = zone_paths[0].split('/')[0]
         mola_logger.info(f' --> merging zones of family {family}', rank=0)
 
-        try:
-            maia.pytree.rm_nodes_from_name(t, 'NFaceElements')
-            maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD, output_path=f'{base_name}/{family}_Zone', subset_merge='family')
-        except BaseException as e:
-            mola_logger.warning(f'Could not merge zones using maia, received error:\n{e}\nwill not merge zones')
+        maia.pytree.rm_nodes_from_name(t, 'NFaceElements')
+        maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD, output_path=f'{base_name}/{family}_Zone', subset_merge='family')
 
     t = cgns.castNode(t)
     # HACK see https://elsa-e.onera.fr/issues/11725
