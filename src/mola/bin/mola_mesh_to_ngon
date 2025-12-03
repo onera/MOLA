@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+#
+# Convert a mesh to unstructured monoblock (NGON)
 set -euo pipefail
 
 # Decide how many MPI processes to use:
