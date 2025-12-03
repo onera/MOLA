@@ -89,8 +89,8 @@ html_theme_options = {
     "header_links_before_dropdown": 5,
     'navbar_end': ['theme-switcher', 'navbar-icon-links', 'version-switcher'],
     "switcher": {
-        "json_url": f"https://numerics.gitlab-pages.onera.net/mola/v2.0/_static/versions.json",
-        "version_match": "v2.0",
+        "json_url": f"https://numerics.gitlab-pages.onera.net/mola/v2.0.0/_static/versions.json",
+        "version_match": "v2.0.0",
         },
 
     "navbar_persistent": ["search-button"],
