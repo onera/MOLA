@@ -9,26 +9,16 @@ MOLA (Modular Orchestration Library for Aerodynamics) is an ONERA Python code th
 
 Please use one of the latest **stable versions** of MOLA: 
 
-`source /stck/mola/vX.Y/src/mola/env/onera/env.sh <SOLVER>`
+`source /stck/mola/vX.Y.Z/src/mola/env/onera/env.sh <SOLVER>`
 
 The argument `<SOLVER>` is the name (lowercase) of the solver you want to use. 
 For instance, to use MOLA for elsA, use the command: 
 
-`source /stck/mola/vX.Y/src/mola/env/onera/env.sh elsa`
+`source /stck/mola/vX.Y.Z/src/mola/env/onera/env.sh elsa`
 
 ## Installation
 
-If MOLA is not already install on your network, 
-use the package manager [pip](https://pip.pypa.io/en/stable/) to install MOLA.
-
-```bash
-pip install mola-workflow
-```
-
-Then, write environments files for each machine and each solver you want to use, 
-in `src/mola/env/`. See the template `src/mola/env/template` to build the environment
-on your network.
-
+Refer to the [documentation site](https://numerics.gitlab-pages.onera.net/mola/latest/developer_manual/deployment.html).
 
 ## Usage
 
