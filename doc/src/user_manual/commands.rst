@@ -21,6 +21,7 @@ The output of this command is:
     mola_available        : Display all available MOLA commands
     mola_clean            : Remove all MOLA log files, cache files, debug files, status files and plots
     mola_merge_containers : Merge fields containers to facilitate visualization
+    mola_mesh_to_ngon     : Convert a mesh to unstructured monoblock (NGON)
     mola_plot             : Plot residuals, massflow, loads, etc.
     mola_prepare          : Read a file with workflow parameters and apply methods prepare() and write_cfd_files()
     mola_repatriate       : Repatriate directories after submitting several simulations on sator at once
