@@ -11,6 +11,7 @@ Table of contents
   - [Syntax](#syntax)
   - [Architecture](#architecture)
   - [Development](#development)
+  - [Tests](#tests)
 
 Getting the sources
 ===================
