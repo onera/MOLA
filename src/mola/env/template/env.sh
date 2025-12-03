@@ -19,7 +19,11 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export MOLA_MACHINE=$(python3 $SCRIPT_DIR/network.py)
 
-export MOLA_SOLVER=elsa  # you may choose your default solver here
+if [ "$1" = "" ]; then
+    export MOLA_SOLVER=elsa  # you may choose your default solver here
+else
+    export MOLA_SOLVER=$1
+fi
 
 source $SCRIPT_DIR/network.sh
 
