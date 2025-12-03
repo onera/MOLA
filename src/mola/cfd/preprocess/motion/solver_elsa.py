@@ -18,7 +18,7 @@
 import numpy as np
 
 from mola.cfd.preprocess.motion import motion
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 import mola.pytree.InternalShortcuts as J
 from mola.cfd.preprocess.mesh.families import getFamilyBCTypeFromFamilyBCName
 from mola.cfd.preprocess.mesh.overset import hasAnyOversetMotion
@@ -63,6 +63,9 @@ def apply_to_solver(workflow):
             #   User Error : Block motion parameter must be defined consistently over all the blocks
 
             famNode = workflow.tree.get(Name=family, Type='Family', Depth=2)
+            if famNode is None:
+                available_families= [n.name() for n in workflow.tree.group(Type='Family_t',Depth=2)]
+                raise MolaException(f'did not find family "{family}", available families: {str(available_families)}')
 
             assert_rotation_axis_is_correct(MotionOnFamily)
 
