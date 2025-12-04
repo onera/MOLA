@@ -21,18 +21,27 @@ It is mandatory to choose it when loading the environment because each solver ma
 
 For instance, on ONERA network and for a simulation with elsA, you would source:
 
-.. code::  
+.. code-block:: bash
     
-    source /stck/mola/2.0/mola/env/onera/env.sh elsa
+    source /stck/mola/v2.0.0/mola/env/onera/env.sh elsa
 
 This command finds on which machine of the network your are working on, and source the corresponding environment file. 
 The previous line should have the following output in the console:
 
-.. code::
+.. code-block:: bash
 
-    source /stck/mola/2.0/mola/mola/env/onera/ld/elsa.sh
+    source /stck/mola/v2.0.0/mola/env/onera/ld/elsa.sh
 
 That line could also have been sourced directly, but hence there is also a dependance to the machine (e.g. `ld` here).
+
+.. hint::
+
+  For ONERA users, there is also a shortcut here : 
+  
+  .. code-block:: bash
+  
+    source /stck/mola/v2.0.0/env_mola.sh <SOLVER>
+
 
 .. important::
 
@@ -68,7 +77,7 @@ The command `mola_version` print a message indicating the main available librari
 
 .. code-block:: text
 
-    MOLA version 2.0 at ld (avx512)
+    MOLA version 2.0.0 at ld (avx512)
     --> Python 3.8.14
     --> treelab 0.4.3
     --> Cassiopee 4.0
