@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mola-workflow"
-version = "0.0.1"
+version = "2.0.0"
 authors = [
   { name="Luis Bernardos", email="luisfco.bernardos@gmail.com" },
   { name="Thomas Bontemps", email="thomas.bontemps@hotmail.fr" }
