@@ -423,8 +423,8 @@ class WorkflowInterface(object):
 
     def add_to_BoundaryConditions(self,
         *,
-        Family        : str   = None,
-        Type          : str   = None,
+        Family        : str,
+        Type          : str,
         **kwargs
         ):
         parameters  = self.get_default_values_from_local_signature()
@@ -526,7 +526,6 @@ class WorkflowInterface(object):
 
     def set_cfl(self,
             StartIteration : int   = None,
-            *,
             EndIteration   : int   = 500,
             StartValue     : float = 1.0, 
             EndValue       : float = 10.0,
@@ -654,7 +653,7 @@ class WorkflowInterface(object):
             PostprocessOperations : list = None,
             OtherOptions : dict = None,
             *,
-            Type : str = 'Integral', # 'Integral',
+            Type : str = 'Integral', 
             Source : str, # "BCWall", "MyFamilyBC"... TODO accept regex &| ?
             Fields : list, # accepts prefix avg- or std- Accept MOLA keywords "Force" and "Torque"
             ):
