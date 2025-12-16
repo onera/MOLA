@@ -25,9 +25,12 @@ def apply(workflow):
 
     _clip_small_rotation_angles(workflow.tree)
 
-    if not any([('Connection' in component) 
-                and len(component['Connection'])>0 
-                for component in workflow.RawMeshComponents]):
+    no_connection_to_add = not any([
+        ('Connection' in component) and len(component['Connection'])>0 
+        for component in workflow.RawMeshComponents
+        ])
+
+    if no_connection_to_add:
         return
 
     mola_logger.info("  🔗 connecting mesh", rank=0)

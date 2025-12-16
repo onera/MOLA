@@ -52,6 +52,8 @@ def duplicate(tree, duplication_operations, workflow, tool='maia'):
     with redirect_streams_to_logger(mola_logger, stdout_level='DEBUG'):
         tree.forceShorterZoneNames(max_length=20)
 
+    _compute_azimuthal_extension_if_not_given(tree, duplication_operations)
+
     if tool == 'cassiopee':
         mola_logger.debug('duplicate with cassiopee')
         tree = _duplicate_with_cassiopee(tree, duplication_operations)
@@ -61,6 +63,14 @@ def duplicate(tree, duplication_operations, workflow, tool='maia'):
         tree = _duplicate_with_maia(tree, duplication_operations)
 
     return tree
+
+def _compute_azimuthal_extension_if_not_given(tree, duplication_operations):
+    for operation in duplication_operations:
+        if 'azimuthal_extension' not in operation:
+            Family = operation['Family']
+            # do this before removing connectivities, because method="from_periodic" uses Periodic nodes
+            azimuthal_extension = np.degrees(compute_azimuthal_extension(tree, Family))  # Cassiopee uses degrees by default
+            operation['azimuthal_extension'] = azimuthal_extension
 
 def _duplicate_with_cassiopee(tree, duplication_operations):
     '''
@@ -77,19 +87,6 @@ def _duplicate_with_cassiopee(tree, duplication_operations):
     .. warning:: This function does not rotate vectors in BCDataSet nodes.
     '''
     import Converter.Internal as I
-    import Connector.PyTree as X
-
-    angles4ConnectMatchPeriodic = []
-    for operation in duplication_operations:
-        Family = operation['Family']
-        NumberOfDuplications = operation['NumberOfDuplications']
-        # do this before removing connectivities, because method="from_periodic" uses Periodic nodes
-        azimuthal_extension = np.degrees(compute_azimuthal_extension(tree, Family))  # Cassiopee uses degrees by default
-        operation['azimuthal_extension'] = azimuthal_extension
-
-        angle = azimuthal_extension * (NumberOfDuplications+1)
-        if not np.isclose(angle, 360.):
-            angles4ConnectMatchPeriodic.append(angle)
 
     # Remove connectivities and periodic BCs
     I._rmNodesByType(tree, 'GridConnectivity1to1_t')
@@ -103,7 +100,7 @@ def _duplicate_with_cassiopee(tree, duplication_operations):
             tree, 
             operation['Family'], 
             operation['NumberOfDuplications'], 
-            operation['azimuthal_extension'], 
+            np.degrees(operation['azimuthal_extension']), 
             axis=(1,0,0)
             )
 
@@ -241,8 +238,7 @@ def _duplicate_with_maia(tree, duplication_operations, merge_zones=False):
         Family = operation['Family']
         NumberOfDuplications = operation['NumberOfDuplications']
 
-        AzimuthalExtension = compute_azimuthal_extension(tree, Family)
-        is_360 = np.isclose(AzimuthalExtension * (NumberOfDuplications+1), 360.)
+        is_360 = np.isclose(operation['azimuthal_extension'] * (NumberOfDuplications+1), 360.)
 
         if NumberOfDuplications == 0:
             return

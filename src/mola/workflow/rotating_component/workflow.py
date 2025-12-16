@@ -136,10 +136,12 @@ class WorkflowRotatingComponent(Workflow):
 
             duplications_to_do = rowParams['NumberOfBladesSimulated'] - rowParams['NumberOfBladesInInitialMesh']
             if duplications_to_do > 0:
+                azimuthal_extension = 2*np.pi * rowParams['NumberOfBladesInInitialMesh'] / rowParams['NumberOfBlades']  # Exact, because recomputed from int values of number of blades
                 operation = dict(
                     Type = 'DuplicateByRotation',
                     Family = row,
                     NumberOfDuplications = duplications_to_do,
+                    azimuthal_extension = azimuthal_extension,
                 )
                 
                 # CAVEAT: works only for one component
@@ -163,7 +165,7 @@ class WorkflowRotatingComponent(Workflow):
                 component['Connection'].append(dict(Type='Match', Tolerance=component['DefaultToleranceForConnection']))
 
             for row, rowParams in self.ApplicationContext['Rows'].items():
-                azimuthal_extension = compute_azimuthal_extension(self.tree, row, axis=self.ApplicationContext['ShaftAxis'])
+                azimuthal_extension = 2*np.pi * rowParams['NumberOfBladesInInitialMesh'] / rowParams['NumberOfBlades']
                 duplications_to_do = rowParams['NumberOfBladesSimulated'] - rowParams['NumberOfBladesInInitialMesh']
                 angle = np.degrees(azimuthal_extension) * (duplications_to_do+1)
 
