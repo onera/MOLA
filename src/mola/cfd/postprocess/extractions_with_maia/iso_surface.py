@@ -19,7 +19,13 @@ import maia
 
 def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm):
 
-    containers_name = [fs.name() for fs in tree.group(Type='FlowSolution')]
+    # Get all containers once with the same order for all ranks. Otherwise, deadlock in plane_slice or iso_surface below
+    rank = comm.Get_rank()
+    containers = comm.gather([fs.name() for fs in tree.group(Type='FlowSolution')])
+    if rank == 0:
+        containers = list(set([item for sublist in containers for item in sublist]))
+    comm.barrier()
+    containers = comm.bcast(containers, root=0)
 
     if IsoSurfaceContainer == 'GridCoordinates':
         # maia cannot do an iso_surface on GridCoordinates
@@ -28,26 +34,10 @@ def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, com
         plane_eq = [0, 0, 0, IsoSurfaceValue]  # caution, plane equation for maia is: ax+by+cz-d=0
         plane_eq[index_of_coord[IsoSurfaceField]] = 1
 
-        # all_zones_names = comm.allgather([z.name() for z in tree.zones()])
-        # all_zones_names = list(set([item for sublist in all_zones_names for item in sublist]))
-
-        # surfaces_by_zone = []
-
-        # # HACK extract_part_from_zsr works only for tree with one zone
-        # # see https://gitlab.onera.net/numerics/mesh/maia/-/issues/219
-        # for zone_name in all_zones_names:
-        #     # make a shallow copy of tree with only the current zone
-        #     tree_with_one_zone = tree.copy()
-        #     for z in tree_with_one_zone.zones():
-        #         if z.name() != zone_name:
-        #             z.remove()
-
-        #     if len(tree_with_one_zone) > 0:
-
         surface = maia.algo.part.plane_slice(
                             tree, 
                             plane_eq, 
-                            containers_name=containers_name, 
+                            containers_name=containers, 
                             comm=comm,
                             # Using elt_type='NGON_n' requires less storage, but it can raise the following error:
                             # /tmp_user/juno/sonics/tmp/sonics/15998/external/paradigm/extensions/paradigma/src/mesh/pdm_iso_surface.c:3380: Fatal error.
@@ -55,9 +45,6 @@ def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, com
                             # --> Solution: Input tree must have been partitioned with preserve_orientation=True partitioning option.
                             # elt_type='NGON_n',
                             )
-        # surfaces_by_zone.append(surface)
-
-        # surface = maia.pytree.union(surfaces_by_zone)
     else:
         # TODO this function seems now to handle also a GridCoordinates variables (at least with maia v1.8)
         # When we are sure that it works for all versions of maia employed in mola, for every solvers et for every cases, 
@@ -66,7 +53,7 @@ def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, com
                             tree, 
                             f"{IsoSurfaceContainer}/{IsoSurfaceField}",
                             iso_val=IsoSurfaceValue,
-                            containers_name=containers_name, 
+                            containers_name=containers, 
                             comm=comm,
                             # elt_type='NGON_n',
                             )
