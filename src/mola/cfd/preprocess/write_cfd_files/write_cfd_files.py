@@ -77,6 +77,15 @@ def build_job_scheduler_header(Scheduler, scheduler_options):
 
 def get_lines_to_submit_job_again(RunManagement):
     command = RunManagement['LauncherCommand'] 
+    # remove change of directory in the command, because we are already in the right directory now
+    if command.startswith('cd'):
+        separators_to_test =  [';', '&&', '&']
+        for separator in separators_to_test:
+            commands = command.split(separator)
+            if len(commands) > 1:
+                command = separator.join(commands[1:]) 
+                break
+
     if RunManagement['Scheduler'] == 'SLURM':
         command += ' --dependency=singleton'
 

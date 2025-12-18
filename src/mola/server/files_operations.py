@@ -179,7 +179,7 @@ def get_path_with_machine(path, machine=None, user=None):
     else:
         return path
 
-def scp(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, timeout=60):
+def scp(source_path, destination_path, source_machine=None, destination_machine=None, source_user=None, destination_user=None, force_copy=False, timeout=None):
 
     # Force convertion to str in case paths are Path objects from pathlib
     source_path = str(source_path)

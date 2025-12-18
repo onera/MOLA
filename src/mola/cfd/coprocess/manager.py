@@ -30,7 +30,7 @@ from mola.cfd.preprocess.mesh.io.writer import write
 from mola.cfd.postprocess.extractions_with_cassiopee.tools import mergeContainers
 
 from . import rank, comm
-from .tools import move_log_files, check_stderr, write_tagfile
+from .tools import move_log_files, check_stderr
 from .stopping_criteria import check_timeout, check_max_iteration, check_convergence_criteria
 from .user_interface import check_and_execute_user_signal
 from .probes import has_probes, search_zone_and_index_for_probes
@@ -261,7 +261,10 @@ class CoprocessManager():
         check_stderr()
 
         if not SV.is_file(names.FILE_NEWJOB_REQUIRED):
-            write_tagfile(names.FILE_JOB_COMPLETED, self)
+            if rank == 0:
+                with open(names.FILE_JOB_COMPLETED, 'w') as f: 
+                    f.write(names.FILE_JOB_COMPLETED)
+            
     
     def after_compute(self):
         if hasattr(self.workflow, 'after_compute'):
@@ -288,26 +291,12 @@ class CoprocessManager():
         if WorkflowParameters:
             WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
 
-    def make_directories_and_log(self):
-
-        run_dir = self.workflow.RunManagement.get('RunDirectory','.')
-        
-        if run_dir == "." or run_dir == os.path.basename(os.getcwd()):
-            output_dir = names.DIRECTORY_OUTPUT
-            log_dir = names.DIRECTORY_LOG
-            colog_file_path = names.FILE_COLOG
-
-        else: 
-            output_dir = os.path.join(run_dir,names.DIRECTORY_OUTPUT)
-            log_dir = os.path.join(run_dir,names.DIRECTORY_LOG)
-            colog_file_path = os.path.join(run_dir, names.FILE_COLOG)
-                
-            
+    def make_directories_and_log(self):           
         if rank==0:
-            os.makedirs(output_dir, exist_ok=True)
-            os.makedirs(log_dir, exist_ok=True)
+            os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
+            os.makedirs(names.DIRECTORY_LOG, exist_ok=True)
 
-        self.mola_logger = MolaLogger(stream=False, filename=colog_file_path, level='INFO')
+        self.mola_logger = MolaLogger(stream=False, filename=names.FILE_COLOG, level='INFO')
 
     @property
     def status(self):
