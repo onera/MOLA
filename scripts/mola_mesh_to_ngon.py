@@ -18,7 +18,6 @@ if len(sys.argv) != 2: raise AttributeError(err1)
 filename = str(sys.argv[1])
 
 t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD)
-t = cgns.castNode(t)
 fix_point_ranges(t)
 maia.algo.dist.convert_s_to_ngon(t, MPI.COMM_WORLD)
 maia.algo.pe_to_nface(t, MPI.COMM_WORLD)
