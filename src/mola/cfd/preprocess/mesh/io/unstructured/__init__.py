@@ -66,6 +66,7 @@ def merge_all_unstructured_zones_from_families(t):
     import maia 
 
     def correct_type_i8_to_i4(t):
+        # HACK see https://elsa-e.onera.fr/issues/11725
         nodes = []
         for Elements in t.group(Type='Elements'):
             nodes += Elements.children()
@@ -99,12 +100,12 @@ def merge_all_unstructured_zones_from_families(t):
         base_name = zone_paths[0].split('/')[0]
         mola_logger.info(f' --> merging zones of family {family}', rank=0)
 
-        maia.pytree.rm_nodes_from_name(t, 'NFaceElements')
+        # maia.pytree.rm_nodes_from_name(t, 'NFaceElements')
         maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD, output_path=f'{base_name}/{family}_Zone', subset_merge='family')
 
     t = cgns.castNode(t)
-    # HACK see https://elsa-e.onera.fr/issues/11725
-    correct_type_i8_to_i4(t)
+    
+    # correct_type_i8_to_i4(t) # HACK see https://elsa-e.onera.fr/issues/11725
     
     # for elsA, change GC value from <base>/<zone> to <zone>
     for gc in t.group(Type='GridConnectivity'):
