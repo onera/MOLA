@@ -18,7 +18,7 @@
 import pytest 
 import os
 
-from mola.cfd.coprocess.manager import CoprocessManager, names, write_tagfile
+from mola.cfd.coprocess.manager import CoprocessManager, names
 from mola.cfd.coprocess import user_interface
 
 
@@ -53,10 +53,20 @@ class FakeWorkflow():
 @pytest.mark.cost_level_0
 def test_get_user_signal(tmp_path):
 
+    os.chdir(tmp_path)
     workflow = FakeWorkflow(tmp_path)
     coprocess = CoprocessManager(workflow)
 
-    write_tagfile('A_SIGNAL', coprocess)
+    try: 
+        from mpi4py import MPI
+        rank = MPI.COMM_WORLD.Get_rank()
+    except:
+        rank = 0
+
+    if rank == 0:
+        with open('A_SIGNAL', 'w') as f: 
+            f.write('')
+
     assert user_interface.get_user_signal(coprocess, 'A_SIGNAL')
     assert not os.path.isfile(os.path.join(tmp_path,'A_SIGNAL'))
     coprocess.status = 'COMPLETED'

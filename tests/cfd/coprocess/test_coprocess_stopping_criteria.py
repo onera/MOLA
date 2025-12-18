@@ -57,6 +57,8 @@ class FakeWorkflow():
 @pytest.mark.cost_level_0
 def test_check_timeout(tmp_path):
 
+    os.chdir(tmp_path)
+
     workflow = FakeWorkflow(tmp_path)
     coprocess = CoprocessManager(workflow)
 
@@ -271,17 +273,6 @@ def test_get_convergence_message():
     assert 'var4' not in txt    
 
     print(txt)
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_write_tagfile(tmp_path):
-    workflow = FakeWorkflow(tmp_path)
-    coprocess = CoprocessManager(workflow)
-
-    stopping_criteria.write_tagfile('NEWJOB_REQUIRED', coprocess)
-    os.unlink(os.path.join(tmp_path,'NEWJOB_REQUIRED'))
-    coprocess.status = 'COMPLETED'
-
 
 
 if __name__ == '__main__':

@@ -183,6 +183,7 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans',
 @pytest.mark.cost_level_0
 def test_get_output_tree(tmp_path):
     
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
     solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
 
@@ -200,6 +201,7 @@ def test_get_output_tree(tmp_path):
         solver_fast.post_fields_using_cassiopee_computeExtraVariable)
 def test_compute_missing_fields_at_cell_centers(tmp_path, extract_field):
     
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
 
     if extract_field == 'ShearStress':
@@ -245,7 +247,7 @@ def test_compute_missing_fields_at_cell_centers(tmp_path, extract_field):
 @pytest.mark.parametrize("GhostCells", [True, False])
 def test_extract_fields(tmp_path, GridLocation, GhostCells):
 
-
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
     
     workflow._coprocess_manager.Extractions = [
@@ -276,6 +278,7 @@ def test_extract_fields(tmp_path, GridLocation, GhostCells):
 @pytest.mark.cost_level_0
 def test_extract_isosurface(tmp_path):
 
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
     
     workflow._coprocess_manager.Extractions = [
@@ -314,6 +317,7 @@ def test_extract_isosurface(tmp_path):
 @pytest.mark.cost_level_0
 def test_extract_bc(tmp_path):
 
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
     
     workflow._coprocess_manager.Extractions = [
@@ -344,6 +348,7 @@ def test_extract_bc(tmp_path):
 @pytest.mark.parametrize("modeling", ['euler', 'rans'])
 def test_extract_residuals(tmp_path,modeling):
 
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path, modeling, create_convergence_nodes=True)
     workflow._coprocess_manager.Extractions = [dict(Type='Residuals')]
     workflow.Extractions = workflow._coprocess_manager.Extractions
@@ -381,6 +386,8 @@ def test_extract_residuals(tmp_path,modeling):
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_get_stress_and_state(tmp_path):
+
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'laminar')
     
     workflow._coprocess_manager.Extractions = [
@@ -417,6 +424,7 @@ def test_dimensionalize_torque():
 @pytest.mark.cost_level_0
 def test_extract_integral(tmp_path):
     
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'laminar')
     
     extraction = dict(Type='Integral', Source='WALL', Name='WALL_LOADS',

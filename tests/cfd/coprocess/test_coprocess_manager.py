@@ -22,9 +22,8 @@ import shutil
 import numpy as np
 
 from treelab import cgns
-from mola.cfd.coprocess import comm, rank, NumberOfProcessors
 from mola.cfd.coprocess.manager import CoprocessManager, MolaException, names
-from mola.cfd.coprocess.tools import update_signals_using, write_extraction_log, write_tagfile
+from mola.cfd.coprocess.tools import update_signals_using, write_extraction_log
 
 
 class FakeWorkflow():
@@ -84,7 +83,8 @@ def check_existance_of_coprocess_files_and_directories_by_removing_them(path):
 @pytest.mark.fast  # sonics needs the attribute coprocess._iterators
 @pytest.mark.cost_level_0
 def test_update_iteration(tmp_path):
-
+    
+    os.chdir(tmp_path)
     workflow = FakeWorkflow(tmp_path)
     coprocess = CoprocessManager(workflow)
 
@@ -96,7 +96,8 @@ def test_update_iteration(tmp_path):
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_status(tmp_path):
-    
+
+    os.chdir(tmp_path)
     workflow = FakeWorkflow(tmp_path)
     coprocess = CoprocessManager(workflow)
 
@@ -217,15 +218,6 @@ def test_write_extraction_log():
         if key == 'Data': continue 
         assert log[key] == value
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_write_tagfile(tmp_path):
-    workflow = FakeWorkflow(tmp_path)
-    coprocess = CoprocessManager(workflow)
-
-    write_tagfile('NEWJOB_REQUIRED', coprocess)
-    os.unlink(os.path.join(tmp_path,'NEWJOB_REQUIRED'))
-    coprocess.status = 'COMPLETED'
 
 if __name__ == '__main__':
     test_update_signals(dict(previous_it    = [1],

@@ -20,7 +20,6 @@ from pprint import pformat as pretty
 
 from mola.logging import MolaException, GREEN, ENDC
 from . import rank, comm
-from mola.cfd.coprocess.tools import write_tagfile
 import mola.naming_conventions as names
 
 def check_max_iteration(coprocess_manager):
@@ -45,7 +44,6 @@ def check_timeout(coprocess_manager):
 
     is_to_stop = False
     
-    launch_time = coprocess_manager.launch_time
     timeout = coprocess_manager.workflow.RunManagement['TimeOutInSeconds']
 
     if coprocess_manager.status.startswith('RUNNING'):
@@ -55,7 +53,10 @@ def check_timeout(coprocess_manager):
             msg = f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION'
             coprocess_manager.mola_logger.warning(msg, rank=0)
 
-            write_tagfile(names.FILE_NEWJOB_REQUIRED, coprocess_manager)
+            if rank == 0:
+                with open(names.FILE_NEWJOB_REQUIRED, 'w') as f: 
+                    f.write(names.FILE_NEWJOB_REQUIRED)
+
             coprocess_manager.status = 'TO_STOP'
             is_to_stop = True
 

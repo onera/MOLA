@@ -17,7 +17,6 @@
 
 from pathlib import Path
 from mola.cfd import apply_to_solver
-from mola.cfd.coprocess.tools import write_tagfile
 import mola.naming_conventions as names
 
 def apply(workflow):
@@ -26,11 +25,13 @@ def apply(workflow):
         apply_to_solver(workflow)
     except BaseException as e:
         try: 
-            comanager = workflow._coprocess_manager
-        except AttributeError:
-            # becase it may fail also before instantiating coprocess manager
-            comanager = None 
-        write_tagfile(names.FILE_JOB_FAILED, comanager)
+            from mpi4py import MPI
+            rank = MPI.COMM_WORLD.Get_rank()
+        except:
+            rank = 0
+        if rank == 0:
+            with open(names.FILE_JOB_FAILED, 'w') as f: 
+                f.write(names.FILE_JOB_FAILED)
         raise BaseException(e)
 
 def remove_status_files():

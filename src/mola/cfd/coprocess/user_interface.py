@@ -49,7 +49,7 @@ def check_and_execute_user_signal(coprocess_manager):
 
 def get_user_signal(coprocess_manager, filename):
     '''
-    Get a signal using an temporary auxiliary file technique.
+    Get a signal using a temporary auxiliary file.
 
     If the intermediary file exists (signal received) then self.iteration is removed, and
     the function returns :py:obj:`True` to all processors. Otherwise, self.iteration returns
@@ -80,14 +80,7 @@ def get_user_signal(coprocess_manager, filename):
     signal = False
     if rank == 0:
         try:
-            run_dir = Path(coprocess_manager.workflow.RunManagement['RunDirectory'])
-            # return from glob method is a generator. Acces to an element is done with next(...).
-            # If the generator is empty, it raises a StopIteration exception
-            run_dir_absolute = Path(run_dir).resolve() # added twice sometimes
-            if not run_dir_absolute.is_dir(): # HACK
-                run_dir_absolute = run_dir_absolute.parent
-
-            filename = next(run_dir_absolute.glob(filename))  
+            filename = next(Path('.').glob(filename))  
             filename.unlink()
             signal = filename.name
             coprocess_manager.mola_logger.info(f'{CYAN}Received signal {signal}{ENDC}', rank=0)

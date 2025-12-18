@@ -16,9 +16,9 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest 
-
 pytestmark = pytest.mark.elsa
 
+import os
 from treelab import cgns
 from mola.cfd.coprocess import solver_elsa
 
@@ -86,7 +86,7 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory):
 @pytest.mark.parametrize("GridLocation", ["Vertex", "CellCenter"])
 def test_extract_fields(tmp_path, GridLocation):
 
-
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
     
     workflow._coprocess_manager.Extractions = [
@@ -117,6 +117,7 @@ def test_extract_fields(tmp_path, GridLocation):
 @pytest.mark.cost_level_0
 def test_extract_isosurface(tmp_path):
 
+    os.chdir(tmp_path)
     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
     
     workflow._coprocess_manager.Extractions = [

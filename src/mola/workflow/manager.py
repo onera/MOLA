@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from typing import List
+from typing import List, Union
 import copy
 from fnmatch import fnmatch
 from pathlib import Path
@@ -217,7 +217,10 @@ class WorkflowManager():
         self.machine = parameters['Machine']
         self.run_directories = parameters['RunDirectories']
 
-    def get_synchronized_directories(self, filenames: list=[], update_from_remote_machine: bool=True): 
+    def get_synchronized_directories(self, filenames: Union[list, None]=None, update_from_remote_machine: bool=True):
+        if filenames is None:
+            filenames = []
+
         if not hasattr(self, 'run_directories'):
             self.run_directories = self.get_run_directories()
 
@@ -885,7 +888,7 @@ def get_value_on_leaf(tree, path: str):
     else:
         raise MolaException(f'Unknown type: {type(tree)}')
 
-def find_matching_leaves(tree, patterns: list, operation=None, excluded_attributes=[]) -> list:
+def find_matching_leaves(tree, patterns: list, operation=None, excluded_attributes=None) -> list:
     '''
     Find leaves in Workflow parameters matching one of the given patterns, 
     optionaly apply (in-place) an operation on them,
@@ -914,6 +917,8 @@ def find_matching_leaves(tree, patterns: list, operation=None, excluded_attribut
     list
         values of leaves matching patterns.
     '''
+    if excluded_attributes is None:
+        excluded_attributes = []
     matches = []
 
     if isinstance(tree, Workflow):
