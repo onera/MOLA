@@ -101,11 +101,14 @@ def merge_all_unstructured_zones_from_families(t):
         mola_logger.info(f' --> merging zones of family {family}', rank=0)
 
         # maia.pytree.rm_nodes_from_name(t, 'NFaceElements')
-        maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD, output_path=f'{base_name}/{family}_Zone', subset_merge='family')
+        maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD,
+            output_path=f'{base_name}/{family}_Zone',
+            concatenate_jns=False, # HACK https://gitlab.onera.net/numerics/mesh/maia/-/issues/230#note_66270
+            subset_merge='family')
 
     t = cgns.castNode(t)
     
-    # correct_type_i8_to_i4(t) # HACK see https://elsa-e.onera.fr/issues/11725
+    # correct_type_i8_to_i4(t) # HACK see https://elsa-e.onera.fr/issues/11725 # TODO clean this
     
     # for elsA, change GC value from <base>/<zone> to <zone>
     for gc in t.group(Type='GridConnectivity'):
