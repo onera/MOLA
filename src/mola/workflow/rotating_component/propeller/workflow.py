@@ -129,7 +129,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             if not is_distributed_for_use_in_maia(tree):
                 tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
 
-            tree = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD)
+            tree = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, preserve_orientation=True)
             tree = cgns.castNode(tree)
         
         return tree

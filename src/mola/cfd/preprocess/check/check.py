@@ -72,10 +72,10 @@ def check_empty_bc(workflow):
     
     _ignore_undefined_periodic_boundaries_in_2D_structured_grids(t)
 
-    # CAUTION BUG https://elsa.onera.fr/issues/12076#note-5
-    if workflow.Solver == 'sonics': 
-        mola_logger.user_warning(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
-        return
+    # # CAUTION BUG https://elsa.onera.fr/issues/12076#note-5
+    # if workflow.Solver == 'sonics': 
+    #     mola_logger.user_warning(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
+    #     return
     
     I._adaptPE2NFace(t)
     emptyBC = C.getEmptyBC(t, dim=3)

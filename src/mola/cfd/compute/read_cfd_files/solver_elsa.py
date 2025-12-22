@@ -120,14 +120,14 @@ def read_workflow_with_maia(workflow):
     
     if is_to_split_with_maia:
         workflow.read_tree('maia')
-        part_tree = maia.factory.partition_dist_tree(workflow.tree, comm, data_transfer='ALL')
+        part_tree = maia.factory.partition_dist_tree(workflow.tree, comm, data_transfer='ALL', preserve_orientation=True)
 
     elif was_already_split:
         # distribution = D2.getProcDict(workflow.tree, prefixByBase=True)   
         # zone_to_parts = dict((zone_proc[0], [1.]) for zone_proc in distribution.items() if zone_proc[1]==rank)   
         if workflow.RunManagement['NumberOfProcessors'] == 1:
             workflow.read_tree('maia')
-            part_tree = maia.factory.partition_dist_tree(workflow.tree, comm, data_transfer='ALL')
+            part_tree = maia.factory.partition_dist_tree(workflow.tree, comm, data_transfer='ALL',preserve_orientation=True)
         else:
             part_tree = maia.io.file_to_part_tree(workflow.tree, comm) 
 

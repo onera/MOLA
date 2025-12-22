@@ -270,7 +270,7 @@ def to_partitioned_if_distributed(tree : cgns.Tree, cassiopee_distribution={}):
 
     mola_logger.debug('convert tree to maia part_tree')
 
-    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL', preserve_orientation=True)
 
     t = cgns.castNode(t)
     for base in t.bases():
