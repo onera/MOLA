@@ -91,7 +91,7 @@ def get_output_tree(coprocess_manager):
         if gc.get(Type='GridLocation').value() == 'Vertex':
             gc.remove()  # otherwise, error in the function centers_to_nodes below
     # partionning
-    part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD)
+    part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD, preserve_orientation=True)
     maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
     maia.algo.part.centers_to_nodes(part_tree, comm, ['Fields@Cell@End'])
     part_tree = cgns.castNode(part_tree)
