@@ -4,6 +4,27 @@ Changelog
 
 This page contains information about what has changed in each new version of MOLA.
 
+.. To update this page: keep the following order: 💡 New features, 🚀 Feature improvements, 🚧 API changes, 🐞 Fixes, 💻 For developpers
+
+**********
+v2.0.1.dev 
+**********
+
+=======================
+🚀 Feature improvements
+=======================
+
+* Make more robust duplication process
+
+========
+🐞 Fixes
+========
+
+* Fix a bug for iso-surface with SoNICS for multi-zones domains.
+* Fix a bug to allow the copy or move of the run directory.
+
+
+
 *****************
 v2 compared to v1 
 *****************
