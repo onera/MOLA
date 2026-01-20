@@ -45,7 +45,7 @@ class WorkflowInterface(object):
     def __init__(self, workflow,
             tree=None,
             Solver : str = None,
-            Mesh : Union[dict, str] = None,
+            Mesh : Union[dict, str, cgns.Tree] = None,
             RawMeshComponents : list = None,
             Fluid : dict = None,
             Flow : dict = None,
@@ -73,7 +73,7 @@ class WorkflowInterface(object):
             if isinstance(Mesh, dict):
                 Mesh.setdefault('Name','Base')
                 attributes['RawMeshComponents'] = [Mesh]
-            elif isinstance(Mesh, str):
+            elif isinstance(Mesh, str) or isinstance(Mesh, cgns.Tree):
                 attributes['RawMeshComponents'] = [dict(Source=Mesh, Name='Base')]
             else:
                 raise MolaUserError(f"Input parameter Mesh must be either a dict or str but is {type(Mesh)}")
