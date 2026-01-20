@@ -74,7 +74,7 @@ def redirect_streams_to_logger(logger, stdout_level='INFO', stderr_level='ERROR'
     write_with_logger_if_needed(tmp_stderr, stderr_log_level)
 
 
-class redirect_streams_to_null(object):
+class _redirect_streams_to_null(object):
     """
     Class used to grab standard output or another stream.
     """
@@ -150,3 +150,11 @@ class redirect_streams_to_null(object):
                 break
             self.capturedtext += char
 
+class _nothing(object):
+    '''this context does nothing'''
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        pass

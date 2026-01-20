@@ -17,7 +17,7 @@
 
 import os
 from treelab import cgns
-from mola.logging import mola_logger, MolaException, redirect_streams_to_null
+from mola.logging import mola_logger, MolaException, redirect_streams_to_null_if_not_debug
 
 
 def initialize_flow_with_turbo(workflow, FlowSolution_name):
@@ -148,7 +148,7 @@ def initialize_flow_with_turbo(workflow, FlowSolution_name):
         lin_axis = 'XY'  # whatever, this value is not used
 
     # > Initialization
-    with redirect_streams_to_null():
+    with redirect_streams_to_null_if_not_debug():
         t = TI.initialize(t, mask, RefState(), planes_data,
                 config=config,
                 lin_axis = lin_axis,
@@ -169,7 +169,7 @@ def compute_mask(t, lin_axis=None, method=2):
 
     if not lin_axis:
         endlinesTree = TH.generateHLinesAxial(t, filename='shroud_hub_lines.plt', method=method)
-        with redirect_streams_to_null():
+        with redirect_streams_to_null_if_not_debug():
             m = TH.generateMaskWithChannelHeight(t, 'shroud_hub_lines.plt')
         os.remove('shroud_hub_lines.plt')
     else:

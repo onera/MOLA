@@ -15,15 +15,17 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from .loggers import *
+from .loggers import MolaLogger
 from .exceptions import *
-from .catchers import *
 from .formatters import *
+from .catchers import mute_stdout, mute_stderr, redirect_streams_to_logger, _redirect_streams_to_null, _nothing
 from .parsers import get_log_level_and_log_file
 
 LOG_LEVEL, LOG_FILE = get_log_level_and_log_file()
 
 mola_logger = MolaLogger(level=LOG_LEVEL, filename=LOG_FILE)
+
+redirect_streams_to_null_if_not_debug = _redirect_streams_to_null if LOG_LEVEL == 'DEBUG' else _nothing
 
 def print(msg, level='INFO', logger=mola_logger):
     logging_functions_by_level = dict(

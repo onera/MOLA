@@ -21,7 +21,7 @@ from treelab import cgns
 from mola import __MOLA_PATH__
 from mola.misc import run_as_mpi_subprocess
 from mola.dependency_injector.retriever import load_source
-from ..logging import mola_logger, MolaException, MolaNotImplementedError, redirect_streams_to_null
+from ..logging import mola_logger, MolaException, MolaNotImplementedError, redirect_streams_to_null_if_not_debug
 
 def get_path_back_in_traceback(step=3):
     import traceback
@@ -132,7 +132,7 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
                 
                 tmp_input_filename = '.tmp_mesh_mola_before.cgns'
                 tmp_output_filename = '.tmp_mesh_mola_after.cgns'
-                with redirect_streams_to_null(): 
+                with redirect_streams_to_null_if_not_debug(): 
                     tree.save(tmp_input_filename)
 
                 # Get module and function names to import it in fun_exec_in_parallel
@@ -159,7 +159,7 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
                     tmp_input2_filename = '.tmp_mesh2_mola_before.cgns'
                     source_tree = args[0]
                     assert isinstance(source_tree, cgns.Tree)
-                    with redirect_streams_to_null(): 
+                    with redirect_streams_to_null_if_not_debug(): 
                         source_tree.save(tmp_input2_filename)
                     args[0] = tmp_input2_filename
 

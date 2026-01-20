@@ -19,7 +19,7 @@ import os
 import numpy as np
 from treelab import cgns
 import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, print, GREEN, ENDC
+from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null_if_not_debug, print, GREEN, ENDC
 
 def apply(workflow):
     '''
@@ -181,7 +181,7 @@ def _distribute_with_cassiopee(tree, NumberOfProcessors:int, cores_per_node: int
 
     stats = dict()
     # NOTE see Cassiopee BUG #8244 -> need algorithm='fast'
-    with redirect_streams_to_null():
+    with redirect_streams_to_null_if_not_debug():
         tree, stats = D2.distribute(tree, NumberOfProcessors, algorithm='fast', useCom='all')
         tree = cgns.castNode(tree)
     stats.update(stats)
