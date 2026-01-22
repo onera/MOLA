@@ -17,6 +17,7 @@
 
 import numpy as np
 from typing import Union
+from collections.abc import Callable
 
 from treelab import cgns
 
@@ -34,7 +35,7 @@ class WorkflowRotatingComponentInterface(WorkflowInterface):
                             tuple,
                             np.ndarray] = [1,0,0],
             ShaftRotationSpeedUnit : str = 'rpm', 
-            HubRotationIntervals : list = None,
+            HubRotationIntervals : Union[list, Callable] = None,
             Surface : float = None,
             NormalizationCoefficient : dict = None,
             *,

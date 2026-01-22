@@ -16,6 +16,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 from treelab import cgns
 
 def unwrap(t, meanRadius=None):
@@ -71,7 +72,7 @@ def duplicate_rows(tree, **rows_to_duplicate):
         Input tree. It must be either a top tree or a base.
 
     rows_to_duplicate : kwargs
-        Row families to duplicate. For each key, the value corresponds to the wished number of duplications.
+        Row families to duplicate. 
 
     Raises
     ------
@@ -83,11 +84,15 @@ def duplicate_rows(tree, **rows_to_duplicate):
 
     if isinstance(tree, (cgns.Tree, cgns.Base)):
         tree = to_distributed(tree)
-        # duplication_parameters = dict((row, dict(number_of_duplications=n_dupli, is_360=False)) for row, n_dupli in rows_to_duplicate.items())
-        duplication_operations = [
-            dict(Family=row, NumberOfDuplications=n_dupli)
-            for row, n_dupli in rows_to_duplicate.items()
-        ]
+        duplication_operations = []
+        for row, params in rows_to_duplicate.items():
+            duplication_operations.append(
+                dict(
+                    Family=row, 
+                    NumberOfDuplications = params['NumberOfDuplications'], 
+                    azimuthal_extension = 2*np.pi / params['NumberOfBlades'],
+                    )
+            )
         # tree = _duplicate_with_maia(tree, duplication_operations, merge_zones=True)
         tree = _duplicate_with_cassiopee(tree, duplication_operations)
     else:

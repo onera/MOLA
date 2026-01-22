@@ -1,17 +1,14 @@
 import numpy as np
 from mola.workflow.rotating_component import turbomachinery
 
-Fields = ['Conservatives', 'PressureStagnation', 'Pressure', 'TemperatureStagnation', 'Entropy', 'Mach', 'VelocityX', 'VelocityY', 'VelocityZ']
-
-def hub_rotation_function(CoordinateX):  #, CoordinateY, CoordinateZ):
-    # CoordinateR = (CoordinateY**2 + CoordinateZ**2)**0.5
-    xmin = ...
-    xmax = ...
+# Define the section where the hub rotates
+def hub_rotation_function(CoordinateX, CoordinateY, CoordinateZ):
+    CoordinateR = (CoordinateY**2 + CoordinateZ**2)**0.5
+    xmin = -0.056
+    rmax = 0.1137
     omega = np.zeros(CoordinateX.shape, dtype=float)
-    omega[(xmin<=CoordinateX) & (CoordinateX<=xmax)] = ... # ShaftRotationSpeed in rad/s
+    omega[(xmin<=CoordinateX) & (CoordinateR<=rmax)] = 40000./30*np.pi # ShaftRotationSpeed in rad/s
     return np.asfortranarray(omega).ravel(order='K')
-
-
 
 w = turbomachinery.Workflow( 
     RawMeshComponents=[
@@ -24,9 +21,7 @@ w = turbomachinery.Workflow(
 
     ApplicationContext = dict(
         ShaftRotationSpeed = 40000., 
-        # HubRotationIntervals = [dict(xmin=..., xmax=...)],
-        # HubRotationIntervals = [(..., ...)],
-        # HubRotationIntervals = hub_rotation_function,
+        HubRotationIntervals = hub_rotation_function,
         Rows = dict(
             Impeller = dict(
                 IsRotating = True,
@@ -51,39 +46,40 @@ w = turbomachinery.Workflow(
 
     Numerics = dict(
         NumberOfIterations = 10000,
-        CFL = dict(EndIteration=1000, StartValue=1., EndValue=5.)
+        CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
     ),
 
     BoundaryConditions = [
         dict(Family='Impeller_INFLOW', Type='InflowStagnation'),
-        # dict(Family='Impeller_OUTFLOW', Type='OutflowPressure', Pressure=3e5),
-        dict(Family='Impeller_OUTFLOW', Type='OutflowMassFlow'),
+        dict(Family='Impeller_OUTFLOW', Type='OutflowPressure', Pressure=3e5),
     ],
 
     Initialization = dict(
+        Method = 'copy',
+        Source = 'init.cgns',
         ParametrizeWithHeight = 'turbo',
     ),
 
     Extractions = [
-        dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.9, Fields=Fields),
-        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.02, Fields=Fields, OtherOptions=dict(tag='InletPlane', ReferenceRow='Impeller')),
-        dict(Type='IsoSurface', IsoSurfaceField='CoordinateR', IsoSurfaceValue=0.2, Fields=Fields, OtherOptions=dict(tag='OutletPlane', ReferenceRow='Impeller')),
+        dict(Type='IsoSurface', IsoSurfaceField='ChannelHeight', IsoSurfaceValue=0.5, Fields=['Conservatives']),
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.02, Fields=['Conservatives'], OtherOptions=dict(tag='InletPlane', ReferenceRow='Impeller')),
+        dict(Type='IsoSurface', IsoSurfaceField='CoordinateR', IsoSurfaceValue=0.2, Fields=['Conservatives'], OtherOptions=dict(tag='OutletPlane', ReferenceRow='Impeller')),
     ],
 
     ConvergenceCriteria = [
         dict(
             ExtractionName = 'Impeller_INFLOW',
             Variable  = 'rsd-MassFlow',
-            Threshold = 1e-4,
+            Threshold = 1e-5,
         ),
     ],
 
     RunManagement=dict(
         JobName='SRV2',
-        RunDirectory=f'/tmp_user/sator/$USER/.test_user_case/SRV2_init_antoine/',
+        RunDirectory=f'/tmp_user/sator/$USER/.test_user_case/SRV2/',
         NumberOfProcessors=48,
         RemovePreviousRunDirectory = True,
-        AER = '34790003F', # PDEV MOLA 2025
+        AER = '37753003F', # RG MOLA 2026
         ),
 
     )
