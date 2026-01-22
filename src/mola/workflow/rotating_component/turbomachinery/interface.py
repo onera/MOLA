@@ -17,6 +17,7 @@
 
 import numpy as np
 from typing import Union
+from collections.abc import Callable
 import mola.naming_conventions as names
 from ..interface import WorkflowRotatingComponentInterface
 
@@ -41,7 +42,7 @@ class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
                             tuple,
                             np.ndarray] = [1,0,0],
             ShaftRotationSpeedUnit : str = 'rpm', 
-            HubRotationIntervals : list = None,
+            HubRotationIntervals : Union[list, Callable] = None,
             Surface : float = None,
             NormalizationCoefficient : dict = None,
             RowType : str = 'Compressor',  # specific parameter to this Workflow

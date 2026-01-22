@@ -10,21 +10,32 @@ Workflow inputs
 Read and transform the input mesh 
 *********************************
 
-The attribute `RawMeshComponents` allows providing one or several mesh components to MOLA. 
-It is a list of dict, each one corresponding to one provided mesh.
+The attribute `Mesh` provide information to read and preprocess the mesh.
+It should be a dict of mandatory and optional parameters.
 
-A mesh is given as a dict of mandatory and optional parameters.
+.. hint::
 
-The following parameters are mandatory:
+    If you only need to provide the ``Source``, 
+    you may simply give the `Mesh` as a str or a treelab Tree. 
 
-* ``Name`` (str):
-  Name of the component, which defines also the name of the CGNS Base.
+    >>> Mesh = 'mesh.cgns'
+
+.. note::
+
+    If you use an overset approach and then use several input meshes, 
+    use the attribute `RawMeshComponents` instead of `Mesh`.
+    `RawMeshComponents` allows providing one or several mesh components to MOLA. 
+    It is a list of dict, each one corresponding to one provided mesh.
+
+The following parameter is mandatory:
 
 * ``Source`` (str, or a treelab Tree, Base or Zone):
   Name of the mesh file. Source can also be directly a Tree, Base or Zone read by treelab.
 
-
 The following parameters are optional and specify how the mesh should be read:
+
+* ``Name`` (str):
+  Name of the component, which defines also the name of the CGNS Base.
 
 * ``Mesher`` (str):
   Name of the tool used to generate the Mesh. Available values are: 
@@ -318,7 +329,7 @@ Initialization
 **************
 
 Different initialization methods can be used to generate the 3D field to start the simulation.
-The `Initialization` attribute of the Workflow is a dictionnary with the foloowing parameters:
+The `Initialization` attribute of the Workflow is a dictionnary with the following parameters:
 
 ``Method`` (str, optional):
     Available methods are: 
@@ -335,6 +346,12 @@ The `Initialization` attribute of the Workflow is a dictionnary with the foloowi
 
 `Source` (str or a trelab Tree, Base, Zone, optional):
     Source mesh for `copy` or `interpolate` methods, given as a file name or as a treelab Tree.
+
+.. warning::
+    
+    In case you are using method `Workflow.prepare_and_submit_remotely()`, `Source` cannot be a path 
+    ending with :mola_name:`FILE_INPUT_SOLVER`. If you want to do so, please rename the file first.
+
 
 `SourceContainer` (str, optional):
     Container to consider in the source mesh, by default 'FlowSolution#Init'

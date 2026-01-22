@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from ..interface import WorkflowRotatingComponentInterface, Union, np
+from ..interface import WorkflowRotatingComponentInterface, Union, Callable, np
 
 
 class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
@@ -45,7 +45,7 @@ class WorkflowPropellerInterface(WorkflowRotatingComponentInterface):
                         tuple,
                         np.ndarray] = [1,0,0],
         ShaftRotationSpeedUnit : str = 'rpm', 
-        HubRotationIntervals : list = None,
+        HubRotationIntervals : Union[list, Callable] = None,
         Surface : float = 1.0,
         Length : float = 1.0,
         NormalizationCoefficient : dict = None,

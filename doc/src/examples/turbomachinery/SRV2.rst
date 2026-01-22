@@ -15,6 +15,12 @@ see: https://www.kbwiki.ercoftac.org/w/index.php/AC_6-08_Description
   :width: 100%
   :align: center
 
+.. figure:: flow_srv2.png
+  :width: 100%
+  :align: center
+
+  Static pressure at 50% span
+
 ..   Input mesh generated with Autogrid5
 
 ***************

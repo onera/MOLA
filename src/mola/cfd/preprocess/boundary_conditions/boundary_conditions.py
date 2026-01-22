@@ -20,7 +20,7 @@ import numpy as np
 from treelab import cgns
 
 from mola.dependency_injector.retriever import load_source
-from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null
+from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null_if_not_debug
 from mola.cfd.postprocess.interpolation import migrateFields
 
 def apply(workflow, selected_boundaries_conditions=None):
@@ -305,7 +305,7 @@ def get_turbulent_primitives_from_conservatives(Turbulence, Density, **kwargs):
 
 def add_missing_PointRange_in_BCDataSet(workflow):
     from maia.io.fix_tree import add_missing_pr_in_bcdataset
-    with redirect_streams_to_null(): 
+    with redirect_streams_to_null_if_not_debug(): 
         # no stdout to prevent the "Error" message, because the function is used 
         # here to add PointRange nodes and not to check if they are present
         add_missing_pr_in_bcdataset(workflow.tree)

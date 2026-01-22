@@ -190,8 +190,8 @@ class Figure():
 
         # requires to append blended zones (see cassiopee #8740 and #8748)
         # BEWARE of cassiopee #11311
-        if TreesBlending:
-            bases_blending = TreesBlending.bases()
+        if len(TreesBlending) > 0:
+            bases_blending = [b for t in TreesBlending for b in t.bases()]
             for t in Trees:
                 t.addChildren(bases_blending)
 
@@ -486,7 +486,11 @@ class Figure():
         plt.show()
 
 def extract_isoscales(Trees, baseName2elt):
-    all_TreesMerged = cgns.merge(Trees)
+    try:
+        all_TreesMerged = cgns.merge([cgns.castNode(t) for t in Trees])
+    except:
+        mola_logger.warning('error in extract_isoscales')
+        return []
     isoScales = [] # must be the same for all composite calls of CPlot.display
     for base_name, elt in baseName2elt.items():
         tree = all_TreesMerged.get(Name=base_name, Depth=1)

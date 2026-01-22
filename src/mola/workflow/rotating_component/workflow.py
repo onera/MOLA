@@ -20,10 +20,9 @@ import numpy as np
 
 from treelab import cgns
 
-from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null, redirect_streams_to_logger
+from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_logger
 from mola.cfd.preprocess.mesh.families import get_bc_family_nodes_from_patterns, get_bc_family_names_from_patterns
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height, compute_azimuthal_extension
-from mola.cfd.preprocess import initialization
 
 from .. import Workflow
 from .interface import WorkflowRotatingComponentInterface
@@ -324,7 +323,7 @@ class WorkflowRotatingComponent(Workflow):
         # Compute number of blades in the mesh
         Nb = NumberOfBlades * azimuthal_extension / (2*np.pi)
         Nb = int(np.round(Nb))
-        mola_logger.info(f'Number of blades in initial mesh for {FamilyName}: {Nb}', rank=0)
+        mola_logger.debug(f'Number of blades in initial mesh for {FamilyName}: {Nb}', rank=0)
         if Nb < 1:
             raise MolaAssertionError(
                 f'The number of blades in initial mesh {FamilyName} cannot be computed correctly.'
