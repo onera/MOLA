@@ -16,7 +16,7 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 from treelab import cgns
-from mola.logging import mola_logger
+from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.motion.motion import all_families_are_fixed
 
 def apply_to_solver(workflow):
@@ -60,21 +60,40 @@ def apply_to_solver(workflow):
     WorkflowParameters.attachTo(workflow.tree)
 
 
-def translate_motion_to_sonics(Motion):
-    if callable(Motion) or any([callable(v) for v in Motion.values()]):
-        raise Exception('Cannot translate a function')
+def translate_motion_to_sonics(Motion, tree=None):
+    import miles
+    from mpi4py import MPI
 
-    motion_sonics = dict(
-        RotationSpeedX = Motion['RotationSpeed'][0],
-        RotationSpeedY = Motion['RotationSpeed'][1], 
-        RotationSpeedZ = Motion['RotationSpeed'][2], 
+    if callable(Motion) or \
+        any([callable(v) for k, v in Motion.items() if k != 'RotationSpeed']):
+        raise MolaException('Cannot translate a function (except for RotationSpeed)')
+    
+    if callable(Motion['RotationSpeed']):
+        if tree is None:
+            raise MolaException('tree must be provided to interpolate motion')
+                          
+        motion_sonics = dict(
+            RotationSpeedX = miles.FunctionInterpolator(tree, Motion['RotationSpeed'], comm=MPI.COMM_WORLD),
+            RotationSpeedY = 0., 
+            RotationSpeedZ = 0., 
+        )
+
+    else:
+        motion_sonics = dict(
+            RotationSpeedX = Motion['RotationSpeed'][0],
+            RotationSpeedY = Motion['RotationSpeed'][1], 
+            RotationSpeedZ = Motion['RotationSpeed'][2], 
+        )
+
+
+    motion_sonics.update(dict(
         RotationAxisOriginX = Motion['RotationAxisOrigin'][0],
         RotationAxisOriginY = Motion['RotationAxisOrigin'][1], 
         RotationAxisOriginZ = Motion['RotationAxisOrigin'][2], 
         TranslationSpeedX = Motion['TranslationSpeed'][0], 
         TranslationSpeedY = Motion['TranslationSpeed'][1],
         TranslationSpeedZ = Motion['TranslationSpeed'][2],
-    )
+    ))
 
     return motion_sonics
         
