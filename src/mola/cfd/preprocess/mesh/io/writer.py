@@ -142,7 +142,7 @@ def write_with_pypart(w, tree, dst):
     # Write in parallel with PyPart
     Cmpi._convert2PartialTree(tree)
     Cmpi.barrier()
-    w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields')) #, cgns_standard=True)
+    w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'), cgns_standard=True)
     Cmpi.barrier()
 
     # Read PyPart files in parallel using Cassiopee
@@ -152,14 +152,6 @@ def write_with_pypart(w, tree, dst):
     t, stats = D2.distribute(t, w.RunManagement['NumberOfProcessors'], useCom=0, algorithm='fast')
     t = Cmpi.readZones(t, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'), rank=Cmpi.rank)
     t = cgns.castNode(t)
-    # HACK Ravel DataArray nodes in BCDataSet nodes
-    # It should be done with argument cgns_standard=True in mergeAndSave, 
-    # but it can lead to a MPI deadlock
-    # see issue https://gitlab.onera.net/numerics/mola/-/issues/283
-    for BCData in t.group(Type='BCData'):
-        for DataArray in BCData.group(Type='DataArray'):
-            DataArray.setValue(DataArray.value().ravel(order='F'))
-    #
     Cmpi.barrier()
 
     if dst.endswith(names.FILE_INPUT_SOLVER):
