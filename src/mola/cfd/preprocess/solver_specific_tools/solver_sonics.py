@@ -20,12 +20,18 @@ from mola.logging import mola_logger
 
 SonicsCGNS2MOLA = {
     'IterationValues': 'Iteration',  # HACK ValveLawRadialEquilibrium writes a node IterationValues instead Iteration like other Triggers
-    'conv_flux(Momentum)X': 'ForceX',
-    'conv_flux(Momentum)Y': 'ForceY',
-    'conv_flux(Momentum)Z': 'ForceZ',
-    'conv_torqueX': 'TorqueX',
-    'conv_torqueY': 'TorqueY',
-    'conv_torqueZ': 'TorqueZ',
+    'conv_flux(Momentum)X': 'convForceX',
+    'conv_flux(Momentum)Y': 'convForceY',
+    'conv_flux(Momentum)Z': 'convForceZ',
+    'diff_flux(Momentum)X': 'diffForceX',
+    'diff_flux(Momentum)Y': 'diffForceY',
+    'diff_flux(Momentum)Z': 'diffForceZ',
+    'conv_torqueX': 'convTorqueX',
+    'conv_torqueY': 'convTorqueY',
+    'conv_torqueZ': 'convTorqueZ',
+    'diff_torqueX': 'diffTorqueX',
+    'diff_torqueY': 'diffTorqueY',
+    'diff_torqueZ': 'diffTorqueZ',
     'conv_flux(Density)': 'MassFlow',
 }
 
@@ -63,8 +69,8 @@ def translate_extraction_variables_to_sonics(Variables, solver):
         SkinFriction = treg.SkinFriction,
 
         # FIXME for Force and Torque, we should extract the sum ofocnv and diff fluxes
-        Force = treg.conv_flux(treg.Momentum), 
-        Torque = treg.conv_torque, 
+        Force = [treg.conv_flux(treg.Momentum), treg.diff_flux(treg.Momentum)],
+        Torque = [treg.conv_torque, treg.diff_torque], 
         MassFlow = treg.conv_flux(treg.Density),
     )
     
@@ -72,13 +78,18 @@ def translate_extraction_variables_to_sonics(Variables, solver):
     for var in Variables:
         if var in translator:
             var_tr = translator[var]
-            if var_tr not in sonics_var:
-                sonics_var.append(var_tr)
+            if not isinstance(var_tr, list):
+                if var_tr not in sonics_var:
+                    sonics_var.append(var_tr)
+            else:
+                for el in var_tr:
+                    if el not in sonics_var:
+                        sonics_var.append(el)
         else:
             mola_logger.user_warning(f'Unkwnown variable for SoNICS: {var}. It is ignored.', rank=0)
     return sonics_var
 
-def translate_extraction_variables_to_sonics_function(Variables):
+def translate_extraction_variables_to_sonics_function(Variables): # this function is not used (the call in src/mola/cfd/compute/solver_sonics.py is commented)
     if isinstance(Variables, str):
         Variables = [Variables]
 
@@ -111,7 +122,7 @@ def translate_extraction_variables_to_sonics_function(Variables):
 
         # HACK for integral outputs, need treg.dummy
         # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
-        Force = lambda treg: treg.conv_flux(treg.Momentum), 
+        Force = lambda treg:  treg.conv_flux(treg.Momentum), 
         Torque = lambda treg: treg.conv_torque, 
         MassFlow = lambda treg: treg.conv_flux(treg.Density),
     )

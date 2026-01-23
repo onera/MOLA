@@ -244,6 +244,7 @@ def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
         for n in IntegralDataNode.children(): 
             n.setType('DataArray_t')
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
+        sum_convective_and_diffusive_loads(IntegralDataNode)
         renumber_iterations_for_mola(IntegralDataNode)
 
         # HACK for now, cgns_node_pattern has no effect on miles IntegralDataExtractor
@@ -268,6 +269,16 @@ def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
         update_signals_using(current_iteration_signals, previous_signals_to_be_updated)
     else: 
         extraction['Data'] = current_iteration_signals
+
+def sum_convective_and_diffusive_loads(IntegralDataNode: cgns.Node):
+    for component in ['X','Y','Z']:
+        convForce = IntegralDataNode.get(Name=f'convForce{component}', Depth=1).value()
+        diffForce = IntegralDataNode.get(Name=f'diffForce{component}', Depth=1).value()
+        cgns.Node(Name=f'Force{component}', Value=convForce+diffForce, Type='DataArray', Parent=IntegralDataNode)
+
+        convTorque = IntegralDataNode.get(Name=f'convTorque{component}', Depth=1).value()
+        diffTorque = IntegralDataNode.get(Name=f'diffTorque{component}', Depth=1).value()
+        cgns.Node(Name=f'Torque{component}', Value=convTorque+diffTorque, Type='DataArray', Parent=IntegralDataNode)
 
 def remove_not_required_fields(extraction, IntegralDataNode: cgns.Node):
 
