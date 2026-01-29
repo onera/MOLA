@@ -244,7 +244,11 @@ def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
         for n in IntegralDataNode.children(): 
             n.setType('DataArray_t')
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
-        sum_convective_and_diffusive_loads(IntegralDataNode)
+        # the integralData may or may not contain airloads (conv_Momentum, diff_Momentum, convTorque, diffTorque)
+        try:
+            sum_convective_and_diffusive_loads(IntegralDataNode)
+        except:
+            pass
         renumber_iterations_for_mola(IntegralDataNode)
 
         # HACK for now, cgns_node_pattern has no effect on miles IntegralDataExtractor

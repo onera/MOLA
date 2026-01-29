@@ -115,8 +115,6 @@ def add_fields_and_bc_extractions(workflow):
             fields = translate_extraction_variables_to_sonics(extraction['Fields'], solver)
             for family in families:                
                 for field in fields:
-                    if field.startswith('conv_'):
-                        print(field)
                     extracts += df.create_bcs_from_family_name(field, bc_location, family)
 
         return extracts
