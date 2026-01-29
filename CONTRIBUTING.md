@@ -56,7 +56,9 @@ git commit -m "this is a commit message"
 
 Before commit, you could run pytest to check that nothing is broken (see section [Tests](#tests) for more details):
 ```bash
-pytest $MOLA
+cd $MOLA  # you are below the src directory, that contains the module mola
+cd ..  # to go back at the root of the project
+pytest tests
 ```
 
 Update regularly your sources towards GitLab:
@@ -134,7 +136,7 @@ Tests
 
 * Tests are done using [pytest](https://docs.pytest.org/en/8.0.x/).
 
-* There must be written in parallel of the development, in a `test` repository in the current module to be tested. To test functions in the file `file_with_bugs.py`, the test file must be called `test_file_with_bugs.py`. For instance, to test the functions or methods in ``mola/workflow/workflow.py``, the test file should be ``mola/workflow/test/test_workflow.py``.
+* There must be written in parallel of the development, in the `tests` repository at the root of the project (`$MOLA/../`), in a repository in mirror of the src tree. For instance, to test the functions or methods in ``src/mola/workflow/workflow.py``, the test file should be ``tests/workflow/test_workflow.py``.
 
 * Tests are categorized usings markers to easily run some tests specifically (short tests, tests available for one solver only, etc.). To tag a test with a marker, be sure that `pytest` module is imported in the header of the file and add one or several markers as decorators of the test function :
 ```python
@@ -153,6 +155,6 @@ Main categories of tests are the following:
 
 To run tests choosing only some markers, use the option `-m` of pytest, like:
 ```
-pytest $MOLA -m unit
+pytest tests -m unit
 ```
 Notice that the marker of the solver corresponding to the sourced environment is applied automatically.
