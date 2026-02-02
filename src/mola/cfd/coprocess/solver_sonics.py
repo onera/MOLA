@@ -245,10 +245,8 @@ def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
             n.setType('DataArray_t')
         translate_sonics_CGNS_field_names_to_MOLA(IntegralDataNode)
         # the integralData may or may not contain airloads (conv_Momentum, diff_Momentum, convTorque, diffTorque)
-        try:
-            sum_convective_and_diffusive_loads(IntegralDataNode)
-        except:
-            pass
+        #  or it may contain conv_Momentum but not convTorque, or inversely
+        sum_convective_and_diffusive_loads(IntegralDataNode)
         renumber_iterations_for_mola(IntegralDataNode)
 
         # HACK for now, cgns_node_pattern has no effect on miles IntegralDataExtractor
@@ -275,14 +273,18 @@ def extract_integral(output_tree, extraction, DictBCNames2Type) -> None:
         extraction['Data'] = current_iteration_signals
 
 def sum_convective_and_diffusive_loads(IntegralDataNode: cgns.Node):
+    sum_force  = IntegralDataNode.get(Name=f'convForceX', Depth=1)
+    sum_torque = IntegralDataNode.get(Name=f'convTorqueX', Depth=1)
     for component in ['X','Y','Z']:
-        convForce = IntegralDataNode.get(Name=f'convForce{component}', Depth=1).value()
-        diffForce = IntegralDataNode.get(Name=f'diffForce{component}', Depth=1).value()
-        cgns.Node(Name=f'Force{component}', Value=convForce+diffForce, Type='DataArray', Parent=IntegralDataNode)
+        if sum_force:
+            convForce = IntegralDataNode.get(Name=f'convForce{component}', Depth=1).value()
+            diffForce = IntegralDataNode.get(Name=f'diffForce{component}', Depth=1).value()
+            cgns.Node(Name=f'Force{component}', Value=convForce+diffForce, Type='DataArray', Parent=IntegralDataNode)
 
-        convTorque = IntegralDataNode.get(Name=f'convTorque{component}', Depth=1).value()
-        diffTorque = IntegralDataNode.get(Name=f'diffTorque{component}', Depth=1).value()
-        cgns.Node(Name=f'Torque{component}', Value=convTorque+diffTorque, Type='DataArray', Parent=IntegralDataNode)
+        if sum_torque:
+            convTorque = IntegralDataNode.get(Name=f'convTorque{component}', Depth=1).value()
+            diffTorque = IntegralDataNode.get(Name=f'diffTorque{component}', Depth=1).value()
+            cgns.Node(Name=f'Torque{component}', Value=convTorque+diffTorque, Type='DataArray', Parent=IntegralDataNode)
 
 def remove_not_required_fields(extraction, IntegralDataNode: cgns.Node):
 
