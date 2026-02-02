@@ -72,7 +72,7 @@ def _modify_criterion():
 if args.param is not None:
     _modify_parameter()
 
-if args.criterion is not None:
+if args.criterion:
     _modify_criterion()
 
 if args.NumberOfIterations is not None:
