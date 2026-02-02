@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+#
+# Print parameters written in main.cgns, in WorkflowParameters
+
+__DOC__ = 'Print parameters written in main.cgns, in WorkflowParameters'
+
+import os
+import argparse
+from pprint import pprint
+
+from treelab import cgns
+import mola.naming_conventions as names
+from mola.logging import MolaException, MolaUserError
+
+def convert_to_dict(node):
+    d = dict()
+    for child in node.children():
+        name = child.name()
+        if len(child.children()) > 0 :
+            d[name] = node.getParameters(name)
+        else:
+            d[name] = child.value()
+    return d
+
+def main():
+
+    parser = argparse.ArgumentParser(usage=__DOC__)
+    parser.add_argument('key', nargs='?', type=str, 
+                        help='Name of the workflow attribute to print', 
+                        default='all')
+    args = parser.parse_args()
+    
+    try:
+        WorkflowParametersNode = cgns.load_from_path(names.FILE_INPUT_SOLVER, names.CONTAINER_WORKFLOW_PARAMETERS)
+    except:
+        try:
+            WorkflowParametersNode = cgns.load_from_path(names.FILE_INPUT_WORKFLOW, names.CONTAINER_WORKFLOW_PARAMETERS)
+        except:
+            raise MolaException(f'Unable to read {names.FILE_INPUT_SOLVER} or {names.FILE_INPUT_WORKFLOW}')
+
+    WorkflowParameters = convert_to_dict(WorkflowParametersNode)
+
+    if args.key == 'all':
+        pprint(WorkflowParameters)
+    else:
+        if args.key not in WorkflowParameters:
+            raise MolaUserError(f'{args.key} is not among {WorkflowParameters.keys()}')
+        
+        pprint(WorkflowParameters[args.key])
+
+
+if __name__ == '__main__':
+    main()

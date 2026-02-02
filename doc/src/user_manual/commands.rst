@@ -24,6 +24,7 @@ The output of this command is:
     mola_mesh_to_ngon     : Convert a mesh to unstructured monoblock (NGON)
     mola_plot             : Plot residuals, massflow, loads, etc.
     mola_prepare          : Read a file with workflow parameters and apply methods prepare() and write_cfd_files()
+    mola_print_parameters : Print parameters written in main.cgns, in WorkflowParameters
     mola_repatriate       : Repatriate directories after submitting several simulations on sator at once
     mola_seelog           : Display the updated content of coprocess.log
     mola_update           : Update workflow parameters
