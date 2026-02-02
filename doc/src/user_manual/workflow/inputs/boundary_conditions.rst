@@ -1,6 +1,6 @@
-#############################
-Available boundary conditions
-#############################
+###################
+Boundary conditions
+###################
 
 On this page, all boundary condition types are listed, with their corresponding dictionary structure.
 For each, an example is given. The ``Type`` keyword is always required, and identifies the type of boundary condition.

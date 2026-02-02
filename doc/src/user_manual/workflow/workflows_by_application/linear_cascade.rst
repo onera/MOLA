@@ -28,7 +28,7 @@ Default parameters for this workflow
 Here are listed the default values for the attributes that were modified 
 by this workflow:
 
-* `RawMeshComponents`: the default value of the attribute `Mesher` is `'Autogrid'`.
+* `Mesh`: the default value of the attribute `Mesher` is `'Autogrid'` (see constraints on mesh on :ref:`this page<mesher-autogrid>`).
 
 * `SplittingAndDistribution`: The default `Splitter` is PyPart, used after job submission (`Strategy='AtComputation'`).
 

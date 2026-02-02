@@ -10,8 +10,7 @@ Links between pages should be enough to let you discover MOLA from that.
 
    environment
    workflow/introduction
-   workflow/inputs
-   workflow/boundary_conditions
+   workflow/inputs/index
    workflow/workflows_by_application/index
    workflow/manager
    workflow/debug

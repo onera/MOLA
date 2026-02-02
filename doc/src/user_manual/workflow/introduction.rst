@@ -108,7 +108,7 @@ What are the inputs of a Workflow ?
 
 Let's detail what arguments are into the parentheses `Workflow(...)`.
 
-A complete description of possible parameters for the generic Workflow is available in :doc:`inputs`.
+A complete description of possible parameters for the generic Workflow is available in :doc:`inputs/index`.
 
 The method `Workflow.print_interface()` allows printing what names and
 types of arguments are expected when the Workflow is instanciated.
