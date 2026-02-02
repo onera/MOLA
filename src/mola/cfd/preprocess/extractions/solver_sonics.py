@@ -25,7 +25,7 @@ def apply_to_solver(workflow):
     add_extractions_for_restart(workflow)
     add_AllZones_family(workflow.tree)
     adapt_extractions(workflow.Extractions)
-    add_parameters_for_torque_extraction(workflow)
+    add_reference_values_for_force_and_torque_extraction(workflow)
 
 def adapt_extractions(Extractions):
     for ext in Extractions:
@@ -121,7 +121,7 @@ def add_fields_and_bc_extractions(workflow):
     
     return compute_extracts_from_terms
 
-def add_parameters_for_torque_extraction(workflow):
+def add_reference_values_for_force_and_torque_extraction(workflow):
     params_for_torque_extraction = dict(
         ReferencePressure = workflow.Flow['Pressure'],
         TorqueOriginX = 0.0,
@@ -129,6 +129,8 @@ def add_parameters_for_torque_extraction(workflow):
         TorqueOriginZ = 0.0,
     )
     for base in workflow.tree.bases():
-        ReferenceState = base.get(Type='ReferenceState', Depth=1)
-        for name, value in params_for_torque_extraction.items():
-            cgns.Node(Name=name, Value=value, Type='DataArray', Parent=ReferenceState)
+        for bc_family in base.group(Type='FamilyBC', Value='BCWall*', Depth=2):
+            famBCDataSet  = cgns.Node(Name='FamilyBCDataSet', Type='FamilyBCDataSet', Parent=bc_family)
+            dirichletData = cgns.Node(Name='DirichletData'  , Type='BCData'         , Parent=famBCDataSet)
+            for name, value in params_for_torque_extraction.items():
+                cgns.Node(Name=name, Value=value, Type='DataArray', Parent=dirichletData)

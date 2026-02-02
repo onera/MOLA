@@ -45,7 +45,7 @@ def test_part_tree_is_partitioned_and_not_distributed_for_use_in_maia(backend, d
     import maia
     full_tree = dummy_tree
     dist_tree = maia.factory.full_to_dist_tree(full_tree, MPI.COMM_WORLD)
-    part_tree = maia.factory.partition_dist_tree(dist_tree, MPI.COMM_WORLD, data_transfer='ALL')
+    part_tree = maia.factory.partition_dist_tree(dist_tree, MPI.COMM_WORLD, data_transfer='ALL', preserve_orientation=True)
     assert checker.is_partitioned_for_use_in_maia(part_tree, backend)
     assert not checker.is_distributed_for_use_in_maia(part_tree, backend)
 

@@ -72,10 +72,10 @@ def check_empty_bc(workflow):
     
     _ignore_undefined_periodic_boundaries_in_2D_structured_grids(t)
 
-    # CAUTION BUG https://elsa.onera.fr/issues/12076#note-5
-    if workflow.Solver == 'sonics': 
-        mola_logger.user_warning(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
-        return
+    # # CAUTION BUG https://elsa.onera.fr/issues/12076#note-5
+    # if workflow.Solver == 'sonics': 
+    #     mola_logger.user_warning(f'UNABLE TO DETERMINE IF UNDEFINED BC EXIST https://elsa.onera.fr/issues/12076#note-5')
+    #     return
     
     I._adaptPE2NFace(t)
     emptyBC = C.getEmptyBC(t, dim=3)
@@ -118,17 +118,21 @@ def assert_bc_and_connectivity_coherency(tree):
     checks = {
         5:'valid BC range', 
         6:'valid opposite BC range for match and nearmatch',
-        # 9:'valid connectivity', # BUG https://github.com/onera/Cassiopee/issues/324
+        9:'valid connectivity', # BEWARE https://github.com/onera/Cassiopee/issues/324
     }
     
-    errors = []
+    tRef = I.adaptPE2NFace(tree) # HACK required by check level 9 (avoids message "NFace is missing for zone <zonename>")
+
+    errors = ''
     for check_code in list(checks):
-        errors += I.checkPyTree(tree, level=check_code)
+        errors_with_nodes = I.checkPyTree(tRef, level=check_code)
+        for e in errors_with_nodes:
+            if isinstance(e,str):
+                errors += e+'\n'
+
     if errors:
         C.convertPyTree2File(tree, 'debug.cgns')
-        with open('debug.log', 'w') as fi:
-            fi.write(pprint.pformat(errors))
-        raise MolaException('Error in BC or connectivity coherency. See debug.cgns and debug.log (contains the error returned by Cassiopee)') 
+        raise MolaException(f'Error in BC or connectivity coherency. See debug.cgns and details:\n{errors}') 
 
 
 def _raise_undefined_bc_error_saving_undefined_bc_surfaces(t, rank):
