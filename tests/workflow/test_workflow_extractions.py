@@ -192,14 +192,14 @@ def test_integrals_one_run(tmp_path, niter=10):
 
     w._interface.add_to_Extractions_Integral(
         Name='TestSeparatedFile',
-        Fields=['Force'], #,'Torque'],  # TODO Torque not available in SoNICS for now
+        Fields=['Force', 'Torque'],
         File=separated_filename,
         Source='Ground',
     )
 
     w._interface.add_to_Extractions_Integral(
         Name='TestIntoSignals',
-        Fields=['Force'], #,'Torque'], 
+        Fields=['Force', 'Torque'], 
         File=names.FILE_OUTPUT_1D,
         Source='Inlet',
     )
@@ -224,11 +224,11 @@ def test_integrals_one_run(tmp_path, niter=10):
 
     def assert_all():
         assert_file_with_relevant_zone_and_fields(separated_filename, "Integral", "TestSeparatedFile",
-            ['ForceX','ForceY','ForceZ'],#'TorqueX','TorqueY','TorqueZ'], 
+            ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], 
             tmp_path, expected_number_of_items)
     
         assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "Integral", "TestIntoSignals",
-            ['ForceX','ForceY','ForceZ'],#'TorqueX','TorqueY','TorqueZ'], 
+            ['ForceX','ForceY','ForceZ','TorqueX','TorqueY','TorqueZ'], 
             tmp_path, expected_number_of_items)
         
         assert_file_with_relevant_zone_and_fields(names.FILE_OUTPUT_1D, "Integral", "TestIntoSignals2",
