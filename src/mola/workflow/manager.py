@@ -610,7 +610,7 @@ class WorkflowSequentialManager():
             job_name = output.split('\n')[-2]
             assert len(job_name) > 0
 
-            if SV.job_is_submitted_or_running(job_name, self.machine):
+            if SV.job_is_submitted_or_running(job_path, self.machine):
                 raise MolaAssertionError((
                     f'The job at path {job_path} is already running or submitted, '
                     'hence you cannot modify add new subdirectories or submit this job again. '
