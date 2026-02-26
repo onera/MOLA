@@ -187,13 +187,13 @@ def get_integral_triggers(workflow, config):
                 if guards.space_dim_3d not in conf:
                     elt_location = treg.face if   guards.cell_center in conf \
                                              else treg.vertex
-                    # bc_location  = treg.edge if   guards.cell_center in conf \
-                    #                          else treg.dual_facet
+                    bc_location  = treg.edge if   guards.cell_center in conf \
+                                             else treg.dual_facet
                 else:
                     elt_location = treg.cell if   guards.cell_center in conf \
                                              else treg.vertex
-                    # bc_location  = treg.face if   guards.cell_center in conf \
-                    #                          else treg.dual_facet
+                    bc_location  = treg.face if   guards.cell_center in conf \
+                                             else treg.dual_facet
 
                 # THIS LINE IS MANDATORY, else NaN or deadlock
                 extracts += df.create_zones(treg.dummy(\
@@ -205,7 +205,7 @@ def get_integral_triggers(workflow, config):
                 for field in sonics_fields:
                     extracts += df.create_families(
                         field, 
-                        elt_location, 
+                        bc_location, 
                         family_type = treg.family_value, 
                         predicate = lambda n,v : v['name'] == family 
                     )
