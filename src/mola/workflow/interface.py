@@ -166,6 +166,7 @@ class WorkflowInterface(object):
             elif expected_type in [list, str]:
                 try: method(user_input)
                 except TypeError as e: raise MolaUserAttributeError(method, e)
+            elif expected_type in [int]: method()
 
 
     def check_consistency_between_solver_and_environment(self):
@@ -184,8 +185,13 @@ class WorkflowInterface(object):
             self.Solver = solver_name.lower()
 
     def set_ProblemDimension(self):
-        if self.ProblemDimension is None: self.ProblemDimension = 3
-        
+        if self.workflow.tree is None:
+            self.ProblemDimension = None
+        else:
+            import mola.cfd.preprocess.mesh.io as io
+
+            io.set_problem_dimension_based_on_grid(self.workflow)
+            self.ProblemDimension = self.workflow.ProblemDimension
 
     def add_to_RawMeshComponents(self,
         Mesher           : str  = None,
