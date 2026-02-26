@@ -45,6 +45,7 @@ class WorkflowInterface(object):
     def __init__(self, workflow,
             tree=None,
             Solver : str = None,
+            ProblemDimension : int = None,
             Mesh : Union[dict, str, cgns.Tree] = None,
             RawMeshComponents : list = None,
             Fluid : dict = None,
@@ -181,6 +182,9 @@ class WorkflowInterface(object):
             self.Solver = solver 
         else:
             self.Solver = solver_name.lower()
+
+    def set_ProblemDimension(self):
+        if self.ProblemDimension is None: self.ProblemDimension = 3
         
 
     def add_to_RawMeshComponents(self,

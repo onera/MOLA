@@ -103,6 +103,7 @@ def get_sonics_config(workflow):
         my_config.update("motion/mobile")
         
     my_config.update(
+        f'{workflow.ProblemDimension}D',
         *fluid_features,
         *turb_features,
         *flux_features,
