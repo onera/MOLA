@@ -153,7 +153,6 @@ def get_fake_workflow():
             ),
 
         )
-
     return w
 
 @pytest.mark.unit

@@ -186,7 +186,8 @@ class WorkflowInterface(object):
 
     def set_ProblemDimension(self):
         if self.workflow.tree is None:
-            self.ProblemDimension = None
+            #cannot put it to None because the cgns format does not recognise it
+            self.ProblemDimension = 0
         else:
             import mola.cfd.preprocess.mesh.io as io
 
