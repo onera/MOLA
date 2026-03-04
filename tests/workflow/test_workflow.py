@@ -22,7 +22,7 @@ import shutil
 import numpy as np
 
 import treelab.cgns as cgns
-
+from mola import solver
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola import server as SV
@@ -799,6 +799,12 @@ def test_prepare_workflow2_comp2(tmp_path):
 @pytest.mark.cost_level_1
 @pytest.mark.parametrize('dim', [2, 3])
 def test_workflow_cart_monoproc(tmp_path, dim):
+    if dim == 2:
+        if   solver == 'fast':
+            pytest.skip('2D simulation not available with Fast')
+        elif solver == 'elsa':
+            pytest.skip('2D simulation not available with elsA')
+
     w = get_workflow_cart_monoproc(tmp_path, dim = dim)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
