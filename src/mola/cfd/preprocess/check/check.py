@@ -81,12 +81,19 @@ def check_empty_bc(workflow):
     I._adaptPE2NFace(t)
     cgns.castNode(t)
     if any([zone.isUnstructured() for zone in t.group(Type = 'Zone_t')]):
-        bcs = [bc for zone in    t.group(Type = 'Zone_t')
-                  for bc   in zone.group(Type = 'Bc_t'  )]
-        emptyBC = [bc.name() for bc in bcs if bc.get(Type = 'FamilyName_t') is None]
+
         if workflow.ProblemDimension == 3:
-            get_loc = lambda n: n.get(Type = 'GridLocation_t').value()
-            emptyBC = [bc.name() for bc in emptyBC if get_loc(bc) != 'EdgeCenter']
+            # 3D adapted meshes have bc at the edges of each bc.
+            # They are useless for the cfd computation but are necessary for the 
+            # mesh adaptation and must be kept.
+            is_empty = lambda n: (n.get(Type = 'FamilyName_t') is None) or \
+                             (n.get(Type = 'GridLocation_t').value() != 'EdgeCenter')
+        else:
+            is_empty = lambda n: n.get(Type = 'FamilyName_t') is None
+
+        emptyBC = [bc.name() for zone in    t.group(Type = 'Zone_t')
+                             for bc   in zone.group(Type = 'Bc_t'  )
+                             if  is_empty(bc)]
     else:
         emptyBC = C.getEmptyBC(t, dim = workflow.ProblemDimension)
     

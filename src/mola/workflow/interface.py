@@ -188,12 +188,7 @@ class WorkflowInterface(object):
         if self.workflow.tree is None:
             #cannot put it to None because the cgns format does not recognise it
             self.ProblemDimension = 0
-        else:
-            import mola.cfd.preprocess.mesh.io as io
-
-            io.set_problem_dimension_based_on_grid(self.workflow)
-            self.ProblemDimension = self.workflow.ProblemDimension
-
+            
     def add_to_RawMeshComponents(self,
         Mesher           : str  = None,
         Unit             : str  = 'm',

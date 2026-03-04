@@ -202,7 +202,7 @@ def _compute_azimuthal_extension_from_periodic(t):
     return dθ
 
 
-def to_distributed(tree : cgns.Tree):
+def to_distributed(tree : cgns.Tree, data_transfer = 'ALL'):
     from mpi4py import MPI
     import maia
 
@@ -213,12 +213,12 @@ def to_distributed(tree : cgns.Tree):
         mola_logger.debug('convert tree to maia dist_tree')
 
         if bool(tree.get(':CGNS#GlobalNumbering')):
-            t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD)
-            t = cgns.castNode(t)
-            
+            t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD,
+                                                       data_transfer = data_transfer)
         else:
             t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
-            t = cgns.castNode(t)
+        
+        t = cgns.castNode(t)
      
     return t
 

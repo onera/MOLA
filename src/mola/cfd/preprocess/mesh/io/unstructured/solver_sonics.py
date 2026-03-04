@@ -41,6 +41,7 @@ def make_mesh_unstructured(t):
     from mpi4py import MPI
     from maia.io.fix_tree import fix_point_ranges
     
+    t = cgns.castNode(t)
     t = to_distributed(t)
     fix_point_ranges(t)
     maia.algo.dist.convert_s_to_ngon(t, MPI.COMM_WORLD)
