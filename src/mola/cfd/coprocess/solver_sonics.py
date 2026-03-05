@@ -91,27 +91,32 @@ def get_output_tree(coprocess_manager):
         if gc.get(Type='GridLocation').value() == 'Vertex':
             gc.remove()  # otherwise, error in the function centers_to_nodes below
     # partionning
+    
+    elt_location = 'Cell' if    coprocess_manager.workflow.ProblemDimension == 3 \
+                          else 'Face'
     part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD, preserve_orientation=True)
     maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
-    maia.algo.part.centers_to_nodes(part_tree, comm, ['Fields@Cell@End'])
+    maia.algo.part.centers_to_nodes(part_tree, comm, [f'Fields@{elt_location}@End'])
     part_tree = cgns.castNode(part_tree)
     for zsr in part_tree.group(Type='ZoneSubRegion'):
         cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=zsr)
-    for fs in part_tree.group(Name='Fields@Cell@End'):
+    for fs in part_tree.group(Name=f'Fields@{elt_location}@End'):
         fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_CENTER)
-    for fs in part_tree.group(Name='Fields@Cell@End#Vtx'):
+    for fs in part_tree.group(Name=f'Fields@{elt_location}@End#Vtx'):
         fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX)
     
     return part_tree
 
 def update_restart_fields(workflow, output_tree):
+    elt_location = 'Cell' if workflow.ProblemDimension == 3 else 'Face'
     for zone in output_tree.zones():
-        zone.findAndRemoveNode(Name='Fields@Cell@Init')
-        FS = zone.get(Name='Fields@Cell@End')
+        zone.findAndRemoveNode(Name = f'Fields@{elt_location}@Init')
+        FS = zone.get(Name = f'Fields@{elt_location}@End')
         if FS is not None: 
-            FS.setName('Fields@Cell@Init')
+            FS.setName(f'Fields@{elt_location}@Init')
 
-    NodesToUpdate = output_tree.group(Name='Fields@Cell@Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
+    NodesToUpdate = output_tree.group(Name = f'Fields@{elt_location}@Init*',
+                                                    Type = 'FlowSolution', Depth = 3) # for initial field(s) (possible second order restart)
     # NodesToUpdate += output_tree.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
     # NodesToUpdate += output_tree.group(Name='BCDataSet#Average') 
 

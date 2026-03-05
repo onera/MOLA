@@ -45,6 +45,7 @@ class WorkflowInterface(object):
     def __init__(self, workflow,
             tree=None,
             Solver : str = None,
+            ProblemDimension : int = None,
             Mesh : Union[dict, str, cgns.Tree] = None,
             RawMeshComponents : list = None,
             Fluid : dict = None,
@@ -165,6 +166,7 @@ class WorkflowInterface(object):
             elif expected_type in [list, str]:
                 try: method(user_input)
                 except TypeError as e: raise MolaUserAttributeError(method, e)
+            elif expected_type in [int]: method()
 
 
     def check_consistency_between_solver_and_environment(self):
@@ -181,8 +183,12 @@ class WorkflowInterface(object):
             self.Solver = solver 
         else:
             self.Solver = solver_name.lower()
-        
 
+    def set_ProblemDimension(self):
+        if self.workflow.tree is None:
+            #cannot put it to None because the cgns format does not recognise it
+            self.ProblemDimension = 0
+            
     def add_to_RawMeshComponents(self,
         Mesher           : str  = None,
         Unit             : str  = 'm',

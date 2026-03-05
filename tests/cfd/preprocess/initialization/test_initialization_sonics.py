@@ -23,8 +23,8 @@ import pytest
 pytestmark = pytest.mark.sonics
 
 class FakeWorkflow():
-    def __init__(self):
-        self.ProblemDimension = 3
+    def __init__(self, dim):
+        self.ProblemDimension = dim
         # Build a base with two identical zones
         base = cgns.Node( Name='Base', Type='Base')
         z1 = cgns.Node( Name='Zone1', Type='Zone', Parent=base)
@@ -39,10 +39,12 @@ class FakeWorkflow():
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_apply_to_solver():
+@pytest.mark.parametrize('dim', [2, 3])
+def test_apply_to_solver(dim):
 
-    workflow = FakeWorkflow()
+    workflow = FakeWorkflow(dim)
     solver_sonics.apply_to_solver(workflow)
 
     assert workflow.tree.get(Name='FlowSolution#Init') is None
-    assert len(workflow.tree.group(Name='Fields@Cell@Init', Type='FlowSolution')) == 2
+    element_location = 'Cell' if dim == 3 else 'Face'
+    assert len(workflow.tree.group(Name = f'Fields@{element_location}@Init', Type = 'FlowSolution')) == 2

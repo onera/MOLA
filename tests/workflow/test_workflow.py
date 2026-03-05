@@ -22,7 +22,7 @@ import shutil
 import numpy as np
 
 import treelab.cgns as cgns
-
+from mola import solver
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola import server as SV
@@ -560,15 +560,36 @@ def get_workflow1():
 
     return w
 
-def get_workflow_cart_monoproc(RunDirectory):
+def get_workflow_cart_monoproc(RunDirectory, dim = 3):
 
     n_pts_dir = 14
     assert n_pts_dir > 13 # otherwise RSD_L2_rh == 0 and elsa stops at it=1
-    x, y, z = np.meshgrid( np.linspace(0,1,n_pts_dir),
-                           np.linspace(0,1,n_pts_dir),
-                           np.linspace(0,1,n_pts_dir), indexing='ij')
-    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
-
+    if dim == 3:
+        x, y, z = np.meshgrid(np.linspace(0,1,n_pts_dir),
+                              np.linspace(0,1,n_pts_dir),
+                              np.linspace(0,1,n_pts_dir), indexing = 'ij')
+        mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+    else:
+        #the unstructured grid has to be created here because maia nor cassiopee
+        #can handle the conversion to unstructured grids in 2D ...
+        import maia
+        from mpi4py import MPI
+        mesh = maia.factory.generate_dist_block(n_pts_dir, 'S', MPI.COMM_WORLD,
+                                          origin=[0., 0.], length=[(1.,0.), (0.,1.)])
+        mesh = cgns.castNode(mesh)
+        mesh.get('GridCoordinates').addChild(
+            cgns.Node(Name = 'CoordinateZ', Value = np.zeros(n_pts_dir**2),
+                                                               Type = 'DataArray_t'))
+        maia.algo.dist.convert_s_to_ngon(mesh, MPI.COMM_WORLD)
+        maia.algo.edge_pe_to_ngon(mesh, MPI.COMM_WORLD)
+        mesh = cgns.castNode(mesh)
+        for n, m in zip(['Xmin', 'Ymin', 'Xmax', 'Ymax'],
+                        ['Inlet', 'Ground', 'Farfield.0', 'Farfield.1']):
+            bc = mesh.get(Name = n, Type = 'BC_t')
+            bc.setValue('FamilySpecified')
+            bc.setName(m)
+            bc.addChild(cgns.Node(Name = 'FamilyName', Type = 'FamilyName_t',
+                                                            Value = m.split('.')[0]))
 
     w = Workflow(
         RawMeshComponents=[
@@ -582,7 +603,7 @@ def get_workflow_cart_monoproc(RunDirectory):
                          Location='imin'),
                     dict(Name='Farfield',
                          Location='remaining'),
-                ],
+                ]*(dim == 3),#the families are already specified in 2D
                 )
         ],
 
@@ -776,8 +797,15 @@ def test_prepare_workflow2_comp2(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.cost_level_1
-def test_workflow_cart_monoproc(tmp_path):
-    w = get_workflow_cart_monoproc(tmp_path)
+@pytest.mark.parametrize('dim', [2, 3])
+def test_workflow_cart_monoproc(tmp_path, dim):
+    if dim == 2:
+        if   solver == 'fast':
+            pytest.skip('2D simulation not available with Fast')
+        elif solver == 'elsa':
+            pytest.skip('2D simulation not available with elsA')
+
+    w = get_workflow_cart_monoproc(tmp_path, dim = dim)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
@@ -1036,4 +1064,4 @@ def unstructured_cart_grid():
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
-    test_workflow_cart_monoproc('test_workflow_cart_monoproc')
+    test_workflow_cart_monoproc('test_workflow_cart_monoproc', dim = 3)

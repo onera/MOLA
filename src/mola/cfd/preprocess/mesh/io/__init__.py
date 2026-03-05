@@ -60,14 +60,20 @@ def set_problem_dimension_based_on_grid(workflow):
     cell_monolayer_count = 0
     surface_count = 0
     for zone in workflow.tree.zones():
-        if is_cell_multilayer(zone):
-            cell_multilayer_count += 1
-        
-        if is_cell_monolayer(zone):
-            cell_monolayer_count += 1
-        
-        if is_surface(zone):
-            surface_count += 1
+        if zone.isUnstructured():
+            vtk = [elt.value()[0] for elt in zone.group(Type = 'Elements_t') \
+                                  if  elt.value()[0] != 22]
+            if max(vtk) < 10: cell_monolayer_count  += 1
+            else:             cell_multilayer_count += 1
+        else:
+            if is_cell_multilayer(zone):
+                cell_multilayer_count += 1
+            
+            if is_cell_monolayer(zone):
+                cell_monolayer_count += 1
+            
+            if is_surface(zone):
+                surface_count += 1
 
     topo_counts = (cell_multilayer_count, cell_monolayer_count, surface_count)
     
@@ -76,7 +82,6 @@ def set_problem_dimension_based_on_grid(workflow):
 
 def is_cell_multilayer( zone : cgns.Zone ):
     cell_shape = zone.value()[:,1]
-    if zone.isUnstructured(): return True # TODO how to check if unstructured is 2D?
     if len(cell_shape) < 3: return False
     for s in cell_shape:
         if s < 2:
