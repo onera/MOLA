@@ -560,7 +560,7 @@ def get_workflow1():
 
     return w
 
-def get_workflow_cart_monoproc(RunDirectory, dim = 3):
+def get_workflow_cart_monoproc(RunDirectory, dim = 3, GridLocation = 'CellCenter'):
 
     n_pts_dir = 14
     assert n_pts_dir > 13 # otherwise RSD_L2_rh == 0 and elsa stops at it=1
@@ -629,6 +629,7 @@ def get_workflow_cart_monoproc(RunDirectory, dim = 3):
         Numerics = dict(
             NumberOfIterations=2,
             CFL=1.0,
+            GridLocation = GridLocation,
         ),
 
         BoundaryConditions=[
@@ -798,17 +799,24 @@ def test_prepare_workflow2_comp2(tmp_path):
 @pytest.mark.integration
 @pytest.mark.cost_level_1
 @pytest.mark.parametrize('dim', [2, 3])
-def test_workflow_cart_monoproc(tmp_path, dim):
+@pytest.mark.parametrize('GridLocation', ['Vertex', 'CellCenter'])
+def test_workflow_cart_monoproc(tmp_path, dim, GridLocation):
     if dim == 2:
         if   solver == 'fast':
             pytest.skip('2D simulation not available with Fast')
         elif solver == 'elsa':
             pytest.skip('2D simulation not available with elsA')
+    elif GridLocation == 'Vertex':
+        if   solver == 'fast':
+            pytest.skip('Vertex simulation not available with Fast')
+        elif solver == 'elsa':
+            pytest.skip('Vertex simulation not available with elsA')
 
-    w = get_workflow_cart_monoproc(tmp_path, dim = dim)
+    w = get_workflow_cart_monoproc(tmp_path, dim = dim, GridLocation = GridLocation)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
+    w.tree.save('t.cgns')
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
