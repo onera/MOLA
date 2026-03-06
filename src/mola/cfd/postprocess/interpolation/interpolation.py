@@ -18,47 +18,56 @@
 import numpy as np
 from itertools import product
 
-from mola.cfd.preprocess.mesh.tools import to_partitioned
+from mola.cfd.preprocess.mesh.tools import to_partitioned, to_distributed
 import mola.pytree.InternalShortcuts as J
-
+from treelab import cgns
 import maia
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
 import Converter.Internal as I
 import Converter.PyTree as C
 
-def interpolate_closest(tree_source, tree_target, comm):
+byte2str = lambda b: b.tobytes().decode() if isinstance(b, bytes) or \
+                       (isinstance(b, np.ndarray) and isinstance(b[0], bytes)) else b
+get_location = lambda n: byte2str(maia.pytree.get_node_from_name(n, 'GridLocation')[1])
+def interpolate_closest(tree_source, tree_target, comm = comm,
+    containers_name = 'ALL', n_closest_pt = 8, strategy = 'Closest', **kwargs):
+    if (not isinstance(containers_name, (tuple, list, np.ndarray))) and \
+                                                            containers_name != 'ALL':
+        containers_name = [containers_name]
 
-    containers_at_vertex = [
-        fs.name() for fs in tree_source.group(Type='FlowSolution') 
-        if not fs.get(Type='GridLocation') or fs.get(Type='GridLocation').value() == 'Vertex'
-        ]
-    containers_at_cellcenter = [
-        fs.name() for fs in tree_source.group(Type='FlowSolution') 
-        if fs.get(Type='GridLocation') and fs.get(Type='GridLocation').value() == 'CellCenter'
-        ]
-    
-    tree_source = to_partitioned(tree_source) 
-    tree_target = to_partitioned(tree_target) 
+    _tree_target = tree_target.copy(deep = True)
+    if   (_tree_target.get(':CGNS#Distribution') is not None) and \
+         ( tree_source.get(':CGNS#Distribution') is     None):
+        tree_source = to_distributed(tree_source)
+    elif (_tree_target.get(':CGNS#GlobalNumbering') is not None) and \
+         ( tree_source.get(':CGNS#GlobalNumbering') is     None):
+        tree_source = to_partitioned(tree_source)
+    else:
+        _tree_target = to_distributed(_tree_target)
+        tree_source  = to_distributed( tree_source)
 
-    maia.algo.part.interpolate(
-        tree_source, 
-        tree_target, 
-        comm, 
-        containers_name=containers_at_vertex, 
-        location='Vertex',
-        strategy='Closest',
-        n_closest_pt=4,
+    for GridLocation in ['Vertex', 'CellCenter']:
+        maia.algo.interpolate(
+            tgt_tree = _tree_target,
+            src_tree = tree_source,
+            comm = comm,
+            location = GridLocation,
+            containers_name = 'ALL',
+            strategy = strategy,
+            n_closest_pt = n_closest_pt
         )
-    maia.algo.part.interpolate(
-        tree_source, 
-        tree_target, 
-        comm, 
-        containers_name=containers_at_cellcenter, 
-        location='CellCenter',
-        strategy='Closest',
-        n_closest_pt=4,
-        )
-
-
+    _tree_target = cgns.castNode(_tree_target)
+    # I cannot search by name since the distribution/partitioning changes the names
+    _zones = _tree_target.group(Type = 'Zone_t')
+    zones  =  tree_target.group(Type = 'Zone_t')
+    # I have to insert the flowsolutions since the target_tree is not returned, and
+    # is no longer a treelab tree after going in maia.algo.interpolate which breaks 
+    # the pointers with the original tree
+    for _zone, zone in zip(_zones, zones):
+        for _fs in _zone.group(Type = 'FlowSolution_t'):
+            zone.findAndRemoveNodes(Name = _fs.name(), Type = _fs.type(), Depth = 1)
+            zone.addChild(cgns.castNode(_fs))
 
 def migrateFields(Donor, Receiver, keepMigrationDataForReuse=False,
                  forceAddMigrationData=False):

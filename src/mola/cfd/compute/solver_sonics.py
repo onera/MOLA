@@ -31,10 +31,8 @@ from mola.cfd.preprocess.cfd_parameters.solver_sonics import get_cfl_function
 from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics, translate_extraction_variables_to_sonics_function
 
 def apply_to_solver(workflow):
-
     import sonics
     import maia
-
     # Log mute
     from maia.utils.logging import turn_on, turn_off
     turn_off("tasky")
@@ -56,21 +54,29 @@ def apply_to_solver(workflow):
     iterators = get_iterators(workflow, config, hardware_target)
     workflow._iterators = iterators
 
+    if workflow.Numerics['GridLocation'] == 'Vertex':
+        maia.algo.dist.convert_ngon_to_elements(dist_tree, comm = comm)
+
     sonics.run(dist_tree, comm, 
                 iterators = iterators, 
                 additional_parameters = dict(
                     output_folder = names.DIRECTORY_LOG,
-                    hpc_conf = dict(hardware_target=hardware_target),
+                    hpc_conf = dict(hardware_target = hardware_target),
                     )
                 )
 
+    if workflow.Numerics['GridLocation'] == 'Vertex':
+        maia.algo.dist.convert_elements_to_ngon(dist_tree, comm = comm)
+
+    dist_tree = cgns.castNode(dist_tree)
     # Create NFaceElements for visualization
-    coprocess_manager.output_tree = cgns.castNode(dist_tree)
-    if not coprocess_manager.output_tree.get(Name='NFaceElements'):
+    coprocess_manager.output_tree = dist_tree
+    if not coprocess_manager.output_tree.get(Name = 'NFaceElements'):
         maia.algo.pe_to_nface(dist_tree, comm)
         coprocess_manager.output_tree = cgns.castNode(dist_tree)
 
-    maia.io.dist_tree_to_file(coprocess_manager.output_tree, f'{names.DIRECTORY_OUTPUT}/solution.cgns', comm)
+    maia.io.dist_tree_to_file(coprocess_manager.output_tree, \
+                              f'{names.DIRECTORY_OUTPUT}/solution.cgns', comm)
 
     coprocess_manager.finalize()
     del workflow._coprocess_manager

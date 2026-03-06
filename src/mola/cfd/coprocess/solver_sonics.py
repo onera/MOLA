@@ -91,24 +91,41 @@ def get_output_tree(coprocess_manager):
         if gc.get(Type='GridLocation').value() == 'Vertex':
             gc.remove()  # otherwise, error in the function centers_to_nodes below
     # partionning
-    
-    elt_location = 'Cell' if    coprocess_manager.workflow.ProblemDimension == 3 \
-                          else 'Face'
+    if coprocess_manager.workflow.Numerics['GridLocation'] == 'Vertex':
+        elt_location = 'Vertex'
+    else:
+        elt_location = 'Cell' if    coprocess_manager.workflow.ProblemDimension == 3\
+                              else 'Face'
     part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD, preserve_orientation=True)
     maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
-    maia.algo.part.centers_to_nodes(part_tree, comm, [f'Fields@{elt_location}@End'])
-    part_tree = cgns.castNode(part_tree)
-    for zsr in part_tree.group(Type='ZoneSubRegion'):
-        cgns.Node(Name='GridLocation', Type='GridLocation', Value='FaceCenter', Parent=zsr)
-    for fs in part_tree.group(Name=f'Fields@{elt_location}@End'):
-        fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_CENTER)
-    for fs in part_tree.group(Name=f'Fields@{elt_location}@End#Vtx'):
-        fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX)
+    if elt_location == 'Vertex':
+        part_tree = cgns.castNode(part_tree)
+        for fs in part_tree.group(Name=f'Fields@{elt_location}@End'):
+            fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX)
+    else:
+        import Converter.Internal as I
+        I.printTree(part_tree)
+        maia.algo.part.centers_to_nodes(part_tree, comm, [f'Fields@{elt_location}@End'])
+        part_tree = cgns.castNode(part_tree)
+        for fs in part_tree.group(Name=f'Fields@{elt_location}@End'):
+            fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_CENTER)
+        for fs in part_tree.group(Name=f'Fields@{elt_location}@End#Vtx'):
+            fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX)
     
+    bc_location = 'FaceCenter' if   coprocess_manager.workflow.ProblemDimension == 3\
+                               else 'EdgeCenter'
+    for zsr in part_tree.group(Type='ZoneSubRegion'):
+        cgns.Node(Name = 'GridLocation', Type = 'GridLocation', Value = bc_location,
+                                                                        Parent = zsr)
+
     return part_tree
 
 def update_restart_fields(workflow, output_tree):
-    elt_location = 'Cell' if workflow.ProblemDimension == 3 else 'Face'
+    if workflow.Numerics['GridLocation'] == 'Vertex':
+        elt_location = 'Vertex'
+    else:
+        elt_location = 'Cell' if workflow.ProblemDimension == 3 else 'Face'
+
     for zone in output_tree.zones():
         zone.findAndRemoveNode(Name = f'Fields@{elt_location}@Init')
         FS = zone.get(Name = f'Fields@{elt_location}@End')

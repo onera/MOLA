@@ -88,7 +88,7 @@ def add_reference_state(workflow):
 def initialize_flow_with_reference_state(workflow, FlowSolution_name):
     mola_logger.info(' - initialize flow with uniform reference values',rank=0)
     workflow.tree.findAndRemoveNodes(Name=FlowSolution_name)
-    workflow.tree.newFields(workflow.Flow['ReferenceState'], Container=FlowSolution_name, GridLocation='CellCenter')
+    workflow.tree.newFields(workflow.Flow['ReferenceState'], Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
 
 def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     '''
@@ -130,7 +130,7 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
                         new_field = {var: workflow.Flow['ReferenceState'][var]}
                         mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
                         warning_msg_already_printed = True
-                        source_tree.newFields(new_field, Container=FlowSolution_name, GridLocation='CellCenter')
+                        source_tree.newFields(new_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
                 else:
                     raise MolaException(f'{var} cannot be found in {FS.path()}')
     
@@ -142,7 +142,7 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
         workflow.tree, 
         MPI.COMM_WORLD, 
         containers_name=[FlowSolution_name], 
-        location='CellCenter',
+        location=workflow.Numerics['GridLocation'],
         strategy='Closest',
         n_closest_pt=4,
         )
@@ -201,7 +201,7 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
                         new_field = {var: workflow.Flow['ReferenceState'][var]}
                         mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
                         warning_msg_already_printed = True
-                        zone.newFields(new_field, Container=FlowSolution_name, GridLocation='CellCenter')
+                        zone.newFields(new_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
                 else:
                     raise MolaException(f'{var} cannot be found in {FSpath}')
 
