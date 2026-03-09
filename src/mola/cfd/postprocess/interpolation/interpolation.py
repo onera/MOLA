@@ -52,7 +52,7 @@ def interpolate_closest(tree_source, tree_target, comm = comm, n_closest_pt = 8,
                 location = location,
                 containers_name = containers_name,
                 strategy = strategy,
-                n_closest_pt = n_closest_pt
+                n_closest_pt = n_closest_pt,
                 **kwargs
             )
             tree_source = cgns.castNode(tree_source)
