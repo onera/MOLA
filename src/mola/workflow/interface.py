@@ -520,9 +520,8 @@ class WorkflowInterface(object):
         )
         if (solver in ['elsa', 'fast']) and \
                                      (self.Numerics['GridLocation'] != 'CellCenter'):
-            msg = f'The GridLocation for elsA and Fast must be set to CellCenter:\n'\
-                  f'          - solver       = {solver}\n' \
-                  f'          - GridLocation = {self.Numerics["GridLocation"]}'
+            msg = f'The GridLocation for {solver} must be set to CellCenter ' \
+                  f'(now {self.Numerics["GridLocation"]})'
             raise MolaUserError(msg)
                                 
                                 

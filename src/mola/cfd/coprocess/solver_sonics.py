@@ -103,8 +103,6 @@ def get_output_tree(coprocess_manager):
         for fs in part_tree.group(Name=f'Fields@{elt_location}@End'):
             fs.setName(names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX)
     else:
-        import Converter.Internal as I
-        I.printTree(part_tree)
         maia.algo.part.centers_to_nodes(part_tree, comm, [f'Fields@{elt_location}@End'])
         part_tree = cgns.castNode(part_tree)
         for fs in part_tree.group(Name=f'Fields@{elt_location}@End'):

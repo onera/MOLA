@@ -808,15 +808,14 @@ def test_workflow_cart_monoproc(tmp_path, dim, GridLocation):
             pytest.skip('2D simulation not available with elsA')
     elif GridLocation == 'Vertex':
         if   solver == 'fast':
-            pytest.skip('Vertex simulation not available with Fast')
+            pytest.skip('Simulation at vertex not available with Fast')
         elif solver == 'elsa':
-            pytest.skip('Vertex simulation not available with elsA')
+            pytest.skip('Simulation at vertex not available with elsA')
 
     w = get_workflow_cart_monoproc(tmp_path, dim = dim, GridLocation = GridLocation)
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
-    w.tree.save('t.cgns')
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 

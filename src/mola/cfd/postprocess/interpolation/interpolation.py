@@ -27,15 +27,8 @@ comm = MPI.COMM_WORLD
 import Converter.Internal as I
 import Converter.PyTree as C
 
-byte2str = lambda b: b.tobytes().decode() if isinstance(b, bytes) or \
-                       (isinstance(b, np.ndarray) and isinstance(b[0], bytes)) else b
-get_location = lambda n: byte2str(maia.pytree.get_node_from_name(n, 'GridLocation')[1])
-def interpolate_closest(tree_source, tree_target, comm = comm,
-    containers_name = 'ALL', n_closest_pt = 8, strategy = 'Closest', **kwargs):
-    if (not isinstance(containers_name, (tuple, list, np.ndarray))) and \
-                                                            containers_name != 'ALL':
-        containers_name = [containers_name]
-
+def interpolate_closest(tree_source, tree_target, comm = comm, n_closest_pt = 8,
+    strategy = 'Closest', **kwargs):
     _tree_target = tree_target.copy(deep = True)
     if   (_tree_target.get(':CGNS#Distribution') is not None) and \
          ( tree_source.get(':CGNS#Distribution') is     None):
@@ -47,16 +40,22 @@ def interpolate_closest(tree_source, tree_target, comm = comm,
         _tree_target = to_distributed(_tree_target)
         tree_source  = to_distributed( tree_source)
 
-    for GridLocation in ['Vertex', 'CellCenter']:
-        maia.algo.interpolate(
-            tgt_tree = _tree_target,
-            src_tree = tree_source,
-            comm = comm,
-            location = GridLocation,
-            containers_name = 'ALL',
-            strategy = strategy,
-            n_closest_pt = n_closest_pt
-        )
+    for location in ['Vertex', 'CellCenter']:
+        containers_name = [fs.name() for zone in tree_source.group(Type = 'Zone_t')
+                                     for fs   in zone.group(Type = 'FlowSolution_t')
+                                     if zone.inferLocation(fs.name()) == location]
+        if containers_name:
+            maia.algo.interpolate(
+                tgt_tree = _tree_target,
+                src_tree = tree_source,
+                comm = comm,
+                location = location,
+                containers_name = containers_name,
+                strategy = strategy,
+                n_closest_pt = n_closest_pt
+            )
+            tree_source = cgns.castNode(tree_source)
+
     _tree_target = cgns.castNode(_tree_target)
     # I cannot search by name since the distribution/partitioning changes the names
     _zones = _tree_target.group(Type = 'Zone_t')
