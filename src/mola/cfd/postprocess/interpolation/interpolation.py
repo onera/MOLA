@@ -30,15 +30,15 @@ import Converter.PyTree as C
 def interpolate_closest(tree_source, tree_target, comm = comm, n_closest_pt = 8,
     strategy = 'Closest', **kwargs):
     _tree_target = tree_target.copy(deep = True)
-    if   (_tree_target.get(':CGNS#Distribution') is not None) and \
-         ( tree_source.get(':CGNS#Distribution') is     None):
-        tree_source = to_distributed(tree_source)
-    elif (_tree_target.get(':CGNS#GlobalNumbering') is not None) and \
-         ( tree_source.get(':CGNS#GlobalNumbering') is     None):
-        tree_source = to_partitioned(tree_source)
+    if _tree_target.get(':CGNS#Distribution') is not None:
+        if tree_source.get(':CGNS#Distribution') is None:
+            tree_source = to_distributed(tree_source)
+    elif _tree_target.get(':CGNS#GlobalNumbering') is not None:
+        if tree_source.get(':CGNS#GlobalNumbering') is None:
+            tree_source = to_partitioned(tree_source)
     else:
         _tree_target = to_distributed(_tree_target)
-        tree_source  = to_distributed( tree_source)
+        tree_source = to_distributed(tree_source)
 
     for location in ['Vertex', 'CellCenter']:
         containers_name = [fs.name() for zone in tree_source.group(Type = 'Zone_t')
@@ -58,6 +58,7 @@ def interpolate_closest(tree_source, tree_target, comm = comm, n_closest_pt = 8,
             tree_source = cgns.castNode(tree_source)
 
     _tree_target = cgns.castNode(_tree_target)
+    
     # I cannot search by name since the distribution/partitioning changes the names
     _zones = _tree_target.group(Type = 'Zone_t')
     zones  =  tree_target.group(Type = 'Zone_t')
@@ -66,8 +67,7 @@ def interpolate_closest(tree_source, tree_target, comm = comm, n_closest_pt = 8,
     # the pointers with the original tree
     for _zone, zone in zip(_zones, zones):
         for _fs in _zone.group(Type = 'FlowSolution_t'):
-            zone.findAndRemoveNodes(Name = _fs.name(), Type = _fs.type(), Depth = 1)
-            zone.addChild(cgns.castNode(_fs))
+            zone.addChild(_fs)
 
 def migrateFields(Donor, Receiver, keepMigrationDataForReuse=False,
                  forceAddMigrationData=False):
