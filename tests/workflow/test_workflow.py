@@ -795,30 +795,29 @@ def test_prepare_workflow2_comp2(tmp_path):
 #     w.prepare()
 #     w.write_cfd_files()
 
-
 @pytest.mark.integration
 @pytest.mark.cost_level_1
-@pytest.mark.parametrize('dim', [2, 3])
-@pytest.mark.parametrize('GridLocation', ['Vertex', 'CellCenter'])
-def test_workflow_cart_monoproc(tmp_path, dim, GridLocation):
-    if dim == 2:
-        if   solver == 'fast':
-            pytest.skip('2D simulation not available with Fast')
-        elif solver == 'elsa':
-            pytest.skip('2D simulation not available with elsA')
-    elif GridLocation == 'Vertex':
-        if   solver == 'fast':
-            pytest.skip('Simulation at vertex not available with Fast')
-        elif solver == 'elsa':
-            pytest.skip('Simulation at vertex not available with elsA')
-
-    w = get_workflow_cart_monoproc(tmp_path, dim = dim, GridLocation = GridLocation)
+@pytest.mark.skipif(solver=="sonics", reason="replaced by its own parametrized test") # avoids executing twice the case dim=3 CellCenter in sonics context
+def test_workflow_cart_monoproc(tmp_path):
+    w = get_workflow_cart_monoproc(tmp_path, dim = 3, GridLocation = "CellCenter")
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+@pytest.mark.sonics
+@pytest.mark.parametrize('dim', [2, 3])
+@pytest.mark.parametrize('GridLocation', ['Vertex', 'CellCenter'])
+def test_workflow_cart_monoproc_sonics(tmp_path, dim, GridLocation):
+    w = get_workflow_cart_monoproc(tmp_path, dim, GridLocation)
+    w.RunManagement['Scheduler'] = 'local'
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.assert_completed_without_errors()
 
 @pytest.mark.integration
 @pytest.mark.elsa
