@@ -17,7 +17,11 @@
 
 
 def apply_to_solver(workflow):
-    elt_location = 'Cell' if workflow.ProblemDimension == 3 else 'Face'
+    if workflow.Numerics['GridLocation'] == 'Vertex':
+        elt_location = 'Vertex'
+    else:
+        elt_location = 'Cell' if workflow.ProblemDimension == 3 else 'Face'
+
     InitialSolutionContainer = f'Fields@{elt_location}@Init'
     for node in workflow.tree.group(Name='FlowSolution#Init'):
         node.setName(InitialSolutionContainer)

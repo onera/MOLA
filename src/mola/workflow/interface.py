@@ -474,6 +474,7 @@ class WorkflowInterface(object):
         TimeAtInitialState        : float = 0.0,
         TimeMarchingOrder         : int   = 2,
         TimeStep                  : float = None,
+        GridLocation              : str   = 'CellCenter',
         CFL                       : Union[ float,
                                             dict] = 10.0,
                        ):
@@ -514,7 +515,16 @@ class WorkflowInterface(object):
 
         '''
         self.Numerics = self._get_comp(
-            WorkflowInterface.set_Numerics, self.get_default_values_from_local_signature())
+            WorkflowInterface.set_Numerics,
+            self.get_default_values_from_local_signature()
+        )
+        if (solver in ['elsa', 'fast']) and \
+                                     (self.Numerics['GridLocation'] != 'CellCenter'):
+            msg = f'The GridLocation for {solver} must be set to CellCenter ' \
+                  f'(now {self.Numerics["GridLocation"]})'
+            raise MolaUserError(msg)
+                                
+                                
         self.check_time_marching()
         self.check_cfl()
 
