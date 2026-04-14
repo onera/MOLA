@@ -358,8 +358,10 @@ def mergeBCtagContainerWithFlowSolutionTagContainer(zone, surf_bc):
             I.setValue(n,'CellCenter')
 
     for n in I.getNodeFromName1(zone_tags, 'containers_names')[2]:
+        # Get only the name of the BCDataSet node (cutting the BCData node name)
         name = I.getValue(n)
-        I.setValue(n, name.replace('/NeumannData',''))
+        BCDataSet_name = name.split('/')[0]
+        I.setValue(n, BCDataSet_name)
 
 def reshapeFieldsForStructuredGrid(t):
     for zone in I.getZones(t):

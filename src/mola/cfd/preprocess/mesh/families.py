@@ -17,7 +17,6 @@
 
 import copy
 import treelab.cgns as cgns
-import Converter.Internal as I
 from mola.logging import mola_logger, MolaException, MolaUserError
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
@@ -350,6 +349,7 @@ def generate_case_variations(patterns):
     return extended_patterns
 
 def _ungroupBCsByBCType(t, forced_starting=''):
+    import Converter.Internal as I
     for BC in I.getNodesFromType(t,'BC_t'):
         BCvalue = I.getValue(BC)
         if BCvalue == 'FamilySpecified':
@@ -380,6 +380,7 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
             the resulting *BCType*. Returns:py:obj:`None` if **FamilyBCName** is not
             found
     '''
+    import Converter.Internal as I
     FamilyNode = I.getNodeFromNameAndType(t, FamilyBCName, 'Family_t')
     if not FamilyNode: return
 
