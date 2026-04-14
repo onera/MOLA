@@ -17,7 +17,6 @@
 
 import copy
 import treelab.cgns as cgns
-import Converter.Internal as I
 from mola.logging import mola_logger, MolaException, MolaUserError
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
@@ -196,6 +195,7 @@ def append_default_zone_family_to_zones(base, default_family_name='DefaultFamily
         FamilyName = zone.get(Type='FamilyName', Depth=1)
         if not FamilyName:
             cgns.Node(Name='FamilyName', Type='FamilyName', Value=default_family_name, Parent=zone)
+            need_to_add_default_family = True
 
     if need_to_add_default_family and not base.get(Name=default_family_name, Type='Family', Depth=1):
         cgns.Node(Name=default_family_name, Type='Family', Parent=base)
@@ -347,6 +347,7 @@ def generate_case_variations(patterns):
     return extended_patterns
 
 def _ungroupBCsByBCType(t, forced_starting=''):
+    import Converter.Internal as I
     for BC in I.getNodesFromType(t,'BC_t'):
         BCvalue = I.getValue(BC)
         if BCvalue == 'FamilySpecified':
@@ -377,6 +378,7 @@ def getFamilyBCTypeFromFamilyBCName(t, FamilyBCName):
             the resulting *BCType*. Returns:py:obj:`None` if **FamilyBCName** is not
             found
     '''
+    import Converter.Internal as I
     FamilyNode = I.getNodeFromNameAndType(t, FamilyBCName, 'Family_t')
     if not FamilyNode: return
 

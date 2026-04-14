@@ -231,7 +231,8 @@ def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
                 'delta', 'delta1', 'delta1i', 'delta2', 'delta2i', 
                 'h', 'hi', 'runit', 'theta11', 'theta11i', 'theta12', 
                 'theta12i', 'theta22', 'theta22i', 'theta1_th', 'theta2_th', 
-                'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector', 'bl_ue', 'bl_prof']
+                'bl_quantities_2d', 'bl_quantities_3d', 'bl_ue_vector', 'bl_ue', 'bl_prof',
+                'bl_uex', 'bl_uey', 'bl_uez']
 
     if 'Fields' in extraction and extraction['Fields'] != 'all':
 
@@ -241,7 +242,7 @@ def keep_only_requested_fields(tree : cgns.Tree, extraction : dict):
         var_to_keep = extraction['Fields'] + VAR_TO_KEEP_IN_ALL_CASES
 
         if 'yPlus' in var_to_keep:
-            var_to_keep.append(['WallCellSize'])  
+            var_to_keep.append('WallCellSize')  
 
         if 'BoundaryLayer' in var_to_keep:
             var_to_keep.extend(BL_VARIABLES)
