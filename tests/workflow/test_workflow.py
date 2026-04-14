@@ -22,7 +22,7 @@ import shutil
 import numpy as np
 
 import treelab.cgns as cgns
-
+from mola import solver
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola import server as SV
@@ -560,15 +560,36 @@ def get_workflow1():
 
     return w
 
-def get_workflow_cart_monoproc(RunDirectory):
+def get_workflow_cart_monoproc(RunDirectory, dim = 3, GridLocation = 'CellCenter'):
 
     n_pts_dir = 14
     assert n_pts_dir > 13 # otherwise RSD_L2_rh == 0 and elsa stops at it=1
-    x, y, z = np.meshgrid( np.linspace(0,1,n_pts_dir),
-                           np.linspace(0,1,n_pts_dir),
-                           np.linspace(0,1,n_pts_dir), indexing='ij')
-    mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
-
+    if dim == 3:
+        x, y, z = np.meshgrid(np.linspace(0,1,n_pts_dir),
+                              np.linspace(0,1,n_pts_dir),
+                              np.linspace(0,1,n_pts_dir), indexing = 'ij')
+        mesh = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+    else:
+        #the unstructured grid has to be created here because maia nor cassiopee
+        #can handle the conversion to unstructured grids in 2D ...
+        import maia
+        from mpi4py import MPI
+        mesh = maia.factory.generate_dist_block(n_pts_dir, 'S', MPI.COMM_WORLD,
+                                          origin=[0., 0.], length=[(1.,0.), (0.,1.)])
+        mesh = cgns.castNode(mesh)
+        mesh.get('GridCoordinates').addChild(
+            cgns.Node(Name = 'CoordinateZ', Value = np.zeros(n_pts_dir**2),
+                                                               Type = 'DataArray_t'))
+        maia.algo.dist.convert_s_to_ngon(mesh, MPI.COMM_WORLD)
+        maia.algo.edge_pe_to_ngon(mesh, MPI.COMM_WORLD)
+        mesh = cgns.castNode(mesh)
+        for n, m in zip(['Xmin', 'Ymin', 'Xmax', 'Ymax'],
+                        ['Inlet', 'Ground', 'Farfield.0', 'Farfield.1']):
+            bc = mesh.get(Name = n, Type = 'BC_t')
+            bc.setValue('FamilySpecified')
+            bc.setName(m)
+            bc.addChild(cgns.Node(Name = 'FamilyName', Type = 'FamilyName_t',
+                                                            Value = m.split('.')[0]))
 
     w = Workflow(
         RawMeshComponents=[
@@ -582,7 +603,7 @@ def get_workflow_cart_monoproc(RunDirectory):
                          Location='imin'),
                     dict(Name='Farfield',
                          Location='remaining'),
-                ],
+                ]*(dim == 3),#the families are already specified in 2D
                 )
         ],
 
@@ -608,6 +629,7 @@ def get_workflow_cart_monoproc(RunDirectory):
         Numerics = dict(
             NumberOfIterations=2,
             CFL=1.0,
+            GridLocation = GridLocation,
         ),
 
         BoundaryConditions=[
@@ -773,17 +795,29 @@ def test_prepare_workflow2_comp2(tmp_path):
 #     w.prepare()
 #     w.write_cfd_files()
 
-
 @pytest.mark.integration
 @pytest.mark.cost_level_1
+@pytest.mark.skipif(solver=="sonics", reason="replaced by its own parametrized test") # avoids executing twice the case dim=3 CellCenter in sonics context
 def test_workflow_cart_monoproc(tmp_path):
-    w = get_workflow_cart_monoproc(tmp_path)
+    w = get_workflow_cart_monoproc(tmp_path, dim = 3, GridLocation = "CellCenter")
     w.RunManagement['Scheduler'] = 'local'
     w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+@pytest.mark.sonics
+@pytest.mark.parametrize('dim', [2, 3])
+@pytest.mark.parametrize('GridLocation', ['Vertex', 'CellCenter'])
+def test_workflow_cart_monoproc_sonics(tmp_path, dim, GridLocation):
+    w = get_workflow_cart_monoproc(tmp_path, dim, GridLocation)
+    w.RunManagement['Scheduler'] = 'local'
+    w.prepare()
+    w.write_cfd_files()
+    w.submit(f'cd {tmp_path}; bash job.sh')
+    w.assert_completed_without_errors()
 
 @pytest.mark.integration
 @pytest.mark.elsa
@@ -1036,4 +1070,4 @@ def unstructured_cart_grid():
 if __name__ == '__main__':
     # test_workflow_sphere_struct_local_dist()
     # test_prepare_workflow2()
-    test_workflow_cart_monoproc('test_workflow_cart_monoproc')
+    test_workflow_cart_monoproc('test_workflow_cart_monoproc', dim = 3)

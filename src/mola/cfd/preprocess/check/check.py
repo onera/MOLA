@@ -17,6 +17,7 @@
 
 import numpy as np
 import pprint
+from treelab import cgns
 from mola.cfd import apply_to_solver
 from mola.logging import mola_logger, MolaException, GREEN, YELLOW, ENDC
 from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
@@ -78,9 +79,25 @@ def check_empty_bc(workflow):
     #     return
     
     I._adaptPE2NFace(t)
-    emptyBC = C.getEmptyBC(t, dim=3)
-    empty_bcs = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
+    cgns.castNode(t)
+    if any([zone.isUnstructured() for zone in t.group(Type = 'Zone_t')]):
+
+        if workflow.ProblemDimension == 3:
+            # 3D adapted meshes have bc at the edges of each bc.
+            # They are useless for the cfd computation but are necessary for the 
+            # mesh adaptation and must be kept.
+            is_empty = lambda n: (n.get(Type = 'FamilyName_t') is None) or \
+                             (n.get(Type = 'GridLocation_t').value() != 'EdgeCenter')
+        else:
+            is_empty = lambda n: n.get(Type = 'FamilyName_t') is None
+
+        emptyBC = [bc.name() for zone in    t.group(Type = 'Zone_t')
+                             for bc   in zone.group(Type = 'Bc_t'  )
+                             if  is_empty(bc)]
+    else:
+        emptyBC = C.getEmptyBC(t, dim = workflow.ProblemDimension)
     
+    empty_bcs = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
     raise_error = False
     if rank ==0:
         if empty_bcs:

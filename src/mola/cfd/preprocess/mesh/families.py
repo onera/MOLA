@@ -189,16 +189,18 @@ def append_zone_families_to_base(base):
     for family in families_to_add:
         cgns.Node(Name=family, Type='Family', Parent=base)
 
-def append_default_zone_family_to_zones(base, default_family_name='DefaultFamily'):
+def append_default_zone_family_to_zones(base, default_family_name = 'DefaultFamily'):
     need_to_add_default_family = False
     for zone in base.zones():
-        FamilyName = zone.get(Type='FamilyName', Depth=1)
+        FamilyName = zone.get(Type = 'FamilyName', Depth = 1)
         if not FamilyName:
-            cgns.Node(Name='FamilyName', Type='FamilyName', Value=default_family_name, Parent=zone)
+            cgns.Node(Name = 'FamilyName', Type = 'FamilyName',
+                                          Value = default_family_name, Parent = zone)
             need_to_add_default_family = True
 
-    if need_to_add_default_family and not base.get(Name=default_family_name, Type='Family', Depth=1):
-        cgns.Node(Name=default_family_name, Type='Family', Parent=base)
+    if need_to_add_default_family and \
+                not base.get(Name = default_family_name, Type = 'Family', Depth = 1):
+        cgns.Node(Name = default_family_name, Type = 'Family', Parent = base)
 
 def join_families(t, pattern, mode=2):
     '''

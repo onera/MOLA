@@ -82,8 +82,13 @@ for model in ['SST-2003', 'SST-V2003']:
 def apply_to_solver(workflow):
 
     my_config = get_sonics_config(workflow)
-    my_config.to_cgns_base(workflow.tree)
-
+    #https://gitlab.onera.net/numerics/coupling/miles/-/issues/110
+    #a parameter cannot be unset from the config, even if it is in conflict with
+    #other parameters. invalid_parameter_policy = 'warn' is used to avoid issues
+    #impossible cases will still be blocked, but unnecessary parameters will not
+    #raise an issue
+    #TODO: do a my_config.pop_tuning_parameter("") when it is available in miles
+    my_config.to_cgns_base(workflow.tree, invalid_parameter_policy = 'warn')
     workflow.tree = cgns.castNode(workflow.tree)
 
 def get_sonics_config(workflow):
@@ -102,7 +107,11 @@ def get_sonics_config(workflow):
     else:
         my_config.update("motion/mobile")
         
+    fvm = 'cell_center' if   workflow.Numerics['GridLocation'] == 'CellCenter' \
+                        else 'vertex_center'
     my_config.update(
+        fvm,
+        f'{workflow.ProblemDimension}D',
         *fluid_features,
         *turb_features,
         *flux_features,

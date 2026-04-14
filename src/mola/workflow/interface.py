@@ -45,6 +45,7 @@ class WorkflowInterface(object):
     def __init__(self, workflow,
             tree=None,
             Solver : str = None,
+            ProblemDimension : int = None,
             Mesh : Union[dict, str, cgns.Tree] = None,
             RawMeshComponents : list = None,
             Fluid : dict = None,
@@ -165,6 +166,7 @@ class WorkflowInterface(object):
             elif expected_type in [list, str]:
                 try: method(user_input)
                 except TypeError as e: raise MolaUserAttributeError(method, e)
+            elif expected_type in [int]: method()
 
 
     def check_consistency_between_solver_and_environment(self):
@@ -181,8 +183,12 @@ class WorkflowInterface(object):
             self.Solver = solver 
         else:
             self.Solver = solver_name.lower()
-        
 
+    def set_ProblemDimension(self):
+        if self.workflow.tree is None:
+            #cannot put it to None because the cgns format does not recognise it
+            self.ProblemDimension = 0
+            
     def add_to_RawMeshComponents(self,
         Mesher           : str  = None,
         Unit             : str  = 'm',
@@ -468,6 +474,7 @@ class WorkflowInterface(object):
         TimeAtInitialState        : float = 0.0,
         TimeMarchingOrder         : int   = 2,
         TimeStep                  : float = None,
+        GridLocation              : str   = 'CellCenter',
         CFL                       : Union[ float,
                                             dict] = 10.0,
                        ):
@@ -508,7 +515,16 @@ class WorkflowInterface(object):
 
         '''
         self.Numerics = self._get_comp(
-            WorkflowInterface.set_Numerics, self.get_default_values_from_local_signature())
+            WorkflowInterface.set_Numerics,
+            self.get_default_values_from_local_signature()
+        )
+        if (solver in ['elsa', 'fast']) and \
+                                     (self.Numerics['GridLocation'] != 'CellCenter'):
+            msg = f'The GridLocation for {solver} must be set to CellCenter ' \
+                  f'(now {self.Numerics["GridLocation"]})'
+            raise MolaUserError(msg)
+                                
+                                
         self.check_time_marching()
         self.check_cfl()
 

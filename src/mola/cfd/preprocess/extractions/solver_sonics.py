@@ -115,7 +115,14 @@ def add_fields_and_bc_extractions(workflow):
             fields = translate_extraction_variables_to_sonics(extraction['Fields'], solver)
             for family in families:                
                 for field in fields:
-                    extracts += df.create_bcs_from_family_name(field, bc_location, family)
+                    if field in [treg.SkinFriction, treg.NormalHeatFlux,
+                           treg.SurfaceNormal, treg.FaceBndProjLength, treg.OutRadEqPressure]:
+                        if sonics.spl.guards.space_dim_3d not in conf:#2D
+                            extracts += df.create_bcs_from_family_name(field, treg.edge, family)
+                        else:#3D
+                            extracts += df.create_bcs_from_family_name(field, treg.face, family)
+                    else:
+                        extracts += df.create_bcs_from_family_name(field, bc_location, family)
 
         return extracts
     

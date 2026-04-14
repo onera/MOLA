@@ -31,10 +31,8 @@ from mola.cfd.preprocess.cfd_parameters.solver_sonics import get_cfl_function
 from mola.cfd.preprocess.solver_specific_tools.solver_sonics import translate_extraction_variables_to_sonics, translate_extraction_variables_to_sonics_function
 
 def apply_to_solver(workflow):
-
     import sonics
     import maia
-
     # Log mute
     from maia.utils.logging import turn_on, turn_off
     turn_off("tasky")
@@ -56,21 +54,29 @@ def apply_to_solver(workflow):
     iterators = get_iterators(workflow, config, hardware_target)
     workflow._iterators = iterators
 
+    if workflow.Numerics['GridLocation'] == 'Vertex':
+        maia.algo.dist.convert_ngon_to_elements(dist_tree, comm = comm)
+
     sonics.run(dist_tree, comm, 
                 iterators = iterators, 
                 additional_parameters = dict(
                     output_folder = names.DIRECTORY_LOG,
-                    hpc_conf = dict(hardware_target=hardware_target),
+                    hpc_conf = dict(hardware_target = hardware_target),
                     )
                 )
 
+    if workflow.Numerics['GridLocation'] == 'Vertex':
+        maia.algo.dist.convert_elements_to_ngon(dist_tree, comm = comm)
+
+    dist_tree = cgns.castNode(dist_tree)
     # Create NFaceElements for visualization
-    coprocess_manager.output_tree = cgns.castNode(dist_tree)
-    if not coprocess_manager.output_tree.get(Name='NFaceElements'):
+    coprocess_manager.output_tree = dist_tree
+    if not coprocess_manager.output_tree.get(Name = 'NFaceElements'):
         maia.algo.pe_to_nface(dist_tree, comm)
         coprocess_manager.output_tree = cgns.castNode(dist_tree)
 
-    maia.io.dist_tree_to_file(coprocess_manager.output_tree, f'{names.DIRECTORY_OUTPUT}/solution.cgns', comm)
+    maia.io.dist_tree_to_file(coprocess_manager.output_tree, \
+                              f'{names.DIRECTORY_OUTPUT}/solution.cgns', comm)
 
     coprocess_manager.finalize()
     del workflow._coprocess_manager
@@ -166,21 +172,17 @@ def get_integral_triggers(workflow, config):
     from miles.trigger import IntegralDataExtractor
     import sonics.toolkit.triggers as triggers
 
-    pytriggers = []
-
     # HACK for sonics >= 0.5.35
     # Different triggers must be defined for each family
     # see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.4dev/known_issues/index.html#extracting-both-convective-diffusive-fluxes-in-the-same-trigger-deadlocks
 
+    pytriggers = []
     familiesBC = get_familiesBC_nodes(workflow.tree)
     for extraction in workflow.Extractions: 
-        if extraction['Type'] != 'Integral':
-            continue
+        if extraction['Type'] != 'Integral': continue
 
         families = get_bc_families_names_to_extract(workflow, extraction, familiesBC)
-
         def get_extract_funtion_for_trigger(family, fields):
-
             def compute_extracts_from_terms_monitor_conv(conf, solver, topology):
                 from sonics.toolkit.graph_utils import DataFactory
                 from sonics.spl import guards
@@ -188,85 +190,42 @@ def get_integral_triggers(workflow, config):
                 extracts = []
                 treg = solver.terms
                 df = DataFactory(solver, topology)
+                if guards.space_dim_3d not in conf:
+                    elt_location = treg.face if   guards.cell_center in conf \
+                                             else treg.vertex
+                    bc_location  = treg.edge if   guards.cell_center in conf \
+                                             else treg.dual_facet
+                else:
+                    elt_location = treg.cell if   guards.cell_center in conf \
+                                             else treg.vertex
+                    bc_location  = treg.face if   guards.cell_center in conf \
+                                             else treg.dual_facet
 
                 # THIS LINE IS MANDATORY, else NaN or deadlock
-                elt_location = treg.cell if guards.cell_center in conf else treg.vertex
-                extracts += df.create_zones(treg.dummy(treg.conservatives(treg.full)), elt_location)
-                extracts += df.create_zones(treg.dummy(treg.grad(treg.primitives(treg.mean_flow))), elt_location)
-
-                elt_location = treg.face if guards.cell_center in conf else treg.dual_facet
-                sonics_fields = translate_extraction_variables_to_sonics(fields, solver)
+                extracts += df.create_zones(treg.dummy(\
+                           treg.conservatives(treg.full)), elt_location)
+                extracts += df.create_zones(treg.dummy(\
+                           treg.grad(treg.primitives(treg.mean_flow))), elt_location)
+                sonics_fields = translate_extraction_variables_to_sonics(fields, \
+                                                                              solver)
                 for field in sonics_fields:
                     extracts += df.create_families(
                         field, 
-                        elt_location, 
-                        family_type=treg.family_value, 
-                        predicate=lambda n,v : v['name'] == family 
+                        bc_location, 
+                        family_type = treg.family_value, 
+                        predicate = lambda n,v : v['name'] == family 
                     )
                 return extracts
             
             return compute_extracts_from_terms_monitor_conv
 
         for family in families:
-
             integral_extraction_trigger = triggers.MonitoringIntegralData(
                 config,
                 get_extract_funtion_for_trigger(family, extraction['Fields']),
-                niter=workflow.Numerics['NumberOfIterations'],
+                niter = workflow.Numerics['NumberOfIterations'],
                 )
 
             pytriggers.append(integral_extraction_trigger)
-
-            # def _generate_setup_closure(self):
-            #     import fnmatch
-            #     from sonics.toolkit.graph_utils import DataFactory
-            #     from sonics.spl import guards
-            #     if not len(self._extractions):
-            #         raise ParsingError(f"No extractions provided to IntegralDataExtractor.")
-            #     def compute_extracts_from_terms_monitor(conf,solver,topology):
-            #         treg = solver.terms
-            #         df = DataFactory(solver, topology)
-            #         elt_location = treg.cell if guards.cell_center in conf else treg.vertex
-            #         extracts = []
-
-            #         # THESE LINES ARE MANDATORY, else NaN or deadlock
-            #         print("I have hacked IntegralDataExtractor!")
-            #         elt_location_zone = treg.cell if guards.cell_center in conf else treg.vertex
-            #         extracts += df.create_zones(treg.dummy(treg.conservatives(treg.full)), elt_location_zone)
-                    
-            #         for treg_lambda, family_patterns in self._extractions:
-            #             terms = treg_lambda(treg)
-            #             # TODO: checking typing better
-            #             if isinstance(terms,(list,tuple,set)): pass
-            #             else: terms = [terms]
-
-            #             pred = lambda n,v : any(fnmatch.fnmatch(v['name'],pat) for pat in family_patterns)
-
-            #             for term in terms:
-            #                 extracts.extend(df.create_families(term,elt_location,predicate=pred))
-            #         return extracts
-            #     return compute_extracts_from_terms_monitor
-
-            # IntegralDataExtractor._generate_setup_closure = _generate_setup_closure
-            
-            # extractor = IntegralDataExtractor(
-            #     config, 
-            #     # FIXME cgns_node_pattern does nothing for now (sonics 0.6.2)
-            #     # cgns_node_pattern="{family_name}:"+extraction['Name'],  # {family_name} is mandatory in name, FIXME in miles 
-            #     period=extraction['ExtractionPeriod'],
-            #     # start_iter=workflow.Numerics['IterationAtInitialState']
-            #     )
-            # extractor.add_extraction(
-            #     translate_extraction_variables_to_sonics_function(extraction['Fields']), 
-            #     family=family
-            #     )
-            # # pattern_png = "{output_folder}/fig_{it}.png"
-            # # pattern_csv = "{output_folder}/out.csv"
-            # # extractor.add_csv_callback(pattern_csv,delimiter=";")
-            # # extractor.add_matplotlib_callback(pattern_png,legend=True,grid={"ls":":"},
-            # #     yscale="log",xlabel="Iterations",period=10,start_iter=100)
-            # # extractor.add_print_callback(period=50)
-            # integral_extraction_trigger = extractor.apply(niter=workflow.Numerics['NumberOfIterations'])[0]
-            # pytriggers.append(integral_extraction_trigger)
 
     return pytriggers
