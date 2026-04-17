@@ -144,7 +144,6 @@ Cfdpb.compute()
 Cfdpb.extract()
 
 tsol = I.merge([PartTree, elsAxdt.get(elsAxdt.OUTPUT_TREE)])
-C.convertPyTree2File(tsol, f'tree_before_mergeAndSave_{rank}.cgns')
 PyPartBase.mergeAndSave(tsol, os.path.join('OUTPUT', 'PyPart_fields'))
 
 if rank == 0:
