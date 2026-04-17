@@ -291,6 +291,12 @@ class CoprocessManager():
         if WorkflowParameters:
             WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
 
+        try:
+            call_solver_specific_function(self.workflow, '_update_solver_parameters_for_restart', 3, extraction['Data'])
+        except MolaNotImplementedError:
+            # no function _update_solver_parameters_for_restart is defined for the current solver
+            pass
+
     def make_directories_and_log(self):           
         if rank==0:
             os.makedirs(names.DIRECTORY_OUTPUT, exist_ok=True)
@@ -308,10 +314,6 @@ class CoprocessManager():
             self._status = value
         else:
             raise MolaException(f"The value {value} is not among the AVAILABLE_SIMULATION_STATUS ({', '.join(AVAILABLE_SIMULATION_STATUS)})")
-
-    def __del__(self):
-        if self.status != 'COMPLETED':
-            self.mola_logger.warning(f'CoprocessHandler is deleted but simulation status is {self.status} instead of COMPLETED.', rank=0)
 
     def elapsed_time(self):
         '''Return the elapsed time from run starting in seconds'''
