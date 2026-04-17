@@ -142,7 +142,9 @@ def write_with_pypart(w, tree, dst):
     # Write in parallel with PyPart
     Cmpi._convert2PartialTree(tree)
     Cmpi.barrier()
-    w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'), cgns_standard=True)
+    # HACK see https://elsa-e.onera.fr/issues/12345
+    # w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'), cgns_standard=True)
+    w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'))
     Cmpi.barrier()
 
     # Read PyPart files in parallel using Cassiopee
