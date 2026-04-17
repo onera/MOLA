@@ -154,7 +154,9 @@ def _mergeBCData(zone, BCDataSetFaceCenterName='BCDataSet',
     Consider using higher-level function mergeContainers
     '''
     if zone[3] != 'Zone_t': return AttributeError('first argument must be a zone')
-    monoBCDataSetNames = dict(FaceCenter=BCDataSetFaceCenterName)
+    monoBCDataSetNames = dict()
+    for loc in ['FaceCenter', 'IFaceCenter', 'JFaceCenter', 'KFaceCenter']:
+        monoBCDataSetNames[loc] = BCDataSetFaceCenterName
     zbc = I.getNodeFromName1(zone,'ZoneBC')
     if not zbc: return
     BCs = I.getNodesFromType(zbc,'BC_t')
@@ -173,7 +175,7 @@ def _mergeBCData(zone, BCDataSetFaceCenterName='BCDataSet',
         sortNodesByName(BCDataSets)
         for bcds in BCDataSets:
             loc = _getBCDataSetLocation(bcds)
-            if loc != 'FaceCenter':
+            if loc not in ['FaceCenter', 'IFaceCenter', 'JFaceCenter', 'KFaceCenter']:
                 path = '/'.join([zone[0],zbc[0],bc[0],bcds[0]])
                 raise NotImplementedError(f'BCDataSet {path} must be located at FaceCenter, got {loc} instead')
 
@@ -354,8 +356,8 @@ def mergeBCtagContainerWithFlowSolutionTagContainer(zone, surf_bc):
         n[2] += bc_n[2]
     
     for n in I.getNodeFromName1(zone_tags, 'locations')[2]:
-        if I.getValue(n) == 'FaceCenter':
-            I.setValue(n,'CellCenter')
+        if I.getValue(n) in ['FaceCenter', 'IFaceCenter', 'JFaceCenter', 'KFaceCenter']:
+            I.setValue(n, 'CellCenter')
 
     for n in I.getNodeFromName1(zone_tags, 'containers_names')[2]:
         # Get only the name of the BCDataSet node (cutting the BCData node name)

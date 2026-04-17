@@ -85,7 +85,7 @@ def write_with_cassiopee_mpi(w, tree, dst):
     Cmpi.barrier()
     links = tree.getLinks()
     for l in links: l[0] = '.' # HACK treelab 0.1.1
-    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree)
+    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, gather=False)
 
     Cmpi.barrier()    
     Cmpi.convertPyTree2File(tree,dst,links=links)
@@ -142,7 +142,9 @@ def write_with_pypart(w, tree, dst):
     # Write in parallel with PyPart
     Cmpi._convert2PartialTree(tree)
     Cmpi.barrier()
-    w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'), cgns_standard=True)
+    # HACK see https://elsa-e.onera.fr/issues/12345
+    # w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'), cgns_standard=True)
+    w._PyPartBase.mergeAndSave(tree, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields'))
     Cmpi.barrier()
 
     # Read PyPart files in parallel using Cassiopee

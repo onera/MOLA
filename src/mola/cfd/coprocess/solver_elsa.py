@@ -426,3 +426,13 @@ def get_iteration(workflow):
 def get_status(workflow):
     # BEWARE! state 16 => triggers *before* iteration
     return 'RUNNING_BEFORE_ITERATION' # TODO: implement this (using elsaXdt?)
+
+def _update_solver_parameters_for_restart(workflow, tree):
+    workflow.SolverParameters['numerics']['niter'] = workflow.Numerics['NumberOfIterations'] 
+    workflow.SolverParameters['numerics']['inititer'] = workflow.Numerics['IterationAtInitialState'] 
+    workflow.SolverParameters['numerics']['itime'] = workflow.Numerics['TimeAtInitialState'] 
+
+    # Update only Numerics node in tree
+    WorkflowParameters = tree.get(Name=workflow._workflow_parameters_container_, Depth=1)
+    if WorkflowParameters:
+        WorkflowParameters.setParameters('Numerics', **workflow.Numerics)

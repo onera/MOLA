@@ -406,7 +406,7 @@ def force_FamilyBC_as_FamilySpecified(t):
                         cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='UserDefined', Parent=Family_node)
                     continue
 
-def get_empty_FlowSolution_nodes(tree, remove=False):
+def get_empty_FlowSolution_nodes(tree, remove=False, gather=True):
     # NOTE Cmpi.convertPyTree2File does not write DataArray in FlowSolution
     # if its value is None on all ranks, but this is a way for elsA to 
     # ask extraction in a FlowSolution (for 3D fields)
@@ -430,15 +430,31 @@ def get_empty_FlowSolution_nodes(tree, remove=False):
             if remove:
                 FS.remove()
 
+    if gather:
+        # not useful is the information was already the same on all ranks in the input tree
+        try:
+            from mpi4py import MPI
+            empty_FlowSolution_nodes = MPI.COMM_WORLD.allgather(empty_FlowSolution_nodes)  # share list on all ranks
+            empty_FlowSolution_nodes = [item for sublist in empty_FlowSolution_nodes for item in sublist]  # flatten the list
+        except ImportError:
+            pass
+
     return empty_FlowSolution_nodes
 
 def restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes):
-    for FS in empty_FlowSolution_nodes:
-        saved_FS = cgns.readNode(dst, FS.path()) 
-        if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
-            FS.saveThisNodeOnly(dst) 
-            for child in FS.children():
-                child.saveThisNodeOnly(dst) 
+    try:
+        from mpi4py import MPI
+        rank = MPI.COMM_WORLD.Get_rank()
+    except ImportError:
+        rank = 0
+
+    if rank == 0:
+        for FS in empty_FlowSolution_nodes:
+            saved_FS = cgns.readNode(dst, FS.path()) 
+            if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
+                FS.saveThisNodeOnly(dst) 
+                for child in FS.children():
+                    child.saveThisNodeOnly(dst) 
 
 def restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes):
     for fs_node in empty_FlowSolution_nodes:
@@ -446,6 +462,9 @@ def restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes):
         zone_path = fs_node.parent().path()
         zone_path = _remove_PyPart_suffix(zone_path)
         parent = tree.getAtPath(zone_path) 
+        if parent is None:
+            # The zone is not present on the current rank
+            continue
         parent.addChild(fs_node)
 
 def _add_grid_location(fs_node: cgns.Node):
