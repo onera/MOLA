@@ -355,14 +355,26 @@ def test_exclusive_fields_in_iso_surface_and_bc(tmp_path, niter=10):
     
     w = get_workflow_cart_monoproc(tmp_path)
 
-    requested_fields_in_bc = ['Pressure','MomentumX']
+    requested_fields_in_bc_ground = ['Pressure','MomentumX']
+    requested_fields_in_bc_inlet = ['Pressure']
     requested_fields_in_iso_surface = ['Density']
 
     w._interface.add_to_Extractions_BC(
-        Fields=requested_fields_in_bc,
+        Fields=requested_fields_in_bc_ground,
         Source='Ground',
     )
 
+    # Add a extraction on a BC with a possibliy different BCData name (DirichletData)
+    w._interface.add_to_Extractions_BC(
+        Fields=requested_fields_in_bc_inlet,
+        Source='Inlet',
+    )
+    # Add an integral extraction on the same BC to test that 
+    # it is compatible with BC extraction
+    w._interface.add_to_Extractions_Integral(
+        Fields=['MassFlow'],
+        Source='Inlet',
+    )
 
     w._interface.add_to_Extractions_IsoSurface(
         Fields=requested_fields_in_iso_surface,
@@ -383,8 +395,17 @@ def test_exclusive_fields_in_iso_surface_and_bc(tmp_path, niter=10):
         names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX, tmp_path, exclusive=True)
 
     assert_file_containing_expected_field_at_expected_container(
-        'extractions.cgns', 'Ground', requested_fields_in_bc,
+        'extractions.cgns', 'Ground', requested_fields_in_bc_ground,
         names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, tmp_path, exclusive=True)
+    
+    assert_file_containing_expected_field_at_expected_container(
+        'extractions.cgns', 'Inlet', requested_fields_in_bc_inlet,
+        names.CONTAINER_OUTPUT_FIELDS_AT_CENTER, tmp_path, exclusive=True)
+    
+    assert_file_with_relevant_zone_and_fields(
+        names.FILE_OUTPUT_1D, "Integral", "Inlet",
+        "MassFlow", tmp_path, niter
+        )
 
 
 @pytest.mark.integration

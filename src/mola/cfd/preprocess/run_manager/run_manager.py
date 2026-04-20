@@ -34,7 +34,7 @@ SchedulerDefaults = dict(
         'job-name' : 'mola',
         'output' : 'output.%j.log',
         'error' : 'error.%j.log',
-        'exclusive': None,
+        # 'exclusive': None,
     },
 )
 
