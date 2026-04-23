@@ -35,7 +35,7 @@ source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode
+
 
 export OPENMPIOVERSUBSCRIBE='--oversubscribe'
 
