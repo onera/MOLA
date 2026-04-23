@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export ELSAVERSION=v5.5.01 
+export ELSAVERSION=v5.4.01 
 export ELSA_VERBOSE_LEVEL=0 # cf elsA ticket 9689
 export ELSA_MPI_LOG_FILES=OFF
 export ELSA_MPI_APPEND=FALSE # cf elsA ticket 7849
