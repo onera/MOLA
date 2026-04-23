@@ -31,7 +31,7 @@ export OMPI_MCA_mca_base_component_show_load_errors=0
 
 source /stck/sonics/LD8/sonics/$SONICSVERSION/gcc/source.sh
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
-module load vscode
+
 module load pointwise
 module load paraview
 module load occt

@@ -25,4 +25,5 @@ t = cgns.castNode(t)
 t = convert_elements_to_ngon(t)
 t = cgns.castNode(t)
 t = merge_all_unstructured_zones_from_families(t)
+maia.algo.pe_to_nface(t, MPI.COMM_WORLD) # once again, HACK https://gitlab.onera.net/numerics/mola/-/issues/294#note_74474
 maia.io.dist_tree_to_file(t, filename.replace('.cgns','_ngon.cgns'),MPI.COMM_WORLD)
