@@ -51,7 +51,7 @@ def check_timeout(coprocess_manager):
         if has_reached_timeout(coprocess_manager.elapsed_time(), timeout):
             date = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             msg = f'REACHED MARGIN BEFORE TIMEOUT at {date} --> STOP SIMULATION'
-            coprocess_manager.mola_logger.warning(msg, rank=0)
+            coprocess_manager.mola_logger.user_warning(msg, rank=0)
 
             if rank == 0:
                 with open(names.FILE_NEWJOB_REQUIRED, 'w') as f: 

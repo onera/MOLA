@@ -31,6 +31,9 @@ v2.0.1.dev
   Incomplete or missing data extraction on a boundary condition.
 * Fix `bug #273 <https://gitlab.onera.net/numerics/mola/-/issues/273>`_:
   Correction on force and torque extraction with SoNICS.
+* Fix bugs `#288 <https://gitlab.onera.net/numerics/mola/-/issues/288>`_
+  and `#292 <https://gitlab.onera.net/numerics/mola/-/issues/292>`_:
+  issues to restart a simulation.
 
 *****************
 v2 compared to v1 
