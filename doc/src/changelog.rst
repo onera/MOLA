@@ -15,6 +15,8 @@ v2.0.1.dev
 =======================
 
 * Make more robust duplication process
+* Allow 2D simulations with SoNICS
+* Allow vertex-centered simulation with SoNICS
 
 ========
 🐞 Fixes
@@ -22,8 +24,13 @@ v2.0.1.dev
 
 * Fix a bug for iso-surface with SoNICS for multi-zones domains.
 * Fix a bug to allow the copy or move of the run directory.
-
-
+* Fix `bug #283 <https://gitlab.onera.net/numerics/mola/-/issues/283>`_: 
+  PyPart output file writing issue in elsA simulations, 
+  specifically when extracting boundary conditions data.
+* Fix `bug #296 <https://gitlab.onera.net/numerics/mola/-/issues/296>`_: 
+  Incomplete or missing data extraction on a boundary condition.
+* Fix `bug #273 <https://gitlab.onera.net/numerics/mola/-/issues/273>`_:
+  Correction on force and torque extraction with SoNICS.
 
 *****************
 v2 compared to v1 
