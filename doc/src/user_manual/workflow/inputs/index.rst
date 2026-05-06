@@ -321,6 +321,11 @@ Keep in mind that default values of these parameters could depend on the chosen 
 
 `TimeStep` (float, optional): Useful only for unsteady simulation.
 
+`GridLocation` (str, optional): 
+    Location of flow data used by the solver during the simulation.
+    Could be 'CellCenter' or 'Vertex' (only available with SoNICS).
+    By default 'CellCenter'.
+
 `CFL` (float or dict, optional):
     CFL number, by default 10.0.
     It could be a scalar or a linear ramp given as a dict. For example:
