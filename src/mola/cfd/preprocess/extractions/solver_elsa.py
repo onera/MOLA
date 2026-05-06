@@ -276,17 +276,19 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
 
 
     output_keys = dict(
-        period        = 1, # we need to have access at every iteration to allow for saving at criteria stop, timeout, etc
+        # We need to have access at every iteration to allow for saving at criteria stop, timeout, etc
+        # HACK Also, needed following https://elsa.onera.fr/issues/12380#note-7
+        period = 1, 
 
         # TODO make ticket:
         # BUG with writingmode=2 and Cfdpb.compute() (required by unsteady overset) 
         # wall extractions ignored during coprocess
         # BEWARE : contradiction in doc :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU-98057/Textes/Attribute/extract.html#extract.writingmode 
         #                        versus :  http://elsa.onera.fr/restricted/MU_tuto/latest/MU_Annexe/CGNS/CGNS.html#Solver-Output
-        writingmode   = 2, # NOTE requires extract_filtering='inactive'
+        writingmode = 2, # NOTE requires extract_filtering='inactive'
 
-        fluxcoeff     = 1.0,
-        writingframe  = Extraction['Frame'],
+        fluxcoeff = 1.0,
+        writingframe = Extraction['Frame'],
     )
 
     

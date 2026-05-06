@@ -20,6 +20,8 @@ you can make suggestions or report bugs.
 
 MOLA is distributed under licence `LGPLv3 <https://www.gnu.org/licenses/lgpl-3.0.en.html>`_.
 
+For ONERA users, you may take a look at the overview presentation of MOLA for beginners 
+available here (in French): ``/stck/mola/resources/presentation_generale_mola.pptx``
 
 .. toctree::
    :maxdepth: 1

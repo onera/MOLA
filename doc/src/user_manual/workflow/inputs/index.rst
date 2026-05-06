@@ -521,6 +521,30 @@ It is a dict with the following parameters:
     Job scheduler, like SLURM, to use to run the simulation.
     The default value depends on the **Machine** and environment parameters.
 
+`SchedulerOptions` (dict, optional):
+    Parameters for the scheduler, with scheduler specific names. 
+    Use it to modify a default parameter or add a new one.
+    For instance, if ``Scheduler="SLURM"`` and **SchedulerOptions** is:
+    
+    .. code-block:: python
+    
+        SchedulerOptions = dict(
+            constraint = "spr",
+            exclusive = None,
+        )
+
+    the following lines will be written in the header of the SLURM job file:
+
+    .. code-block:: bash
+
+        #SBATCH --constraint=spr
+        #SBATCH --exclusive
+
+    .. note::
+
+        Use only full names for argument, e.g. ``constraint`` and not the corresponding short name ``C``.
+
+
 `AER` (str, optional):
     AER number for simulation on sator
 
