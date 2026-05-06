@@ -276,7 +276,7 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
 
 
     output_keys = dict(
-        period        = Extraction["ExtractionPeriod"],
+        period        = 1, # we need to have access at every iteration to allow for saving at criteria stop, timeout, etc
 
         # TODO make ticket:
         # BUG with writingmode=2 and Cfdpb.compute() (required by unsteady overset) 
@@ -339,6 +339,8 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
                     geomdepdom    = 2, # see #8127#note-26
                     delta_cell_max= 300,
                 ))
+
+                workflow.SolverParameters['model']['create_pseudo_norm'] = 'active'
 
     if "OtherOptions" in Extraction:
         output_keys.update(Extraction["OtherOptions"])
