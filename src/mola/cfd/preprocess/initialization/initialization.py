@@ -60,30 +60,8 @@ def apply(workflow):
 
 
 def add_reference_state(workflow):
-    '''
-    Add ``ReferenceState`` node to CGNS using user-provided conditions
-    '''
-
-    ReferenceState = dict(**workflow.Flow['ReferenceState'])
-
-    for var in ['Mach','Pressure','Temperature']:
-        ReferenceState[var] = workflow.Flow[var]
-
-
-    namesForCassiopee = dict(
-        cv                    = 'Cv',
-        Gamma                 = 'Gamma',
-        SutherlandViscosity   = 'Mus',
-        SutherlandConstant    = 'Cs',
-        SutherlandTemperature = 'Ts',
-        Prandtl               = 'Pr',
-    )
-    # Needed by Fast, but not other solvers 
-    for key, value in namesForCassiopee.items():
-        ReferenceState[value] = workflow.Fluid[key]
-
     for base in workflow.tree.bases():
-        base.setParameters('ReferenceState', ContainerType='ReferenceState', **ReferenceState)
+        base.setParameters('ReferenceState', ContainerType='ReferenceState', **workflow.Flow['ReferenceState'])
 
 def initialize_flow_with_reference_state(workflow, FlowSolution_name):
     mola_logger.info(' - initialize flow with uniform reference values',rank=0)

@@ -15,12 +15,36 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from treelab import cgns
 from mola.logging import mola_logger
 
 def apply_to_solver(workflow):
     groupOfNodes = workflow.tree.group(Name='FlowSolution#Init')
     for node in groupOfNodes: node.setName('FlowSolution#Centers')
 
+def add_info_in_reference_state(workflow):
+
+    additional_data = dict()
+
+    for var in ['Mach','Pressure','Temperature']:
+        additional_data[var] = workflow.Flow[var]
+
+    namesForCassiopee = dict(
+        cv                    = 'Cv',
+        Gamma                 = 'Gamma',
+        SutherlandViscosity   = 'Mus',
+        SutherlandConstant    = 'Cs',
+        SutherlandTemperature = 'Ts',
+        Prandtl               = 'Pr',
+    )
+    # Needed by Fast, but not other solvers 
+    for key, value in namesForCassiopee.items():
+        additional_data[value] = workflow.Fluid[key]
+
+    for base in workflow.tree.bases():
+        reference_state = base.get(Type='ReferenceState', Detph=1)
+        for name, value in additional_data.items():
+            cgns.Node(Name=name, Value=value, Type='DataArray', Parent=reference_state)
 
 def adapt_workflow_for_fast(workflow):
     split_opts = workflow.SplittingAndDistribution
