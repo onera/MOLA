@@ -42,7 +42,8 @@ class BoundaryConditionsDispatcherElsa(BoundaryConditionsDispatcher):
         }
 
         self._without_generic_name = ['stage_mxpl', 'stage_red', 'outradeq', 'outmfr2',
-                                      'giles_inlet', 'giles_outlet', 'giles_stage_mxpl']
+                                      'giles_inlet', 'giles_outlet', 'giles_stage_mxpl',
+                                      'walladia_wl']
 
         self._remove_unsupported_bcs_from_mapping()
 
