@@ -20,7 +20,9 @@ from mola.logging import mola_logger
 
 def apply_to_solver(workflow):
     groupOfNodes = workflow.tree.group(Name='FlowSolution#Init')
-    for node in groupOfNodes: node.setName('FlowSolution#Centers')
+    for node in groupOfNodes: 
+        node.setName('FlowSolution#Centers')
+    add_info_in_reference_state(workflow)
 
 def add_info_in_reference_state(workflow):
 
@@ -42,7 +44,7 @@ def add_info_in_reference_state(workflow):
         additional_data[value] = workflow.Fluid[key]
 
     for base in workflow.tree.bases():
-        reference_state = base.get(Type='ReferenceState', Detph=1)
+        reference_state = base.get(Type='ReferenceState', Depth=1)
         for name, value in additional_data.items():
             cgns.Node(Name=name, Value=value, Type='DataArray', Parent=reference_state)
 
