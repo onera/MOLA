@@ -6,17 +6,22 @@ This page contains information about what has changed in each new version of MOL
 
 .. To update this page: keep the following order: 💡 New features, 🚀 Feature improvements, 🚧 API changes, 🐞 Fixes, 💻 For developpers
 
-**********
-v2.0.1.dev 
-**********
+******
+v2.0.1 
+******
+
+===============
+💡 New features
+===============
+
+* Allow 2D simulations with SoNICS (automatic if the input mesh is 2D)
+* Allow vertex-centered simulation with SoNICS (using ``Numerics['GridLocation']='Vertex'``)
 
 =======================
 🚀 Feature improvements
 =======================
 
 * Make more robust duplication process
-* Allow 2D simulations with SoNICS
-* Allow vertex-centered simulation with SoNICS
 
 ========
 🐞 Fixes

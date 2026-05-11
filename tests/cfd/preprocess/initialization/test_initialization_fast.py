@@ -35,7 +35,23 @@ class FakeWorkflow():
             cgns.Node( Name='TurbulentDistance', Value=np.ones(shape, dtype=np.float64, order='F'), Parent=fs )
             cgns.Node( Name='OtherChild', Parent=fs )
 
-        self.tree = base
+        t = cgns.add(base)
+        self.tree = t
+
+        self.Flow = dict(
+            Mach=0.2,
+            Pressure=101325.0,
+            Temperature=288.15)
+        
+        self.Fluid = dict(
+            cv                         = 717.6325,
+            Gamma                      =  1.4,
+            IdealGasConstant           =  287.053,
+            Prandtl                    =  0.72,
+            PrandtlTurbulent           =  0.9,
+            SutherlandConstant         = 110.4,
+            SutherlandViscosity        = 1.78938e-05,
+            SutherlandTemperature      = 288.15)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

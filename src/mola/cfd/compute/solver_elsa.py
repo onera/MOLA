@@ -108,6 +108,9 @@ def set_parameters_in_elsa_objects(SolverParameters, Numerics):
     if SolverParameters['cfdpb']['config'] == "2d":
         Cfdpb.set_ghostcell(2,2,2,2,0,1)
 
+    for obj in elsAobjs:
+        obj.show()
+
     return Cfdpb, elsA_user
 
 def get_cfl_function(NumDict):
