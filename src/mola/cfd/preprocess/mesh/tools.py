@@ -315,10 +315,10 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
         mola_logger.debug('convert tree to maia full_tree')
     
     if is_part:
-        additionnal_nodes_to_transfer = _get_additionnal_nodes_to_transfer(tree)
+        additional_nodes_to_transfer = _get_additional_nodes_to_transfer(tree)
         tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
         tree = cgns.castNode(tree)
-        _transfer_additionnal_nodes(tree, additionnal_nodes_to_transfer)
+        _transfer_additional_nodes(tree, additional_nodes_to_transfer)
 
     empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, remove=True)
     tree = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
@@ -336,7 +336,7 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
     MPI.COMM_WORLD.barrier()
     return tree
 
-def _get_additionnal_nodes_to_transfer(tree):
+def _get_additional_nodes_to_transfer(tree):
     # HACK see https://gitlab.onera.net/numerics/mesh/maia/-/issues/175
     types = ['ReferenceState_t', 'FlowEquationSet_t', 'Descriptor_t', 'ConvergenceHistory_t', 'IntegralData_t']
     nodes = []
@@ -344,7 +344,7 @@ def _get_additionnal_nodes_to_transfer(tree):
         nodes.extend(tree.group(Type=node_type, Depth=2))  # workaround only for bases children, not zones children, just for safety
     return nodes
 
-def _transfer_additionnal_nodes(tree, nodes):
+def _transfer_additional_nodes(tree, nodes):
     # HACK see https://gitlab.onera.net/numerics/mesh/maia/-/issues/175
     for node in nodes:
         parent = tree.getAtPath(node.parent().path())

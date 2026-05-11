@@ -132,6 +132,15 @@ def walladia(workflow, Family, Motion=None):
     '''
     wall(workflow, Family, Motion=Motion, bctype_cgns='BCWallViscous', bctype_elsa='walladia')
 
+def walladia_wl(workflow, Family, Motion=None):
+    '''
+    Set a viscous wall boundary condition with a wall-law.
+
+    .. note:: see `elsA Tutorial about wall conditions <http://elsa.onera.fr/restricted/MU_MT_tuto/latest/Tutos/BCsTutorials/tutorial-BC.html#wall-conditions/>`_
+    
+    '''
+    wall(workflow, Family, Motion=Motion, bctype_cgns='BCWallViscous', bctype_elsa='walladia_wl')
+
 def sym(workflow, Family):
     '''
     Set a symmetry boundary condition.
