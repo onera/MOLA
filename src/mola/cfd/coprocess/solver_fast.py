@@ -17,6 +17,7 @@
 
 import re
 import numpy as np
+from pprint import pformat as pretty
 
 from treelab import cgns
 
@@ -207,25 +208,6 @@ def extract_bc(output_tree, extraction, families_to_bctype, metrics):
     return SurfacesTree
 
 def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction : dict):
-    # requested_containers = extraction['ContainersToTransfer']
-    
-    # if isinstance(requested_containers,list) and len(requested_containers) == 1:
-    #     expected_container_name = requested_containers[0]
-    # elif isinstance(requested_containers,str) and requested_containers != 'all':
-    #     expected_container_name = requested_containers
-    # else:
-    #     return
-        
-    # for zone in tree.zones():
-    #     container = zone.get(Name="FlowSolution#Centers", Depth=1)
-    #     if container is None:
-    #         expected_container = zone.get(Name=expected_container_name, Depth=1)
-    #         if expected_container is not None:
-    #             existing_containers = zone.group(Type='FlowSolution_t', Depth=1)
-    #             container_names = [n.name() for n in existing_containers]
-    #             raise MolaException(f"did not find FlowSolution#Centers nor {expected_container_name}, but got: {container_names}")
-    #     else:
-    #         container.setName(expected_container_name)
     requested_containers = extraction['ContainersToTransfer']
     
     if isinstance(requested_containers,list) and len(requested_containers) == 1:
@@ -238,11 +220,31 @@ def rename_resulting_container_using_requested_name(tree : cgns.Tree, extraction
     for zone in tree.zones():
         containers = zone.group(Type="FlowSolution_t", Depth=1)
         if len(containers) > 1:
-            container = zone.get(Name='FlowSolution#Centers')
-            assert container
-            container.setName(expected_container_name)
-            # container_names = [n.name() for n in containers]
-            # raise NotImplementedError(f"obtained multiple containers at {zone.path()}: {container_names}")
+            expected_location = extraction['GridLocation']
+            relevant_containers = [c for c in containers if c.get(Name='GridLocation',Value=expected_location)]
+            if not relevant_containers:
+                return
+            else:
+                if expected_location == 'CellCenter':
+                    expected_main_container_name = 'FlowSolution#Centers'
+                else:
+                    expected_main_container_name = 'FlowSolution#CentersV'
+                try:
+                    main_container : cgns.Node = next(c for c in relevant_containers if c.name() == expected_main_container_name)
+                except StopIteration:
+                    return
+                
+                nodes_to_transfer = []
+                for c in relevant_containers:
+                    if c is not main_container:
+                        for field_name in extraction['Fields']:
+                            node_to_transfer = c.get(Name=field_name,Type='DataArray_t')
+                            if node_to_transfer and not main_container.get(Name=field_name,Type='DataArray_t'):
+                                nodes_to_transfer += [ nodes_to_transfer ]
+                main_container.addChildren(nodes_to_transfer)
+                main_container.setName(expected_container_name)
+
+
         elif len(containers) == 0: 
             return
         else:
