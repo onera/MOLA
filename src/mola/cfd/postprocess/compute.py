@@ -28,7 +28,7 @@ def compute_radius(
         ):
     assert coordinate_system in ['cartesian']  # TODO extend to other systems ['cartesian', 'cylindrical', 'spherical']
 
-    
+    tree = cgns.Node(tree)
 
     for zone  in tree.zones():
         zone : cgns.Zone
