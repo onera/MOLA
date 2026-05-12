@@ -27,26 +27,27 @@ def compute_radius(
         coordinate_system: str = 'cartesian'
         ):
     assert coordinate_system in ['cartesian']  # TODO extend to other systems ['cartesian', 'cylindrical', 'spherical']
+
     
-    import Converter.PyTree as C
-    import Converter.Internal as I
 
-    __FlowSolutionNodes__BACKUP = I.__FlowSolutionNodes__
-    I.__FlowSolutionNodes__ = container
+    for zone  in tree.zones():
+        zone : cgns.Zone
+        x, y, z = zone.xyz()
 
-    # if axis is None:
-    #     tree.useEquation(f'{fieldname}=(CoordinateX**2, CoordinateY**2+CoordinateZ**2)**0.5', Container=container)
-    # elif axis == 'x':
-    #     tree.useEquation(f'{fieldname}=(CoordinateY**2+CoordinateZ**2)**0.5', Container=container)
-
-    if axis is None:
-        C._initVars(tree, f'{fieldname}=({{CoordinateX}}**2 + {{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5')
-    elif axis == 'x':
-        C._initVars(tree, f'{fieldname}=({{CoordinateY}}**2+{{CoordinateZ}}**2)**0.5')
-    elif axis == 'y':
-        C._initVars(tree, f'{fieldname}=({{CoordinateX}}**2+{{CoordinateZ}}**2)**0.5')
-    elif axis == 'z':
-        C._initVars(tree, f'{fieldname}=({{CoordinateX}}**2+{{CoordinateY}}**2)**0.5')
-
-    I.__FlowSolutionNodes__ = __FlowSolutionNodes__BACKUP
-
+        if axis is None:
+            R = np.sqrt(x*x + y*y + z*z) # spherical ?
+        elif axis == 'x':
+            R = np.sqrt(      y*y + z*z)
+        elif axis == 'y':
+            R = np.sqrt(x*x       + z*z)
+        elif axis == 'z':
+            R = np.sqrt(x*x + y*y      )
+        else:
+            raise NotImplementedError(f"axis={axis} not supported")
+        
+        fs = zone.get(Name=container, Type='FlowSolution_t', Depth=1)
+        if not fs:
+            fs = cgns.Node(Name=container, Type='FlowSolution_t', Parent=zone)
+            cgns.Node(Name='GridLocation', Value='Vertex', Type='GridLocation_t', Parent=fs)
+        
+        cgns.Node(Name=fieldname, Value=R, Type='DataArray_t', Parent=fs, override_sibling_by_name=True)
