@@ -24,7 +24,25 @@ from mola.cfd.preprocess.mesh.tools import compute_azimuthal_extension
 from mola.cfd.preprocess.motion import motion
 from mola.logging import mola_logger, MolaAssertionError
 from mola.workflow.rotating_component.workflow import WorkflowRotatingComponent
-import maia.pytree as PT
+
+from .sector_mesh_tools_for_test import workflow_sector_params
+
+@pytest.fixture
+def wf_params(workflow_sector_params) -> dict:
+    workflow_sector_params['ApplicationContext'] = dict(
+        ShaftRotationSpeed=60.0,
+        Rows=dict(
+            Propeller=dict(
+                IsRotating = True,
+                NumberOfBladesSimulated = 1,
+                NumberOfBladesInInitialMesh = 1,
+                NumberOfBlades = 1,
+            )
+        )
+    )
+    
+    return workflow_sector_params
+
 
 def get_workflow_annular_sector_parameters(RunDirectory):
 
@@ -83,24 +101,27 @@ class FakeWorkflow(WorkflowRotatingComponent):
 
     def __init__(self):
 
-        tree = PT.yaml.parse_yaml_cgns.to_cgns_tree('''
-Base CGNSBase_t:
-    Shroud Family_t:
-    test_Blade1 Family_t:
-    Hub_test Family_t: 
-    fake_shroud Family_t:    
-        FamilyBC FamilyBC_t "BCFarfield":                                            
-    Zone Zone_t:
-        FamilyName FamilyName_t "Rotor":
-        ZoneBC ZoneBC_t:
-            blade BC_t:
-                FamilyName FamilyName_t "test_Blade1":  
-            hub BC_t:
-                FamilyName FamilyName_t "Hub_test":  
-            fake_shroud BC_t:
-                FamilyName FamilyName_t "fake_shroud":                                                                                               
-''')
-        self.tree = cgns.castNode(tree)
+        self.tree = cgns.Tree()
+        cgns_version = self.tree.get("CGNSLibraryVersion",Depth=1)
+        cgns_version.setValue(np.array([4.2],dtype=np.float32))
+
+        base = cgns.Base(Name="Base", Value=np.array([1,3],dtype=np.int32,order='F'), Parent=self.tree)
+        cgns.Node(Parent=base,Name="Shroud",Type='Family_t')
+        cgns.Node(Parent=base,Name="test_Blade1",Type='Family_t')
+        cgns.Node(Parent=base,Name="Hub_test",Type='Family_t')
+        fs = cgns.Node(Parent=base,Name="fake_shroud",Type='Family_t')
+        cgns.Node(Parent=fs,Name="FamilyBC",Type='FamilyBC_t',Value="BCFarfield")
+
+        z = cgns.Zone(Name="Zone", Value=np.array([[2,1,0]],dtype=np.int32,order='F'), Parent=base)
+        cgns.Node(Name="FamilyName",Value="Rotor",Type="FamilyName_t",Parent=z)
+        zbc = cgns.Node(Name="ZoneBC",Type="ZoneBC_t",Parent=z)
+        cgns.Node(Parent=zbc, Name="blade", Type="BC_t", Children=[
+            cgns.Node(Name='FamilyName', Type='FamilyName_t', Value='test_Blade1')])
+        cgns.Node(Parent=zbc, Name="hub", Type="BC_t", Children=[
+            cgns.Node(Name='FamilyName', Type='FamilyName_t', Value='Hub_test')])        
+        cgns.Node(Parent=zbc, Name="fake_shroud", Type="BC_t", Children=[
+            cgns.Node(Name='FamilyName', Type='FamilyName_t', Value='fake_shroud')])
+
         self._hub_patterns = ['hub', 'moyeu', 'spinner']
         self._blade_patterns = ['blade', 'aube', 'propeller', 'rotor', 'stator']
         self._shroud_patterns = ['shroud', 'carter']
@@ -124,7 +145,7 @@ Base CGNSBase_t:
             ),
         )
 
-        
+
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_init(tmp_path):
@@ -238,5 +259,32 @@ def test_duplicate(tmp_path):
     alpha = np.degrees(compute_azimuthal_extension(w.tree, 'Fluid'))
     assert np.isclose(alpha, 90, rtol=1e-2), f'alpha = {alpha} degrees instead of 90'
 
-if __name__ == "__main__":
-    test_duplicate('.')
+@pytest.mark.integration
+@pytest.mark.cost_level_1
+def test_radius_slice_extraction(tmp_path, wf_params):
+    wf_params['Extractions'] = [
+        dict(Type="IsoSurface", IsoSurfaceField="Radius", IsoSurfaceValue=0.5,
+             Fields=['MomentumX','MomentumY','MomentumZ'])]
+    
+    w = WorkflowRotatingComponent(**wf_params)
+    w.RunManagement['RunDirectory'] = str(tmp_path)
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+
+    w.assert_completed_without_errors()
+
+# HINT prefer using:
+#
+# pytest -k test_duplicate --basetemp=.
+#
+# than
+#
+# python test_rotating_component_workflow.py
+#
+# because they are equivalent but the first will allow relative path imports
+
+
+# if __name__ == "__main__":
+#     test_duplicate('.')
