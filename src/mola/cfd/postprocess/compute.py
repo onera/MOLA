@@ -20,7 +20,7 @@ import numpy as np
 from treelab import cgns
 
 def compute_radius(
-        tree: Union[cgns.Zone, cgns.Base, cgns.Tree], 
+        tree: cgns.Tree, 
         axis: Union[None, str] = None, 
         fieldname: str = 'Radius',
         container: str = 'FlowSolution', 
@@ -28,7 +28,7 @@ def compute_radius(
         ):
     assert coordinate_system in ['cartesian']  # TODO extend to other systems ['cartesian', 'cylindrical', 'spherical']
 
-    tree = cgns.castNode(tree)
+    assert isinstance(tree, cgns.Tree), "tree must be of cgns.Tree type"
 
     for zone  in tree.zones():
         zone : cgns.Zone

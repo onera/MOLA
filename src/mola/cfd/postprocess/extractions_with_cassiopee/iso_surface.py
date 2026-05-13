@@ -73,6 +73,7 @@ def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
                 bases_children_except_zones.append( n )
     if not t or not I.getNodeFromType3(t,'Zone_t'): return
 
+    t = cgns.castNode(t)
     if fieldname in ['Radius', 'radius', 'CoordinateR']:
         # FIXME only if axis is the X-axis
         compute_radius(t, axis='x', fieldname=fieldname, container=I.__FlowSolutionNodes__)
