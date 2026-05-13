@@ -63,8 +63,13 @@ def set_problem_dimension_based_on_grid(workflow):
         if zone.isUnstructured():
             vtk = [elt.value()[0] for elt in zone.group(Type = 'Elements_t') \
                                   if  elt.value()[0] != 22]
-            if max(vtk) < 10: cell_monolayer_count  += 1
-            else:             cell_multilayer_count += 1
+            if len(vtk):
+                if max(vtk) < 10: cell_monolayer_count  += 1
+                else:             cell_multilayer_count += 1
+            else:
+                # default behaviour is to set the dimension to 3D when no NFACE nor
+                # elements are available
+                cell_multilayer_count += 1
         else:
             if is_cell_multilayer(zone):
                 cell_multilayer_count += 1
