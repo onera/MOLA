@@ -16,16 +16,26 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import maia
+from treelab import cgns
+from mola.cfd.postprocess.compute import compute_radius
+
 
 def iso_surface(tree, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm):
 
+    radius_container = 'FlowSolution'
+
+    tree = cgns.castNode(tree)
+    if IsoSurfaceField in ['Radius', 'radius', 'CoordinateR']:
+        # FIXME only if axis is the X-axis
+        compute_radius(tree, axis='x', fieldname=IsoSurfaceField, container=radius_container)
+
     # Get all containers once with the same order for all ranks. Otherwise, deadlock in plane_slice or iso_surface below
     rank = comm.Get_rank()
-    containers = comm.gather([fs.name() for fs in tree.group(Type='FlowSolution')])
+    containers = comm.gather([fs.name() for fs in tree.group(Type=radius_container)])
     if rank == 0:
-        containers = list(set([item for sublist in containers for item in sublist]))
+        containers = list(set([item for sublist in containers for item in sublist if item!=radius_container]))
     comm.barrier()
-    containers = comm.bcast(containers, root=0)
+    containers  = comm.bcast(containers, root=0)
 
     if IsoSurfaceContainer == 'GridCoordinates':
         # maia cannot do an iso_surface on GridCoordinates

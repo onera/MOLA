@@ -84,7 +84,7 @@ def perform_extractions(workflow, coprocess_manager):
 
         write_extraction_log(extraction)
 
-def get_output_tree(coprocess_manager):
+def get_output_tree(coprocess_manager) -> cgns.Tree:
     # output_tree is set in compute/solver_sonics.py
     output_tree = coprocess_manager.output_tree
     for gc in output_tree.group(Type='GridConnectivity'):
@@ -98,6 +98,7 @@ def get_output_tree(coprocess_manager):
                               else 'Face'
     part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD, preserve_orientation=True)
     maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
+    part_tree = cgns.castNode(part_tree)
     if elt_location == 'Vertex':
         part_tree = cgns.castNode(part_tree)
         for fs in part_tree.group(Name=f'Fields@{elt_location}@End'):

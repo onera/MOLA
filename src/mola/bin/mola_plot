@@ -11,6 +11,7 @@ import argparse
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, CYAN, GREEN, ENDC
+from mola.logging import print as mola_print
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -249,7 +250,8 @@ def main():
     args = parser.parse_args()
 
     if not os.path.isfile(args.file):
-        raise MolaUserError(f'Cannot use mola_plot because file {args.file} does not exist.')
+        mola_print(f'Cannot use mola_plot because file {args.file} does not exist.', level='WARNING')
+        return
     
     signals = cgns.load(args.file)
 
