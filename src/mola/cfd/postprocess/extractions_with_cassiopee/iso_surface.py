@@ -73,6 +73,8 @@ def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
                 bases_children_except_zones.append( n )
     if not t or not I.getNodeFromType3(t,'Zone_t'): return
 
+    if tree_has_some_invalid_coordinates(t): return # TODO raise error? 
+
     t = cgns.castNode(t)
     if fieldname in ['Radius', 'radius', 'CoordinateR']:
         # FIXME only if axis is the X-axis
@@ -95,6 +97,8 @@ def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
 def _iso_surface_on_merge_containers(t, fieldname=None, value=None, container='FlowSolution#Init', tPrev=None):
     isosurfs = []
     for zone in I.getZones(t):
+
+        if zone_has_invalid_coordinates(zone): continue # TODO raise error instead ? 
 
         # NOTE slicing will provoque all containers to be located at Vertex
         tags_containers = I.getNodeFromName1(zone, 'tags_containers')
@@ -161,9 +165,31 @@ def _iso_surface_on_merge_containers(t, fieldname=None, value=None, container='F
             # HACK https://elsa.onera.fr/issues/10997#note-6
             zone = T.breakElements(zone)
 
-        surfs = P.isoSurfMC(zone, fieldnameWithTag, value)
+        try:
+            surfs = P.isoSurfMC(zone, fieldnameWithTag, value)
+        except IndexError as e:
+            C.convertPyTree2File(zone,f'debug_{Cmpi.rank}.cgns')
+            raise IndexError("dumped debug cgns") from e
+
+
         for surf in I.getZones(surfs):
             surf[2] += [ tags_containers ]
             isosurfs += [ recoverContainers(surf) ]
 
     return isosurfs
+
+def zone_has_invalid_coordinates(zone):
+    n_pts = np.prod(zone[1][:,0])
+    for coord in 'XYZ':
+        node = I.getNodeFromName(zone,'Coordinate'+coord)
+        node_value = node[1]
+        if node_value is None:
+            return True
+    return False
+
+def tree_has_some_invalid_coordinates(tree):
+    for zone in I.getZones(tree):
+        if zone_has_invalid_coordinates(zone):
+            return True
+    return False
+    
