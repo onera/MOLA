@@ -25,7 +25,7 @@ from mola.cfd.preprocess.motion import motion
 from mola.logging import mola_logger, MolaAssertionError
 from mola.workflow.rotating_component.workflow import WorkflowRotatingComponent
 
-from .sector_mesh_tools_for_test import workflow_sector_params, CylinderMeshBuilder
+from .sector_mesh_tools_for_test import workflow_sector_params, CylinderMeshBuilder, MixedMeshBuilder
 
 @pytest.fixture
 def wf_params(workflow_sector_params) -> dict:
@@ -365,8 +365,12 @@ def test_rna_hyb(tmp_path):
 
     w.assert_completed_without_errors()
 
-
-
+@pytest.mark.integration
+@pytest.mark.cost_level_4
+@pytest.mark.elsa
+def test_mixed(tmp_path):
+    mesh = MixedMeshBuilder().get_tree()
+    mesh.save(tmp_path/"mesh.cgns")
 # HINT prefer using:
 #
 # pytest -k test_duplicate --basetemp=.
