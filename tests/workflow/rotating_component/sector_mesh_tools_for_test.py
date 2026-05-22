@@ -8,7 +8,8 @@ class CylinderMeshBuilder():
 
     def __init__(self, n_pts_dir = 14, n_sectors = 12, rmin=0.1, rmax=1.0,
             zones_family_name = 'Propeller',hub_family_name = 'HUB',
-            blade_family_name = 'BLADE', farfield_family_name = 'FARFIELD'):
+            blade_family_name = 'BLADE', farfield_family_name = 'FARFIELD',
+            interface_boundary = ''):
         
         assert n_pts_dir > 13 # otherwise RSD_L2_rh == 0 and elsa stops at it=1
         
@@ -20,19 +21,41 @@ class CylinderMeshBuilder():
         self.hub_family_name = hub_family_name
         self.blade_family_name = blade_family_name
         self.farfield_family_name = farfield_family_name
+
+        self.imin = np.array([[1,1],[1,self.n_pts_dir],[1,self.n_pts_dir]], dtype=np.int32, order='F')
+        self.imax = np.array([[self.n_pts_dir,self.n_pts_dir],[1,self.n_pts_dir],[1,self.n_pts_dir]], dtype=np.int32, order='F')
+        self.jmin = np.array([[1,self.n_pts_dir],[1,1],[1,self.n_pts_dir]], dtype=np.int32, order='F')
+        self.jmax = np.array([[1,self.n_pts_dir],[self.n_pts_dir,self.n_pts_dir],[1,self.n_pts_dir]], dtype=np.int32, order='F')
+        self.kmin = np.array([[1,self.n_pts_dir],[1,self.n_pts_dir],[1,1]], dtype=np.int32, order='F')
+        self.kmax = np.array([[1,self.n_pts_dir],[1,self.n_pts_dir],[self.n_pts_dir,self.n_pts_dir]], dtype=np.int32, order='F')
+
+        self.interface_boundary = interface_boundary
+        self.deduce_farfield_boundaries()
+
+    def deduce_farfield_boundaries(self):
         
-        self.tree = None
-        self.base = None
-        self.zone = None
+        if not self.interface_boundary:
+            self.farfield_boundaries = ['imin','imax','jmax']
+
+        elif self.interface_boundary == 'imin':
+            self.farfield_boundaries = ['imax','jmax']
+
+        elif self.interface_boundary == 'imax':
+            self.farfield_boundaries = ['imin','jmax']
+
+        else: 
+            raise AttributeError("interface_boundary must be imin, imax, or empty str")
 
     def get_tree(self):
         self.generate_block()
         self.tag_blade()
         self.tag_hub()
         self.tag_farfield()
+        self.tag_interface()
         self.connect()
         self.tag_zone()
 
+        assert isinstance(self.tree, cgns.Tree)
         return self.tree
 
     def generate_block(self):
@@ -49,7 +72,7 @@ class CylinderMeshBuilder():
         y[:] = -radius * np.sin(azimut_rad)
         z[:] =  radius * np.cos(azimut_rad)
 
-        block = cgns.newZoneFromArrays( 'block', ['x','y','z'], [ x,  y,  z ])
+        block = cgns.newZoneFromArrays( 'blk-'+self.zones_family_name, ['x','y','z'], [ x,  y,  z ])
 
         self.tree = cgns.Tree(Base=block)
         self.zone = self.tree.zones()[0]
@@ -102,12 +125,19 @@ class CylinderMeshBuilder():
         name = self.farfield_family_name
         zone_bc = self.add_zone_bc_if_absent()
         
-        imin = np.array([[1,1],[1,self.n_pts_dir],[1,self.n_pts_dir]], dtype=np.int32, order='F')
-        imax = np.array([[self.n_pts_dir,self.n_pts_dir],[1,self.n_pts_dir],[1,self.n_pts_dir]], dtype=np.int32, order='F')
-        jmax = np.array([[1,self.n_pts_dir],[self.n_pts_dir,self.n_pts_dir],[1,self.n_pts_dir]], dtype=np.int32, order='F')
-
-        for point_range in (imin, imax, jmax):
+        for bnd in self.farfield_boundaries:
+            point_range = getattr(self,bnd)
             self.add_bc_to(zone_bc, name, point_range)
+        
+        self.add_family_to_base(name)
+    
+    def tag_interface(self):
+        if not self.interface_boundary: return
+        name = self.zones_family_name+"_INTERFACE"
+        zone_bc = self.add_zone_bc_if_absent()
+        
+        point_range = getattr(self,self.interface_boundary)
+        self.add_bc_to(zone_bc, name, point_range)
         
         self.add_family_to_base(name)
 
@@ -118,16 +148,13 @@ class CylinderMeshBuilder():
     def add_grid_connectivity_1to1_at(self, location : str):
         zone_gc = self.add_zone_grid_connectivity_if_absent()
         
-    
-        kmin = np.array([[1,self.n_pts_dir],[1,self.n_pts_dir],[1,1]], dtype=np.int32, order='F')
-        kmax = np.array([[1,self.n_pts_dir],[1,self.n_pts_dir],[self.n_pts_dir,self.n_pts_dir]], dtype=np.int32, order='F')
 
         if location == 'kmin':
-            point_range = kmin
-            point_range_donor = kmax
+            point_range = self.kmin
+            point_range_donor = self.kmax
         elif location == 'kmax':
-            point_range = kmax
-            point_range_donor = kmin
+            point_range = self.kmax
+            point_range_donor = self.kmin
         else:
             raise NotImplementedError(f"location={location}")
 

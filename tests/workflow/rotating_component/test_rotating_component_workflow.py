@@ -25,7 +25,7 @@ from mola.cfd.preprocess.motion import motion
 from mola.logging import mola_logger, MolaAssertionError
 from mola.workflow.rotating_component.workflow import WorkflowRotatingComponent
 
-from .sector_mesh_tools_for_test import workflow_sector_params
+from .sector_mesh_tools_for_test import workflow_sector_params, CylinderMeshBuilder
 
 @pytest.fixture
 def wf_params(workflow_sector_params) -> dict:
@@ -274,6 +274,98 @@ def test_radius_slice_extraction(tmp_path, wf_params):
     w.submit()
 
     w.assert_completed_without_errors()
+
+
+@pytest.mark.integration
+@pytest.mark.cost_level_4
+@pytest.mark.elsa
+def test_rna_hyb(tmp_path):
+
+    rotor = CylinderMeshBuilder(
+        zones_family_name="ROTOR",
+        hub_family_name="ROTOR_HUB",
+        blade_family_name="ROTOR_BLADE",
+        interface_boundary = 'imax',
+        ).get_tree()
+
+    stator = CylinderMeshBuilder(
+        zones_family_name="STATOR",
+        hub_family_name="STATOR_HUB",
+        blade_family_name="STATOR_BLADE",
+        interface_boundary = 'imin',
+        ).get_tree()
+    
+    for i, zone in enumerate(stator.zones()):
+        x = zone.x()
+        x += 1.0
+
+    mesh = rotor
+    mesh_base = rotor.bases()[0]
+    stator_base = stator.bases()[0]
+    rotor_base_child_names = mesh_base.getChildrenNames()
+    for node in stator_base.children():
+        if node.name() not in rotor_base_child_names:
+            node.attachTo(mesh_base)
+    
+    # mesh.save(tmp_path/'mesh.cgns')
+
+    w = WorkflowRotatingComponent(
+        RawMeshComponents=[
+            dict(
+                Name='Base',
+                Source=mesh,
+            )
+        ],
+
+        ApplicationContext = dict(
+            ShaftRotationSpeed = 60.0,
+            ShaftRotationSpeedUnit = 'rpm',
+
+            Rows = dict(ROTOR  = dict(IsRotating = True,  NumberOfBlades = 12, NumberOfBladesSimulated = 1, NumberOfBladesInInitialMesh = 1),
+                        STATOR = dict(IsRotating = False, NumberOfBlades = 12, NumberOfBladesSimulated = 1, NumberOfBladesInInitialMesh = 1)
+            )
+        ),
+        Flow=dict(
+            Density = 1.0,
+            Temperature = 300.0,
+            Velocity = 10.0,
+        ),
+
+        Numerics = dict(
+            NumberOfIterations=4,
+            MinimumNumberOfIterations=3,
+            TimeMarching="unsteady",
+            TimeStep = 1/360,
+        ),
+
+        BoundaryConditions=[
+
+            dict(Family='ROTOR_HUB',   Type='WallInviscid'),
+            dict(Family='ROTOR_BLADE',    Type='WallViscous'),
+
+            dict(Family='STATOR_HUB',   Type='WallInviscid'),
+            dict(Family='STATOR_BLADE',    Type='WallViscous'),
+
+            dict(Type='UnsteadyRotorStatorInterface', Family='ROTOR_INTERFACE',
+                                                LinkedFamily='STATOR_INTERFACE'),
+
+            dict(Family='FARFIELD', Type='Farfield'),
+        ],
+
+        RunManagement=dict(
+            NumberOfProcessors=1,
+            RunDirectory=tmp_path,
+            Scheduler = 'local',
+            ),
+    )
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+
+    w.assert_completed_without_errors()
+
+
 
 # HINT prefer using:
 #
