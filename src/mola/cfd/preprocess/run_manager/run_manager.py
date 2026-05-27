@@ -153,10 +153,10 @@ def get_scheduler_and_options(RunManagement):
 
 
 def set_time_margin(RunManagement, scheduler_options):
-    time_limit_from_run_management = RunManagement['TimeLimit']
+    time_limit_from_run_management = RunManagement.get('TimeLimit',None)
     time_limit_from_scheduler_options = scheduler_options.get('TimeLimit', '24:00:00')
 
-    time_limit = time_limit_from_scheduler_options if not time_limit_from_run_management else time_limit_from_run_management
+    time_limit = time_limit_from_run_management if time_limit_from_run_management else time_limit_from_scheduler_options
 
     margin = RunManagement['QuitMarginBeforeTimeOutInSeconds']
     time_out_in_seconds = convert_to_seconds(time_limit) - convert_to_seconds(margin)
