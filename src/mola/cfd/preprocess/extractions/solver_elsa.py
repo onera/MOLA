@@ -342,7 +342,7 @@ def get_BC_solver_output_params(workflow, Extraction, bc_type, elsa_var_list) ->
                     delta_cell_max= 300,
                 ))
 
-                workflow.SolverParameters['model']['create_pseudo_norm'] = 'active'
+                # workflow.SolverParameters['model']['create_pseudo_norm'] = 'active' # BUG https://gitlab.onera.net/numerics/mola/-/issues/286#note_79560
 
     if "OtherOptions" in Extraction:
         output_keys.update(Extraction["OtherOptions"])
