@@ -68,7 +68,7 @@ def test_convert_to_seconds_ss_int(in_out):
 @pytest.mark.cost_level_0
 def test_time_margin():
     RunManagement = dict(QuitMarginBeforeTimeOutInSeconds=600)
-    scheduler_options = dict(time='00:30:00')
+    scheduler_options = dict(TimeLimit='00:30:00')
     run_manager.set_time_margin(RunManagement, scheduler_options)
     assert RunManagement['TimeOutInSeconds'] == 1200.
 
