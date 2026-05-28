@@ -25,10 +25,10 @@ from .test_workflow import  get_workflow_cart_monoproc
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.cost_level_4
-def test_stop_and_go_for_timeout(tmp_path, niter=500):
+def test_stop_and_go_for_timeout_steady(tmp_path, niter=500):
     
     w = get_workflow_cart_monoproc(tmp_path)
-    
+
     w.Numerics['NumberOfIterations'] = niter
     w.RunManagement['Scheduler'] = 'local'
 
@@ -38,6 +38,31 @@ def test_stop_and_go_for_timeout(tmp_path, niter=500):
     w.write_cfd_files()
     w.submit()
     w.assert_completed_without_errors()
+
+
+@pytest.mark.integration
+@pytest.mark.elsa
+@pytest.mark.fast
+@pytest.mark.cost_level_4
+def test_stop_and_go_for_timeout_unsteadyO2(tmp_path, niter=500):
+    
+    w = get_workflow_cart_monoproc(tmp_path)
+    
+    w.Numerics['TimeMarching'] = 'unsteady'
+    w.Numerics['TimeMarchingOrder'] = 2
+    w.Numerics['TimeStep'] = 1e-5
+
+
+    w.Numerics['NumberOfIterations'] = niter
+    w.RunManagement['Scheduler'] = 'local'
+
+    w.prepare()
+    # TimeOutInSeconds is modified to force several runs
+    w.RunManagement['TimeOutInSeconds'] = 5  # after prepare() method to hack this value
+    w.write_cfd_files()
+    w.submit()
+    w.assert_completed_without_errors()
+
 
 #     check_log_files(Path(w.RunManagement['RunDirectory']) / names.DIRECTORY_LOG)
     
