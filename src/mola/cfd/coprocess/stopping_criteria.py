@@ -56,7 +56,7 @@ def check_timeout(coprocess_manager):
             if rank == 0:
                 with open(names.FILE_NEWJOB_REQUIRED, 'w') as f: 
                     f.write(names.FILE_NEWJOB_REQUIRED)
-
+ 
             coprocess_manager.status = 'TO_STOP'
             is_to_stop = True
 

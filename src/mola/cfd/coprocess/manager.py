@@ -67,6 +67,7 @@ class CoprocessManager():
             raise MolaUserError(err_msg)
 
         self.status = 'BEFORE_FIRST_ITERATION'
+        self._interrupt_already_called = False
 
         # NOTE It is important to have a copy of Extractions
         # because several keys will be added for each extraction: 
@@ -176,7 +177,9 @@ class CoprocessManager():
     def end_simulation(self):
         if self.status == 'TO_STOP':
             self.status = 'TO_FINALIZE'
-            call_solver_specific_function(self.workflow, 'end_simulation', 3)
+            if not self._interrupt_already_called:
+                call_solver_specific_function(self.workflow, 'end_simulation', 3)
+                self._interrupt_already_called = True
 
     def perform_extractions(self):
         call_solver_specific_function(self.workflow, 'perform_extractions', 3, self)
