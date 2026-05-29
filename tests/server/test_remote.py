@@ -150,8 +150,10 @@ def test_wait_until():
 def test_adapt_username_of_mola_installation_path():
     username = getpass.getuser() # NOTE pytest launcher must own the mola sources being called
     input_mola_install_path = '/tmp_user/remotemachine/$USER/MOLA/Dev/src'
+    mola_path_to_restore = remote.__MOLA_PATH__
     remote.__MOLA_PATH__ = f'/home/toto/tata/{username}/MOLA/Dev/src'
     adapted_mola_install_path = remote.adapt_username_of_mola_installation_path(input_mola_install_path)
+    remote.__MOLA_PATH__ = mola_path_to_restore
 
     assert adapted_mola_install_path == f'/tmp_user/remotemachine/{username}/MOLA/Dev/src'
 
