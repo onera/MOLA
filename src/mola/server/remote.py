@@ -206,6 +206,7 @@ def adapt_username_of_mola_installation_path(mola_install_path : str):
             username = current_parts[-1]
             return machine_path+username+sources_path
     
+    raise AttributeError(current_mola_path)
     return mola_install_path
 
 def wait_until(predicate, timeout=30., period=1.0, *args, **kwargs):
