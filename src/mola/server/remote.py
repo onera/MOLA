@@ -109,8 +109,8 @@ def guess_localhost():
     try:
         network_config = get_network_config()
         return network_config.guess_localhost()
-    except:
-        raise MolaException(f'Cannot guess local host')
+    except BaseException as e:
+        raise MolaException(f'Cannot guess local host') from e
 
 def guess_machine_from_path(path):
 
@@ -175,12 +175,38 @@ def get_ssh_host_command(machine=None, user=None, path='.'):
     return ssh_host
     
 def get_mola_installation_path(machine):
-    try:
-        scheduler_defaults = get_scheduler_defaults(machine)
-        return scheduler_defaults.MOLA_PATH
-    except:
-        # By default, return the current installation path, assuming it will be accessible from the specified machine
+    scheduler_defaults = get_scheduler_defaults(machine)
+
+    if not scheduler_defaults or not hasattr(scheduler_defaults,'MOLA_PATH'):
         return __MOLA_PATH__
+    
+    input_mola_install_path = scheduler_defaults.MOLA_PATH
+    adapted_mola_install_path = adapt_username_of_mola_installation_path(input_mola_install_path)
+    return adapted_mola_install_path
+
+def adapt_username_of_mola_installation_path(mola_install_path : str):
+    '''
+    mola_path is a str that may contain "$USER". In such case, will replace it
+    with the user name of the mola distribution being used.
+
+    This is in response to https://gitlab.onera.net/numerics/mola/-/issues/286#note_81604
+    '''
+    parts = mola_install_path.split('$USER')
+    if len(parts) == 1:
+        return mola_install_path
+    
+    machine_path = parts[0]
+    sources_path = parts[1]
+    current_mola_path = __MOLA_PATH__
+
+    if current_mola_path.endswith(sources_path):
+        current_machine_path_and_username = current_mola_path.replace(sources_path,'')
+        current_parts = current_machine_path_and_username.split("/")
+        if len(current_parts)>1:
+            username = current_parts[-1]
+            return machine_path+username+sources_path
+    
+    return mola_install_path
 
 def wait_until(predicate, timeout=30., period=1.0, *args, **kwargs):
     must_end = time.time() + timeout
