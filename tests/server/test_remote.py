@@ -148,9 +148,11 @@ def test_wait_until():
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_adapt_username_of_mola_installation_path():
-    input_mola_install_path = '/tmp_user/remotemachine/$USER/MOLA/Dev/src'
-    adapted_mola_install_path = remote.adapt_username_of_mola_installation_path(input_mola_install_path)
     username = getpass.getuser() # NOTE pytest launcher must own the mola sources being called
+    input_mola_install_path = '/tmp_user/remotemachine/$USER/MOLA/Dev/src'
+    remote.__MOLA_PATH__ = f'/home/toto/tata/{username}/MOLA/Dev/src'
+    adapted_mola_install_path = remote.adapt_username_of_mola_installation_path(input_mola_install_path)
+
     assert adapted_mola_install_path == f'/tmp_user/remotemachine/{username}/MOLA/Dev/src'
 
 if __name__ == '__main__':
