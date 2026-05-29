@@ -19,6 +19,7 @@ import pytest
 import sys
 import os
 import time
+import getpass
 from mola.server import remote
 from mola.server import files_operations as FOP
 from mola.logging import MolaException
@@ -144,6 +145,13 @@ def test_wait_until():
     except:
         assert False
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_adapt_username_of_mola_installation_path():
+    input_mola_install_path = '/tmp_user/remotemachine/$USER/MOLA/Dev/src'
+    adapted_mola_install_path = remote.adapt_username_of_mola_installation_path(input_mola_install_path)
+    username = getpass.getuser() # NOTE pytest launcher must own the mola sources being called
+    assert adapted_mola_install_path == f'/tmp_user/remotemachine/{username}/MOLA/Dev/src'
 
 if __name__ == '__main__':
     test_submit_command_python_sator()
