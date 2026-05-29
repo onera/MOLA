@@ -66,12 +66,50 @@ def test_convert_to_seconds_ss_int(in_out):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_time_margin():
+def test_time_margin_got_from_scheduler_options():
     RunManagement = dict(QuitMarginBeforeTimeOutInSeconds=600)
     scheduler_options = dict(time='00:30:00')
     run_manager.set_time_margin(RunManagement, scheduler_options)
-    assert RunManagement['TimeOutInSeconds'] == 1200.
+    assert RunManagement['TimeOutInSeconds'] == 1200.0
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_time_margin_if_running_in_local_bypassing_slurm():
+    RunManagement = dict(TimeLimit='00:01:00',
+                         Scheduler='local',
+                         QuitMarginBeforeTimeOutInSeconds=30)
+    scheduler_options = dict(time='00:02:00')
+    run_manager.set_time_margin(RunManagement, scheduler_options)
+    assert RunManagement['TimeOutInSeconds'] == 30.0
 
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_time_margin_if_running_in_local_unavailable_slurm():
+    RunManagement = dict(TimeLimit='00:01:00',
+                         Scheduler='local',
+                         QuitMarginBeforeTimeOutInSeconds=30)
+    scheduler_options = dict()
+    run_manager.set_time_margin(RunManagement, scheduler_options)
+    assert RunManagement['TimeOutInSeconds'] == 30.0
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_time_margin_if_running_in_local_without_specifying_limit():
+    RunManagement = dict(Scheduler='local',
+                         QuitMarginBeforeTimeOutInSeconds=3600)
+    scheduler_options = dict()
+    run_manager.set_time_margin(RunManagement, scheduler_options)
+    assert RunManagement['TimeOutInSeconds'] == 3600*23
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_time_margin_if_running_using_slurm():
+    RunManagement = dict(Scheduler='local',
+                         QuitMarginBeforeTimeOutInSeconds=300)
+    scheduler_options = dict(time='15:00:00')
+    run_manager.set_time_margin(RunManagement, scheduler_options)
+    assert RunManagement['TimeOutInSeconds'] == 3600*15-300
