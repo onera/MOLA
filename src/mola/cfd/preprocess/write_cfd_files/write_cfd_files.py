@@ -89,11 +89,13 @@ def get_lines_to_submit_job_again(RunManagement):
     if RunManagement['Scheduler'] == 'SLURM':
         command += ' --dependency=singleton'
 
+    signal = names.FILE_RELAUNCH_JOB
+    
     text = f"""
-if [ -f "{names.FILE_NEWJOB_REQUIRED}" ]; then
+if [ -f "{signal}" ]; then
     echo "LAUNCHING JOB AGAIN"
     {command}
-    rm -f {names.FILE_NEWJOB_REQUIRED}
+    rm -f {signal}
     exit 0
 fi
 """

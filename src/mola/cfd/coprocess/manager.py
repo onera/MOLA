@@ -18,6 +18,7 @@
 import os
 import timeit
 import copy
+from pathlib import Path
 from pprint import pformat as pretty
 
 from treelab import cgns
@@ -158,6 +159,7 @@ class CoprocessManager():
             except FileNotFoundError:
                 continue
 
+            assert isinstance(previous_tree, cgns.Tree)
             for base in previous_tree.bases():
                 if base.name() != type_to_base_name[extraction['Type']]:
                     base.dettach()
@@ -253,7 +255,6 @@ class CoprocessManager():
         self.after_compute()
 
         self.status = 'COMPLETED'
-        
 
         move_log_files()
         try:
@@ -263,8 +264,10 @@ class CoprocessManager():
         
         check_stderr()
 
-        if not SV.is_file(names.FILE_NEWJOB_REQUIRED):
-            if rank == 0:
+        if rank ==0:
+            if SV.is_file(names.FILE_NEWJOB_REQUIRED):
+                Path(names.FILE_NEWJOB_REQUIRED).replace(names.FILE_RELAUNCH_JOB)
+            else:
                 with open(names.FILE_JOB_COMPLETED, 'w') as f: 
                     f.write(names.FILE_JOB_COMPLETED)
             
@@ -274,6 +277,7 @@ class CoprocessManager():
             self.workflow.after_compute(self.mola_logger)
 
     def _update_workflow_parameters_for_restart_if_needed(self):
+        extraction = None
         found_restart_tree = False
         for extraction in self.Extractions:
             if extraction['Type'] == 'Restart' and extraction['IsToExtract']:
@@ -290,6 +294,7 @@ class CoprocessManager():
             self.workflow.Numerics['TimeAtInitialState'] = self.iteration * self.workflow.Numerics['TimeStep']
 
         # Update only Numerics node in tree
+        assert extraction
         WorkflowParameters = extraction['Data'].get(Name=self.workflow._workflow_parameters_container_, Depth=1)
         if WorkflowParameters:
             WorkflowParameters.setParameters('Numerics', **self.workflow.Numerics)
