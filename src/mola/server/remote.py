@@ -109,8 +109,8 @@ def guess_localhost():
     try:
         network_config = get_network_config()
         return network_config.guess_localhost()
-    except:
-        raise MolaException(f'Cannot guess local host')
+    except BaseException as e:
+        raise MolaException(f'Cannot guess local host') from e
 
 def guess_machine_from_path(path):
 
