@@ -22,7 +22,7 @@ import time
 
 from mola.dependency_injector.retriever import load_source
 from mola.logging import mola_logger, MolaException, MolaAssertionError
-from mola import __MOLA_PATH__
+from mola import __MOLA_PATH__, __owner__
 
 def submit_command(command, machine, input=None, user=None, use_mola_env=False,
         remote_solver=os.environ.get('MOLA_SOLVER'),
@@ -191,22 +191,7 @@ def adapt_username_of_mola_installation_path(mola_install_path : str):
 
     This is in response to https://gitlab.onera.net/numerics/mola/-/issues/286#note_81604
     '''
-    parts = mola_install_path.split('$USER')
-    if len(parts) == 1:
-        return mola_install_path
-    
-    machine_path = parts[0]
-    sources_path = parts[1]
-    current_mola_path = __MOLA_PATH__
-
-    if current_mola_path.endswith(sources_path):
-        current_machine_path_and_username = current_mola_path.replace(sources_path,'')
-        current_parts = current_machine_path_and_username.split("/")
-        if len(current_parts)>1:
-            username = current_parts[-1]
-            return machine_path+username+sources_path
-    
-    return mola_install_path
+    return mola_install_path.replace('$USER',__owner__)
 
 def wait_until(predicate, timeout=30., period=1.0, *args, **kwargs):
     must_end = time.time() + timeout
