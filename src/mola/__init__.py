@@ -16,11 +16,20 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+from pathlib import Path
+import pwd
 __version__ = '2.0.1.dev'
 __MOLA_PATH__ = os.path.sep.join(__file__.split(os.path.sep)[:-2])
 __ONLY_DOC__ = 0 # set to True for sphinx compilation
 
 solver = os.environ["MOLA_SOLVER"]
+
+def get_file_owner(path) -> str:
+    path = Path(path)
+    uid = path.stat().st_uid
+    return pwd.getpwuid(uid).pw_name
+
+__owner__ = get_file_owner(__file__)
 
 try:
     def getSHA():
