@@ -430,31 +430,18 @@ def get_empty_FlowSolution_nodes(tree, remove=False, gather=True):
             if remove:
                 FS.remove()
 
-    if gather:
-        # not useful is the information was already the same on all ranks in the input tree
-        try:
-            from mpi4py import MPI
-            empty_FlowSolution_nodes = MPI.COMM_WORLD.allgather(empty_FlowSolution_nodes)  # share list on all ranks
-            empty_FlowSolution_nodes = [item for sublist in empty_FlowSolution_nodes for item in sublist]  # flatten the list
-        except ImportError:
-            pass
-
     return empty_FlowSolution_nodes
 
 def restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes):
-    try:
-        from mpi4py import MPI
-        rank = MPI.COMM_WORLD.Get_rank()
-    except ImportError:
-        rank = 0
-
-    if rank == 0:
-        for FS in empty_FlowSolution_nodes:
-            saved_FS = cgns.readNode(dst, FS.path()) 
-            if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
-                FS.saveThisNodeOnly(dst) 
-                for child in FS.children():
-                    child.saveThisNodeOnly(dst) 
+    for FS in empty_FlowSolution_nodes:
+        # There is no problem to read and save specific nodes with readNode and saveThisNodeOnly
+        # as long as two ranks are not trying to access to the same node at the same time
+        # It should not be the case if each rank see different nodes in empty_FlowSolution_nodes
+        saved_FS = cgns.readNode(dst, FS.path()) 
+        if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
+            FS.saveThisNodeOnly(dst) 
+            for child in FS.children():
+                child.saveThisNodeOnly(dst) 
 
 def restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes):
     for fs_node in empty_FlowSolution_nodes:

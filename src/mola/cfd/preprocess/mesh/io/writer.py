@@ -85,7 +85,7 @@ def write_with_cassiopee_mpi(w, tree, dst):
     Cmpi.barrier()
     links = tree.getLinks()
     for l in links: l[0] = '.' # HACK treelab 0.1.1
-    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, gather=False)
+    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree)
 
     Cmpi.barrier()    
     Cmpi.convertPyTree2File(tree,dst,links=links)
@@ -151,7 +151,6 @@ def write_with_pypart(w, tree, dst):
     # NOTE since mpi size may be > nb of zones, we have warnings (unnallocated zones)
     # but this is not an issue for the scope of this function
     t = Cmpi.convertFile2SkeletonTree(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'))
-    t, stats = D2.distribute(t, w.RunManagement['NumberOfProcessors'], useCom=0, algorithm='fast')
     t = Cmpi.readZones(t, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'), rank=Cmpi.rank)
     t = cgns.castNode(t)
     Cmpi.barrier()
