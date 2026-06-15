@@ -488,7 +488,7 @@ class EmptyNodesManager:
             pass
         return path
 
-    def get_empty_FlowSolution_nodes(self, tree: cgns.Tree, remove=False, remove_pypart_suffix=True):
+    def get_empty_FlowSolution_nodes(self, tree: cgns.Tree, remove=False, remove_pypart_suffix=False):
         """Detect and store empty FlowSolution nodes from a CGNS tree.
 
         This method scans the provided tree for FlowSolution nodes that are either:
@@ -715,12 +715,16 @@ class EmptyNodesManager:
             dst (str): Path to the destination CGNS file.
 
         """
+        from mpi4py import MPI
+        current_rank = MPI.COMM_WORLD.Get_rank()
+
         for path, value in self.empty_nodes_by_path.items():
             rank_with_source_node, fs_node = value[0], value[1]
 
             # Only process if we have the actual node data
             if fs_node is not None:
                 # Read existing node from file
+                print(f"[{current_rank}] {path=}")
                 saved_FS = cgns.readNode(dst, path)
 
                 # Write if stored node has more DataArrays than file version

@@ -133,7 +133,7 @@ def write_with_pypart(w, tree, dst):
 
     # HACK mergeAndSave bugs with empty FlowSolution nodes for unstructured mesh
     empty_node_manager = EmptyNodesManager()
-    empty_node_manager.get_empty_FlowSolution_nodes(tree, remove=True)
+    empty_node_manager.get_empty_FlowSolution_nodes(tree, remove=True, remove_pypart_suffix=True)
     
     # NOTE Careful: For structured mesh, FlowSolution data must not be ravelized!!
     # Otherwise, data nodes will be full of zeros after mergeAndSave.
