@@ -19,8 +19,7 @@ import os
 import glob
 import numpy as np
 from .utils import get_io_tool
-from ..tools import (to_full_tree_at_rank_0, get_empty_FlowSolution_nodes, 
-                     restore_empty_FlowSolution_nodes_in_file, restore_empty_FlowSolution_nodes)
+from ..tools import to_full_tree_at_rank_0, EmptyNodesManager
 from treelab import cgns
 import mola.naming_conventions as names
 
@@ -85,12 +84,13 @@ def write_with_cassiopee_mpi(w, tree, dst):
     Cmpi.barrier()
     links = tree.getLinks()
     for l in links: l[0] = '.' # HACK treelab 0.1.1
-    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree)
+    empty_node_manager = EmptyNodesManager()
+    empty_node_manager.get_empty_FlowSolution_nodes(tree)
 
     Cmpi.barrier()    
     Cmpi.convertPyTree2File(tree,dst,links=links)
     Cmpi.barrier()
-    restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes)        
+    empty_node_manager.restore_empty_FlowSolution_nodes_in_file(dst)      
     Cmpi.barrier()
     
 def write_with_maia(w, tree, dst):
@@ -132,7 +132,8 @@ def write_with_pypart(w, tree, dst):
     import Distributor2.PyTree as D2
 
     # HACK mergeAndSave bugs with empty FlowSolution nodes for unstructured mesh
-    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, remove=True)
+    empty_node_manager = EmptyNodesManager()
+    empty_node_manager.get_empty_FlowSolution_nodes(tree, remove=True)
     
     # NOTE Careful: For structured mesh, FlowSolution data must not be ravelized!!
     # Otherwise, data nodes will be full of zeros after mergeAndSave.
@@ -151,6 +152,7 @@ def write_with_pypart(w, tree, dst):
     # NOTE since mpi size may be > nb of zones, we have warnings (unnallocated zones)
     # but this is not an issue for the scope of this function
     t = Cmpi.convertFile2SkeletonTree(os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'))
+    t, stats = D2.distribute(t, w.RunManagement['NumberOfProcessors'], useCom=0, algorithm='fast')
     t = Cmpi.readZones(t, os.path.join(names.DIRECTORY_OUTPUT, 'PyPart_fields_all.hdf'), rank=Cmpi.rank)
     t = cgns.castNode(t)
     Cmpi.barrier()
@@ -162,7 +164,7 @@ def write_with_pypart(w, tree, dst):
         params = w.convert_to_dict()
         t.setParameters(w._workflow_parameters_container_, **params)
 
-    restore_empty_FlowSolution_nodes(t, empty_FlowSolution_nodes)
+    empty_node_manager.restore_empty_FlowSolution_nodes(t)
     t = _add_GridLocation_and_PointRange_in_BCDataSet(t)
 
     # Write a unique file
