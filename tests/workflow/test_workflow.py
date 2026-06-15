@@ -560,7 +560,26 @@ def get_workflow1():
 
     return w
 
-def get_workflow_cart_monoproc(RunDirectory, dim = 3, GridLocation = 'CellCenter'):
+def get_workflow_cart_monoproc(
+        RunDirectory, 
+        dim = 3, 
+        GridLocation = 'CellCenter', 
+        Splitter = 'Cassiopee', 
+        NumberOfProcessors = 1
+        ):
+
+    if Splitter.lower() == 'cassiopee':
+        SplittingAndDistribution=dict(
+            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
+            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
+            Distributor='Cassiopee', 
+            ComponentsToSplit=None, # 'all', or None or ['first', 'second'...]
+            )
+    else:
+        SplittingAndDistribution=dict(
+            Strategy='AtComputation', 
+            Splitter=Splitter, 
+            )
 
     n_pts_dir = 14
     assert n_pts_dir > 13 # otherwise RSD_L2_rh == 0 and elsa stops at it=1
@@ -607,12 +626,7 @@ def get_workflow_cart_monoproc(RunDirectory, dim = 3, GridLocation = 'CellCenter
                 )
         ],
 
-        SplittingAndDistribution=dict(
-            Strategy='AtPreprocess', # "AtPreprocess" or "AtComputation"
-            Splitter='Cassiopee', # or 'maia', 'PyPart' etc..
-            Distributor='Cassiopee', 
-            ComponentsToSplit=None, # 'all', or None or ['first', 'second'...]
-            ),
+        SplittingAndDistribution=SplittingAndDistribution,
 
         Flow=dict(
             Density = 0.2,
@@ -639,7 +653,7 @@ def get_workflow_cart_monoproc(RunDirectory, dim = 3, GridLocation = 'CellCenter
         ],
 
         RunManagement=dict(
-            NumberOfProcessors=1,
+            NumberOfProcessors=NumberOfProcessors,
             RunDirectory=RunDirectory,
             ),
         )

@@ -86,13 +86,16 @@ class CoprocessManager():
 
     def run_iteration(self):
         self.update_iteration()
+        must_check_convergence = True
         has_reached_max_iteration = check_max_iteration(self)
-        if not has_reached_max_iteration:
+        if not has_reached_max_iteration and not self._interrupt_already_called:
             has_reached_timeout = check_timeout(self)
-            if not has_reached_timeout:
-                check_and_execute_user_signal(self)
-                self.apply_operations()
-                check_convergence_criteria(self)
+            if has_reached_timeout: 
+                must_check_convergence = False
+        check_and_execute_user_signal(self)
+        self.apply_operations()
+        if must_check_convergence:
+            check_convergence_criteria(self)
 
         if self.status == 'TO_STOP':
             self.end_simulation()
