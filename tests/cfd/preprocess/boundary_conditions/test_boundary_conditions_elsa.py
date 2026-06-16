@@ -187,6 +187,48 @@ def test_RotorStatorInterface(tmp_path, interface_type):
     workflow.set_motion()
 
     workflow.set_boundary_conditions()
+    
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+@pytest.mark.parametrize(
+    'stage_definition',
+    [
+        ('MixingPlane', dict(jtype='match_rad_line', mxpl_avermean='conservative')),
+        ('UnsteadyRotorStatorInterface', dict(stage_red_type='arithmetic')),
+        ('ChorochronicInterface', dict(stage_choro_type = 'half_sum')),
+    ]
+)
+def test_RotorStatorInterface_modif_parameters(tmp_path, stage_definition):
+
+    interface_type, stage_params = stage_definition
+
+    params = get_compressor_example_parameters(tmp_path)
+    params['BoundaryConditions'] = [
+        dict(Family='Rotor_INFLOW', Type='InflowStagnation'),
+        dict(Family='Stator_OUTFLOW', Type='OutflowRadialEquilibrium', PressureAtHub=1e5),
+        dict(Family='HUB', Type='WallInviscid'),
+        dict(Family='SHROUD', Type='WallInviscid'),
+        dict(Family='Rotor_stator_10_left', LinkedFamily='Rotor_stator_10_right', 
+             Type=interface_type, **stage_params)
+    ]
+
+    workflow = turbomachinery.Workflow(**params)
+
+    workflow.prepare_job()
+    workflow.assemble()
+    workflow.positioning()
+    workflow.define_families() 
+    workflow.connect()
+    workflow.split_and_distribute() 
+    workflow.process_overset()
+    workflow.compute_flow_and_turbulence()
+    workflow.set_motion()
+
+    workflow.set_boundary_conditions()
+
+    for key, value in stage_params.items():
+        assert workflow.tree.get(Name=key).value() == value
+    
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1

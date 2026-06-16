@@ -799,7 +799,7 @@ def outradeqhyb(workflow, Family, **kwargs):
     workflow.tree = cgns.castNode(t)
 
 @mute_stdout
-def stage_mxpl(workflow, Family, LinkedFamily):
+def stage_mxpl(workflow, Family, LinkedFamily, **stage_parameters):
     '''
     Set a mixing plane condition between families **Family** and **LinkedFamily**.
 
@@ -822,7 +822,9 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, Family, LinkedFamily)
 
-    stage.jtype = 'nomatch_rad_line'
+    for name, value in stage_parameters.items():
+        setattr(stage, name, value)  # equivalent of stage.name = value
+
     stage.create()
 
     workflow.tree = cgns.castNode(workflow.tree)
@@ -832,7 +834,7 @@ def stage_mxpl(workflow, Family, LinkedFamily):
     I._correctPyTree(workflow.tree, level=4)
 
 @mute_stdout
-def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
+def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None, **stage_parameters):
     '''
     Set a RNA condition between families **Family** and **LinkedFamily**.
 
@@ -858,6 +860,8 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageRedFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
 
+    for name, value in stage_parameters.items():
+        setattr(stage, name, value)  # equivalent of stage.name = value
     stage.create()
 
     workflow.tree = cgns.castNode(workflow.tree)
@@ -867,7 +871,7 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     I._correctPyTree(workflow.tree, level=4)
 
 @mute_stdout
-def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirtype='axial', write_radius_in_cgns=False):
+def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirtype='axial', write_radius_in_cgns=False, **stage_parameters):
     '''
     Set a hybrid mixing plane condition between families **Family** and **LinkedFamily**.
 
@@ -887,8 +891,10 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageMxPlHybFromFamily(workflow.tree, Family, LinkedFamily)
 
-    stage.jtype = 'nomatch_rad_line'
-    stage.hray_tolerance = 1e-16
+    stage_parameters.setdefault('jtype', 'nomatch_rad_line')
+    stage_parameters.setdefault('hray_tolerance', 1e-16)
+    for name, value in stage_parameters.items():
+        setattr(stage, name, value)  # equivalent of stage.name = value
 
     if write_radius_in_cgns:
 
@@ -957,7 +963,7 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
     I._correctPyTree(workflow.tree, level=4)
 
 @mute_stdout
-def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
+def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None, **stage_parameters):
     '''
     Set a hybrid RNA condition between families **Family** and **LinkedFamily**.
 
@@ -978,6 +984,8 @@ def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None):
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageRedHybFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
 
+    for name, value in stage_parameters.items():
+        setattr(stage, name, value)  # equivalent of stage.name = value
     stage.create()
 
     for gc in I.getNodesFromType(workflow.tree, 'GridConnectivity_t'):
@@ -1010,7 +1018,7 @@ def compute_RNA_ref_time(workflow, Family, LinkedFamily):
 
     return SectorPassagePeriod
 
-def chorochronic(workflow, Family, LinkedFamily, NumbersOfHarmonics=DEFAULT_NUMBER_OF_HARMONICS, hybrid=False):
+def chorochronic(workflow, Family, LinkedFamily, NumbersOfHarmonics=DEFAULT_NUMBER_OF_HARMONICS, hybrid=False, **stage_parameters):
     '''
     Compute the parameters to run a chorochronic computation.
     
@@ -1035,9 +1043,9 @@ def chorochronic(workflow, Family, LinkedFamily, NumbersOfHarmonics=DEFAULT_NUMB
     if isinstance(NumbersOfHarmonics, int):
         NumbersOfHarmonics = (NumbersOfHarmonics, NumbersOfHarmonics)
     if hybrid:
-        stage_choro_hyb(workflow, Family, LinkedFamily)
+        stage_choro_hyb(workflow, Family, LinkedFamily, **stage_parameters)
     else:
-        stage_choro(workflow, Family, LinkedFamily)
+        stage_choro(workflow, Family, LinkedFamily, **stage_parameters)
     workflow.tree = cgns.castNode(workflow.tree)
     convert_periodic_to_chorochrono(workflow.tree)
     workflow.tree = cgns.castNode(workflow.tree)
@@ -1048,7 +1056,7 @@ def chorochronic(workflow, Family, LinkedFamily, NumbersOfHarmonics=DEFAULT_NUMB
     add_choro_data(workflow.tree, row2, **choroParamsRow2) 
 
 @mute_stdout
-def stage_choro(workflow, Family, LinkedFamily):
+def stage_choro(workflow, Family, LinkedFamily, **stage_parameters):
     '''
     Set a chorochronic interface condition between families **Family** and **LinkedFamily**.
 
@@ -1070,15 +1078,21 @@ def stage_choro(workflow, Family, LinkedFamily):
     workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
     workflow.tree, stage = trf.newStageChoroFromFamily(workflow.tree, Family, LinkedFamily)
 
-    stage.jtype = 'nomatch_rad_line'
-    stage.stage_choro_type = 'characteristic'
-    stage.harm_freq_comp = 1
-    stage.choro_file_up = 'None'
-    stage.file_up = None
-    stage.choro_file_down = 'None'
-    stage.file_down = None
-    stage.nomatch_special = 'None'
-    stage.format = 'CGNS'
+    defaults = dict(
+        jtype = 'nomatch_rad_line',
+        stage_choro_type = 'characteristic',
+        harm_freq_comp = 1,        
+        choro_file_up = 'None',
+        file_up = None,        
+        choro_file_down = 'None',
+        file_down = None,        
+        nomatch_special = 'None',
+        format = 'CGNS',
+    )
+    for key, value in defaults.items():
+        stage_parameters.setdefault(key, value)
+    for name, value in stage_parameters.items():
+        setattr(stage, name, value)  # equivalent of stage.name = value
 
     stage.create()
 
@@ -1089,7 +1103,7 @@ def stage_choro(workflow, Family, LinkedFamily):
     I._correctPyTree(workflow.tree, level=4)
 
 @mute_stdout
-def stage_choro_hyb(workflow, Family, LinkedFamily):
+def stage_choro_hyb(workflow, Family, LinkedFamily, **stage_parameters):
     '''
     Set a hybrid chorochronic interface condition between families **Family** and **LinkedFamily**.
 
@@ -1118,16 +1132,21 @@ def stage_choro_hyb(workflow, Family, LinkedFamily):
 
     # FIXME this issue https://elsa-e.onera.fr/issues/11902
     # indicates that values for parameters below may be wrong...
-    stage.jtype = 'nomatch_rad_line'
-    stage.stage_choro_type = 'characteristic'
-    stage.harm_freq_comp = 1
-    stage.choro_file_up = 'None'
-    stage.file_up = None
-    stage.choro_file_down = 'None'
-    stage.file_down = None
-    stage.nomatch_special = 'None'
-    stage.format = 'CGNS'
-
+    defaults = dict(
+        jtype = 'nomatch_rad_line',
+        stage_choro_type = 'characteristic',
+        harm_freq_comp = 1,        
+        choro_file_up = 'None',
+        file_up = None,        
+        choro_file_down = 'None',
+        file_down = None,        
+        nomatch_special = 'None',
+        format = 'CGNS',
+    )
+    for key, value in defaults.items():
+        stage_parameters.setdefault(key, value)
+    for name, value in stage_parameters.items():
+        setattr(stage, name, value)  # equivalent of stage.name = value
     stage.create()
 
     workflow.tree = cgns.castNode(workflow.tree)
