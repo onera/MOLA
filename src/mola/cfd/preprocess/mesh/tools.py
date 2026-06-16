@@ -448,7 +448,7 @@ class EmptyNodesManager:
     
     def _is_empty_zone(self, zone: cgns.Zone):
         return all([
-            _is_empty_flow_solution(node) 
+            self._is_empty_flow_solution(node) 
             for node in zone.group(Type='FlowSolution', Depth=1)
             ])
 
