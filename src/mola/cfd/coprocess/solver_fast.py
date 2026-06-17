@@ -95,6 +95,9 @@ def perform_extractions(workflow, coprocess_manager):
         elif extraction['Type'] == '3D':
             extraction['Data'] = extract_fields(output_tree, extraction)
 
+        elif extraction['Type'] == 'RawSolverOutput':
+            extraction['Data'] = output_tree
+
         elif extraction['Type'] == 'BC':
             extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype, workflow._fast_metrics)
         
@@ -104,7 +107,7 @@ def perform_extractions(workflow, coprocess_manager):
 
         elif extraction['Type'] == 'Residuals':
             extract_residuals(output_tree, extraction)
-        
+
         elif extraction['Type'] == 'Integral':
             extract_integral(output_tree, extraction, workflow)
 
