@@ -17,42 +17,7 @@
 
 import numpy as np
 from treelab import cgns
-from mola.cfd.preprocess.initialization import  solver_sonics
+from mola.cfd.preprocess.initialization import solver_sonics
 
 import pytest
 pytestmark = pytest.mark.sonics
-
-class FakeWorkflow():
-    def __init__(self, dim, GridLocation):
-        self.ProblemDimension = dim
-        self.Numerics         = dict(GridLocation = GridLocation)
-        # Build a base with two identical zones
-        base = cgns.Node(Name = 'Base',  Type = 'Base')
-        z1   = cgns.Node(Name = 'Zone1', Type = 'Zone', Parent = base)
-        z2   = cgns.Node(Name = 'Zone2', Type = 'Zone', Parent = base)
-        for zone, shape in zip([z1, z2], [(1,2), (3,2)]):
-            fs = cgns.Node(Name = 'FlowSolution#Init', Type = 'FlowSolution',
-                                                                      Parent = zone )
-            cgns.Node(Name = 'ChimeraCellType',   Parent = fs)
-            cgns.Node(Name = 'OtherChild',        Parent = fs )
-            cgns.Node(Name = 'TurbulentDistance', Parent = fs,
-                             Value = np.ones(shape, dtype = np.float64, order = 'F'))
-            
-        self.tree = base
-
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-@pytest.mark.parametrize('dim', [2, 3])
-@pytest.mark.parametrize('GridLocation', ['Vertex', 'CellCenter'])
-def test_apply_to_solver(dim, GridLocation):
-    workflow = FakeWorkflow(dim, GridLocation)
-    solver_sonics.apply_to_solver(workflow)
-    assert workflow.tree.get(Name='FlowSolution#Init') is None
-
-    if GridLocation == 'Vertex': 
-        element_location = 'Vertex'
-    else:
-        element_location = 'Cell' if dim == 3 else 'Face'
-
-    assert len(workflow.tree.group(Name = f'Fields@{element_location}@Init',
-                                   Type = 'FlowSolution')) == 2

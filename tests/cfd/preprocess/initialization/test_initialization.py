@@ -42,7 +42,8 @@ def debug_mesh(FlowSolution_ref):
 @pytest.fixture
 def FlowSolution_ref():
     shape = (2,2,2)
-    ref_fs = cgns.Node(Name='FlowSolution#Init', Type='FlowSolution_t')
+    fs_name = get_correct_FlowSolution_name_from_solver()
+    ref_fs = cgns.Node(Name=fs_name, Type='FlowSolution_t')
     cgns.Node(Name='GridLocation', Value='CellCenter', Type='GridLocation_t', Parent=ref_fs)
     cgns.Node(Name='Density', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
     cgns.Node(Name='MomentumX', Value=np.array(np.random.rand(*shape), order='F'), Type='DataArray_t', Parent=ref_fs)
