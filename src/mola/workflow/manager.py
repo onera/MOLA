@@ -653,6 +653,10 @@ for case in $SEQUENCE_OF_PATHS; do
         exit 0
     elif [ ! -f "{names.FILE_INPUT_SOLVER}" ]; then
         mola_prepare {names.FILE_INPUT_WORKFLOW}
+    elif [ -f "{names.FILE_JOB_COMPLETED}" ]; then
+        # job already done in a previous submission: exit the for loop
+        cd ..
+        continue
     fi
 
     NUMBER_OF_ATTEMPTS=0
