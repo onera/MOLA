@@ -2,17 +2,15 @@
 Code structure
 ##############
 
-:fas:`person-digging;sd-text-warning` Work in progress :fas:`person-digging;sd-text-warning`
+This developer manual explains the MOLA code architecture to help developers understand where to implement new features.
 
-.. todo:: 
-    
-    write the developer manual :
-        - explain the structure Workflow / WorkflowInterface / WorkflowManager
-        - explain the structure: method in Workflow --> module in cfd/preprocess, with specialization with solver_elsa.py
-        - explain the structure of env
-        - explain the structure of compute and coprocess
+
+For ONERA developers, you may also refer to this 
+`presentation <https://papyrus-app.onera.net/share/page/site/daaa/document-details?nodeRef=workspace://SpacesStore/b14e577c-29b3-442b-b2dc-56fcc314901a>`_
+(internal access only) that introduces briefly the structure of the code.
 
 .. toctree::
     :maxdepth: 2
 
-    cfd/index
+    workflow_structure
+    preprocess_structure
