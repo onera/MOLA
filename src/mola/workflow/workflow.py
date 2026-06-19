@@ -19,6 +19,7 @@ import os
 import pathlib
 import copy
 import numpy as np
+from pathlib import Path
 
 from treelab import cgns
 
@@ -51,7 +52,7 @@ from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
 
 from mola.workflow.interface import WorkflowInterface
-from mola.pytree.user import checker 
+
 
 class Workflow(object):
 
@@ -73,6 +74,18 @@ class Workflow(object):
         self.check_preprocess() 
         self.finalize_preprocess()
         mola_logger.info(f'✅ {GREEN}{BOLD}PREPROCESS FINALIZED{ENDC}', rank=0)
+
+    @property
+    def tree(self):
+        return self._tree
+
+    @tree.setter
+    def tree(self, value):
+        if value is None or isinstance(value, (str, Path)):
+            self._tree = value
+        else:
+            # convert to treelab format 
+            self._tree = cgns.castNode(value)
 
     def process_mesh(self):
         mola_logger.info("🔧 processing mesh", rank=0)

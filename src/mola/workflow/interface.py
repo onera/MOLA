@@ -76,6 +76,8 @@ class WorkflowInterface(object):
                 attributes['RawMeshComponents'] = [Mesh]
             elif isinstance(Mesh, str) or isinstance(Mesh, cgns.Tree):
                 attributes['RawMeshComponents'] = [dict(Source=Mesh, Name='Base')]
+            elif isinstance(Mesh, list):
+                attributes['RawMeshComponents'] = [dict(Source=cgns.castNode(Mesh), Name='Base')]
             else:
                 raise MolaUserError(f"Input parameter Mesh must be either a dict or str but is {type(Mesh)}")
         attributes.pop('Mesh')
@@ -112,7 +114,7 @@ class WorkflowInterface(object):
         
         if isinstance(self.tree, str):
             workflow_parameters = cgns.load_workflow_parameters(self.tree)
-        elif isinstance(self.tree, cgns.Tree):
+        elif isinstance(self.tree, cgns.Node):
             workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_, transform_numpy_scalars=True)
         else:
             raise MolaUserError(f'The given tree must be either a filename or a Tree read by treelab.')
@@ -201,7 +203,7 @@ class WorkflowInterface(object):
         OversetMotion    : dict = None,
         *,
         Name             : str,
-        Source           : Union[ str, Tree, Base, Zone],
+        Source           : Union[ str, Tree, Base, Zone, list],
         ):
         '''
         Set workflow attribute **RawMeshComponents**
@@ -234,6 +236,8 @@ class WorkflowInterface(object):
             :fas:`person-digging;sd-text-warning`
         '''
         Positioning = self._add_scaling_according_to_unit(Positioning, Unit)    
+        if isinstance(Source, list):
+            Source = cgns.castNode(Source)
         self.RawMeshComponents.append(self._get_comp(
             WorkflowInterface.add_to_RawMeshComponents, self.get_default_values_from_local_signature()))
     

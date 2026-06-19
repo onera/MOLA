@@ -27,7 +27,7 @@ import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola import server as SV
 from mola.cfd.preprocess.run_manager import run_manager
-from mola.workflow import Workflow
+from mola.workflow import Workflow, WorkflowInterface
 
 
 def get_workflow_dist():
@@ -1078,7 +1078,55 @@ def unstructured_cart_grid():
 
     return t
 
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_workflow_tree_setter():
+    tree = ['Node', None, [], 'DataArray_t']
 
+    workflow = Workflow()
+    workflow.tree = tree
+    assert isinstance(workflow.tree, cgns.Node)
+
+@pytest.mark.unit
+@pytest.mark.cost_level_0
+def test_workflow_tree_setter_by_interface():
+    def _get_fake_tree_with_worklfow_parameters():
+        """
+        Return a tree that looks like it should be to be an argument of 
+        WorkflowInterface constructor.
+        That tree is a list (not a treelab Node object).
+        The given mesh in RawMeshComponents is also a list (not a treelab Node object).
+        """
+
+        import inspect
+        children = []
+        signature = inspect.signature(WorkflowInterface.__init__)
+        skip_attr = ['_workflow_parameters_container_', 'tree', 'self', 'workflow']
+        special_attr = ['RunManagement', 'RawMeshComponents']
+        for param in signature.parameters.values():
+            if param.name in skip_attr+special_attr:
+                continue
+            children.append(
+                [param.name, None, [], 'DataArray_t']
+            )
+        children.append(
+            ['RunManagement', None, [['LauncherCommand', "", [], 'DataArray_t']], 'DataArray_t']
+        )
+        children.append(
+            ['RawMeshComponents', None, [
+                ['list.0', None, [
+                    ['Source', [], [], 'DataArray_t']  # mesh is an empty list, but not a Node object
+                ], 'DataArray_t']
+            ], 'DataArray_t']
+        )
+
+        tree = ['Node', None, [
+            ['WorkflowParameters', None, children, 'DataArray_t']
+            ], 'DataArray_t']
+        return tree
+    
+    workflow = Workflow(tree=_get_fake_tree_with_worklfow_parameters())
+    assert isinstance(workflow.tree, cgns.Node)
 
 
 if __name__ == '__main__':
