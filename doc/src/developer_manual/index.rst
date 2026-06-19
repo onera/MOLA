@@ -2,8 +2,6 @@
 Developer manual
 ################
 
-:fas:`person-digging;sd-text-warning` Work in progress :fas:`person-digging;sd-text-warning`
-
 The developer manual is aimed at contributors, details the structure, 
 the mechanisms of the package as well as some gotchas.
 
@@ -13,4 +11,5 @@ the mechanisms of the package as well as some gotchas.
     contributing
     deployment
     structure/index
+    api/index
     
