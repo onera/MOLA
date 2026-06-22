@@ -654,21 +654,26 @@ def outradeq(workflow, Family, **kwargs):
         raise MolaUserError(f'The boundary condition "outradeq" on Family {Family} is available only for structured mesh.')
 
     import etc.transform as trf
-    t = workflow.tree
+
+    # It is mandatory to use an auxilary variable tree 
+    # to prevent a incompatibility between etc bc.create() method
+    # and the overriding affectation workflow.tree = ...
+    # see https://gitlab.onera.net/numerics/mola/-/work_items/313#note_84040
+    tree = workflow.tree
 
     params = outradeq_interface(workflow, Family, **kwargs)
 
     # Delete previous BC if it exists
-    for bc in C.getFamilyBCs(t, Family):
+    for bc in C.getFamilyBCs(tree, Family):
         I._rmNodesByName(bc, '.Solver#BC')
-    define_bc_family(t, Family, 'BCOutflowSubsonic')
+    define_bc_family(tree, Family, 'BCOutflowSubsonic')
 
     from etc.globborder.globborder_dict import globborder_dict
-    gbd = globborder_dict(t, Family, config="axial")
+    gbd = globborder_dict(tree, Family, config="axial")
 
-    for bcn in C.getFamilyBCs(t, Family):
-        bcpath = I.getPath(t, bcn)
-        bc = trf.BCOutRadEq(t, bcn)
+    for bcn in C.getFamilyBCs(tree, Family):
+        bcpath = I.getPath(tree, bcn)
+        bc = trf.BCOutRadEq(tree, bcn)
         bc.indpiv = params['indpiv']
         bc.dirorder = params['dirorder']
         # Valve laws:
@@ -694,7 +699,7 @@ def outradeq(workflow, Family, **kwargs):
         globborder.h_orientation = gbd[bcpath]['h_orientation']
         bc.create()
 
-    workflow.tree = cgns.castNode(t)
+    workflow.tree = tree
 
 @mute_stdout
 def outradeqhyb(workflow, Family, **kwargs):
@@ -752,16 +757,21 @@ def outradeqhyb(workflow, Family, **kwargs):
 
     '''
     import etc.transform as trf
-    t = workflow.tree
+
+    # It is mandatory to use an auxilary variable tree 
+    # to prevent a incompatibility between etc bc.create() method
+    # and the overriding affectation workflow.tree = ...
+    # see https://gitlab.onera.net/numerics/mola/-/work_items/313#note_84040
+    tree = workflow.tree
 
     params = outradeqhyb_interface(workflow, Family, **kwargs)
 
     # Delete previous BC if it exists
-    for bc in C.getFamilyBCs(t, Family):
+    for bc in C.getFamilyBCs(tree, Family):
         I._rmNodesByName(bc, '.Solver#BC')
-    define_bc_family(t, Family, 'BCOutflowSubsonic')
+    define_bc_family(tree, Family, 'BCOutflowSubsonic')
 
-    bc = trf.BCOutRadEqHyb(t, t.get(Name=Family, Type='Family'))
+    bc = trf.BCOutRadEqHyb(tree, tree.get(Name=Family, Type='Family'))
     bc.glob_border()
     bc.indpiv = params['indpiv']
     if 'valve_type' not in params or params['valve_type'] == 0:
@@ -777,12 +787,12 @@ def outradeqhyb(workflow, Family, **kwargs):
     if write_radius_in_cgns:
         # NOT WORKING FOR NOW
         radius = bc.repartition()
-        radius.compute(t, nbband=params['nbband'], c=params['c'])
+        radius.compute(tree, nbband=params['nbband'], c=params['c'])
     
     else:
         radius_filename = f'radius_{Family}.plt'
         radius = bc.repartition(filename=radius_filename, fileformat="bin_tp")
-        radius.compute(t, nbband=params['nbband'], c=params['c'])
+        radius.compute(tree, nbband=params['nbband'], c=params['c'])
         radius.write()
         # Move radius files to the RunDirectory
         # HACK This will be outdated as soon as the radius distribution is written directly in the CGNS file
@@ -796,7 +806,7 @@ def outradeqhyb(workflow, Family, **kwargs):
                 )
             
     bc.create()
-    workflow.tree = cgns.castNode(t)
+    workflow.tree = tree
 
 @mute_stdout
 def stage_mxpl(workflow, Family, LinkedFamily, **stage_parameters):
@@ -811,23 +821,29 @@ def stage_mxpl(workflow, Family, LinkedFamily, **stage_parameters):
 
     import etc.transform as trf
 
+    # It is mandatory to use an auxilary variable tree 
+    # to prevent a incompatibility between etc stage.create() method
+    # and the overriding affectation workflow.tree = ...
+    # see https://gitlab.onera.net/numerics/mola/-/work_items/313#note_84040
+    tree = workflow.tree
+
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+    for FamilyName_node in tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
-    _fix_point_range_in_gc(workflow.tree)
+    _fix_point_range_in_gc(tree)
 
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
-    workflow.tree, stage = trf.newStageMxPlFromFamily(workflow.tree, Family, LinkedFamily)
+    tree = trf.defineBCStageFromBC(tree, (Family, LinkedFamily))
+    tree, stage = trf.newStageMxPlFromFamily(tree, Family, LinkedFamily)
 
     for name, value in stage_parameters.items():
         setattr(stage, name, value)  # equivalent of stage.name = value
 
     stage.create()
 
-    workflow.tree = cgns.castNode(workflow.tree)
+    workflow.tree = tree
     _restore_point_range_in_gc(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
@@ -846,25 +862,31 @@ def stage_red(workflow, Family, LinkedFamily, SectorPassagePeriod=None, **stage_
 
     import etc.transform as trf
 
+    # It is mandatory to use an auxilary variable tree 
+    # to prevent a incompatibility between etc stage.create() method
+    # and the overriding affectation workflow.tree = ...
+    # see https://gitlab.onera.net/numerics/mola/-/work_items/313#note_84040
+    tree = workflow.tree
+
     if SectorPassagePeriod is None:
         SectorPassagePeriod = compute_RNA_ref_time(workflow, Family, LinkedFamily)
 
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+    for FamilyName_node in tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
-    _fix_point_range_in_gc(workflow.tree)
+    _fix_point_range_in_gc(tree)
 
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
-    workflow.tree, stage = trf.newStageRedFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
+    tree = trf.defineBCStageFromBC(tree, (Family, LinkedFamily))
+    tree, stage = trf.newStageRedFromFamily(tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
 
     for name, value in stage_parameters.items():
         setattr(stage, name, value)  # equivalent of stage.name = value
     stage.create()
 
-    workflow.tree = cgns.castNode(workflow.tree)
+    workflow.tree = tree
     _restore_point_range_in_gc(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
@@ -882,14 +904,20 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
     '''
     import etc.transform as trf
 
+    # It is mandatory to use an auxilary variable tree 
+    # to prevent a incompatibility between etc stage.create() method
+    # and the overriding affectation workflow.tree = ...
+    # see https://gitlab.onera.net/numerics/mola/-/work_items/313#note_84040
+    tree = workflow.tree
+
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+    for FamilyName_node in tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
-    workflow.tree, stage = trf.newStageMxPlHybFromFamily(workflow.tree, Family, LinkedFamily)
+    tree = trf.defineBCStageFromBC(tree, (Family, LinkedFamily))
+    tree, stage = trf.newStageMxPlHybFromFamily(tree, Family, LinkedFamily)
 
     stage_parameters.setdefault('jtype', 'nomatch_rad_line')
     stage_parameters.setdefault('hray_tolerance', 1e-16)
@@ -900,22 +928,22 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
 
         for stg in stage.down:
             radius = stg.repartition(mxpl_dirtype=mxpl_dirtype, 
-                                    parent=workflow.tree.get(Name=Family, Type='Family', Depth=2),
-                                    tree=workflow.tree)
-            radius.compute(workflow.tree, nbband=nbband, c=c)
+                                    parent=tree.get(Name=Family, Type='Family', Depth=2),
+                                    tree=tree)
+            radius.compute(tree, nbband=nbband, c=c)
             # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the first found GC
             # It also overrides MixingPlaneData/radius in the Family
 
         for stg in stage.up:
             radius = stg.repartition(mxpl_dirtype=mxpl_dirtype, 
-                                    parent=workflow.tree.get(Name=LinkedFamily, Type='Family', Depth=2), 
-                                    tree=workflow.tree)
-            radius.compute(workflow.tree, nbband=nbband, c=c)
+                                    parent=tree.get(Name=LinkedFamily, Type='Family', Depth=2), 
+                                    tree=tree)
+            radius.compute(tree, nbband=nbband, c=c)
             # the method compute adds file=None, format='CGNS', mxpl_dirtype=mxpl_dirtype in the .Solver#Property node of the first found GC
             # It also overrides MixingPlaneData/radius in the Family
 
         stage.create()
-        workflow.tree = cgns.castNode(workflow.tree)
+        workflow.tree = tree
 
         # HACK file, format and mxpl_dirtype parameters are written only in one GC, but they may be several GC
         for gc in workflow.tree.group(Type='GridConnectivity'):
@@ -932,13 +960,13 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
         filename_left = f'radius_{LinkedFamily}.plt'
         for stg in stage.down:
             radius = stg.repartition(mxpl_dirtype='axial', filename=filename_left, fileformat="bin_tp")
-        radius.compute(workflow.tree, nbband=nbband, c=c)
+        radius.compute(tree, nbband=nbband, c=c)
         radius.write()
 
         filename_right = f'radius_{Family}.plt'
         for stg in stage.up:
             radius = stg.repartition(mxpl_dirtype='axial', filename=filename_right, fileformat="bin_tp")
-        radius.compute(workflow.tree, nbband=nbband, c=c)
+        radius.compute(tree, nbband=nbband, c=c)
         radius.write()
 
         stage.create()
@@ -955,7 +983,7 @@ def stage_mxpl_hyb(workflow, Family, LinkedFamily, nbband=100, c=0.3, mxpl_dirty
                     force_copy=True
                     )
                 
-        workflow.tree = cgns.castNode(workflow.tree)
+        workflow.tree = tree
 
         
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
@@ -972,26 +1000,34 @@ def stage_red_hyb(workflow, Family, LinkedFamily, SectorPassagePeriod=None, **st
     '''
     import etc.transform as trf
 
+    # It is mandatory to use an auxilary variable tree 
+    # to prevent a incompatibility between etc stage.create() method
+    # and the overriding affectation workflow.tree = ...
+    # see https://gitlab.onera.net/numerics/mola/-/work_items/313#note_84040
+    tree = workflow.tree
+
     if SectorPassagePeriod is None:
         SectorPassagePeriod = compute_RNA_ref_time(workflow, Family, LinkedFamily)
 
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+    for FamilyName_node in tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
-    workflow.tree, stage = trf.newStageRedHybFromFamily(workflow.tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
-
+    tree = trf.defineBCStageFromBC(tree, (Family, LinkedFamily))
+    tree, stage = trf.newStageRedHybFromFamily(tree, Family, LinkedFamily, stage_ref_time=SectorPassagePeriod)
     for name, value in stage_parameters.items():
         setattr(stage, name, value)  # equivalent of stage.name = value
     stage.create()
 
-    for gc in I.getNodesFromType(workflow.tree, 'GridConnectivity_t'):
+    for gc in I.getNodesFromType(tree, 'GridConnectivity_t'):
         I._rmNodesByType(gc, 'FamilyBC_t')
 
-    workflow.tree = cgns.castNode(workflow.tree)
+    workflow.tree = tree
+    set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
+    # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
+    I._correctPyTree(workflow.tree, level=4)
 
 def compute_RNA_ref_time(workflow, Family, LinkedFamily):
     '''
@@ -1067,16 +1103,22 @@ def stage_choro(workflow, Family, LinkedFamily, **stage_parameters):
 
     import etc.transform as trf
 
+    # It is mandatory to use an auxilary variable tree 
+    # to prevent a incompatibility between etc stage.create() method
+    # and the overriding affectation workflow.tree = ...
+    # see https://gitlab.onera.net/numerics/mola/-/work_items/313#note_84040
+    tree = workflow.tree
+
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+    for FamilyName_node in tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
-    _fix_point_range_in_gc(workflow.tree)
+    _fix_point_range_in_gc(tree)
 
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
-    workflow.tree, stage = trf.newStageChoroFromFamily(workflow.tree, Family, LinkedFamily)
+    tree = trf.defineBCStageFromBC(tree, (Family, LinkedFamily))
+    tree, stage = trf.newStageChoroFromFamily(tree, Family, LinkedFamily)
 
     defaults = dict(
         jtype = 'nomatch_rad_line',
@@ -1096,7 +1138,7 @@ def stage_choro(workflow, Family, LinkedFamily, **stage_parameters):
 
     stage.create()
 
-    workflow.tree = cgns.castNode(workflow.tree)
+    workflow.tree = tree
     _restore_point_range_in_gc(workflow.tree)
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
@@ -1121,14 +1163,20 @@ def stage_choro_hyb(workflow, Family, LinkedFamily, **stage_parameters):
 
     import etc.transform as trf
 
+    # It is mandatory to use an auxilary variable tree 
+    # to prevent a incompatibility between etc stage.create() method
+    # and the overriding affectation workflow.tree = ...
+    # see https://gitlab.onera.net/numerics/mola/-/work_items/313#note_84040
+    tree = workflow.tree
+
     # HACK: must change the type of all FamilyName to array
     # For a unknown reason, nodes FamilyName have value of type str instead of ndarray,
     # and that makes a bug in trf.defineBCStageFromBC (in CGU.getValueAsString(FamilyName))
-    for FamilyName_node in workflow.tree.group(Type='FamilyName'):
+    for FamilyName_node in tree.group(Type='FamilyName'):
         FamilyName_node.setValue(FamilyName_node.value())
 
-    workflow.tree = trf.defineBCStageFromBC(workflow.tree, (Family, LinkedFamily))
-    workflow.tree, stage = trf.newStageChoroHybFromFamily(workflow.tree, Family, LinkedFamily)
+    tree = trf.defineBCStageFromBC(tree, (Family, LinkedFamily))
+    tree, stage = trf.newStageChoroHybFromFamily(tree, Family, LinkedFamily)
 
     # FIXME this issue https://elsa-e.onera.fr/issues/11902
     # indicates that values for parameters below may be wrong...
@@ -1149,7 +1197,7 @@ def stage_choro_hyb(workflow, Family, LinkedFamily, **stage_parameters):
         setattr(stage, name, value)  # equivalent of stage.name = value
     stage.create()
 
-    workflow.tree = cgns.castNode(workflow.tree)
+    workflow.tree = tree
     set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
     # GC names must be unique to use globborders in elsa, otherwise the error "Error : duplicated object name!" will be raised
     I._correctPyTree(workflow.tree, level=4)
