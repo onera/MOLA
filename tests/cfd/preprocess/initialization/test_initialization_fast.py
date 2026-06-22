@@ -30,7 +30,7 @@ class FakeWorkflow():
         z1 = cgns.Node( Name='Zone1', Type='Zone', Parent=base)
         z2 = cgns.Node( Name='Zone2', Type='Zone', Parent=base)
         for zone, shape in zip([z1, z2], [(1,2), (3,2)]):
-            fs = cgns.Node( Name='FlowSolution#Init', Type='FlowSolution', Parent=zone )
+            fs = cgns.Node( Name='FlowSolution#Centers', Type='FlowSolution', Parent=zone )
             cgns.Node( Name='ChimeraCellType', Parent=fs )
             cgns.Node( Name='TurbulentDistance', Value=np.ones(shape, dtype=np.float64, order='F'), Parent=fs )
             cgns.Node( Name='OtherChild', Parent=fs )

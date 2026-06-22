@@ -35,3 +35,6 @@ def apply_to_solver(workflow):
         # may provoke unexpected boundary errors during pytests since this 
         # variable value may persist on different contexts and is dangerous
         I.__FlowSolutionCenters__ = previous_container 
+
+def get_init_solution_container_name(workflow):
+    return 'FlowSolution#Init'

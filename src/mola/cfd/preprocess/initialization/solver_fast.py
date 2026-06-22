@@ -19,10 +19,10 @@ from treelab import cgns
 from mola.logging import mola_logger
 
 def apply_to_solver(workflow):
-    groupOfNodes = workflow.tree.group(Name='FlowSolution#Init')
-    for node in groupOfNodes: 
-        node.setName('FlowSolution#Centers')
     add_info_in_reference_state(workflow)
+
+def get_init_solution_container_name(workflow):
+    return 'FlowSolution#Centers'
 
 def add_info_in_reference_state(workflow):
 

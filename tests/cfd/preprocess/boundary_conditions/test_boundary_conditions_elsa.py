@@ -187,6 +187,14 @@ def test_RotorStatorInterface(tmp_path, interface_type):
     workflow.set_motion()
 
     workflow.set_boundary_conditions()
+
+    # Related to MOLA issue #313: check the .SolverProperty is not empty
+    gcs_on_interface = [
+        gc for gc in workflow.tree.group(Type='GridConnectivity') 
+        if gc.get(Name='FamilyName', Value= 'Rotor_stator_10_*')
+        ]
+    for gc in gcs_on_interface:
+        assert len(gc.get(Name='.Solver#Property').children()) > 0
     
 @pytest.mark.unit
 @pytest.mark.cost_level_1
