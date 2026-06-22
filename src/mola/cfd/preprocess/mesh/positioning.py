@@ -40,7 +40,7 @@ def apply(workflow):
         for operation in component['Positioning']:
             if operation['Type'] == 'Scale':
                 s = float(operation['Scale'])
-                mola_logger.info(f"    - rescaling component {component['Name']} with factor {s}", rank=0)
+                mola_logger.info(f"    - rescaling component {component['Name']} with factor {s}", rank=0)                
                 try:
                     rescale_with_maia(base, s)
                 except (ImportError, AttributeError):

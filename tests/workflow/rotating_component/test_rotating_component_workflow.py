@@ -22,7 +22,7 @@ from treelab import cgns
 
 from mola.cfd.preprocess.mesh.tools import compute_azimuthal_extension
 from mola.cfd.preprocess.motion import motion
-from mola.logging import mola_logger, MolaAssertionError
+from mola.logging import mola_logger, MolaAssertionError, MolaUserError
 from mola.workflow.rotating_component.workflow import WorkflowRotatingComponent
 
 from .sector_mesh_tools_for_test import workflow_sector_params, CylinderMeshBuilder, MixedMeshBuilder
@@ -43,6 +43,26 @@ def wf_params(workflow_sector_params) -> dict:
     
     return workflow_sector_params
 
+
+@pytest.fixture
+def tree_with_perio_match() -> cgns.Tree:
+    t = cgns.Tree()
+    b = cgns.Base()
+    z = cgns.Zone()
+    z.attachTo(b)
+    b.attachTo(t)
+
+    zgc = cgns.Node(Name='ZoneGridConnectivity', Type='ZoneGridConnectivity_t', Parent=z)
+
+    for i in range(2):
+        gc = cgns.Node(Name=f'MyPerio{i+1}', Type='GridConnectivity_t', Value="Base/Zone", Parent=zgc)
+        prop = cgns.Node(Name='GridConnectivityProperty', Type='GridConnectivityProperty_t', Parent=gc)
+        perio = cgns.Node(Name='Periodic', Type='Periodic_t', Parent=prop)
+
+        cgns.Node(Name='RotationAngle',Type='DataArray_t',Value=np.array([np.pi,0,0],dtype=float),Parent=perio)
+        cgns.Node(Name='RotationCenter',Type='DataArray_t',Value=np.array([0,0,0],dtype=float),Parent=perio)
+
+    return t
 
 def get_workflow_annular_sector_parameters(RunDirectory):
 
@@ -371,6 +391,165 @@ def test_rna_hyb(tmp_path):
 def test_mixed(tmp_path):
     mesh = MixedMeshBuilder().get_tree()
     mesh.save(tmp_path/"mesh.cgns")
+    ...
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_check_if_user_is_providing_mesh_for_rotation_around_x_axis(tree_with_perio_match):
+    assert isinstance(tree_with_perio_match, cgns.Tree)
+
+    w = WorkflowRotatingComponent(
+
+        RawMeshComponents=[
+        dict(
+            Name='Base',
+            Source=tree_with_perio_match,
+            Connection = [
+                    dict(Type='PeriodicMatch', 
+                         RotationAngle=np.array([45., 0., 0.]), 
+                         Families=('MyPerio1', 'MyPerio2'),
+                         Tolerance=1e-8
+                         ),
+                ],
+            )
+        ],
+
+
+        ApplicationContext = dict(
+            ShaftRotationSpeed=60.0,
+            Rows=dict(
+                Propeller=dict(
+                    IsRotating = True,
+                    NumberOfBladesSimulated = 1,
+                    NumberOfBladesInInitialMesh = 1,
+                    NumberOfBlades = 1,
+                )
+            )
+            )
+    )
+    w.tree = tree_with_perio_match
+    w.check_if_user_is_providing_mesh_for_rotation_around_x_axis()
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_validate_rotation_axis_and_center_in_tree_correct(tree_with_perio_match):
+
+    assert isinstance(tree_with_perio_match, cgns.Tree)
+
+    w = WorkflowRotatingComponent(
+
+            ApplicationContext = dict(
+                ShaftRotationSpeed=60.0,
+                Rows=dict(
+                    Propeller=dict(
+                        IsRotating = True,
+                        NumberOfBladesSimulated = 1,
+                        NumberOfBladesInInitialMesh = 1,
+                        NumberOfBlades = 1,
+                    )
+                )
+                )
+    )
+    w.tree = tree_with_perio_match
+    w.validate_rotation_axis_and_center_in_tree()
+
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_validate_rotation_axis_and_center_in_tree_incorrect_axis(tree_with_perio_match):
+
+    angles = tree_with_perio_match.get("RotationAngle").value()
+    angles[-1] = 1.0
+
+    assert isinstance(tree_with_perio_match, cgns.Tree)
+
+    w = WorkflowRotatingComponent(
+
+            ApplicationContext = dict(
+                ShaftRotationSpeed=60.0,
+                Rows=dict(
+                    Propeller=dict(
+                        IsRotating = True,
+                        NumberOfBladesSimulated = 1,
+                        NumberOfBladesInInitialMesh = 1,
+                        NumberOfBlades = 1,
+                    )
+                )
+                )
+    )
+    w.tree = tree_with_perio_match
+
+    with pytest.raises(MolaUserError):
+        w.validate_rotation_axis_and_center_in_tree()
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_validate_rotation_axis_and_center_in_tree_incorrect_center(tree_with_perio_match):
+
+    center = tree_with_perio_match.get("RotationCenter").value()
+    center[1] = 1.0
+
+    assert isinstance(tree_with_perio_match, cgns.Tree)
+
+    w = WorkflowRotatingComponent(
+
+            ApplicationContext = dict(
+                ShaftRotationSpeed=60.0,
+                Rows=dict(
+                    Propeller=dict(
+                        IsRotating = True,
+                        NumberOfBladesSimulated = 1,
+                        NumberOfBladesInInitialMesh = 1,
+                        NumberOfBlades = 1,
+                    )
+                )
+                )
+    )
+    w.tree = tree_with_perio_match
+
+    with pytest.raises(MolaUserError):
+        w.validate_rotation_axis_and_center_in_tree()
+
+
+@pytest.mark.unit
+@pytest.mark.cost_level_1
+def test_validate_rotation_axis_requested_by_user_correct():
+
+    w = WorkflowRotatingComponent(
+
+        RawMeshComponents=[
+        dict(
+            Name='Base',
+            Source='dummy.cgns',
+            Connection = [
+                    dict(Type='PeriodicMatch', 
+                         RotationAngle=np.array([45., 0., 0.]), 
+                         Families=('MyPerio1', 'MyPerio2'),
+                         Tolerance=1e-8
+                         ),
+                ],
+            )
+        ],
+
+        ApplicationContext = dict(
+            ShaftRotationSpeed=60.0,
+            Rows=dict(
+                Propeller=dict(
+                    IsRotating = True,
+                    NumberOfBladesSimulated = 1,
+                    NumberOfBladesInInitialMesh = 1,
+                    NumberOfBlades = 1,
+                )
+            )
+            )
+    )
+
+    w.validate_rotation_axis_requested_by_user()
+
+
 # HINT prefer using:
 #
 # pytest -k test_duplicate --basetemp=.
@@ -384,3 +563,4 @@ def test_mixed(tmp_path):
 
 # if __name__ == "__main__":
 #     test_duplicate('.')
+

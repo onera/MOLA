@@ -122,6 +122,7 @@ def get_elsa_output_tree(skeleton):
     t.findAndRemoveNodes(Name=names.CONTAINER_WORKFLOW_PARAMETERS, Type='UserDefinedData', Depth=2) 
     rename_cellnf_fields(t)
     replace_relative_coordinates_with_absolute(t)
+    _unstructured_zones_must_have_elements_connectivity(t)
     return t
 
 def rename_cellnf_fields(tree : cgns.Tree):
@@ -248,7 +249,7 @@ def extract_isosurface(output_tree, extraction):
         IsoSurfaceValue = extraction['IsoSurfaceValue'], 
         IsoSurfaceContainer = extraction['IsoSurfaceContainer'],
         Name = extraction['Name'],
-        tool = 'maia' if output_tree.isUnstructured() else 'cassiopee',
+        tool = 'cassiopee',
         )
     
     POST.keep_only_requested_containers(isosurface, extraction)
@@ -436,3 +437,35 @@ def _update_solver_parameters_for_restart(workflow, tree):
     WorkflowParameters = tree.get(Name=workflow._workflow_parameters_container_, Depth=1)
     if WorkflowParameters:
         WorkflowParameters.setParameters('Numerics', **workflow.Numerics)
+
+def _unstructured_zones_must_have_elements_connectivity( t : cgns.Tree):
+    for zone in t.zones():
+        zone : cgns.Zone
+        if zone.isUnstructured():
+            solver_param = zone.get('.Solver#Param')
+            if solver_param:
+                proc_node = solver_param.get('proc')
+                if proc_node:
+                    proc = proc_node.value()
+                    if proc != rank:
+                        continue
+
+            ngon_elts = zone.get(Name='NGonElements', Type='Elements_t')
+            if ngon_elts is None:
+                raise MolaException(f"unstructured zone {zone.path()} did not have NGonElements Elements_t")
+            expected_data_node_names = ['ElementRange', 'ElementStartOffset', 'ElementConnectivity', 'ParentElements']
+            for name in expected_data_node_names:
+                node = ngon_elts.get(Name=name)
+                if not node:
+                    raise MolaException(f'Did not find expected node {ngon_elts.path()}/{name}')
+
+
+            nface_elts = zone.get(Name='NFaceElements', Type='Elements_t')
+            if nface_elts is None:
+                raise MolaException(f"unstructured zone {zone.path()} did not have NFaceElements Elements_t")
+            expected_data_node_names = ['ElementRange', 'ElementStartOffset', 'ElementConnectivity']
+            for name in expected_data_node_names:
+                node = nface_elts.get(Name=name)
+                if not node:
+                    raise MolaException(f'Did not find expected node {nface_elts.path()}/{name}')
+

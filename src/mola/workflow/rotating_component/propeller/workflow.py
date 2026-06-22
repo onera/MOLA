@@ -17,8 +17,9 @@
 
 import numpy as np
 from treelab import cgns
+from packaging.version import Version
 
-from mola.logging import MolaUserError, MolaException
+from mola.logging import mola_logger, MolaUserError, MolaException
 from ..workflow import WorkflowRotatingComponent
 from .interface import WorkflowPropellerInterface
 from mola.cfd.postprocess import extract_bc
@@ -55,13 +56,27 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         # else: 
         #     self._extract_bc_default_tool = 'cassiopee'
 
+    def assemble(self):
+        super().assemble()
+        self.force_tagging_all_zones_with_name_propeller()
+        self.set_workflow_parameters_in_tree()
+
+    def force_tagging_all_zones_with_name_propeller(self):
+        for base in self.tree.bases():
+            family_under_base = cgns.Node(Name='Propeller',Type='Family_t')
+            base.addChild(family_under_base)
+
+            for zone in base.zones():
+                family_name_under_zone = cgns.Node(Name='FamilyName',Type='FamilyName_t',Value='Propeller')
+                zone.addChild(family_name_under_zone)
+
+
     def compute_flow_and_turbulence(self):
         self.set_velocity_for_scaling_and_turbulence()
         super().compute_flow_and_turbulence()
 
 
     def set_velocity_for_scaling_and_turbulence(self):
-        
         omega_units = self.ApplicationContext["ShaftRotationSpeedUnit"]
         if omega_units == 'rpm':
             omega = (np.pi / 30.0) * self.ApplicationContext["ShaftRotationSpeed"]
@@ -69,6 +84,7 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             omega = self.ApplicationContext["ShaftRotationSpeed"]
         else:
             raise MolaUserError(f'got wrong ShaftRotationSpeedUnit "{omega_units}", shall be "rpm" or "rad/s"')
+        
         
         r_max = self.blade_radius()
         assert r_max > 0
@@ -110,13 +126,35 @@ class WorkflowPropeller(WorkflowRotatingComponent):
         else: 
             tool = self._extract_bc_default_tool
 
+        mola_logger.info(f"    📐 measuring propeller blade radius with {tool}...", rank=0)
+
+        if not self.tree.isStructured():
+            if tool == 'cassiopee':
+                raise MolaUserError('cannot compute blade radius on unstructured grids using Cassiopee:\n'
+                                    'see https://gitlab.onera.net/numerics/mola/-/work_items/308#note_82633\n'
+                                    'HINT: provide _BladeRadius into ApplicationContext')
+            elif tool.startswith('maia'):
+                from maia import __version__ as current_maia_version
+                if Version(current_maia_version) < Version('1.8'):
+                    raise MolaUserError(
+                        f'cannot extract propeller blade radius using maia v{current_maia_version}.\n'
+                        'It requires maia >=1.8 (https://gitlab.onera.net/numerics/mesh/maia/-/issues/201).\n'
+                        'HINT: provide _BladeRadius into ApplicationContext')
+
+
+        # if not, go ahead with default tool
+        # if is NGON: forbid Cassiopee and if maia<=1.8 then raise user exception requiring ApplicationContext=_BladeRadius
+
         tree = self.tree
         if tool == 'maia':
             tree = self._get_partitioned_tree_for_use_in_maia()
 
         blade_family_name = self.get_blade_family_names(must_be_unique=True)[0]
+        mola_logger.info(f"DEBUG extract_bc...", rank=0)
         blade_surface = extract_bc(tree, blade_family_name, tool=tool)
+        mola_logger.info(f"DEBUG _compute_maximum_distance_to_axis_from...", rank=0)
         self._blade_radius = self._compute_maximum_distance_to_axis_from(blade_surface)
+        mola_logger.info(f"DEBUG ####### DONE #######", rank=0)
         self.ApplicationContext['_BladeRadius'] = self._blade_radius
         return self._blade_radius
     

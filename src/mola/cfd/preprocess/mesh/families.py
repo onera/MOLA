@@ -69,6 +69,22 @@ def apply(workflow):
 
         # Add a default family to untagged zones if needed
         append_default_zone_family_to_zones(base)
+        remove_orphan_family_tags(base)
+
+def remove_orphan_family_tags(base : cgns.Base):
+    # maybe required when forcing retagging blocks like in workflow propeller
+    zones_tags = set()
+    for zone in base.zones():
+        zone_tags_nodes = zone.group(Type='FamilyName_t') + zone.group(Type='AdditionalFamilyName_t')
+        for tag_node in zone_tags_nodes:
+            tag = tag_node.value() 
+            zones_tags.add(tag)
+
+    for base_tag_node in base.group(Type='Family_t'):
+        base_tag = base_tag_node.name()
+        if base_tag not in zones_tags:
+            base_tag_node.remove()
+
 
 def set_bc_family_from_location(base, FamilyName, location):
     import Converter.PyTree as C

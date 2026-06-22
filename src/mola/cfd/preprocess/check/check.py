@@ -134,9 +134,11 @@ def assert_bc_and_connectivity_coherency(tree):
     
     checks = {
         5:'valid BC range', 
-        6:'valid opposite BC range for match and nearmatch',
-        9:'valid connectivity', # BEWARE https://github.com/onera/Cassiopee/issues/324
+        9:'valid connectivity', 
     }
+
+    if tree.isStructured(): # since in NGON is prone to false errors like Donor zone ROTOR_MAPE/blk-1 of BC PerioL_0 (zone blk-1) does not exist.
+        checks[6]='valid opposite BC range for match and nearmatch' # BEWARE https://github.com/onera/Cassiopee/issues/324
     
     tRef = I.adaptPE2NFace(tree) # HACK required by check level 9 (avoids message "NFace is missing for zone <zonename>")
 

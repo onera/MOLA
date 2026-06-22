@@ -486,7 +486,7 @@ def get_workflow_sphere_unstruct(RunDirectory):
         Extractions=[
             # dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
             # dict(Type='BC', Source='WallViscous', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True), # FIXME BUG if active
-            # dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1e-6, ExtractAtEndOfRun=True),
+            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=1e-6, ExtractAtEndOfRun=True),
             dict(Type='3D', Fields=['PressureStagnation', 'Pressure', 'Mach', 'Entropy'], ExtractAtEndOfRun=True),
             ],
 
@@ -867,7 +867,7 @@ def test_workflow_2_cosplit(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.cost_level_3
-@pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
+# @pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
 def test_workflow_2_unstr_cosplit(tmp_path):
     
     params = get_workflow2_parameters()
@@ -988,12 +988,13 @@ def test_workflow_sphere_unstruct_local(tmp_path):
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
+# @pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.cost_level_4
-@pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
 def test_workflow_sphere_unstruct_pypart(tmp_path):
     w = get_workflow_sphere_unstruct(tmp_path)
+    w.RunManagement['NumberOfProcessors'] = 2
     w.RunManagement['Scheduler'] = 'local'
     w.SplittingAndDistribution["Strategy"] = "AtComputation"
     w.SplittingAndDistribution["Splitter"] = "PyPart"

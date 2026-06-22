@@ -500,3 +500,12 @@ def is_partitioned(tree, backend='maia'):
     if backend == 'maia':
         from mola.cfd.preprocess.mesh import maia_wrapper
         return maia_wrapper.is_partitioned(tree)
+    
+def tree_has_ngon(tree : cgns.Tree):
+    return any([elt_type in ['NGON_n', 'NFACE_n'] for elt_type in tree.getElementsTypes()])
+
+def tree_has_not_any_ngon(tree : cgns.Tree):
+    return any([elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in tree.getElementsTypes()])
+
+def tree_has_all_ngon(tree : cgns.Tree):
+    return all([elt_type in ['NGON_n', 'NFACE_n'] for elt_type in tree.getElementsTypes()])

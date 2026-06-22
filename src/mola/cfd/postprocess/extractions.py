@@ -34,7 +34,12 @@ def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, 
 
     elif tool.lower() == 'maia':
         from .extractions_with_maia import iso_surface
-        extraction = iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm=MPI.COMM_WORLD)
+        try:
+            extraction = iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm=MPI.COMM_WORLD)
+        except Exception as e:
+            tree = cgns.Node(t)
+            tree.save(f'debug_{rank}.cgns')
+            raise Exception(f"FAILED at maia iso_surface {IsoSurfaceField}={IsoSurfaceValue} at continer {IsoSurfaceContainer}, check debug_{rank}.cgns") from e
         extraction = cgns.castNode(extraction)
         extraction.bases()[0].setName(Name)
 

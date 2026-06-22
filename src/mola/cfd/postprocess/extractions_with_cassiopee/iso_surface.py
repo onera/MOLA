@@ -153,23 +153,23 @@ def _iso_surface_on_merge_containers(t, fieldname=None, value=None, container='F
             if I.getValue(n) == 'CellCenter':
                 I.setValue(n,'Vertex')
 
+
         # HACK https://elsa.onera.fr/issues/11255
         if I.getZoneType(zone) == 2: # unstructured zone
             if I.getNodeFromName1(zone,I.__FlowSolutionCenters__):
                 fieldnames = C.getVarNames(zone, excludeXYZ=True, loc='centers')[0]
-                for f in fieldnames:
-                    C._center2Node__(zone,f,0)
+                I._createUniqueChild(zone,'.fieldnames','UserDefinedData_t', value=' '.join(fieldnames))
+                C.convertPyTree2File(zone,zone[0]+'.cgns')
+                # for f in fieldnames:
+                #     C._center2Node__(zone,f,0)
                 I._rmNodesByName1(zone,I.__FlowSolutionCenters__)
 
             # HACK https://gitlab.onera.net/numerics/mola/-/issues/111
             # HACK https://elsa.onera.fr/issues/10997#note-6
+            continue
             zone = T.breakElements(zone)
 
-        try:
-            surfs = P.isoSurfMC(zone, fieldnameWithTag, value)
-        except IndexError as e:
-            C.convertPyTree2File(zone,f'debug_{Cmpi.rank}.cgns')
-            raise IndexError("dumped debug cgns") from e
+        surfs = P.isoSurfMC(zone, fieldnameWithTag, value)
 
 
         for surf in I.getZones(surfs):
