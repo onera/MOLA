@@ -659,6 +659,22 @@ class WorkflowInterface(object):
         '''
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_Residuals, self.get_default_values_from_local_signature()))
+        
+    def add_to_Extractions_RawSolverOutput(self,
+        File : str = f'output_tree_{solver}.cgns',
+        ExtractionPeriod : int = 1000000,  # no extraction during the run by default
+        SavePeriod : int = 1000000,
+        Override : bool = True,
+        ExtractAtEndOfRun : bool = True,
+        *,
+        Type : str = 'RawSolverOutput',
+        ):
+        '''
+        Extraction of raw output tree from the solver
+        '''
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_RawSolverOutput,
+            self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_Integral(self,
             File : str = names.FILE_OUTPUT_1D,
