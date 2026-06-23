@@ -1642,18 +1642,20 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
                                 bulb_rear, blade_number, rotation_center,
                                 rotation_axis, central_first_cell,
                                 central_last_cell,'rear')
-        I._renameNode(surfs_rear,'TFI2_spinner_1','TFI2_spinner_3')
-        I._renameNode(surfs_rear,'TFI2_spinner_2','TFI2_spinner_4')
     else:
         if rear_support:
             # NEW
             wires_rear, surfs_rear, grids_rear = buildRearMonoblockSector(blade_number,
                                     external_surfaces, spinner_rear, rear_support)
+
         else:
             wires_rear, surfs_rear, grids_rear = _buildHubWallAdjacentSectorWithoutBulb(
                                     rear_surface, spinner_rear, blade_number, rotation_center,
                                     rotation_axis, central_last_cell)
-            
+
+    I._renameNode(surfs_rear,'TFI2_spinner_1','TFI2_spinner_3')
+    I._renameNode(surfs_rear,'TFI2_spinner_2','TFI2_spinner_4')
+
     if DIRECTORY_CHECKME:
         t_check = J.tree(WIRES_REAR_8=wires_rear, SURFS_REAR_8=surfs_rear)
         J.save(t_check, os.path.join(DIRECTORY_CHECKME,'8_rear_near_topo.cgns'))
@@ -1700,6 +1702,12 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
     #     PROFILE=profile,
     #     REAR_SUPPORT=rear_support,
     # ),'debug_farfield_sector.cgns')
+    # # t = J.load('debug_farfield_sector.cgns')
+    # # base_sector_bnds = I.getNodeByName1(t,'SECTOR_BNDS')
+    # # sector_bnds = I.getZones(base_sector_bnds)
+    # # base_profile = I.getNodeByName1(t,'PROFILE')
+    # # profile = I.getZones(base_profile)
+
 
     fargrids, farfaces = _buildFarfieldSector(sector_bnds, profile,
                          blade_number, npts_azimut, H_grid_interior_points,
@@ -1922,12 +1930,10 @@ def _buildHgridAroundBlade(external_surfaces, blade, hub, rotation_center,
                            h_inner_normal_tension=0.3, h_outter_normal_tension=0.3,
                            shift=0,
                            DIR_CHECK='CHECK_ME'):
-    from scipy.interpolate import interp1d
 
     spine = _getSpineFromBlade( blade )
     wall_cell_height = W.distance( W.point( spine ), W.point( spine, 1 ) )
     W.addDistanceRespectToLine(spine, rotation_center, rotation_axis, 'span')
-    span, = J.getVars(spine, ['span'])
     s = W.gets( spine )
     span_pts = len(s)
 
@@ -2624,6 +2630,7 @@ def _gatherSectorBoundaries(Hgrids, blade, surfs_rear, surfs_front):
 
     _putSmoothedNormalsAtSurfaces(surfaces, eps=0.9, niter=100, mode=0)
 
+
     return surfaces
 
 def _putSmoothedNormalsAtSurfaces(surfaces, eps=0.9, niter=100, mode=0):
@@ -2814,6 +2821,16 @@ def _buildFarfieldCapsule(profile, blade_number, distance, max_radius=np.inf,
     trailing_edge_distance_to_axis = W.distanceOfPointToLine(W.extremum(profile[-1],True),[1,0,0],[0,0,0])
     HAS_REAR_BULB = True if trailing_edge_distance_to_axis < 1e-6 else False
 
+    # print(f"{max_radius=}")
+    # print(f"{rmax_profile=}")
+    # print(f"{capsule_radius=}")
+    # print(f"{xmin=}")
+    # print(f"{xmax=}")
+    # print(f"{leading_edge_distance_to_axis=}")
+    # print(f"{trailing_edge_distance_to_axis=}")
+    # print(f"{HAS_FRONT_BULB=}")
+    # print(f"{HAS_REAR_BULB=}")
+
     if HAS_FRONT_BULB:
         profile_rev = front_arc = D.circle((xmin+rmax_profile,0,0),capsule_radius,90.0,180.0,90)
         W.reverse(front_arc,True)
@@ -2828,6 +2845,15 @@ def _buildFarfieldCapsule(profile, blade_number, distance, max_radius=np.inf,
     if not HAS_FRONT_BULB and not HAS_REAR_BULB:
         profile_rev = D.line((xmin,capsule_radius,0),
                              (xmax,capsule_radius,0),2)
+
+    
+    if HAS_FRONT_BULB and not HAS_REAR_BULB:
+        end_extrema_profile_rev = W.point(profile_rev,-1)
+        rear_line = D.line(end_extrema_profile_rev,
+            (xmax,end_extrema_profile_rev[1],end_extrema_profile_rev[2]),2)
+        profile_rev = W.joinSequentially([profile_rev, rear_line])
+    
+
         
     if rear_support:
         profile_rev = W.adjustUpToGeometry(profile_rev, rear_support, direction=[1,0,0])
@@ -2852,15 +2878,23 @@ def _buildFarfieldCapsule(profile, blade_number, distance, max_radius=np.inf,
         profile_rev = W.adjustUpToGeometry(profile_rev, front_support, direction=[-1,0,0])
         W.reverse(profile_rev,True)
 
-    
     W.discretizeInPlace(profile_rev, N=3000)
 
     profile_rev_sectors = W.splitAndDiscretizeCurveAsProvidedReferenceCurves(profile_rev,
         profile, FarfieldProfileAbscissaDeltas)
+    profile_rev_sectors = W.reDiscretizeCurvesWithSmoothTransitions(profile_rev_sectors)
+
+    profile_rev = W.joinSequentially(profile_rev_sectors)
     
     for p, pr in zip(profile, profile_rev_sectors): pr[0] = p[0]+'.far'
 
-    profile_rev = W.joinSequentially(profile_rev_sectors)
+
+    # J.save(J.tree(
+    #     # PROFILE=profile,
+    #     SMOOTH=smooth_profile_rev_sectors,
+    #     PROFILE_REV_SECTORS=profile_rev_sectors
+    #     ),'debug.cgns')
+    # # exit()
 
     return profile_rev, profile_rev_sectors
 
@@ -3523,7 +3557,6 @@ def _buildFarfieldSector(sector_bnds, profile, blade_number, npts_azimut,
     TFI2_spinner_join_lowedge = GSD.getBoundary(TFI2_spinner_join,'jmin')
     TFI2_spinner_join_lowedge[0] = 'TFI2_spinner_join_lowedge'
     
-
     TFI2_spinner_rear = T.join(*rear_spinner)
     rear_near_low = GSD.getBoundary(TFI2_spinner_rear,'jmin')
     rear_near_low[0] = 'rear_near_low'
@@ -5386,9 +5419,24 @@ def checkAirfoilDistributionCoherency(AirfoilDistribution):
         raise AttributeError(f'User shall provide at least 2 sections in AirfoilDistribution (found {nb_of_sections})')
     
     for k in same_length_keys:
-        len_key = len(AirfoilDistribution[k])
-        if nb_of_sections != len_key:
-            raise AttributeError(f'User specified {nb_of_sections} sections in RelativeSpan, so it is expected also {nb_of_sections} items for {k}, but got {len_key}')
+        foildist = AirfoilDistribution[k]
+        typedist = type(foildist)
+        
+        if typedist in (float,int):
+            foildist = [foildist]*nb_of_sections
+
+        else:
+            if hasattr(foildist,'__len__'):
+                len_key = len(foildist)
+                if len_key == 1:
+                    foildist = [foildist[0]]*nb_of_sections
+                elif nb_of_sections != len_key:
+                    AttributeError(f'User specified {nb_of_sections} sections in RelativeSpan, so it is expected also {nb_of_sections} items for {k}, but got {len_key}')
+            
+            else:
+                raise TypeError(f"Unsupported type {typedist} for {k}, shall be float or array-like")
+
+        AirfoilDistribution[k] = foildist
 
 
 def proposeHgridXlocations(blade, profile, x_chord_ratio=0.25):

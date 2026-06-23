@@ -6097,24 +6097,25 @@ def reDiscretizeCurvesWithSmoothTransitions(curves):
                                              LastCellHeight=last_segment))
 
     nb_of_curves = len(curves)
-    segments = np.array([segment(uniformize(c)) for c in curves])
-    transitions = np.minimum(segments[:-1], segments[1:])
 
     smoothly_discretized_curves = []
     for i in range(nb_of_curves):
         curve = curves[i]
         
         if i==0:
-            smoothly_discretized_curves += [
-                rediscretize(curve,  segments[0], transitions[i])]
+            first_segment = segment(curve,0)
+            last_segment = 0.5*(segment(curve,-1) + segment(curves[1],0))
         
         elif i==nb_of_curves-1:
-            smoothly_discretized_curves += [
-                rediscretize(curve,  transitions[i-1], segments[i])]
+            first_segment = 0.5*(segment(curve,0) + segment(curves[-2],-1))
+            last_segment = segment(curve,-1)
         
         else:
-            smoothly_discretized_curves += [
-                rediscretize(curve,  transitions[i-1], transitions[i])]
+            first_segment = 0.5*(segment(curve,0) + segment(curves[i-1],-1))
+            last_segment = 0.5*(segment(curve,-1) + segment(curves[i+1],0))
+
+        smoothly_discretized_curves += [
+            rediscretize(curve,  first_segment, last_segment)]
             
     return smoothly_discretized_curves
 
