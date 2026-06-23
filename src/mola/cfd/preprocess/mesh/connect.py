@@ -151,7 +151,7 @@ def apply_with_cassiopee(workflow):
                     msg = ('cannot make periodic match using Cassiopee and MPI parallel execution:\n'
                            'https://elsa.onera.fr/issues/11706')
                     raise MolaException(msg)
-                C.convertPyTree2File(base,'in.cgns')
+
                 base_out = X.connectMatchPeriodic(
                     base,
                     rotationCenter=rotation_center,

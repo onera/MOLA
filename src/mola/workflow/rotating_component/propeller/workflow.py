@@ -150,11 +150,8 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             tree = self._get_partitioned_tree_for_use_in_maia()
 
         blade_family_name = self.get_blade_family_names(must_be_unique=True)[0]
-        mola_logger.info(f"DEBUG extract_bc...", rank=0)
         blade_surface = extract_bc(tree, blade_family_name, tool=tool)
-        mola_logger.info(f"DEBUG _compute_maximum_distance_to_axis_from...", rank=0)
         self._blade_radius = self._compute_maximum_distance_to_axis_from(blade_surface)
-        mola_logger.info(f"DEBUG ####### DONE #######", rank=0)
         self.ApplicationContext['_BladeRadius'] = self._blade_radius
         return self._blade_radius
     
