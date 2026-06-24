@@ -117,7 +117,7 @@ class WorkflowManager():
                  manager_file_path=names.FILE_WORKFLOW_MANAGER,
                  ):
         
-        if isinstance(arg, str) and arg.endswith('.cgns'):
+        if isinstance(arg, str):
             # init reading a file previously written by WorkflowManager.write
             self.read(arg)
         else:
@@ -188,6 +188,14 @@ class WorkflowManager():
                 for workflow in sequential_manager.workflows]
     
     def write(self):
+        if self.manager_file_path.endswith('.cgns'):
+            self.write_cgns(self.manager_file_path)
+        elif self.manager_file_path.endswith('.yaml'):
+            self.write_yaml(self.manager_file_path)
+        else:
+            raise MolaException(f"cannot read {self.manager_file_path}. Accepted formats are .yaml and .cgns")
+            
+    def write_cgns(self, manager_file_path):
         if self.sequential_managers is None:
             self._init_sequential_managers()
 
@@ -203,11 +211,44 @@ class WorkflowManager():
             RunDirectories = self.get_run_directories(),
             WorkflowDispatcher = d,
             )
-        tree.save(self.manager_file_path)
+        tree.save(manager_file_path)
 
-    def read(self, manager_filepath):
-        tree = cgns.load(manager_filepath)
-        WorkflowDispatcher = cgns.load_from_path(manager_filepath, 'WorkflowManager/WorkflowDispatcher')
+    def write_yaml(self, manager_file_path):
+        if self.sequential_managers is None:
+            self._init_sequential_managers()
+
+        d = self.dispatcher.convert_to_dict()
+        config_data = dict(
+            ContainerName = 'WorkflowManager',
+            Machine = self.machine,
+            RootDirectory = self.root_directory,
+            DataDirectory = self.data_directory,
+            SkipIfExists = self.skip_if_exists, 
+            BaseWorkflow = self.base_workflow.convert_to_dict(), 
+            RunDirectories = self.get_run_directories(),
+            WorkflowDispatcher = d,
+            )
+
+        # convert arrays to list
+        config_data = convert_numpy_arrays_to_lists(config_data)
+        
+        import yaml
+        with open(manager_file_path, "w") as file:
+            yaml.dump(config_data, file)
+
+    def read(self, manager_file_path):
+        mola_logger.info(f'Reading {manager_file_path}...')
+        if manager_file_path.endswith('.cgns'):
+            self.read_cgns(manager_file_path)
+        elif manager_file_path.endswith('.yaml'):
+            self.read_yaml(manager_file_path)
+        else:
+            raise MolaException(f"cannot read {manager_file_path}. Accepted formats are .yaml and .cgns")
+        mola_logger.info(f'WorkflowManager is ready.')
+
+    def read_cgns(self, manager_file_path):
+        tree = cgns.load(manager_file_path)
+        WorkflowDispatcher = tree.getAtPath('WorkflowManager/WorkflowDispatcher')
         parameters = tree.getParameters('WorkflowManager', transform_numpy_scalars=True)
         self.root_directory = parameters['RootDirectory']
         self.data_directory = parameters['DataDirectory']
@@ -216,6 +257,25 @@ class WorkflowManager():
         self.base_workflow = self.dispatcher.base_workflow
         self.machine = parameters['Machine']
         self.run_directories = parameters['RunDirectories']
+        self.sequential_managers = None
+        self._init_sequential_managers()
+    
+    def read_yaml(self, manager_file_path):
+        import yaml
+        with open(manager_file_path, "r") as file:
+            parameters = yaml.safe_load(file)
+        t = cgns.Tree()
+        t.setParameters(ContainerName='WorkflowDispatcher', **parameters['WorkflowDispatcher'])
+        WorkflowDispatcher = t.get(Name='WorkflowDispatcher', Depth=1)
+        self.dispatcher = read_workflow_dispatcher_from_tree(WorkflowDispatcher)
+        self.root_directory = parameters['RootDirectory']
+        self.data_directory = parameters['DataDirectory']
+        self.skip_if_exists = parameters['SkipIfExists']
+        self.base_workflow = self.dispatcher.base_workflow
+        self.machine = parameters['Machine']
+        self.run_directories = parameters['RunDirectories']
+        self.sequential_managers = None
+        self._init_sequential_managers()
 
     def get_synchronized_directories(self, filenames: Union[list, None]=None, update_from_remote_machine: bool=True):
         if filenames is None:
@@ -262,7 +322,8 @@ class WorkflowManager():
                 )
                 SV.get_all_cases_from_workflow_manager(
                     included_files=included_files, 
-                    excluded_files=set('*')
+                    excluded_files=set('*'), 
+                    workflow_manager=self,
                 )
 
         else:
@@ -275,7 +336,6 @@ class WorkflowManager():
         
         return completed_run_directories
         
-
     def gather_signals(self, queries, filename=None, keep_last_point=False, update_from_remote_machine=True):
         """
         Need for an extraction method from queries (path, metadata)
@@ -297,7 +357,10 @@ class WorkflowManager():
                 try:
                     node = signals.getAtPath(path)
                 except:
-                    raise MolaException(f'Cannot find node at {path} in {filename}')
+                    # raise MolaException(f'Cannot find node at {path} in {filename}')
+                    node = None
+                    # results[path.split('/')[-1]] = None
+                    mola_logger.warning(f'Cannot find node at {path} in {local_dir}/{filename}')
                 if node:
                     results[node.name()] = node.value()
             return results
@@ -337,11 +400,18 @@ class WorkflowManager():
             dir_case = path.name
 
             if dir_multi not in ordered_signals:
+                if len(data) == 0:
+                    # empty dict, because there is no data gather for this directory
+                    # maybe because postprocess was not applied
+                    continue
                 ordered_signals[dir_multi] = dict((key, [value]) for key, value in data.items())
                 ordered_signals[dir_multi]['case'] = [dir_case]
             else:
                 for key, value in data.items():
-                    ordered_signals[dir_multi][key].append(value)
+                    if key not in ordered_signals[dir_multi]:
+                        ordered_signals[dir_multi][key] = [value]
+                    else:
+                        ordered_signals[dir_multi][key].append(value)
                 ordered_signals[dir_multi]['case'].append(dir_case)
 
         for dir_multi, perfo_on_iso in ordered_signals.items():
@@ -506,6 +576,60 @@ def read_workflow_dispatcher_from_tree(tree):
 
     return dispatcher
 
+def read_workflow_dispatcher_from_yaml(tree):
+    from . import AVAILABLE_WORKFLOWS
+
+    def _build_workflow_tree(t):
+        workflow_tree = cgns.Tree()
+        t = t.copy()
+        t.setName(names.CONTAINER_WORKFLOW_PARAMETERS)
+        workflow_tree.addChild(t)
+        return workflow_tree
+        
+    BaseWorkflow = tree.get(Name='BaseWorkflow', Depth=1)
+    workflow_name = BaseWorkflow.get(Name='Name', Depth=1).value()
+    PreviouslyUsedWorkflow = AVAILABLE_WORKFLOWS.get(workflow_name)
+    base_workflow = PreviouslyUsedWorkflow(tree=_build_workflow_tree(BaseWorkflow))
+
+    dispatcher = WorkflowDispatcher(base_workflow)
+
+    dispatcher.workflows_in_current_job = None
+    dispatcher.root_directories = tree.get(Name='RootDirectories', Depth=1).value()
+    if isinstance(dispatcher.root_directories, str):
+        dispatcher.root_directories = [dispatcher.root_directories]
+
+    dispatcher.table_of_workflows = []
+    TableOfWorkflows = tree.get(Name='TableOfWorkflows', Depth=1)
+    for workflows_in_job in TableOfWorkflows.children():
+        workflows = []
+        for workflow in workflows_in_job.children():
+            workflows.append(PreviouslyUsedWorkflow(tree=_build_workflow_tree(workflow)))
+        dispatcher.table_of_workflows.append(workflows)
+
+    return dispatcher
+
+def convert_numpy_arrays_to_lists(config_data):
+    """
+    Recursively convert all numpy arrays in a nested dictionary to lists.
+    
+    Args:
+        config_data: A nested dictionary that may contain numpy arrays
+        
+    Returns:
+        A new dictionary with all numpy arrays converted to lists
+    """
+    if isinstance(config_data, dict):
+        return {key: convert_numpy_arrays_to_lists(value) for key, value in config_data.items()}
+    elif isinstance(config_data, list):
+        return [convert_numpy_arrays_to_lists(item) for item in config_data]
+    elif isinstance(config_data, np.ndarray):
+        return config_data.tolist()
+    elif isinstance(config_data, np.generic):  # numpy scalar data
+        return config_data.item()  # convert numpy.float64 -> float, numpy.int32 -> int, etc
+    else:
+        return config_data
+
+
 class WorkflowSequentialManager():
     '''
     This class is instanciated by :py:meth:`WorkflowManager._init_sequential_managers`.
@@ -557,12 +681,16 @@ class WorkflowSequentialManager():
                     raise MolaAssertionError(
                         f'RunDirectory {path} is not consistent with the root path {self.root_directory}.'
                         )
-                self.cases_local_paths.append(path.replace(self.root_directory, ''))
+                local_path = path.replace(self.root_directory, '')
+                if local_path.startswith(os.path.sep):
+                    # may happen if root_directory="." (and not "./")
+                    local_path = local_path[1:]  
+                self.cases_local_paths.append(local_path)
 
     def _set_machine(self):
         first_workflow = self.workflows[0] 
         RunManagement = copy.deepcopy(first_workflow.RunManagement)
-        scheduler_options = run_manager.set_default(RunManagement, check_run_dir=not self.skip_if_exists)
+        scheduler_options = run_manager.set_default(RunManagement)
         self.machine = RunManagement['Machine']
         self.manager = RunManagement['Scheduler']
         self.job_text = write_cfd_files.get_job_text(first_workflow.Solver, RunManagement, scheduler_options)

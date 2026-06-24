@@ -64,10 +64,11 @@ def get_remote_info():
 
     return run_directory, machine, user
 
-def get_workflow_manager_info():
-    from mola.workflow import WorkflowManager
-
-    manager = WorkflowManager(names.FILE_WORKFLOW_MANAGER)
+def get_workflow_manager_info(manager=None):
+    if manager is None:
+        # read WorkflowManager
+        from mola.workflow import WorkflowManager
+        manager = WorkflowManager(names.FILE_WORKFLOW_MANAGER)
 
     run_directories_tmp = manager.run_directories
     root_directory = manager.root_directory
@@ -105,11 +106,11 @@ def get_one_case(included_files: set=set(), excluded_files: set=set()):
         included_files=included_files, excluded_files=excluded_files
         )
     
-def get_all_cases_from_workflow_manager(included_files: set=set(), excluded_files: set=set()):
+def get_all_cases_from_workflow_manager(included_files: set=set(), excluded_files: set=set(), workflow_manager=None):
     assert isinstance(included_files, set)
     assert isinstance(excluded_files, set)
 
-    root_directory, run_directories, machine, user = get_workflow_manager_info()
+    root_directory, run_directories, machine, user = get_workflow_manager_info(workflow_manager)
 
     for run_directory in run_directories:
         local_dir = os.path.relpath(run_directory, root_directory)

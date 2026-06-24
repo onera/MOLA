@@ -18,7 +18,7 @@
 # INPUTS
 FILE_INPUT_WORKFLOW = 'workflow.cgns'
 FILE_INPUT_SOLVER = 'main.cgns'
-FILE_WORKFLOW_MANAGER = 'workflow_manager.cgns'
+FILE_WORKFLOW_MANAGER = 'workflow_manager.yaml'
 DIRECTORY_OVERSET = 'OVERSET'
 
 # OUTPUTS
