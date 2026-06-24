@@ -16,9 +16,9 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
-import os
 import numpy as np
 from treelab import cgns
+from mola import solver
 from mola.workflow.workflow import Workflow
 from mola.cfd.preprocess.initialization import initialization
 import mola.naming_conventions as names
@@ -42,6 +42,11 @@ def assert_is_same_node(ref_node, node):
         child = node.get(Name=ref_child.name(), Depth=1)
         assert is_same_node(ref_child, child)
 
+def _ravel_data(fs_node):
+    for da in fs_node.group(Type='DataArray', Depth=1):
+        value = da.value()
+        if value is not None:
+            da.setValue(value.ravel(order='K'))
 
 @pytest.fixture
 def debug_mesh(FlowSolution_ref):
@@ -74,6 +79,16 @@ def FlowSolution_ref():
     
     return ref_fs   
 
+def get_correct_FlowSolution_name_from_solver():
+    if solver == 'sonics':
+        fs_name = 'Fields@Cell@Init'
+    elif solver == 'fast':
+        fs_name = 'FlowSolution#Centers'
+    elif solver == 'elsa':
+        fs_name = 'FlowSolution#Init'
+    else:
+        raise Exception('unknown solver: {solver}. If needed, update this test function.')
+    return fs_name
 
 def apply_all_previous_stages(workflow):
     workflow.assemble()
@@ -124,18 +139,6 @@ def test_force_grid_location_as_first_sibling(debug_mesh):
     FlowSolution = debug_mesh.get(Type='FlowSolution_t')
     assert FlowSolution.children()[0].name() == 'GridLocation'
 
-def get_correct_FlowSolution_name_from_solver():
-    solver = os.getenv('MOLA_SOLVER')
-    if solver == 'sonics':
-        fs_name = 'Fields@Cell@Init'
-    elif solver == 'fast':
-        fs_name = 'FlowSolution#Centers'
-    elif solver == 'elsa':
-        fs_name = 'FlowSolution#Init'
-    else:
-        raise Exception('unknown solver: {solver}. If needed, update this test function.')
-    return fs_name
-
 @pytest.mark.unit
 @pytest.mark.cost_level_0
 def test_initialization_uniform(debug_mesh):
@@ -182,6 +185,8 @@ def test_initialization_method(debug_mesh, FlowSolution_ref, method):
 
     fs = workflow.tree.get(Name=fs_name)
     FlowSolution_ref.setName(fs_name)
+    if solver == 'sonics':
+        _ravel_data(FlowSolution_ref)
 
     assert_is_same_node(FlowSolution_ref, fs)
 
