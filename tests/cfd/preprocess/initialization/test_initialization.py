@@ -24,6 +24,25 @@ from mola.cfd.preprocess.initialization import initialization
 import mola.naming_conventions as names
 from mola.logging import MolaException
 
+def assert_is_same_node(ref_node, node):
+    # check that two nodes are the same and that their children are also the same   
+    def is_same_node(n1, n2):
+        same_name = n1.name() == n2.name()
+        same_type = n1.type() == n2.type()
+        if n1.value() is None and n2.value() is None:
+            same_value = True
+        elif isinstance(n1.value(), str):
+            same_value = n1.value() == n2.value()
+        else:
+            same_value = np.allclose(n1.value(), n2.value(), rtol=1e-12)
+        return same_name and same_type and same_value
+    
+    assert is_same_node(ref_node, node)
+    for ref_child in ref_node.children():
+        child = node.get(Name=ref_child.name(), Depth=1)
+        assert is_same_node(ref_child, child)
+
+
 @pytest.fixture
 def debug_mesh(FlowSolution_ref):
     tree = cgns.Tree()
@@ -143,7 +162,8 @@ def test_initialization_uniform(debug_mesh):
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_copy(debug_mesh, FlowSolution_ref):    
+@pytest.mark.parametrize("method", ["copy", "interpolate"])
+def test_initialization_method(debug_mesh, FlowSolution_ref, method):    
 
     fs_name = get_correct_FlowSolution_name_from_solver()
 
@@ -155,7 +175,7 @@ def test_initialization_copy(debug_mesh, FlowSolution_ref):
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SST'),
-        Initialization=dict(Method='copy', Source=debug_mesh),
+        Initialization=dict(Method=method, Source=debug_mesh),
     )
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)
@@ -163,15 +183,15 @@ def test_initialization_copy(debug_mesh, FlowSolution_ref):
     fs = workflow.tree.get(Name=fs_name)
     FlowSolution_ref.setName(fs_name)
 
-    import maia.pytree as PT
-    assert PT.is_same_node(fs, FlowSolution_ref)
+    assert_is_same_node(FlowSolution_ref, fs)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_copy_missing_variable(debug_mesh):  
+@pytest.mark.parametrize("method", ["copy", "interpolate"])
+def test_initialization_method_missing_value(debug_mesh, method):  
 
     # remove one of the field
-    debug_mesh.findAndRemoveNode(Name='Density')
+    debug_mesh.findAndRemoveNode(Name='Density')  
 
     target = debug_mesh.copy(deep=True)
     target.findAndRemoveNodes(Type='FlowSolution')
@@ -181,28 +201,32 @@ def test_initialization_copy_missing_variable(debug_mesh):
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SST'),
-        Initialization=dict(Method='copy', Source=debug_mesh),
-    )  
-
+        Initialization=dict(Method=method, Source=debug_mesh),
+    )
     apply_all_previous_stages(workflow)
     with pytest.raises(MolaException):
         initialization.apply(workflow)
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0
-def test_initialization_interpolate(debug_mesh, FlowSolution_ref):    
+@pytest.mark.parametrize("method", ["copy", "interpolate"])
+def test_initialization_copy_missing_turb_quantities(debug_mesh, FlowSolution_ref, method):    
 
     fs_name = get_correct_FlowSolution_name_from_solver()
 
     target = debug_mesh.copy(deep=True)
     target.findAndRemoveNodes(Type='FlowSolution')
 
+    # remove turbulent quantities
+    debug_mesh.findAndRemoveNode(Name='TurbulentEnergyKineticDensity')
+    debug_mesh.findAndRemoveNode(Name='TurbulentDissipationRateDensity')
+
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=target)],
         Flow = dict(Velocity=10.0),
         SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
         Turbulence = dict(Model='SST'),
-        Initialization=dict(Method='interpolate', Source=debug_mesh),
+        Initialization=dict(Method=method, Source=debug_mesh),
     )
     apply_all_previous_stages(workflow)
     initialization.apply(workflow)
@@ -210,27 +234,6 @@ def test_initialization_interpolate(debug_mesh, FlowSolution_ref):
     fs = workflow.tree.get(Name=fs_name)
     FlowSolution_ref.setName(fs_name)
 
-    import maia.pytree as PT
-    assert PT.is_same_node(fs, FlowSolution_ref)
+    assert fs.get(Name='TurbulentEnergyKineticDensity')
+    assert fs.get(Name='TurbulentDissipationRateDensity')
 
-@pytest.mark.unit
-@pytest.mark.cost_level_0
-def test_initialization_interpolate_missing_variable(debug_mesh):    
-
-    # remove one of the field
-    debug_mesh.findAndRemoveNode(Name='Density')
-
-    target = debug_mesh.copy(deep=True)
-    target.findAndRemoveNodes(Type='FlowSolution')
-
-    workflow = Workflow(
-        RawMeshComponents = [dict(Name='cart', Source=target)],
-        Flow = dict(Velocity=10.0),
-        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
-        Turbulence = dict(Model='SST'),
-        Initialization=dict(Method='interpolate', Source=debug_mesh),
-    )  
-
-    apply_all_previous_stages(workflow)
-    with pytest.raises(MolaException):
-        initialization.apply(workflow)

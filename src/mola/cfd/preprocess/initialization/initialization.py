@@ -176,10 +176,10 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
                 if var in workflow.Turbulence['Conservatives']:
                     # For turbulent values, allow using the reference state if not provided
                     if not warning_msg_already_printed:
-                        new_field = {var: workflow.Flow['ReferenceState'][var]}
-                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
+                        uniform_value = workflow.Flow['ReferenceState'][var]
+                        cgns.Node(Name=var, Type='DataArray', Value=uniform_value, Parent=FlowSolutionInSourceTree)
+                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({uniform_value})")
                         warning_msg_already_printed = True
-                        zone.newFields(new_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
                 else:
                     raise MolaException(f'{var} cannot be found in {FSpath}')
 
