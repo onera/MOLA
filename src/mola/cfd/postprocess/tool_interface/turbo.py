@@ -225,6 +225,10 @@ def postprocess_with_turbo(w, surfaces, signals, stages=[],
     turbo_required_vertex_container = 'FlowSolution'
     turbo_new_centers_container = 'FlowSolution#Centers'
 
+    # Remove 2D Elements to prevent a bug in etc.
+    # Theses Elements are present if the slices have been done with Maia.
+    surfaces.findAndRemoveNodes(Name='BAR_2')
+
     if isinstance(container_at_vertex, str):
         containers_at_vertex = [container_at_vertex]
     elif not isinstance(container_at_vertex, list):

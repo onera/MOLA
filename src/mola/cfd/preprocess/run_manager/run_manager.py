@@ -43,8 +43,9 @@ ALLOWED_SCHEDULERS = ['local','SLURM']
 def apply(workflow):
 
     workflow.RunManagement['SchedulerOptions'] = set_default(workflow.RunManagement)
+    check_remote_run_setup(workflow.RunManagement)
 
-def set_default(RunManagement, check_run_dir=True):
+def set_default(RunManagement):
     # CAVEAT: cannot use other contextual information contained in Workflow if 
     # only provides RunManagement in function
     set_default_machine(RunManagement)
@@ -54,7 +55,14 @@ def set_default(RunManagement, check_run_dir=True):
     for key, value in RunManagement.items():
         if isinstance(value, str) and len(value) == 0:
             raise MolaUserError(f'The value of parameter RunManagement["{key}"] cannot be an empty string.')
-        
+    
+    scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
+    set_time_margin(RunManagement, scheduler_options)
+    set_launcher_command(RunManagement)
+
+    return scheduler_options
+
+def check_remote_run_setup(RunManagement, check_run_dir=True):
     if not SV.run_on_localhost(RunManagement['Machine'], RunManagement['RunDirectory']):
         path = RunManagement['RunDirectory']
         machine = RunManagement['Machine']
@@ -75,12 +83,6 @@ def set_default(RunManagement, check_run_dir=True):
             SV.remove_path(path, machine, user, file_only=False)
         elif check_run_dir and SV.is_existing_path(f'{path}/{names.FILE_INPUT_SOLVER}', machine, user):
             raise MolaException(f"Run Directory {path} already exists")
-    
-    scheduler, scheduler_options = get_scheduler_and_options(RunManagement)
-    set_time_margin(RunManagement, scheduler_options)
-    set_launcher_command(RunManagement)
-
-    return scheduler_options
 
 def set_default_machine(RunManagement):
     if ('Machine' not in RunManagement) or (RunManagement['Machine'] == 'auto'):

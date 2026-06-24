@@ -76,14 +76,14 @@ class WorkflowTurbomachineryManager(WorkflowManager):
             mola_logger.user_warning('Because ParallelMode=True, initialize_from_previous is set to False.')
             initialize_from_previous = False
 
-        outflow_family, throttle_key = self._get_family_and_throttle_key()
+        outflow_family, throttle_key, job_key = self._get_variable_parameters()
 
         if not ParallelMode:
             self.new_job(f'isospeed_{30/np.pi*ShaftRotationSpeed:.0f}rpm')
 
         for throttle in throttles:
             if ParallelMode:
-                self.new_job(f'{throttle_key}_{throttle:.2f}')
+                self.new_job(f'{job_key}_{throttle:.2f}')
             self.add_variations(
                 [
                     ('RunManagement|JobName', f'{job_name}_{throttle:.2f}'),
@@ -94,11 +94,12 @@ class WorkflowTurbomachineryManager(WorkflowManager):
                 initialize_from_previous = initialize_from_previous
                 )
         
-    def _get_family_and_throttle_key(self):
+    def _get_variable_parameters(self):
         outflow_bc = mesh_tools.get_bc_from_bc_type(self.base_workflow, 'Outflow*')
         outflow_family = outflow_bc["Family"]
         throttle_key = self._get_throttle_key(outflow_bc)
-        return outflow_family, throttle_key
+        job_key = throttle_key.split('|')[-1]
+        return outflow_family, throttle_key, job_key
     
     @staticmethod
     def _get_throttle_key(outflow_bc):
@@ -117,9 +118,9 @@ class WorkflowTurbomachineryManager(WorkflowManager):
             
             # otherwise, a ValveLaw must be defined
             if outflow_bc['ValveLaw']['Type'] == 'Linear':
-                return 'PressureRef'
+                return 'ValveLaw|PressureRef'
             elif outflow_bc['ValveLaw']['Type'] == 'Quadratic':
-                return 'ValveCoefficient'
+                return 'ValveLaw|ValveCoefficient'
             
         else:
             raise MolaAssertionError(f"Outflow BC type {outflow_bc['Type']} not supported by WorkflowTurbomachineryManager")
@@ -130,15 +131,15 @@ class WorkflowTurbomachineryManager(WorkflowManager):
                            update_from_remote_machine=True) -> dict:
         upstream_plane, downstream_plane = self._get_planes_names_for_perfo(stage)
 
-        suffix = names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX.split('#')[1]
-
+        suffix = 1
         queries = [
-            f'CGNSTree/Averages0D/{downstream_plane}/{names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX}/Massflow',
-            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#{suffix}/StagnationPressureRatio',
-            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#{suffix}/IsentropicEfficiency',
+            f'CGNSTree/Averages0D/{downstream_plane}/{names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX}/MassFlow',
+            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#{suffix}/PressureStagnationRatio',
+            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#{suffix}/EfficiencyIsentropic',
         ]
         perfo_data = self.gather_signals(queries, filename=filename, keep_last_point=True, update_from_remote_machine=update_from_remote_machine)
 
+        perfo_data = self.rearange_signals(perfo_data)
         perfo_data = self._rearange_performance(perfo_data)
 
         return perfo_data
@@ -184,8 +185,13 @@ class WorkflowTurbomachineryManager(WorkflowManager):
 
     def _rearange_performance(self, perfo):
         ordered_perfo = dict()
-        for dir_iso, perfo_on_iso in self.rearange_signals(perfo).items():
-            rpm = float(dir_iso.replace('isospeed_', '').replace('rpm', ''))
+        for dir_iso, perfo_on_iso in perfo.items():
+            try:
+                rpm = float(dir_iso.replace('isospeed_', '').replace('rpm', ''))
+            except:
+                # the directories are not called isospeed_*
+                # ==> ignore this function
+                return perfo
 
             ordered_perfo[rpm] = perfo_on_iso
             cases = ordered_perfo[rpm].pop('case') 
@@ -206,10 +212,10 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         ax1.set_xlabel('MassFlow (kg/s)')
         ax1.set_ylabel('Total pressure ratio (-)', color=color)
         i = 0
-        for rpm, perfo_iso in perfo.items():
+        for label, perfo_iso in perfo.items():
             ax1.plot(perfo_iso['MassFlow'], perfo_iso['PressureStagnationRatio'],
                     color=color, 
-                    label=f'{rpm} rpm', 
+                    label=label, 
                     **linestyles[i])
             i += 1
         ax1.tick_params(axis='y', labelcolor=color)
@@ -219,13 +225,13 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         ax2 = ax1.twinx()
         ax2.set_ylabel('Isentropic efficiency (-)', color=color)
         i = 0
-        for rpm, perfo_iso in perfo.items():
+        for label, perfo_iso in perfo.items():
             ax2.plot(perfo_iso['MassFlow'], perfo_iso['EfficiencyIsentropic'],
                     color=color, 
-                    label=f'{rpm} rpm', 
+                    label=label, 
                     **linestyles[i])
             # To display legend in black
-            ax2.plot([], [], color='k', label=f'{rpm} rpm', **linestyles[i])
+            ax2.plot([], [], color='k', label=label, **linestyles[i])
             i += 1
         ax2.tick_params(axis='y', labelcolor=color)
         ax2.set_ylim(top=1)

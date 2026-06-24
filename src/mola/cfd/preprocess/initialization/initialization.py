@@ -25,7 +25,7 @@ def apply(workflow):
     '''
     Initialize the flow solution.
 
-    #. Compute FlowSolution#Init in all zones
+    #. Compute initial field in all zones
 
     #. Adapt this node to the solver
     '''
@@ -68,6 +68,18 @@ def initialize_flow_with_reference_state(workflow, FlowSolution_name):
     workflow.tree.findAndRemoveNodes(Name=FlowSolution_name)
     workflow.tree.newFields(workflow.Flow['ReferenceState'], Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
 
+def set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source_tree_repr):
+    if not 'SourceContainer' in workflow.Initialization \
+        and not source_tree.get(Name=FlowSolution_name, Type='FlowSolution') \
+        and source_tree.get(Name='FlowSolution#Init', Type='FlowSolution'):
+        mola_logger.warning((
+            f"There is no container named {FlowSolution_name} in {source_tree_repr}, "
+            "but at least one FlowSolution#Init is present. Set SourceContainer='FlowSolution#Init'."
+        ))
+        workflow.Initialization['SourceContainer'] = 'FlowSolution#Init'
+    else:  
+        workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
+
 def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     '''
     Initialize the flow solution of **t** from the flow solution in the file **sourceFilename**.
@@ -85,7 +97,8 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     
     source_tree = cgns.load(workflow.Initialization['Source'], backend='maia')
 
-    workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
+    set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source_tree_repr)
+
     # Rename FlowSolution nodes in the source tree if needed
     if workflow.Initialization['SourceContainer'] != FlowSolution_name:
         for FS in source_tree.group(Name=workflow.Initialization['SourceContainer'], Type='FlowSolution'):
@@ -95,6 +108,9 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     for FS in source_tree.group(Type='FlowSolution'):
         if FS.name() != FlowSolution_name:
             FS.remove()
+
+    if not source_tree.get(Name=FlowSolution_name, Type='FlowSolution'):
+        raise MolaException(f'There is no container named {FlowSolution_name} in {source_tree_repr}')
 
     # Check that all needed quantities are indeed in the container
     varNames = list(workflow.Flow['ReferenceState'])
@@ -112,6 +128,7 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
                 else:
                     raise MolaException(f'{var} cannot be found in {FS.path()}')
     
+    source_tree.findAndRemoveNodes(Type='ZoneBC')  # BC are useless here, and may cause incompatibility between frameworks
     source_tree = to_partitioned(source_tree)
     workflow.tree = to_partitioned(workflow.tree)
 
@@ -155,7 +172,7 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
     # FIXME Won't work if workflow.tree is a dist_tree or a part_tree (because zone names are modified)
     source_tree = cgns.load(workflow.Initialization['Source'])
 
-    workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
+    set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source_tree_repr)
 
     for zone in workflow.tree.zones():
         FSpath = zone.path() + '/' + workflow.Initialization['SourceContainer']
@@ -176,10 +193,10 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
                 if var in workflow.Turbulence['Conservatives']:
                     # For turbulent values, allow using the reference state if not provided
                     if not warning_msg_already_printed:
-                        new_field = {var: workflow.Flow['ReferenceState'][var]}
-                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
+                        uniform_value = workflow.Flow['ReferenceState'][var]
+                        cgns.Node(Name=var, Type='DataArray', Value=uniform_value, Parent=FlowSolutionInSourceTree)
+                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({uniform_value})")
                         warning_msg_already_printed = True
-                        zone.newFields(new_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
                 else:
                     raise MolaException(f'{var} cannot be found in {FSpath}')
 
