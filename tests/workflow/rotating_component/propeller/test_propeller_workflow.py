@@ -148,9 +148,9 @@ def test_workflow_propeller_sector_pre1_comp2(tmp_path, workflow_propeller_secto
     w.assert_completed_without_errors()
 
 
+# @pytest.mark.skipif(solver=='elsa', reason="bug when extracting pressure on bc of wall invscid using elsa") # FIXME BUG
 @pytest.mark.integration
 @pytest.mark.cost_level_1
-@pytest.mark.skipif(solver=='elsa', reason="bug when extracting pressure on bc of wall invscid using elsa") # FIXME BUG
 def test_wall_slip_extraction(tmp_path, workflow_propeller_sector_params):
     workflow_propeller_sector_params['Extractions'] = [
         dict(Type='BC', Source='WallInviscid', Fields=['Pressure'])

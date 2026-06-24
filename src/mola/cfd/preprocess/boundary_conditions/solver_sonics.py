@@ -260,7 +260,7 @@ def adapt_workflow_for_sonics(w : Workflow):
             w.RawMeshComponents[0].pop('Connection')
 
         if will_define_families:
-            w.define_families(w)
+            w.define_families()
             w.RawMeshComponents[0].pop('Families')
 
     _preset_splitting_and_distribution(w)
