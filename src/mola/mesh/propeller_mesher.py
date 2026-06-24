@@ -6065,3 +6065,19 @@ def rediscretizeBlade(blade,
 
     return new_blade
             
+def add_families_and_connect_propeller_mesh_line_config(t):
+    C._addBC2Zone(zones["bulb_front"],'bulb_front','FamilySpecified:FARFIELD', 'jmax')
+
+    zones = dict(
+    bulb_front = I.getNodeFromName3(t,'bulb_front'),
+    main_front = I.getNodeFromName3(t,'main_front'),
+    h_sidea = I.getNodeFromName3(t,'h_sidea'),
+    h_sideb = I.getNodeFromName3(t,'h_sideb'),
+    h_front = I.getNodeFromName3(t,'h_front'),
+    h_rear = I.getNodeFromName3(t,'h_rear'),
+    main_rear = I.getNodeFromName3(t,'main_rear'),
+    TFI3_bulb_front = I.getNodeFromName3(t,'TFI3_bulb.front'),
+    TFI3_spinner_front = I.getNodeFromName3(t,'TFI3_spinner.front'),
+    tfi23 = I.getNodeFromName3(t,'tfi.23'), # CAUTION !! some variability on the name is observed
+    TFI3_spinner = I.getNodeFromName3(t,'TFI3_spinner'),
+    )
