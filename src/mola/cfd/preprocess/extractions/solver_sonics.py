@@ -96,10 +96,11 @@ def add_fields_and_bc_extractions(workflow):
         if (sonics.spl.guards.nslam in conf) or (sonics.spl.guards.nstur in conf):
             extracts += df.create_zones(treg.LaminarViscosity, elt_location)
 
-        # incompatible with Vertex?:
-        if (sonics.spl.guards.nstur in conf):
-            extracts += df.create_zones(treg.TurbulentViscosity, elt_location)
-            extracts += df.create_zones(treg.TurbulentDistance,  elt_location)
+        if workflow.Numerics['GridLocation'] == 'CellCenter':
+            if (sonics.spl.guards.nstur in conf):
+                # seems incompatible with Vertex, see https://numerics.gitlab-pages.onera.net/coupling/miles/v0.0.7dev/api_reference/triggers/extractions.html#miles.Terms.values
+                extracts += df.create_zones(treg.TurbulentViscosity, elt_location) 
+                extracts += df.create_zones(treg.TurbulentDistance,  elt_location)
 
         for extraction in workflow.Extractions:
             if extraction['Type'] != 'BC' or len(extraction['Fields'])==0:
