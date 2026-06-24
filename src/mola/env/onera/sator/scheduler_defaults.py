@@ -1,11 +1,16 @@
+from mola import solver
+
 MOLA_PATH = '/tmp_user/sator/$USER/MOLA/Dev/src'
 
 JOB_SCHEDULER = 'SLURM'
 
 JOB_SCHEDULER_OPTIONS = {
     'time' : '15:00:00',
-    # 'constraint' : 'csl',
 }
+
+if solver == 'sonics':
+    JOB_SCHEDULER_OPTIONS['constraint'] = 'spr'
+
 
 MOLA_TO_SCHEDULER = {
     'AER' : 'comment',

@@ -96,6 +96,7 @@ def add_fields_and_bc_extractions(workflow):
         if (sonics.spl.guards.nslam in conf) or (sonics.spl.guards.nstur in conf):
             extracts += df.create_zones(treg.LaminarViscosity, elt_location)
 
+        # incompatible with Vertex?:
         if (sonics.spl.guards.nstur in conf):
             extracts += df.create_zones(treg.TurbulentViscosity, elt_location)
             extracts += df.create_zones(treg.TurbulentDistance,  elt_location)
