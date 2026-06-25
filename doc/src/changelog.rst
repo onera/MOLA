@@ -23,6 +23,7 @@ v2.0.1
 
 * Make more robust duplication process
 * Allow modifying stage parameters for elsA (for MixingPlane, UnsteadyRotorStatorInterface and ChorochronicInterface)
+* Optimize WorkflowManager
 
 ========
 🐞 Fixes
@@ -44,6 +45,8 @@ v2.0.1
   issues to restart a simulation.
 * Fix `bug #304 <https://gitlab.onera.net/numerics/mola/-/issues/304>`_:
   Correction on elsa simulation interruption when using 2nd order time marching.
+* Fix bugs in WorkflowManager
+* Fix bugs in postprocess interface for turbomachinery
 
 *****************
 v2 compared to v1 

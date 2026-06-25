@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from typing import Union
 import numpy as np
 from mola.logging import mola_logger, MolaAssertionError
@@ -131,11 +132,10 @@ class WorkflowTurbomachineryManager(WorkflowManager):
                            update_from_remote_machine=True) -> dict:
         upstream_plane, downstream_plane = self._get_planes_names_for_perfo(stage)
 
-        suffix = 1
         queries = [
             f'CGNSTree/Averages0D/{downstream_plane}/{names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX}/MassFlow',
-            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#{suffix}/PressureStagnationRatio',
-            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#{suffix}/EfficiencyIsentropic',
+            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#*/PressureStagnationRatio',
+            f'CGNSTree/Averages0D/{downstream_plane}/Comparison#{upstream_plane}#*/EfficiencyIsentropic',
         ]
         perfo_data = self.gather_signals(queries, filename=filename, keep_last_point=True, update_from_remote_machine=update_from_remote_machine)
 
@@ -200,45 +200,52 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         
         return ordered_perfo
 
-    def plot_isospeed_lines(self, perfo, filename='isoSpeedLines.png'):
+    def plot_isospeed_lines(self, perfo, variables='all', filename='isoSpeedLines.png', show=True):
         import matplotlib.pyplot as plt
+        
+        # import pprint
+        # for label, perfo_iso in perfo.items():
+        #     mola_logger.info(f"{label}: {pprint.pformat(perfo_iso)}\n")
 
-        linestyles = [dict(linestyle=ls, marker=mk) for mk in ['o', 's', 'd', 'h']
-                                                for ls in ['-', ':', '--', '-.']]
-        fig, ax1 = plt.subplots()
+        linestyles = [
+            dict(linestyle=ls, marker=mk) 
+            for (mk, ls) in zip(['x', '+', 'o', 's', 'd', 'h'], ['-', ':', '--', '-.', '-', ':'])
+            ]
+        
+        plot_options_by_variable = dict(
+            PressureStagnationRatio = dict(ylabel='Total pressure ratio (-)'),
+            EfficiencyIsentropic = dict(ylabel='Isentropic efficiency (-)'),
+        )
 
-        # Total pressure ratio
-        color = 'teal'
-        ax1.set_xlabel('MassFlow (kg/s)')
-        ax1.set_ylabel('Total pressure ratio (-)', color=color)
-        i = 0
-        for label, perfo_iso in perfo.items():
-            ax1.plot(perfo_iso['MassFlow'], perfo_iso['PressureStagnationRatio'],
-                    color=color, 
-                    label=label, 
-                    **linestyles[i])
-            i += 1
-        ax1.tick_params(axis='y', labelcolor=color)
+        if variables == 'all':
+            variables = list(plot_options_by_variable)
 
-        # Isentropic efficiency
-        color = 'firebrick'
-        ax2 = ax1.twinx()
-        ax2.set_ylabel('Isentropic efficiency (-)', color=color)
-        i = 0
-        for label, perfo_iso in perfo.items():
-            ax2.plot(perfo_iso['MassFlow'], perfo_iso['EfficiencyIsentropic'],
-                    color=color, 
-                    label=label, 
-                    **linestyles[i])
-            # To display legend in black
-            ax2.plot([], [], color='k', label=label, **linestyles[i])
-            i += 1
-        ax2.tick_params(axis='y', labelcolor=color)
-        ax2.set_ylim(top=1)
+        file_root, file_extension = os.path.splitext(filename)
 
-        if len(perfo) > 1:
-            ax2.legend(loc='center left', bbox_to_anchor=(1.1, 0.5))
+        for var_name in variables:
 
-        fig.tight_layout()
-        plt.savefig(filename, dpi=300)
-        plt.show()
+            fig = plt.figure()
+
+            plt.xlabel('MassFlow (kg/s)')
+            plt.ylabel(plot_options_by_variable[var_name].get('ylabel', var_name))
+            i = 0
+            for label, perfo_iso in perfo.items():
+                try:
+                    plt.plot(perfo_iso['MassFlow'], perfo_iso[var_name],
+                            label=label, 
+                            **linestyles[i])
+                except KeyError:
+                    mola_logger.warning(f"Missing data for case {label}")
+                    pass
+                i += 1
+
+            if len(perfo) > 1:
+                plt.legend()
+
+            fig.tight_layout()
+            plt.grid()
+
+            plt.savefig(f"{file_root}_{var_name}{file_extension}", dpi=300)
+
+        if show: 
+            plt.show()

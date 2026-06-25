@@ -219,6 +219,10 @@ def postprocess_with_turbo(w, surfaces, signals, stages=[],
     # _remove_empty_zones(surfaces)
     # surfaces = _gather_on_all_ranks(surfaces)
 
+    RowType = RowType.lower()
+    # turbo does not check that and everything that is not 'compressor' falls in 'turbine'
+    assert RowType in ['compressor', 'turbine'] 
+
     # prepare auxiliary surfaces tree, with flattened FlowSolution container
     # located at Vertex including ChannelHeight
     previous_vertex_container = I.__FlowSolutionNodes__

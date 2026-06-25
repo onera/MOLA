@@ -114,17 +114,22 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
 
     # Check that all needed quantities are indeed in the container
     varNames = list(workflow.Flow['ReferenceState'])
+    warning_msg_already_printed_for_var = dict((var, False) for var in varNames)
     for FS in source_tree.group(Name=FlowSolution_name, Type='FlowSolution'):
         for var in varNames:
-            warning_msg_already_printed = False
+            turb_var_already_added = False
             if FS.get(Name=var, Depth=1) is None:
                 if var in workflow.Turbulence['Conservatives']:
                     # For turbulent values, allow using the reference state if not provided
-                    if not warning_msg_already_printed:
-                        new_field = {var: workflow.Flow['ReferenceState'][var]}
-                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({new_field[var]})")
-                        warning_msg_already_printed = True
-                        source_tree.newFields(new_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
+                    if not turb_var_already_added:
+                        # check that once per FlowSolution
+                        uniform_field = {var: workflow.Flow['ReferenceState'][var]}
+                        source_tree.newFields(uniform_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
+                        turb_var_already_added = True
+                        if not warning_msg_already_printed_for_var[var]:
+                            # print that once for all
+                            mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({uniform_field[var]})")
+                            warning_msg_already_printed_for_var[var] = True
                 else:
                     raise MolaException(f'{var} cannot be found in {FS.path()}')
     
@@ -174,11 +179,13 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
 
     set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source_tree_repr)
 
+    warning_msg_already_printed_for_var = dict((var, False) for var in workflow.Flow['ReferenceState'])
     for zone in workflow.tree.zones():
         FSpath = zone.path() + '/' + workflow.Initialization['SourceContainer']
         try:
             FlowSolutionInSourceTree = source_tree.getAtPath(FSpath)
             assert FlowSolutionInSourceTree is not None
+            zone_in_source_tree = source_tree.getAtPath(zone.path())
         except:
             raise MolaException(f"The node {FSpath} is not found in {source_tree_repr}")
 
@@ -187,16 +194,21 @@ def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
             FlowSolutionInSourceTree.setName(FlowSolution_name)
 
         # Check that all needed quantities are indeed in the container
-        for var in list(workflow.Flow['ReferenceState']):
-            warning_msg_already_printed = False
+        for var in list(workflow.Flow['ReferenceState']):  
+            turb_var_already_added = False
             if FlowSolutionInSourceTree.get(Name=var, Depth=1) is None:
                 if var in workflow.Turbulence['Conservatives']:
                     # For turbulent values, allow using the reference state if not provided
-                    if not warning_msg_already_printed:
-                        uniform_value = workflow.Flow['ReferenceState'][var]
-                        cgns.Node(Name=var, Type='DataArray', Value=uniform_value, Parent=FlowSolutionInSourceTree)
-                        mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({uniform_value})")
-                        warning_msg_already_printed = True
+                    if not turb_var_already_added:
+                        # check that once per FlowSolution
+                        uniform_field = {var: workflow.Flow['ReferenceState'][var]}
+                        zone_in_source_tree.newFields(uniform_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
+
+                        turb_var_already_added = True
+                        if not warning_msg_already_printed_for_var[var]:
+                            # print that once for all
+                            mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({uniform_field[var]})")
+                            warning_msg_already_printed_for_var[var] = True
                 else:
                     raise MolaException(f'{var} cannot be found in {FSpath}')
 
