@@ -399,11 +399,12 @@ class WorkflowManager():
             dir_multi = path.parent.name
             dir_case = path.name
 
+            if len(data) == 0:
+                # empty dict, because there is no data gather for this directory
+                # maybe because postprocess was not applied
+                continue
+
             if dir_multi not in ordered_signals:
-                if len(data) == 0:
-                    # empty dict, because there is no data gather for this directory
-                    # maybe because postprocess was not applied
-                    continue
                 ordered_signals[dir_multi] = dict((key, [value]) for key, value in data.items())
                 ordered_signals[dir_multi]['case'] = [dir_case]
             else:
