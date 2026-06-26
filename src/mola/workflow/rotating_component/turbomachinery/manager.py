@@ -130,7 +130,7 @@ class WorkflowTurbomachineryManager(WorkflowManager):
                            stage:Union[tuple, str], 
                            filename:Union[str, None]=None,
                            update_from_remote_machine=True) -> dict:
-        upstream_plane, downstream_plane = self._get_planes_names_for_perfo(stage)
+        upstream_plane, downstream_plane = self.base_workflow._get_planes_names_for_perfo(stage)
 
         queries = [
             f'CGNSTree/Averages0D/{downstream_plane}/{names.CONTAINER_OUTPUT_FIELDS_AT_VERTEX}/MassFlow',
@@ -143,45 +143,6 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         perfo_data = self._rearange_performance(perfo_data)
 
         return perfo_data
-    
-    def _get_planes_names_for_perfo(self, stage:Union[tuple, str]) -> tuple:
-        # Get upstream and downstream rows from stage
-        if isinstance(stage, (tuple, list)):
-            assert len(stage) == 2
-            row1, row2 = stage
-        elif isinstance(stage, str):
-            row1 = row2 = stage
-        else:
-            raise MolaAssertionError(f'stage must be either a str or a tuple, and the given type is {type(stage)}')
-        
-        # Check that rows are compatible with workflow
-        for row in (row1, row2):
-            if row not in self.base_workflow.ApplicationContext['Rows']:
-                raise MolaAssertionError(f'The given row "{row}" is not in ApplicationContext["Rows"]')
-
-        upstream_plane = None
-        downstream_plane = None
-        for extraction in self.base_workflow.Extractions:
-            if extraction['Type'] == 'IsoSurface':
-                try:
-                    if (extraction['OtherOptions']['ReferenceRow'] == row1
-                        and extraction['OtherOptions']['tag'] == 'InletPlane'):
-                        upstream_plane = extraction['Name']
-                except: 
-                    pass
-                try:
-                    if (extraction['OtherOptions']['ReferenceRow'] == row2
-                        and extraction['OtherOptions']['tag'] == 'OutletPlane'):
-                        downstream_plane = extraction['Name']
-                except: 
-                    pass
-
-        if not upstream_plane:
-            raise MolaAssertionError(f'Cannot find upstream plane on {row1}')
-        if not downstream_plane:
-            raise MolaAssertionError(f'Cannot find downstream plane on {row2}')
-
-        return upstream_plane, downstream_plane
 
     def _rearange_performance(self, perfo):
         ordered_perfo = dict()
@@ -235,7 +196,10 @@ class WorkflowTurbomachineryManager(WorkflowManager):
                             label=label, 
                             **linestyles[i])
                 except KeyError:
-                    mola_logger.warning(f"Missing data for case {label}")
+                    mola_logger.user_warning(f"Missing data for case {label}")
+                    pass
+                except ValueError:
+                    mola_logger.user_warning(f"Unconsistant data for case {label}: {perfo_iso['MassFlow'].size=}, perfo_iso[{var_name}].size={perfo_iso[var_name].size}")
                     pass
                 i += 1
 

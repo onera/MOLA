@@ -223,6 +223,12 @@ def postprocess_with_turbo(w, surfaces, signals, stages=[],
     # turbo does not check that and everything that is not 'compressor' falls in 'turbine'
     assert RowType in ['compressor', 'turbine'] 
 
+    # unwrap stages if needed
+    stages = [
+        (stage, stage) if isinstance(stage, str) else stage
+        for stage in stages
+    ]
+
     # prepare auxiliary surfaces tree, with flattened FlowSolution container
     # located at Vertex including ChannelHeight
     previous_vertex_container = I.__FlowSolutionNodes__
@@ -769,10 +775,6 @@ def comparePerfoPlane2Plane(w, surfaces, var4comp_perf, stages=[], config='compr
     '''
     Averages0D = I.getNodeFromName1(surfaces, AVERAGES_0D_BASE)
 
-    for row in w.ApplicationContext['Rows']:
-        if (row, row) not in stages:
-            stages.append((row, row))
-
     for (row1, row2) in stages:
         InletPlane = getSurfaceFromInfo(Averages0D, ReferenceRow=row1, tag='InletPlane')
         OutletPlane = getSurfaceFromInfo(Averages0D, ReferenceRow=row2, tag='OutletPlane')
@@ -912,10 +914,6 @@ def compareRadialProfilesPlane2Plane(w, surfaces, var4comp_repart, stages=[], co
             Must be ‘compressor’ or ‘turbine’. Useful to compute efficency.
     '''
     RadialProfiles = I.getNodeFromName1(surfaces, RADIAL_PROFILES_BASE)
-
-    for row in w.ApplicationContext['Rows']:
-        if (row, row) not in stages:
-            stages.append((row, row))
 
     for (row1, row2) in stages:
         InletPlane = getSurfaceFromInfo(RadialProfiles, ReferenceRow=row1, tag='InletPlane')
