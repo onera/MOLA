@@ -100,6 +100,8 @@ def get_surface_of_family(tree, Family):
 
     tree = I.fixNGon(tree)  # it would be better without making a copy, but it would need adaptation latter for maia
     zones = C.extractBCOfName(tree, f'FamilySpecified:{Family}')
+    if len(zones) == 0:
+        raise MolaException(f'Cannot extract family {Family}')
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = P.integ(SurfaceTree, var='ones')[0]        # Compute normalization coefficient

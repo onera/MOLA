@@ -277,9 +277,10 @@ class WorkflowRotatingComponent(Workflow):
         from mpi4py.MPI import COMM_WORLD as comm
         one_bc_FamilyName = tree.get(Type='FamilyName', Value=FamilyBoundary)
         nodes_on_all_ranks = comm.allgather(one_bc_FamilyName)
-        one_bc_FamilyName = [node for node in nodes_on_all_ranks if node is not None][0]
-
-        if not one_bc_FamilyName:
+        try:
+            one_bc_FamilyName = [node for node in nodes_on_all_ranks if node is not None][0]
+            assert one_bc_FamilyName is not None
+        except (IndexError, AssertionError):
             raise MolaException(
                 f'No FamilyName found with value {FamilyBoundary}. '
                 'Check Families in the MOLA attribute "BoundaryConditions".'

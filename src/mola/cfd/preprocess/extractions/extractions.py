@@ -139,7 +139,10 @@ def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
         bc_type = familyBC.value()
         registered_bc_types.add(bc_type)
         
-        bc_type_generic = bc_dispatcher.to_generic_name(bc_type)
+        try:
+            bc_type_generic = bc_dispatcher.to_generic_name(bc_type)
+        except ValueError as err:
+            raise MolaException(f'Error on Family {family_name}: {err}')
         registered_bc_types.add(bc_type_generic)
 
         family_match_requirement = fnmatch(family_name, requested_source) or \

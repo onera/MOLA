@@ -1050,7 +1050,7 @@ def compute_RNA_ref_time(workflow, Family, LinkedFamily):
     if np.isclose(Dm, 1) or np.isclose(Dm, K1/N1):
         mola_logger.info(msg, rank=0)
     else:
-        mola_logger.warning(msg, rank=0)
+        mola_logger.user_warning(msg, rank=0)
 
     return SectorPassagePeriod
 
