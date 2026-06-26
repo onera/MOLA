@@ -29,7 +29,7 @@ def apply(workflow):
 
     #. Adapt this node to the solver
     '''
-    FlowSolution_name = call_solver_specific_function(workflow, 'get_init_solution_container_name')
+    FlowSolution_name = get_init_solution_container_name(workflow)
 
     add_reference_state(workflow) 
 
@@ -57,7 +57,8 @@ def apply(workflow):
     
     apply_to_solver(workflow)
 
-
+def get_init_solution_container_name(workflow):
+    return call_solver_specific_function(workflow, 'get_init_solution_container_name')
 
 def add_reference_state(workflow):
     for base in workflow.tree.bases():
