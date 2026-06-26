@@ -298,7 +298,7 @@ class WorkflowInterface(object):
 
 
     def set_Flow(self,
-            Generator : str = 'External_rho_T_V',
+            Generator : Union[str, None] = None,  #'External_rho_T_V',
             # NOTE kwargs are here not to raise an error due to specific arguments for the Generator
             # This function has a specific behavior to raise appropriated errors.
             # The interface is delegated to the method set_defaults of the Generator class 
@@ -306,21 +306,39 @@ class WorkflowInterface(object):
             ):
 
         from  mola.cfd.preprocess import flow_generators
-        FlowGen = flow_generators.get_flow_generator(Generator) 
-        signature = inspect.signature(FlowGen.set_Flow_defaults)
+        if Generator is not None:
+            FlowGen = flow_generators.get_flow_generator(Generator)
+            default_kwargs = self._get_default_values_from_flow_generator(FlowGen, kwargs)
+        else:
+            # loop on Generators to find the one that match the given input parameters
+            matching_generator = False
+            for Generator, FlowGen in flow_generators.AvailableFlowGenerators.items():
+                try:
+                    default_kwargs = self._get_default_values_from_flow_generator(FlowGen, kwargs)
+                    matching_generator = True
+                    break
+                except MolaUserAttributeError:
+                    pass
+            if not matching_generator:
+                raise MolaUserError(f'The set of input parameters in Flow ({kwargs.keys()}) is not valid.')
+                
+        self.Flow = self._get_comp(FlowGen.set_Flow_defaults, default_kwargs) 
+        self.Flow['Generator'] = Generator
+    
+    @staticmethod
+    def _get_default_values_from_flow_generator(FlowGenerator, kwargs):
+        signature = inspect.signature(FlowGenerator.set_Flow_defaults)
         default_kwargs = dict((name, param.default) for name, param in signature.parameters.items() if name != 'self')
         for name, value in kwargs.items():
             if name not in default_kwargs:
                 error_msg = (f"set_Flow() got an unexpected keyword argument '{name}'. " 
                              f"The following arguments are for the currently selected "
-                             f"{BOLD}Generator{ENDC}{RED}: {PINK}{Generator}{ENDC}{RED} "
+                             f"{BOLD}Generator{ENDC}{RED}: {PINK}{FlowGenerator.name}{ENDC}{RED} "
                              f"(another one may be selected in {BOLD}Flow{ENDC}{RED} if needed)")
-                raise MolaUserAttributeError(FlowGen.set_Flow_defaults, error_msg)
+                raise MolaUserAttributeError(FlowGenerator.set_Flow_defaults, error_msg)
             else:
                 default_kwargs[name] = value
-                
-        self.Flow = self._get_comp(FlowGen.set_Flow_defaults, default_kwargs) 
-        self.Flow['Generator'] = Generator
+        return default_kwargs
 
     def set_Turbulence(self,
         Viscosity_EddyMolecularRatio : float = 0.1,

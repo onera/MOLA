@@ -56,7 +56,9 @@ def duplicate(tree, duplication_operations, workflow, tool='maia'):
 
     if tool == 'cassiopee':
         mola_logger.debug('duplicate with cassiopee')
-        tree = _duplicate_with_cassiopee(tree, duplication_operations)
+        from mola.cfd.preprocess.initialization import get_init_solution_container_name
+        init_container = get_init_solution_container_name(workflow)
+        tree = _duplicate_with_cassiopee(tree, duplication_operations, init_container)
         workflow.connect()
     else:
         mola_logger.debug('duplicate with maia')
@@ -72,7 +74,7 @@ def _compute_azimuthal_extension_if_not_given(tree, duplication_operations):
             azimuthal_extension = np.degrees(compute_azimuthal_extension(tree, Family))  # Cassiopee uses degrees by default
             operation['azimuthal_extension'] = azimuthal_extension
 
-def _duplicate_with_cassiopee(tree, duplication_operations):
+def _duplicate_with_cassiopee(tree, duplication_operations, init_container='FlowSolution#Init'):
     '''
     Duplicated the input PyTree **tree**, already initialized.
     This function perform the following operations:
@@ -93,6 +95,13 @@ def _duplicate_with_cassiopee(tree, duplication_operations):
 
     for operation in duplication_operations:
 
+        if not tree.get(Name=operation['Family'], Type='Family', Depth=2):
+            # No such Family in the tree
+            # Do not raise an exception because it could be normal in case 
+            # of initialization by interpolation, if a family was not in the source tree
+            mola_logger.user_warning(f" row {operation['Family']} was not found in input tree. Check mesh and/or setup.")
+            continue
+
         plurial = 's' if operation['NumberOfDuplications'] > 1 else ''
         mola_logger.info(f"  > row {operation['Family']} is replicated {operation['NumberOfDuplications']} time"+plurial, rank=0)
 
@@ -101,7 +110,8 @@ def _duplicate_with_cassiopee(tree, duplication_operations):
             operation['Family'], 
             operation['NumberOfDuplications'], 
             np.degrees(operation['azimuthal_extension']), 
-            axis=(1,0,0)
+            axis=(1,0,0), 
+            container=init_container,
             )
 
     # WARNING: Names of BC_t nodes must be unique to use PyPart on globborders
@@ -209,7 +219,7 @@ def __duplicate_with_cassiopee(tree, rowFamily, NumberOfDuplications, azimuthal_
                 zones2merge = [zone]
                 for n in range(NumberOfDuplications):
                     ang = azimuthal_extension*(n+1)
-                    rot = T.rotate(I.copyNode(zone),(0.,0.,0.), axis, ang, vectors=vectors)
+                    rot = T.rotate(I.copyTree(zone),(0.,0.,0.), axis, ang, vectors=vectors)
                     I.setName(rot, f"{zone_name}_{n+2}")
                     I._addChild(base, rot)
                     zones2merge.append(rot)

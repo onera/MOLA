@@ -31,8 +31,6 @@ by this workflow:
 
 * `SplittingAndDistribution`: The default `Splitter` is PyPart, used after job submission (`Strategy='AtComputation'`).
 
-* `Flow`: the default `Generator` is `Internal` (➥ :ref:`documentation'<FlowGenerator-Internal>`).
-
 * `Numerics`: the default spatial `Scheme` is `Roe`.
 
 * `Extractions`: **MassFlow** is automatically extracted on Inflow and Outflow 
