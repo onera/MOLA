@@ -32,8 +32,6 @@ by this workflow:
 
 * `SplittingAndDistribution`: The default `Splitter` is PyPart, used after job submission (`Strategy='AtComputation'`).
 
-* `Flow`: the default `Generator` is `Internal` (➥ :ref:`documentation'<FlowGenerator-Internal>`).
-
 * `Extractions`: **MassFlow** is automatically extracted on Inflow and Outflow 
   boundary conditions, including rotor/stator interfaces. More specifically, 
   every boundary with `Type` matching `Inflow*` or `Outflow*` are included.
