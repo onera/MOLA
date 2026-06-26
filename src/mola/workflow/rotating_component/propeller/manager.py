@@ -121,3 +121,19 @@ class WorkflowPropellerManager(WorkflowManager):
             # Thrust = data[:, 1]
             # Power  = data[:, 2]
 
+    def write_gather_script(self):
+        text = f'''
+from mola.workflow.rotating_component import propeller
+from mola import naming_conventions as names
+
+manager = propeller.WorkflowManager(names.FILE_WORKFLOW_MANAGER)
+perfo = manager.gather_performance(['Thrust', 'Power', 'PropulsiveEfficiency', 'FigureOfMeritHover'])
+manager.plot_performance_on_rpm(perfo, ['Thrust', 'Power', 'PropulsiveEfficiency', 'FigureOfMeritHover'])
+manager.export_perfo_to_dat(perfo)
+
+'''     
+        # write file in the current directory
+        mola_logger.info("write gather_results.py, to execute after simulations are completed.")
+        with open("gather_results.py", "w") as f:
+            f.write(text)
+

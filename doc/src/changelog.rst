@@ -16,6 +16,7 @@ v2.0.1
 
 * Allow 2D simulations with SoNICS (automatic if the input mesh is 2D)
 * Allow vertex-centered simulation with SoNICS (using ``Numerics['GridLocation']='Vertex'``)
+* Write automatically a postprocess script to gather results after using a WorkflowManager (depending on workflow)
 
 =======================
 🚀 Feature improvements

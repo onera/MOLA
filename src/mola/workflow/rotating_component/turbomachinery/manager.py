@@ -213,3 +213,30 @@ class WorkflowTurbomachineryManager(WorkflowManager):
 
         if show: 
             plt.show()
+
+    def write_gather_script(self):
+
+        stages = self.base_workflow._get_default_stages_to_postprocess()
+
+        text = f'''
+from mola.workflow.rotating_component import turbomachinery
+from mola import naming_conventions as names
+
+stages = {stages}
+
+manager = turbomachinery.WorkflowManager(names.FILE_WORKFLOW_MANAGER)
+update_from_remote_machine = True
+
+for stage in stages:
+    perfo = manager.gather_performance(stage, update_from_remote_machine=update_from_remote_machine)
+    update_from_remote_machine = False
+    rows_names = f"{{stage[0]}}_{{stage[1]}}" if isinstance(stage, (tuple, list)) else stage
+    manager.plot_isospeed_lines(perfo, filename=f'isospeedline_{{rows_names}}.png')
+
+'''     
+        
+        # write file in the current directory
+        mola_logger.info("write gather_results.py, to execute after simulations are completed.")
+        with open("gather_results.py", "w") as f:
+            f.write(text)
+    

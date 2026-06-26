@@ -159,10 +159,16 @@ class WorkflowManager():
             sequence_of_workflows.prepare()
         
         self.write()
+        if not SV.is_existing_path("gather_results.py"):
+            self.write_gather_script()
 
     def submit(self):
         for sequence_of_workflows in self.sequential_managers:
             sequence_of_workflows.submit()
+
+    def write_gather_script(self):
+        # to be defined in the WorkflowManager specific to the application if applicable
+        pass
 
     def _init_sequential_managers(self):
         if self.sequential_managers is not None:
@@ -357,10 +363,8 @@ class WorkflowManager():
                 try:
                     node = signals.getAtPath(path)
                 except:
-                    # raise MolaException(f'Cannot find node at {path} in {filename}')
                     node = None
-                    # results[path.split('/')[-1]] = None
-                    mola_logger.warning(f'Cannot find node at {path} in {local_dir}/{filename}')
+                    mola_logger.user_warning(f'Cannot find node at {path} in {local_dir}/{filename}')
                 if node:
                     results[node.name()] = node.value()
             return results
