@@ -173,10 +173,9 @@ def add_3d_extraction_to_zone(zone, Extraction, add_GridLocation=True, add_cellN
     else:
         raise MolaException(f'no defined GridLocation for 3D extraction: {Extraction["GridLocation"]}. Choose CellCenter or Vertex.')
     
-
-
-    solver_output_name = '.Solver#Output'
     options = Extraction.get('OtherOptions', dict())
+    if options is None:
+        options = dict()
     output_keys = dict(
         loc           = loc,
         period        = 1,
