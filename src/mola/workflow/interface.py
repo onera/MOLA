@@ -17,7 +17,7 @@
 
 import os
 import copy
-import pathlib
+from pathlib import Path
 import numpy as np
 import copy
 
@@ -112,7 +112,7 @@ class WorkflowInterface(object):
     
     def get_workflow_parameters_from_tree(self):
         
-        if isinstance(self.tree, str):
+        if isinstance(self.tree, (str, Path)):
             workflow_parameters = cgns.load_workflow_parameters(self.tree)
         elif isinstance(self.tree, cgns.Node):
             workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_, transform_numpy_scalars=True)
@@ -873,6 +873,7 @@ class WorkflowInterface(object):
             Container : str = None, # if None will define automatic container names
             GridLocation : str = 'CellCenter',
             GhostCells : bool = False,
+            OtherOptions : dict = None,
             *,
             Type : str = 'Restart',
             ):
@@ -949,7 +950,7 @@ class WorkflowInterface(object):
 
     def set_RunManagement(self,
         JobName : str = None,
-        RunDirectory : Union[str, pathlib.PosixPath] = '.',
+        RunDirectory : Union[str, Path] = '.',
         NumberOfProcessors : int = MPI.COMM_WORLD.Get_size(),
         NumberOfThreads : int = 1,
         Machine : str = None,
@@ -971,7 +972,7 @@ class WorkflowInterface(object):
         ----------
         JobName : str, optional
             Name of the job (useful only for using a Scheduler), by default 'mola'
-        RunDirectory : Union[str, pathlib.PosixPath], optional
+        RunDirectory : Union[str, Path], optional
             Path where the simulation will be done, 
             by default '.' (simulation is prepared in the current directory).
         NumberOfProcessors : int, optional

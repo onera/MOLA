@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from pathlib import Path
 from treelab import cgns
 from mola.logging import MolaAssertionError
 
@@ -45,8 +46,8 @@ def read_workflow(source: str) -> Workflow:
     try:
         workflow_name_node = cgns.load_from_path(source, 'WorkflowParameters/Name')
     except: 
-        if not isinstance(source, str):
-            raise MolaAssertionError(f'The argument of read_workflow must be a filename (a string).')
+        if not isinstance(source, (str, Path)):
+            raise MolaAssertionError(f'The argument of read_workflow must be a filename (a string or a pathlib.Path).')
         else:
             raise MolaAssertionError(f'Unable to load the workflow: the file {source} does not contain the node WorkflowParameters/Name')
     workflow_name = workflow_name_node.value()

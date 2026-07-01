@@ -18,6 +18,7 @@ v2.0.1
 * Allow vertex-centered simulation with SoNICS (using ``Numerics['GridLocation']='Vertex'``)
 * Write automatically a postprocess script to gather results after using a WorkflowManager (depending on workflow)
 * Select automatically the adapted Flow Generator from the given input data in **Flow**.
+* Perform automatic second order restart in the context of an unsteady 2nd order simulation with elsA.
 
 =======================
 🚀 Feature improvements
