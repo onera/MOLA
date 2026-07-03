@@ -1928,14 +1928,23 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
     # J.save(J.tree(
     #     SECTOR_BNDS=sector_bnds,
     #     PROFILE=profile,
+    #     FRONT_SUPPORT=front_support,
     #     REAR_SUPPORT=rear_support,
     # ),'debug_farfield_sector.cgns')
-    # exit()
+    # if bool(rear_support): exit()
     # t = J.load('debug_farfield_sector.cgns')
     # base_sector_bnds = I.getNodeByName1(t,'SECTOR_BNDS')
     # sector_bnds = I.getZones(base_sector_bnds)
     # base_profile = I.getNodeByName1(t,'PROFILE')
     # profile = I.getZones(base_profile)
+    # base_front_support = I.getNodeByName1(t,'FRONT_SUPPORT')
+    # front_support = I.getZones(base_front_support)
+    # base_rear_support = I.getNodeByName1(t,'REAR_SUPPORT')
+    # rear_support = I.getZones(base_rear_support)
+    # if len(front_support) == 1: front_support = front_support[0] 
+    # if len(rear_support) == 1: rear_support = rear_support[0] 
+    # print(f"front={bool(front_support)}")
+    # print(f"rear={bool(rear_support)}")
 
 
     fargrids, farfaces = _buildFarfieldSector(sector_bnds, profile,
@@ -3759,12 +3768,11 @@ def _buildFarfieldSector(sector_bnds, profile, blade_number, npts_azimut,
     TFI2_spinners = [s for s in sector_bnds if s[0].startswith('TFI2_spinner')]
 
     if not HAS_FRONT_BULB and not HAS_REAR_BULB:
-        rear_spinner = [s for s in TFI2_spinners if s[0] in ['TFI2_spinner_1', 'TFI2_spinner_2']]
-        front_spinner = [s for s in sector_bnds if s[0] in ['TFI2_spinner_0','TFI2_spinner_3', 'TFI2_spinner_4']]
+        rear_spinner = [s for s in TFI2_spinners if s[0] in ['TFI2_spinner_3', 'TFI2_spinner_4']]
+        front_spinner = [s for s in sector_bnds if s[0] in ['TFI2_spinner_0']]
     else:
         front_spinner = [s for s in TFI2_spinners if s[0] in ['TFI2_spinner_0','TFI2_spinner_1', 'TFI2_spinner_2']]
         rear_spinner = [s for s in sector_bnds if s[0] in ['TFI2_spinner_3', 'TFI2_spinner_4']]
-
 
     TFI2_spinner_join = T.join(*front_spinner)
     TFI2_spinner_join[0] = 'TFI2_spinner_join'
