@@ -757,6 +757,7 @@ def airfoil(designation='NACA0012',Ntop=None, Nbot=None, ChordLength=1.,
         xL = J.getx(linelaw((0,0,0), (1,0,0), Nbot, {'kind':'trigonometric','parameter':2}))
         xL[:] = np.flipud(xL)
         NACAidentifier = designation[NACAstringLoc + 4:len(designation)]
+        ClosedTolerance=True # forces closing airfoil
         # NACA constants
         a0= 0.2969; a1=-0.1260; a2=-0.3516; a3= 0.2843; a4=-0.1036 if ClosedTolerance>=1.0 else -0.1015
 
@@ -944,8 +945,9 @@ def loadAirfoilInSafeMode( ZoneOrNACAstringOrFilename, rear_region_portion=0.9):
         name = ZoneOrNACAstringOrFilename
         if name.endswith('.dat') or name.endswith('.txt') or \
            (name.startswith('NACA') and '.' not in name) :
-            return airfoil(name)
+            return airfoil(name, ClosedTolerance=1e-3)
         zone = J.load(name)
+        zone = I.getZones(zone)[0]
 
     elif isinstance(ZoneOrNACAstringOrFilename, list):
         zone = I.getZones(ZoneOrNACAstringOrFilename)[0]
@@ -954,7 +956,10 @@ def loadAirfoilInSafeMode( ZoneOrNACAstringOrFilename, rear_region_portion=0.9):
         raise TypeError('type of ZoneOrNACAstringOrFilename attribute not supported')
 
     if not isStructuredCurve(zone):
-        raise AttributeError('airfoil zone must be a structured curve')
+        errmsg = 'airfoil zone must be a structured curve'
+        if isinstance(ZoneOrNACAstringOrFilename,str):
+            errmsg += ' user requested: '+ZoneOrNACAstringOrFilename
+        raise AttributeError(errmsg)
     
     x, y = J.getxy(zone)
     i_xmax = np.argmax(x)
@@ -6097,24 +6102,25 @@ def reDiscretizeCurvesWithSmoothTransitions(curves):
                                              LastCellHeight=last_segment))
 
     nb_of_curves = len(curves)
-    segments = np.array([segment(uniformize(c)) for c in curves])
-    transitions = np.minimum(segments[:-1], segments[1:])
 
     smoothly_discretized_curves = []
     for i in range(nb_of_curves):
         curve = curves[i]
         
         if i==0:
-            smoothly_discretized_curves += [
-                rediscretize(curve,  segments[0], transitions[i])]
+            first_segment = segment(curve,0)
+            last_segment = 0.5*(segment(curve,-1) + segment(curves[1],0))
         
         elif i==nb_of_curves-1:
-            smoothly_discretized_curves += [
-                rediscretize(curve,  transitions[i-1], segments[i])]
+            first_segment = 0.5*(segment(curve,0) + segment(curves[-2],-1))
+            last_segment = segment(curve,-1)
         
         else:
-            smoothly_discretized_curves += [
-                rediscretize(curve,  transitions[i-1], transitions[i])]
+            first_segment = 0.5*(segment(curve,0) + segment(curves[i-1],-1))
+            last_segment = 0.5*(segment(curve,-1) + segment(curves[i+1],0))
+
+        smoothly_discretized_curves += [
+            rediscretize(curve,  first_segment, last_segment)]
             
     return smoothly_discretized_curves
 
