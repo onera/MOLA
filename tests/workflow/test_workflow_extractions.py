@@ -246,10 +246,18 @@ def test_integrals_one_run(tmp_path, niter=10):
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.skipif(solver=='sonics', reason="FIXME allow restart runs with sonics")
+@pytest.mark.parametrize(
+    "Splitter",
+    [
+        pytest.param("cassiopee", marks=pytest.mark.skipif(solver == "sonics", reason="Cassiopee not available with SoNICS")),
+        pytest.param("pypart", marks=pytest.mark.skipif(solver != "elsa", reason="PyPart only available with elsA")),
+        pytest.param("maia", marks=pytest.mark.skipif(solver == "fast", reason="Maia not available with Fast")),
+    ],
+)
 @pytest.mark.cost_level_3
-def test_integrals_two_runs(tmp_path, niter_first_run=5, niter_second_run=7):
+def test_integrals_two_runs(tmp_path, Splitter, niter_first_run=5, niter_second_run=7):
 
-    w = get_workflow_cart_monoproc(tmp_path)
+    w = get_workflow_cart_monoproc(tmp_path, Splitter=Splitter)
 
     w._interface.add_to_Extractions_Integral(
         Name='TestIntoSignals',

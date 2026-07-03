@@ -186,6 +186,12 @@ Flow setting depends on the parameter `Generator`. Several generators are implem
 
 The flow direction can be set with the parameter `Direction`, by default `[1.,0,0]`.
 
+.. hint::
+
+    The adapted `Generator` is automatically deduced from the input parameters. 
+    For instance, if you give the parameters PressureStagnation, TemperatureStagnation, and MassFlow, 
+    the Generator ``'Internal'`` will be automatically selected.
+
 Turbulence
 ==========
 

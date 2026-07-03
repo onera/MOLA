@@ -7,6 +7,7 @@ import argparse
 from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import MolaException
+from mola import solver
 
 parser = argparse.ArgumentParser('Update parser')
 parser.add_argument('-f', '--filename',  type=str, default=names.FILE_INPUT_SOLVER, 
@@ -78,5 +79,10 @@ if args.criterion:
 if args.NumberOfIterations is not None:
     node = WorkflowParameters.get(Name='NumberOfIterations')
     node.setValue(args.NumberOfIterations)
-    node.saveThisNodeOnly(args.filename)  
+    node.saveThisNodeOnly(args.filename) 
+    if solver == 'elsa':
+        # nothing to do for Fast or SoNICS
+        node = WorkflowParameters.get(Name='niter')
+        node.setValue(args.NumberOfIterations)
+        node.saveThisNodeOnly(args.filename)
     print(f'NumberOfIterations has been updated to {args.NumberOfIterations}')

@@ -134,7 +134,7 @@ class WorkflowRotatingComponent(Workflow):
             # or it is already duplicated for all rows as in the target tree
             for row, rowParams in self.ApplicationContext['Rows'].items():
                 if not self.Initialization['Source'].get(Name=row, Type='Family', Depth=2):
-                    row = None
+                    continue
                 n = self.get_number_of_blades_in_mesh_from_family(self.Initialization['Source'], row, rowParams['NumberOfBlades'])
 
                 if n != rowParams['NumberOfBladesSimulated']:
@@ -332,9 +332,10 @@ class WorkflowRotatingComponent(Workflow):
         from mpi4py.MPI import COMM_WORLD as comm
         one_bc_FamilyName = tree.get(Type='FamilyName', Value=FamilyBoundary)
         nodes_on_all_ranks = comm.allgather(one_bc_FamilyName)
-        one_bc_FamilyName = [node for node in nodes_on_all_ranks if node is not None][0]
-
-        if not one_bc_FamilyName:
+        try:
+            one_bc_FamilyName = [node for node in nodes_on_all_ranks if node is not None][0]
+            assert one_bc_FamilyName is not None
+        except (IndexError, AssertionError):
             raise MolaException(
                 f'No FamilyName found with value {FamilyBoundary}. '
                 'Check Families in the MOLA attribute "BoundaryConditions".'

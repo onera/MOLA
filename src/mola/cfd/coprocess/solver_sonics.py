@@ -59,6 +59,9 @@ def perform_extractions(workflow, coprocess_manager):
         elif extraction['Type'] == '3D':
             extraction['Data'] = extract_fields(output_tree, extraction)
 
+        elif extraction['Type'] == 'RawSolverOutput':
+            extraction['Data'] = output_tree
+
         elif extraction['Type'] == 'BC':
             extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype)
         
@@ -116,6 +119,11 @@ def get_output_tree(coprocess_manager) -> cgns.Tree:
     for zsr in part_tree.group(Type='ZoneSubRegion'):
         cgns.Node(Name = 'GridLocation', Type = 'GridLocation', Value = bc_location,
                                                                         Parent = zsr)
+        
+    part_tree.findAndRemoveNodes(Name='.SoNICS#AllZones')
+    # HACK needed until .SoNICS#AllZones works instead of AllZones for residual extraction
+    part_tree.findAndRemoveNodes(Name='AllZones', Type='Family')
+    part_tree.findAndRemoveNodes(Value='AllZones', Type='*FamilyName')
 
     return part_tree
 

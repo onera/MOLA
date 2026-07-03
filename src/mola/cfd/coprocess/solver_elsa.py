@@ -61,6 +61,9 @@ def perform_extractions(workflow, coprocess_manager):
         elif extraction['Type'] == '3D':
             extraction['Data'] = extract_fields(output_tree, extraction)
 
+        elif extraction['Type'] == 'RawSolverOutput':
+            extraction['Data'] = output_tree
+
         elif extraction['Type'] == 'BC':
             extraction['Data'] = extract_bc(output_tree, extraction, families_to_bctype)
         
@@ -153,10 +156,14 @@ def replace_relative_coordinates_with_absolute(tree : cgns.Tree):
 def update_restart_fields(workflow, output_tree):
     output_tree = cgns.castNode(output_tree)
     for zone in output_tree.zones():
-        zone.findAndRemoveNode(Name='FlowSolution#Init')
+        zone.findAndRemoveNode(Name='FlowSolution#Init*')
         FS = zone.get(Name='FlowSolution#EndOfRun')
         if FS is not None: 
             FS.setName('FlowSolution#Init')
+        # Search another node for a second order restart
+        FS = zone.get(Name='FlowSolution#EndOfRun*')
+        if FS is not None: 
+            FS.setName('FlowSolution#Init-1')
 
     NodesToUpdate = output_tree.group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=3) # for initial field(s) (possible second order restart)
     NodesToUpdate += output_tree.group(Name='FlowSolution#Average', Type='FlowSolution', Depth=3) 
@@ -432,11 +439,16 @@ def _update_solver_parameters_for_restart(workflow, tree):
     workflow.SolverParameters['numerics']['niter'] = workflow.Numerics['NumberOfIterations'] 
     workflow.SolverParameters['numerics']['inititer'] = workflow.Numerics['IterationAtInitialState'] 
     workflow.SolverParameters['numerics']['itime'] = workflow.Numerics['TimeAtInitialState'] 
+    # In case of second order restart
+    several_init_fields = len(tree.get(Type='Zone', Depth=2).group(Name='FlowSolution#Init*', Type='FlowSolution', Depth=1))
+    if several_init_fields > 1:
+        workflow.SolverParameters['numerics']['exact_restart'] = 'active'
 
-    # Update only Numerics node in tree
+    # Update WorkflowParameters
     WorkflowParameters = tree.get(Name=workflow._workflow_parameters_container_, Depth=1)
     if WorkflowParameters:
         WorkflowParameters.setParameters('Numerics', **workflow.Numerics)
+    WorkflowParameters.setParameters('SolverParameters', **workflow.SolverParameters)
 
 def _unstructured_zones_must_have_elements_connectivity( t : cgns.Tree):
     for zone in t.zones():
@@ -469,3 +481,4 @@ def _unstructured_zones_must_have_elements_connectivity( t : cgns.Tree):
                 if not node:
                     raise MolaException(f'Did not find expected node {nface_elts.path()}/{name}')
 
+    

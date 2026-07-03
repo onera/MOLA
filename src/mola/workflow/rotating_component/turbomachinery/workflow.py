@@ -16,8 +16,10 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+from typing import Union
 from treelab import cgns
 import mola.naming_conventions as names
+from mola.logging import MolaAssertionError
 
 from ..workflow import WorkflowRotatingComponent
 from .interface import WorkflowTurbomachineryInterface
@@ -58,6 +60,8 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         Cmpi._convert2PartialTree(surfaces)
         surfaces = cgns.castNode(surfaces)
         Cmpi.barrier()
+
+        kwargs.setdefault('stages', self._get_default_stages_to_postprocess())
 
         surfaces, signals = postprocess_with_turbo(self, surfaces, signals, **kwargs)
         Cmpi.barrier()
@@ -115,3 +119,81 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
             self.plot_radial_profiles()
         except Exception as err:
             logger.warning(f'Cannot plot radial profiles', rank=0)
+    
+    def _get_default_stages_to_postprocess(self):
+        """
+        Append all rows individually, plus the first and last rows together
+        """
+
+        def _append_stage_if_in_out_planes_defined(stages, raw_stage):
+            try: 
+                stage = (raw_stage, raw_stage) if isinstance(raw_stage, str) else raw_stage
+                self._get_planes_names_for_perfo(stage)
+                stages.append(raw_stage)
+            except:
+                pass
+
+        def _search_first_row_by_tag(rows, tag):
+            for row in rows:
+                for extraction in self.Extractions:
+                    if extraction['Type'] == 'IsoSurface':
+                        try:
+                            if (extraction['OtherOptions']['ReferenceRow'] == row
+                                and extraction['OtherOptions']['tag'] == tag):
+                                return row
+                        except: 
+                            pass
+            return None
+
+        stages = []
+        rows = list(self.ApplicationContext['Rows'])
+        for row in rows:
+            _append_stage_if_in_out_planes_defined(stages, row)
+
+        first_row = _search_first_row_by_tag(rows, tag='InletPlane')
+        last_row  = _search_first_row_by_tag(rows[::-1], tag='OutletPlane')  # starting from the last row
+
+        if first_row is not None and last_row is not None and first_row != last_row:
+            stages.append((first_row, last_row))
+        
+        return stages
+    
+    def _get_planes_names_for_perfo(self, stage:Union[tuple, str]) -> tuple:
+        # Get upstream and downstream rows from stage
+        if isinstance(stage, (tuple, list)):
+            assert len(stage) == 2
+            row1, row2 = stage
+        elif isinstance(stage, str):
+            row1 = row2 = stage
+        else:
+            raise MolaAssertionError(f'stage must be either a str or a tuple, and the given type is {type(stage)}')
+        
+        # Check that rows are compatible with workflow
+        for row in (row1, row2):
+            if row not in self.ApplicationContext['Rows']:
+                raise MolaAssertionError(f'The given row "{row}" is not in ApplicationContext["Rows"]')
+
+        upstream_plane = None
+        downstream_plane = None
+        for extraction in self.Extractions:
+            if extraction['Type'] == 'IsoSurface':
+                try:
+                    if (extraction['OtherOptions']['ReferenceRow'] == row1
+                        and extraction['OtherOptions']['tag'] == 'InletPlane'):
+                        upstream_plane = extraction['Name']
+                except: 
+                    pass
+                try:
+                    if (extraction['OtherOptions']['ReferenceRow'] == row2
+                        and extraction['OtherOptions']['tag'] == 'OutletPlane'):
+                        downstream_plane = extraction['Name']
+                except: 
+                    pass
+
+        if not upstream_plane:
+            raise MolaAssertionError(f'Cannot find upstream plane on {row1}')
+        if not downstream_plane:
+            raise MolaAssertionError(f'Cannot find downstream plane on {row2}')
+
+        return upstream_plane, downstream_plane
+    

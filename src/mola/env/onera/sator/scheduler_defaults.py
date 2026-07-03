@@ -11,7 +11,6 @@ JOB_SCHEDULER_OPTIONS = {
 if solver == 'sonics':
     JOB_SCHEDULER_OPTIONS['constraint'] = 'spr'
 
-
 MOLA_TO_SCHEDULER = {
     'AER' : 'comment',
 }

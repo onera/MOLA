@@ -144,7 +144,7 @@ class RadialProfilesPlotter():
             else:
                 self.profiles_on_single_surface[surface] = RadialProfilesOnSurface
 
-    def plot(self, profiles, filename='RadialProfiles.pdf', assemble=False, variables=None):
+    def plot(self, profiles, filename='RadialProfiles.pdf', assemble=False, variables=None, y_var='ChannelHeight'):
         '''
         Plot radial profiles
 
@@ -158,6 +158,9 @@ class RadialProfilesPlotter():
         
         variables : list
             Among the available data, plot only variables in this list. If :py:obj:`None`, plot all available data.
+        
+        y_var : str
+            Name of the variable to use on the y-axis. Default value is 'ChannelHeight'.
         '''
         
         try:
@@ -169,9 +172,9 @@ class RadialProfilesPlotter():
             assemble = False
 
         if not assemble:
-            self._plot(profiles, variables, filename)
+            self._plot(profiles, variables, filename, y_var)
         else:
-            self._plot_and_assemble(profiles, variables, filename)
+            self._plot_and_assemble(profiles, variables, filename, y_var)
 
     @staticmethod
     def _get_text_for_first_page(profiles):
@@ -204,8 +207,7 @@ class RadialProfilesPlotter():
             txt += '\n'
         return txt
     
-    @staticmethod
-    def _plot(profiles, variables, filename):
+    def _plot(self, profiles, variables, filename, y_var='ChannelHeight'):
         filename_split = filename.split('.')
         filename_root = '.'.join(filename_split[:-1])
         extension = filename_split[-1]
@@ -214,9 +216,16 @@ class RadialProfilesPlotter():
             if plane.startswith('.'):
                 continue
             mola_logger.info(f'Plot data in {filename_root}_<varname>_{plane}.{extension}:')
+
+            try: 
+                y_data = self._get_y_data(RadialProfilesOnPlane, y_var)
+            except KeyError:
+                mola_logger.warning(f'Cannot find {y_var}')
+                continue
+
             variables2plot = []
             for var in RadialProfilesOnPlane:
-                if not var in ['ChannelHeight', 'Gamma'] and not var.startswith('.'):
+                if not var in ['Radius', 'ChannelHeight', 'Gamma'] and not var.startswith('.'):
                     if (variables is None) or (var in variables):
                         variables2plot.append(var)
             
@@ -226,14 +235,14 @@ class RadialProfilesPlotter():
                 filename_tmp = f'{filename_root}_{var}_{plane}.{extension}'
                 mola_logger.info(f'  > plot {var}')
                 plt.figure()
-                plt.plot(RadialProfilesOnPlane[var], RadialProfilesOnPlane['ChannelHeight'] * 100., **PlotParameters)
+                plt.plot(RadialProfilesOnPlane[var], y_data['value'], **PlotParameters)
                 plt.xlabel(pretty_name(var))
-                plt.ylabel('h (%)')
+                plt.ylabel(y_data['label'])
                 plt.grid()
                 plt.savefig(filename_tmp)
                 plt.close()
 
-    def _plot_and_assemble(self, profiles, variables, filename):
+    def _plot_and_assemble(self, profiles, variables, filename, y_var='ChannelHeight'):
         mola_logger.info(f'Plot data in {filename}:')
         with PdfPages(filename) as pdf:
 
@@ -248,8 +257,12 @@ class RadialProfilesPlotter():
             # Assumption: same data on all plane
             variables2plot = []
             firstPlaneData = next(iter(profiles.values())) 
+            if not y_var in firstPlaneData:
+                mola_logger.warning(f'Cannot find {y_var}')
+                return
+
             for var in firstPlaneData:
-                if not var in ['ChannelHeight', 'Gamma'] and not var.startswith('.'):
+                if not var in ['Radius', 'ChannelHeight', 'Gamma'] and not var.startswith('.'):
                     if (variables is None) or (var in variables):
                         variables2plot.append(var)
             
@@ -265,9 +278,10 @@ class RadialProfilesPlotter():
                     if not var in RadialProfilesOnPlane: 
                         mola_logger.warning(f'    {var} not found on {plane}')
                         continue
-                    plt.plot(RadialProfilesOnPlane[var], RadialProfilesOnPlane['ChannelHeight'] * 100., **PlotParameters)
+                    y_data = self._get_y_data(RadialProfilesOnPlane, y_var)
+                    plt.plot(RadialProfilesOnPlane[var], y_data['value'], **PlotParameters)
                 plt.xlabel(pretty_name(var))
-                plt.ylabel('h (%)')
+                plt.ylabel(y_data['label'])
                 plt.grid()
                 if len(profiles) > 1: 
                     plt.legend()
@@ -275,6 +289,20 @@ class RadialProfilesPlotter():
                     plt.gca().set(**AxisProperties[var])
                 pdf.savefig()  # saves the current figure into a pdf page
                 plt.close()
+    
+    @staticmethod
+    def _get_y_data(data, var):
+        if var == 'ChannelHeight':
+            y_data = dict(
+                value = data['ChannelHeight'] * 100.,
+                label = 'h (%)',
+            )
+        elif var == 'Radius':
+            y_data = dict(
+                value = data['Radius'],
+                label = 'r (m)',
+            )
+        return y_data
 
     @staticmethod
     def _fields_to_dict(zone, container):
@@ -291,6 +319,7 @@ def plot_radial_profiles(
         filename_comparison=None,
         variables_single=None,
         variables_comparison=None,
+        y_var='ChannelHeight'
         ):
     if surfaces is None:
         surfaces = os.path.join(DIRECTORY_OUTPUT, FILE_OUTPUT_2D)
@@ -317,7 +346,7 @@ def plot_radial_profiles(
     plotter.sort()
     assemble = True if filename_single.endswith('.pdf') else False
     if len(plotter.profiles_on_single_surface) > 0 and variables_single is not None:
-        plotter.plot(plotter.profiles_on_single_surface, filename_single, assemble=assemble, variables=variables_single)
+        plotter.plot(plotter.profiles_on_single_surface, filename_single, assemble=assemble, variables=variables_single, y_var=y_var)
     if len(plotter.profiles_comparison) > 0 and variables_comparison is not None:
-        plotter.plot(plotter.profiles_comparison, filename_comparison, assemble=assemble, variables=variables_comparison)
+        plotter.plot(plotter.profiles_comparison, filename_comparison, assemble=assemble, variables=variables_comparison, y_var=y_var)
 

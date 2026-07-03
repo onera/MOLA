@@ -100,6 +100,8 @@ def get_surface_of_family(tree, Family):
 
     tree = I.fixNGon(tree)  # it would be better without making a copy, but it would need adaptation latter for maia
     zones = C.extractBCOfName(tree, f'FamilySpecified:{Family}')
+    if len(zones) == 0:
+        raise MolaException(f'Cannot extract family {Family}')
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = P.integ(SurfaceTree, var='ones')[0]        # Compute normalization coefficient
@@ -320,10 +322,12 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
         tree = cgns.castNode(tree)
         _transfer_additional_nodes(tree, additional_nodes_to_transfer)
 
-    empty_FlowSolution_nodes = get_empty_FlowSolution_nodes(tree, remove=True)
+    empty_node_manager = EmptyNodesManager()
+    empty_node_manager.get_empty_FlowSolution_nodes(tree, remove=True)
+
     tree = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
     tree = cgns.castNode(tree)
-    restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes)
+    empty_node_manager.restore_empty_FlowSolution_nodes(t)
     
     if tree is not None:
         tree = cgns.castNode(tree)
@@ -335,6 +339,11 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
         tree = cgns.castNode(tree)
     MPI.COMM_WORLD.barrier()
     return tree
+
+def is_partitioned(tree, backend='maia'):
+    if backend == 'maia':
+        from mola.cfd.preprocess.mesh import maia_wrapper
+        return maia_wrapper.is_partitioned(tree)
 
 def _get_additional_nodes_to_transfer(tree):
     # HACK see https://gitlab.onera.net/numerics/mesh/maia/-/issues/175
@@ -406,95 +415,325 @@ def force_FamilyBC_as_FamilySpecified(t):
                         cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='UserDefined', Parent=Family_node)
                     continue
 
-def get_empty_FlowSolution_nodes(tree, remove=False, gather=True):
-    # NOTE Cmpi.convertPyTree2File does not write DataArray in FlowSolution
-    # if its value is None on all ranks, but this is a way for elsA to 
-    # ask extraction in a FlowSolution (for 3D fields)
-    # -> keep these nodes in a list
+class EmptyNodesManager:
+    """
+    Manager class for handling empty FlowSolution nodes in distributed CGNS trees.
 
-    # NOTE With unstructured mesh, PyPart does not support empty FlowSolution 
-    # (with DataArray nodes that store None). We need to remove these nodes, 
-    # keep its path, and restore them later in the final file.
+    Empty FlowSolution nodes (nodes with no DataArray children or with DataArray
+    nodes storing None values) are important for certain CFD codes like elsA to
+    request 3D field extractions. However, mesh partitioning tools (PyPart/Cassiopée)
+    do not preserve these empty nodes correctly during distributed operations.
 
-    import copy
+    This class provides a mechanism to:
+    1. Detect and store empty FlowSolution nodes before merge operation by the partitioning tool
+    2. Distribute node path information across all MPI ranks for consistency
+    3a. Restore nodes to their original zones in the merged tree
+    3b. or Save empty nodes directly to the CGNS file with the saved merged tree 
 
-    empty_FlowSolution_nodes = []
-    for FS in tree.group(Type='FlowSolution'):
-        no_DataArray_nodes = len(FS.group(Type='DataArray', Depth=1)) == 0
-        empty_DataArray_nodes = any([n.value() is None for n in FS.group(Type='DataArray', Depth=1)])
-        if no_DataArray_nodes or empty_DataArray_nodes:
-            if no_DataArray_nodes:
-                # The node GridLocation has been added by PyPart during the splitting, we need to remove it.
-                FS.findAndRemoveNode(Type='GridLocation')
-            empty_FlowSolution_nodes.append(copy.deepcopy(FS))
-            if remove:
-                FS.remove()
+    Attributes:
+        empty_nodes_by_path (dict): Maps node paths to (owner_rank, node) tuples.
+            - owner_rank: MPI rank that originally owned the node
+            - node: The FlowSolution node (None if not on source rank)
 
-    if gather:
-        # not useful is the information was already the same on all ranks in the input tree
-        try:
-            from mpi4py import MPI
-            empty_FlowSolution_nodes = MPI.COMM_WORLD.allgather(empty_FlowSolution_nodes)  # share list on all ranks
-            empty_FlowSolution_nodes = [item for sublist in empty_FlowSolution_nodes for item in sublist]  # flatten the list
-        except ImportError:
-            pass
+    Example:
+        >>> manager = EmptyNodesManager()
+        >>> manager.get_empty_FlowSolution_nodes(tree, remove=True)
+        >>> manager.restore_empty_FlowSolution_nodes(tree)
+    """
 
-    return empty_FlowSolution_nodes
+    def __init__(self):
+        """Initialize the EmptyNodesManager.
 
-def restore_empty_FlowSolution_nodes_in_file(dst, empty_FlowSolution_nodes):
-    try:
-        from mpi4py import MPI
-        rank = MPI.COMM_WORLD.Get_rank()
-    except ImportError:
-        rank = 0
-
-    if rank == 0:
-        for FS in empty_FlowSolution_nodes:
-            saved_FS = cgns.readNode(dst, FS.path()) 
-            if len(saved_FS.group(Type='DataArray')) < len(FS.group(Type='DataArray')):
-                FS.saveThisNodeOnly(dst) 
-                for child in FS.children():
-                    child.saveThisNodeOnly(dst) 
-
-def restore_empty_FlowSolution_nodes(tree, empty_FlowSolution_nodes):
-    for fs_node in empty_FlowSolution_nodes:
-        _add_grid_location(fs_node)
-        zone_path = fs_node.parent().path()
-        zone_path = _remove_PyPart_suffix(zone_path)
-        parent = tree.getAtPath(zone_path) 
-        if parent is None:
-            # The zone is not present on the current rank
-            continue
-        parent.addChild(fs_node)
-
-def _add_grid_location(fs_node: cgns.Node):
-    # if not GridLocation in a FlowSolution, PyPart will raise a Warning/Error in stderr.log
-    if fs_node.get(Type='GridLocation'):
-        return
+        Sets up the internal dictionary to track empty nodes by their CGNS path.
+        """
+        self.empty_nodes_by_path = dict()
     
-    GridLocation_Vertex = cgns.Node(Name='GridLocation', Type='GridLocation', Value='Vertex')
-    GridLocation_CellCenter = cgns.Node(Name='GridLocation', Type='GridLocation', Value='CellCenter')
-    try:
-        loc = fs_node.get(Name='loc', Type='DataArray').value()
-        if loc == 'cell':
-            fs_node.addChild(GridLocation_CellCenter, position=0)
-        elif loc == 'node':
+    def _is_empty_zone(self, zone: cgns.Zone):
+        return all([
+            self._is_empty_flow_solution(node) 
+            for node in zone.group(Type='FlowSolution', Depth=1)
+            ])
+
+    def _is_empty_flow_solution(self, fs_node: cgns.Node):
+        no_DataArray_nodes = len(fs_node.group(Type='DataArray', Depth=1)) == 0
+        empty_DataArray_nodes = any(
+            n.value() is None for n in fs_node.group(Type='DataArray', Depth=1)
+        )
+        is_empty = no_DataArray_nodes or empty_DataArray_nodes
+        return is_empty
+    
+    def _add_grid_location(self, fs_node: cgns.Node):
+        # if not GridLocation in a FlowSolution, PyPart will raise a Warning/Error in stderr.log
+        if fs_node.get(Type='GridLocation'):
+            return
+        
+        GridLocation_Vertex = cgns.Node(Name='GridLocation', Type='GridLocation', Value='Vertex')
+        GridLocation_CellCenter = cgns.Node(Name='GridLocation', Type='GridLocation', Value='CellCenter')
+        try:
+            loc = fs_node.get(Name='loc', Type='DataArray').value()
+            if loc == 'cell':
+                fs_node.addChild(GridLocation_CellCenter, position=0)
+            elif loc == 'node':
+                fs_node.addChild(GridLocation_Vertex, position=0)
+            else:
+                raise MolaException(f'Unknown loc node value ={loc}. Must be cell or node')
+        except:
             fs_node.addChild(GridLocation_Vertex, position=0)
-        else:
-            raise MolaException(f'Unknown loc node value ={loc}. Must be cell or node')
-    except:
-        fs_node.addChild(GridLocation_Vertex, position=0)
+
+    def _remove_PyPart_suffix(self, path: str):
+        import re
+        # regular expression to find a pattern ".P*.N*", with * a number with 1 to 5 figures
+        pattern = r'\.P(\d{1,5})\.N(\d{1,5})'
+        try:
+            path = re.sub(pattern, '', path)
+        except:
+            pass
+        return path
+
+    def get_empty_FlowSolution_nodes(self, tree: cgns.Tree, remove=False, remove_pypart_suffix=False):
+        """Detect and store empty FlowSolution nodes from a CGNS tree.
+
+        This method scans the provided tree for FlowSolution nodes that are either:
+        - Empty (no DataArray children)
+        - Have DataArray children with None values
+
+        These nodes are stored internally for later restoration. The method also
+        distributes the node path information across all MPI ranks so that all
+        processes have consistent knowledge of which nodes exist and where they
+        originated from.
+
+        Args:
+            tree (treelab.cgns.Tree): The CGNS tree to scan for empty nodes.
+            remove (bool): If True, remove the empty nodes from the tree after
+                storing them. Useful when the nodes need to be removed before
+                merging operation.
+            remove_pypart_suffix (bool): If True, strip the PyPart partitioning
+                suffix (.P*.N*) from node paths before storing.
+
+        Side Effects:
+            - Populates self.empty_nodes_by_path with discovered empty nodes
+            - If remove=True, modifies the input tree by removing empty nodes
+            - Synchronizes all MPI ranks with allgather operation
+
+        Note:
+            The GridLocation node added by PyPart is removed from empty nodes
+            before storage, as it's not part of the original node structure.
+        """
+        import copy
+        from mpi4py import MPI
+
+        current_rank = MPI.COMM_WORLD.Get_rank()
+
+        # Scan all FlowSolution nodes in the tree
+        for FS in tree.group(Type='FlowSolution'):
+            
+            if self._is_empty_flow_solution(FS):
+                # Remove PyPart-added GridLocation if present
+                # if no_DataArray_nodes:
+                FS.findAndRemoveNode(Type='GridLocation')
+
+                # Store a deep copy of the node
+                node = copy.deepcopy(FS)
+                self._add_grid_location(node)
+
+                # Normalize the path by removing PyPart suffix if requested
+                path = node.path()
+                if remove_pypart_suffix:
+                    path = self._remove_PyPart_suffix(path)
+
+                self.empty_nodes_by_path[path] = (current_rank, node)
+
+                # Optionally remove from the tree
+                if remove:
+                    FS.remove()
+
+        # Distribute path information to all MPI ranks
+        empty_nodes_paths = list(self.empty_nodes_by_path)
+        empty_nodes_ranks_and_paths = MPI.COMM_WORLD.allgather((current_rank, empty_nodes_paths))
+
+        # Populate entries for paths found on other ranks
+        for item in empty_nodes_ranks_and_paths:
+            rank, paths = item[0], item[1]
+            for path in paths:
+                if path not in self.empty_nodes_by_path:
+                    # Store path with rank info but no node data (not on this rank)
+                    self.empty_nodes_by_path[path] = (rank, None)
+
+        # Sort to ensure consistent ordering across all ranks
+        self.empty_nodes_by_path = dict(sorted(self.empty_nodes_by_path.items()))
+
+        self._ensure_unique_rank_for_empty_nodes()
+
+    def print_empty_nodes_by_path(self):
+        """Print the current state of tracked empty nodes (debug utility).
+
+        This method is intended for debugging purposes and prints the
+        empty_nodes_by_path dictionary in a formatted way.
+        """
+        from pprint import pprint
+        pprint(self.empty_nodes_by_path)
+
+    def _ensure_unique_rank_for_empty_nodes(self):
+        """Determine canonical owner rank for each empty node path.
+
+        When a node path appears on multiple ranks, this method ensures that
+        the lowest-ranked process is designated as the canonical owner. This
+        is important for avoiding duplicate operations and ensuring consistent
+        behavior across MPI processes.
+
+        Side Effects:
+            Updates self.empty_nodes_by_path to set node to None on non-owner ranks.
+        """
+        from mpi4py import MPI
+
+        current_rank = MPI.COMM_WORLD.Get_rank()
+
+        # Collect all ranks that have each path
+        ranks_by_path = {}
+        for path, value in self.empty_nodes_by_path.items():
+            rank = value[0]
+            if path in ranks_by_path:
+                ranks_by_path[path].append(rank)
+            else:
+                ranks_by_path[path] = [rank]
+
+        # Designate lowest rank as owner, set others to None
+        for path in ranks_by_path:
+            sorted_ranks = sorted(ranks_by_path[path])
+            first_rank_with_path = sorted_ranks[0]
+            if current_rank != first_rank_with_path:
+                self.empty_nodes_by_path[path] = (first_rank_with_path, None)
+
+    def restore_empty_FlowSolution_nodes(self, tree: cgns.Tree):
+        """Restore empty FlowSolution nodes to their original zones in a tree.
+
+        This method restores the stored empty nodes back into the CGNS tree.
+        It handles MPI communication to transfer nodes between ranks when the
+        source rank (where the node was stored) differs from the target rank
+        (where the parent zone exists).
+
+        Args:
+            tree (treelab.cgns.Tree): The CGNS tree to restore nodes into.
+
+        Note:
+            This method performs MPI send/recv operations for nodes that need
+            to be transferred between ranks. The MPI_TAG_EMPTY_NODE_RESTORE
+            constant is used for communication tagging.
+        """
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        current_rank = comm.Get_rank()
+
+        def _get_parent_from_path(tree, path):
+            parent_zone_path = '/'.join(path.split('/')[:-1])
+            return tree.getAtPath(parent_zone_path)
+
+        # Step 1: Collect local target information (path -> (source_rank, parent, target_rank))
+        local_target_info = []
+        for path, value in self.empty_nodes_by_path.items():
+            rank_with_source_zone, node = value[0], value[1] 
+            parent_zone = _get_parent_from_path(tree, path)
+            # rank_with_target_zone = current_rank if parent is not None else -1
+            zone_proc = lambda zone: zone.get(Name='.Solver#Param', Depth=1).get(Name='proc').value()
+            zone_loaded_on_current_rank = parent_zone is not None \
+                and zone_proc(parent_zone) == current_rank
+            rank_with_target_zone = current_rank if zone_loaded_on_current_rank else -1
+            # print(f"[{current_rank}] STEP1 {path=} {rank_with_target_zone=}")
+            local_target_info.append({
+                'path': path,
+                'rank_with_source_zone': rank_with_source_zone,
+                'rank_with_target_zone': rank_with_target_zone,
+            })
+
+        # Step 2: Gather all target info from all ranks to determine where each zone exists
+        # We use allgather to collect (rank, local_info_list) from all ranks
+        comm.barrier()
+        all_local_info = comm.allgather((current_rank, local_target_info))
+        comm.barrier()
+
+        # Step 3: Build a global map: path -> (source_rank, target_rank, parent_node)
+        global_path_info = {}
+        for rank, local_info in all_local_info:
+            for info in local_info:
+                path = info['path']
+                # Update if we found the target zone on this rank
+                if info['rank_with_target_zone'] != -1:
+                    if path not in global_path_info:
+                        global_path_info[path] = {
+                            'rank_with_source_zone': info['rank_with_source_zone'],
+                            'ranks_with_target_zone': [info['rank_with_target_zone']],
+                        }
+                    else:
+                        global_path_info[path]['ranks_with_target_zone'].append(info['rank_with_target_zone'])
+
+        # Step 4: keep only the lowest (canonical) rank for the target zone
+        for path in global_path_info:
+            ranks_with_target_zone = global_path_info[path].pop('ranks_with_target_zone')
+            lowest_rank_with_target_zone = sorted(ranks_with_target_zone)[0]
+            global_path_info[path]['rank_with_target_zone'] = lowest_rank_with_target_zone
+            # print(f"[{current_rank}] STEP4 {path=} {ranks_with_target_zone=} {lowest_rank_with_target_zone=}")
 
 
-def _remove_PyPart_suffix(path):
-    import re
-    # regular expression to find a pattern ".P*.N*", with * a number with 1 to 5 figures
-    pattern = r'\.P(\d{1,5})\.N(\d{1,5})'
-    try:
-        path = re.sub(pattern, '', path)
-    except:
-        pass
-    return path
+        # Step 5: now that there is only a unique rank_with_source_zone (the lowest one)
+        # and a unique rank_with_target_zone (also the lowest one), loop on the path and
+        # exchange only once the empty nodes to put them back in the tree
+        comm.barrier()
+        for path in global_path_info:
+            rank_with_source_zone = global_path_info[path]['rank_with_source_zone']
+            rank_with_target_zone = global_path_info[path]['rank_with_target_zone']
+            # print(f"[{current_rank}] STEP5 {path=} {rank_with_source_zone=} {rank_with_target_zone=}")
+            # comm.barrier()
+            
+            if rank_with_source_zone == rank_with_target_zone:
+                # no MPI exchange to do
+                # Only the given rank must make the addChild operation
+                if current_rank == rank_with_source_zone:
+                    node = self.empty_nodes_by_path[path][1]
+                    parent = _get_parent_from_path(tree, path)
+                    parent.addChild(node)
+                else:
+                    # nothing to do for this path
+                    pass
+            else:
+                if current_rank == rank_with_source_zone:
+                    node = self.empty_nodes_by_path[path][1]
+                    comm.send(node, dest=rank_with_target_zone, tag=46)
+                if current_rank == rank_with_target_zone:    
+                    node = comm.recv(source=rank_with_source_zone, tag=46) 
+                    parent = _get_parent_from_path(tree, path)
+                    parent.addChild(node)
+            comm.barrier()
+
+def restore_empty_FlowSolution_nodes_in_file(self, dst):
+    """Restore empty FlowSolution nodes directly to a CGNS file.
+
+    This method writes the stored empty nodes directly to a CGNS file
+    without requiring them to be in a tree structure first. It compares
+    the stored nodes with existing nodes in the file and only writes
+    nodes that have more DataArray children than the file version.
+
+    Args:
+        dst (str): Path to the destination CGNS file.
+
+    """
+    from mpi4py import MPI
+    current_rank = MPI.COMM_WORLD.Get_rank()
+
+    for path, value in self.empty_nodes_by_path.items():
+        rank_with_source_node, fs_node = value[0], value[1]
+
+        # Only process if we have the actual node data
+        if fs_node is not None:
+            # Read existing node from file
+            print(f"[{current_rank}] {path=}")
+            saved_FS = cgns.readNode(dst, path)
+
+            # Write if stored node has more DataArrays than file version
+            if len(saved_FS.group(Type='DataArray')) < len(fs_node.group(Type='DataArray')):
+                fs_node.saveThisNodeOnly(dst)
+                for child in fs_node.children():
+                    child.saveThisNodeOnly(dst)
+
 
 def is_partitioned(tree, backend='maia'):
     if backend == 'maia':

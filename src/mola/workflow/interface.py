@@ -17,7 +17,7 @@
 
 import os
 import copy
-import pathlib
+from pathlib import Path
 import numpy as np
 import copy
 
@@ -76,6 +76,8 @@ class WorkflowInterface(object):
                 attributes['RawMeshComponents'] = [Mesh]
             elif isinstance(Mesh, str) or isinstance(Mesh, cgns.Tree):
                 attributes['RawMeshComponents'] = [dict(Source=Mesh, Name='Base')]
+            elif isinstance(Mesh, list):
+                attributes['RawMeshComponents'] = [dict(Source=cgns.castNode(Mesh), Name='Base')]
             else:
                 raise MolaUserError(f"Input parameter Mesh must be either a dict or str but is {type(Mesh)}")
         attributes.pop('Mesh')
@@ -110,9 +112,9 @@ class WorkflowInterface(object):
     
     def get_workflow_parameters_from_tree(self):
         
-        if isinstance(self.tree, str):
+        if isinstance(self.tree, (str, Path)):
             workflow_parameters = cgns.load_workflow_parameters(self.tree)
-        elif isinstance(self.tree, cgns.Tree):
+        elif isinstance(self.tree, cgns.Node):
             workflow_parameters = self.tree.getParameters(self._workflow_parameters_container_, transform_numpy_scalars=True)
         else:
             raise MolaUserError(f'The given tree must be either a filename or a Tree read by treelab.')
@@ -201,7 +203,7 @@ class WorkflowInterface(object):
         OversetMotion    : dict = None,
         *,
         Name             : str,
-        Source           : Union[ str, Tree, Base, Zone],
+        Source           : Union[ str, Tree, Base, Zone, list],
         ):
         '''
         Set workflow attribute **RawMeshComponents**
@@ -234,6 +236,8 @@ class WorkflowInterface(object):
             :fas:`person-digging;sd-text-warning`
         '''
         Positioning = self._add_scaling_according_to_unit(Positioning, Unit)    
+        if isinstance(Source, list):
+            Source = cgns.castNode(Source)
         self.RawMeshComponents.append(self._get_comp(
             WorkflowInterface.add_to_RawMeshComponents, self.get_default_values_from_local_signature()))
     
@@ -294,7 +298,7 @@ class WorkflowInterface(object):
 
 
     def set_Flow(self,
-            Generator : str = 'External_rho_T_V',
+            Generator : Union[str, None] = None,  #'External_rho_T_V',
             # NOTE kwargs are here not to raise an error due to specific arguments for the Generator
             # This function has a specific behavior to raise appropriated errors.
             # The interface is delegated to the method set_defaults of the Generator class 
@@ -302,21 +306,39 @@ class WorkflowInterface(object):
             ):
 
         from  mola.cfd.preprocess import flow_generators
-        FlowGen = flow_generators.get_flow_generator(Generator) 
-        signature = inspect.signature(FlowGen.set_Flow_defaults)
+        if Generator is not None:
+            FlowGen = flow_generators.get_flow_generator(Generator)
+            default_kwargs = self._get_default_values_from_flow_generator(FlowGen, kwargs)
+        else:
+            # loop on Generators to find the one that match the given input parameters
+            matching_generator = False
+            for Generator, FlowGen in flow_generators.AvailableFlowGenerators.items():
+                try:
+                    default_kwargs = self._get_default_values_from_flow_generator(FlowGen, kwargs)
+                    matching_generator = True
+                    break
+                except MolaUserAttributeError:
+                    pass
+            if not matching_generator:
+                raise MolaUserError(f'The set of input parameters in Flow ({kwargs.keys()}) is not valid.')
+                
+        self.Flow = self._get_comp(FlowGen.set_Flow_defaults, default_kwargs) 
+        self.Flow['Generator'] = Generator
+    
+    @staticmethod
+    def _get_default_values_from_flow_generator(FlowGenerator, kwargs):
+        signature = inspect.signature(FlowGenerator.set_Flow_defaults)
         default_kwargs = dict((name, param.default) for name, param in signature.parameters.items() if name != 'self')
         for name, value in kwargs.items():
             if name not in default_kwargs:
                 error_msg = (f"set_Flow() got an unexpected keyword argument '{name}'. " 
                              f"The following arguments are for the currently selected "
-                             f"{BOLD}Generator{ENDC}{RED}: {PINK}{Generator}{ENDC}{RED} "
+                             f"{BOLD}Generator{ENDC}{RED}: {PINK}{FlowGenerator.name}{ENDC}{RED} "
                              f"(another one may be selected in {BOLD}Flow{ENDC}{RED} if needed)")
-                raise MolaUserAttributeError(FlowGen.set_Flow_defaults, error_msg)
+                raise MolaUserAttributeError(FlowGenerator.set_Flow_defaults, error_msg)
             else:
                 default_kwargs[name] = value
-                
-        self.Flow = self._get_comp(FlowGen.set_Flow_defaults, default_kwargs) 
-        self.Flow['Generator'] = Generator
+        return default_kwargs
 
     def set_Turbulence(self,
         Viscosity_EddyMolecularRatio : float = 0.1,
@@ -655,6 +677,22 @@ class WorkflowInterface(object):
         '''
         self.Extractions.append(self._get_comp(
             WorkflowInterface.add_to_Extractions_Residuals, self.get_default_values_from_local_signature()))
+        
+    def add_to_Extractions_RawSolverOutput(self,
+        File : str = f'output_tree_{solver}.cgns',
+        ExtractionPeriod : int = 1000000,  # no extraction during the run by default
+        SavePeriod : int = 1000000,
+        Override : bool = True,
+        ExtractAtEndOfRun : bool = True,
+        *,
+        Type : str = 'RawSolverOutput',
+        ):
+        '''
+        Extraction of raw output tree from the solver
+        '''
+        self.Extractions.append(self._get_comp(
+            WorkflowInterface.add_to_Extractions_RawSolverOutput,
+            self.get_default_values_from_local_signature()))
 
     def add_to_Extractions_Integral(self,
             File : str = names.FILE_OUTPUT_1D,
@@ -835,6 +873,7 @@ class WorkflowInterface(object):
             Container : str = None, # if None will define automatic container names
             GridLocation : str = 'CellCenter',
             GhostCells : bool = False,
+            OtherOptions : dict = None,
             *,
             Type : str = 'Restart',
             ):
@@ -911,7 +950,7 @@ class WorkflowInterface(object):
 
     def set_RunManagement(self,
         JobName : str = None,
-        RunDirectory : Union[str, pathlib.PosixPath] = '.',
+        RunDirectory : Union[str, Path] = '.',
         NumberOfProcessors : int = MPI.COMM_WORLD.Get_size(),
         NumberOfThreads : int = 1,
         Machine : str = None,
@@ -933,7 +972,7 @@ class WorkflowInterface(object):
         ----------
         JobName : str, optional
             Name of the job (useful only for using a Scheduler), by default 'mola'
-        RunDirectory : Union[str, pathlib.PosixPath], optional
+        RunDirectory : Union[str, Path], optional
             Path where the simulation will be done, 
             by default '.' (simulation is prepared in the current directory).
         NumberOfProcessors : int, optional

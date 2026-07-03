@@ -16,12 +16,17 @@ v2.0.1
 
 * Allow 2D simulations with SoNICS (automatic if the input mesh is 2D)
 * Allow vertex-centered simulation with SoNICS (using ``Numerics['GridLocation']='Vertex'``)
+* Write automatically a postprocess script to gather results after using a WorkflowManager (depending on workflow)
+* Select automatically the adapted Flow Generator from the given input data in **Flow**.
+* Perform automatic second order restart in the context of an unsteady 2nd order simulation with elsA.
 
 =======================
 🚀 Feature improvements
 =======================
 
 * Make more robust duplication process
+* Allow modifying stage parameters for elsA (for MixingPlane, UnsteadyRotorStatorInterface and ChorochronicInterface)
+* Optimize WorkflowManager
 
 ========
 🐞 Fixes
@@ -36,11 +41,15 @@ v2.0.1
   Incomplete or missing data extraction on a boundary condition.
 * Fix `bug #273 <https://gitlab.onera.net/numerics/mola/-/issues/273>`_:
   Correction on force and torque extraction with SoNICS.
+* Fix bug `#286 <https://gitlab.onera.net/numerics/mola/-/issues/286>`_:
+  issues to write a tree in parallel with PyPart.
 * Fix bugs `#288 <https://gitlab.onera.net/numerics/mola/-/issues/288>`_
   and `#292 <https://gitlab.onera.net/numerics/mola/-/issues/292>`_:
   issues to restart a simulation.
 * Fix `bug #304 <https://gitlab.onera.net/numerics/mola/-/issues/304>`_:
   Correction on elsa simulation interruption when using 2nd order time marching.
+* Fix bugs in WorkflowManager
+* Fix bugs in postprocess interface for turbomachinery
 
 *****************
 v2 compared to v1 

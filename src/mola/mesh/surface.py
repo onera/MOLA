@@ -892,7 +892,7 @@ def getSuitableSetOfPointsForTFITri(N1, N2, N3,
         return N1, N2, N3
 
 def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
-        airfoil_top2bottom_NPts=21, sharp_TrailingEdge_TFI_chord_ref=0.01,
+        airfoil_top2bottom_NPts=21, sharp_TrailingEdge_TFI_chord_ref=0.2,
         thick_TrailingEdge_detection_angle=30.,
         sharp_TrailingEdge_post_smoothing=dict(eps=0.9, niter=500, type=2)):
     '''
@@ -959,6 +959,7 @@ def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
         AirfoilHasThickTrailingEdgeTopology = True
     else:
         AirfoilHasThickTrailingEdgeTopology = False
+
 
     if AirfoilHasThickTrailingEdgeTopology:
         if AirfoilIsOpen or AirfoilHasRoundTrailingEdge:

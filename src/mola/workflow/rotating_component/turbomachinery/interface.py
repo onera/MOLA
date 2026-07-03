@@ -80,13 +80,6 @@ class WorkflowTurbomachineryInterface(WorkflowRotatingComponentInterface):
             )
         self.ApplicationContext['Rows'][_Key].pop('_Key')
 
-    def set_Flow(self,
-                Generator : str = 'Internal',
-                **kwargs):
-        local_kwargs = self.get_default_values_from_local_signature()
-        local_kwargs.update(kwargs)
-        super().set_Flow(**local_kwargs)
-
     def set_SplittingAndDistribution(self, 
             Strategy                         : str = 'AtComputation',
             Splitter                         : str = 'PyPart',

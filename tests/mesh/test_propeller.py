@@ -1065,6 +1065,14 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
         print(msg_restricted)
 
 
+@pytest.mark.integration
+@pytest.mark.cost_level_3
+def test_mesh_ultra_light_sharp():
+    import mola.mesh.propeller_mesher as RW
+    import mola.mesh.easy_propellers as ep
+    ep.ultra_light_sharp['dir_check']=None
+    RW.easy_mesher(**ep.ultra_light_sharp)
+
 
 if __name__ == '__main__':
 
