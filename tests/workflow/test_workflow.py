@@ -486,7 +486,7 @@ def get_workflow_sphere_unstruct(RunDirectory):
         Extractions=[
             # dict(Type='BC', Source='*', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True),
             # dict(Type='BC', Source='WallViscous', Name='ByFamily', Fields=['Pressure'], ExtractAtEndOfRun=True), # FIXME BUG if active
-            # dict(Type='IsoSurface', IsoSurfaceField='CoordinateZ', IsoSurfaceValue=1e-6, ExtractAtEndOfRun=True),
+            dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=1e-6, ExtractAtEndOfRun=True),
             dict(Type='3D', Fields=['PressureStagnation', 'Pressure', 'Mach', 'Entropy'], ExtractAtEndOfRun=True),
             ],
 
@@ -662,20 +662,17 @@ def get_workflow_cart_monoproc(
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_init():
     w = Workflow()
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_print_interface_1():
     w = get_workflow1()
     w.print_interface()
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_submit(tmp_path):
     test_dir = str(tmp_path)
     w = Workflow(RunManagement=dict(
@@ -694,7 +691,6 @@ def test_submit(tmp_path):
     
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_write_tree(tmp_path):
     w = Workflow()
     w.write_tree(str(tmp_path/'main.cgns'))
@@ -703,7 +699,6 @@ def test_write_tree(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.mpi
 def test_set_workflow_parameters_in_tree_mpi(tmp_path, filename=''):
     w = get_workflow_sphere_struct_dist(tmp_path)
@@ -712,14 +707,12 @@ def test_set_workflow_parameters_in_tree_mpi(tmp_path, filename=''):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_workflow_parameters_in_tree(filename=''):
     w = Workflow()
     w.set_workflow_parameters_in_tree()
     if filename: w.write_tree(filename)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_workflow_parameters_from_tree(filename=''):
     w = Workflow()
     w.set_workflow_parameters_in_tree()
@@ -730,20 +723,17 @@ def test_get_workflow_parameters_from_tree(filename=''):
     if filename: w.write_tree(filename) 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_equality_between_workflows():
     w = get_workflow1()
     w2 = get_workflow1()
     assert w == w2
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_prepare_assemble_1():
     w = get_workflow1()
     w.assemble()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_init_with_arg_Mesh():
     w = Workflow(Mesh='mesh.cgns')
     assert w.RawMeshComponents[0]['Source'] == 'mesh.cgns'
@@ -756,21 +746,19 @@ def test_init_with_arg_Mesh():
     assert not hasattr(w, 'Mesh')
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_prepare_assemble_2():
     w = get_workflow2()
     w.assemble()
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.mpi
 def test_prepare_assemble_dist():
     w = get_workflow_dist()
     w.assemble()
 
 
-@pytest.mark.cost_level_1
+
 @pytest.mark.integration
 def test_process_mesh_workflow1():
     w = get_workflow1()
@@ -780,7 +768,6 @@ def test_process_mesh_workflow1():
     except: pass
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_prepare_workflow2(tmp_path):
     w = get_workflow2()
     w.RunManagement["RunDirectory"] = str(tmp_path)
@@ -789,7 +776,6 @@ def test_prepare_workflow2(tmp_path):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_prepare_workflow2_comp2(tmp_path):
     params = get_workflow2_parameters()
     params["RunManagement"]["RunDirectory"] = str(tmp_path)
@@ -799,7 +785,7 @@ def test_prepare_workflow2_comp2(tmp_path):
     w.write_cfd_files()
 
 # @pytest.mark.integration
-# @pytest.mark.cost_level_1
+# 1
 # @pytest.mark.mpi
 # def test_prepare_workflow_dist():
 #     w = get_workflow_dist()
@@ -810,7 +796,6 @@ def test_prepare_workflow2_comp2(tmp_path):
 #     w.write_cfd_files()
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 @pytest.mark.skipif(solver=="sonics", reason="replaced by its own parametrized test") # avoids executing twice the case dim=3 CellCenter in sonics context
 def test_workflow_cart_monoproc(tmp_path):
     w = get_workflow_cart_monoproc(tmp_path, dim = 3, GridLocation = "CellCenter")
@@ -821,7 +806,6 @@ def test_workflow_cart_monoproc(tmp_path):
     w.assert_completed_without_errors()
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 @pytest.mark.sonics
 @pytest.mark.parametrize('dim', [2, 3])
 @pytest.mark.parametrize('GridLocation', ['Vertex', 'CellCenter'])
@@ -836,7 +820,6 @@ def test_workflow_cart_monoproc_sonics(tmp_path, dim, GridLocation):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_3
 def test_workflow_2_presplit(tmp_path):
     params = get_workflow2_parameters()
 
@@ -854,7 +837,6 @@ def test_workflow_2_presplit(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.elsa
-@pytest.mark.cost_level_3
 def test_workflow_2_cosplit(tmp_path):
     params = get_workflow2_parameters()
 
@@ -880,7 +862,6 @@ def test_workflow_2_cosplit(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.elsa
-@pytest.mark.cost_level_3
 @pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
 def test_workflow_2_unstr_cosplit(tmp_path):
     
@@ -911,7 +892,6 @@ def test_workflow_2_unstr_cosplit(tmp_path):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_3
 def test_workflow_sphere_struct_local_monoproc(tmp_path):
     w = get_workflow_sphere_struct(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
@@ -922,7 +902,6 @@ def test_workflow_sphere_struct_local_monoproc(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.elsa
-@pytest.mark.cost_level_3
 def test_workflow_sphere_struct_local_monoproc_pypart(tmp_path):
     w = get_workflow_sphere_struct(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
@@ -937,7 +916,6 @@ def test_workflow_sphere_struct_local_monoproc_pypart(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.elsa
-@pytest.mark.cost_level_3
 def test_workflow_sphere_struct_local_monoproc_maia(tmp_path):
     w = get_workflow_sphere_struct(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
@@ -953,7 +931,6 @@ def test_workflow_sphere_struct_local_monoproc_maia(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.sonics
-@pytest.mark.cost_level_3
 def test_workflow_sphere_unstruct_local_euler(tmp_path):
     w = get_workflow_sphere_unstruct(tmp_path)
     w.Turbulence['Model'] = 'Euler'
@@ -964,7 +941,6 @@ def test_workflow_sphere_unstruct_local_euler(tmp_path):
     w.assert_completed_without_errors()
 
 @pytest.mark.integration
-@pytest.mark.cost_level_3
 @pytest.mark.mpi
 def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path):
     w = get_workflow_sphere_struct_cassiopee_mpi_to_connect(tmp_path)
@@ -977,7 +953,6 @@ def test_workflow_sphere_struct_local_cassiopee_mpi(tmp_path):
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.integration
-@pytest.mark.cost_level_3
 @pytest.mark.mpi
 def test_workflow_sphere_struct_local_dist(tmp_path):
     w = get_workflow_sphere_struct_dist(tmp_path)
@@ -988,7 +963,7 @@ def test_workflow_sphere_struct_local_dist(tmp_path):
     w.assert_completed_without_errors()
 
 @pytest.mark.integration
-@pytest.mark.cost_level_4
+@pytest.mark.skipif(solver=='fast',reason="solver fast does not support unstructured grids")
 def test_workflow_sphere_unstruct_local(tmp_path):
     w = get_workflow_sphere_unstruct(tmp_path)
     try:
@@ -1002,12 +977,12 @@ def test_workflow_sphere_unstruct_local(tmp_path):
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()
 
+@pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
 @pytest.mark.integration
 @pytest.mark.elsa
-@pytest.mark.cost_level_4
-@pytest.mark.skip(reason="FIXME BUG elsa unstructured+extractionBC+pypart") # FIXME BUG
 def test_workflow_sphere_unstruct_pypart(tmp_path):
     w = get_workflow_sphere_unstruct(tmp_path)
+    w.RunManagement['NumberOfProcessors'] = 2
     w.RunManagement['Scheduler'] = 'local'
     w.SplittingAndDistribution["Strategy"] = "AtComputation"
     w.SplittingAndDistribution["Splitter"] = "PyPart"
@@ -1020,7 +995,7 @@ def test_workflow_sphere_unstruct_pypart(tmp_path):
     w.assert_completed_without_errors()
 
 # @pytest.mark.integration
-# @pytest.mark.cost_level_3
+# 3
 # def test_workflow_sphere_hybrid_local(tmp_path):
 #     # Tested with elsA v5.3.03 and Maia, it works. Other cases are to debug
 #     w = get_workflow_sphere_hybrid(tmp_path)
@@ -1035,7 +1010,6 @@ def test_workflow_sphere_unstruct_pypart(tmp_path):
 
 @pytest.mark.network_onera
 @pytest.mark.integration
-@pytest.mark.cost_level_4
 def test_workflow_sphere_struct_remote_sator():
     w = get_workflow_sphere_struct(
         RunDirectory=f'/tmp_user/sator/$USER/.test_workflow_sphere_struct_remote_sator_{os.getenv("MOLA_SOLVER")}/'
@@ -1079,7 +1053,6 @@ def unstructured_cart_grid():
     return t
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_workflow_tree_setter():
     tree = ['Node', None, [], 'DataArray_t']
 
@@ -1088,7 +1061,6 @@ def test_workflow_tree_setter():
     assert isinstance(workflow.tree, cgns.Node)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_workflow_tree_setter_by_interface():
     def _get_fake_tree_with_worklfow_parameters():
         """

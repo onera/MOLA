@@ -24,7 +24,6 @@ from mola.cfd.postprocess.signals import propeller_coefficients_computer as pcc
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_update_force_coefficients(application_context):
     shape = 10
 
@@ -53,7 +52,6 @@ def test_update_force_coefficients(application_context):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_update_torque_coefficients(application_context):
     shape = 10
     coefs = {
@@ -107,7 +105,6 @@ def test_update_torque_coefficients(application_context):
         assert np.allclose(coefs[key], np.full(shape, expected_value, dtype=np.float64)), key
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_aerodynamic_coefficients_to(zone_with_loads, application_context):
     tree = cgns.Tree(Base=zone_with_loads)
     extraction = dict(Data=tree, Type='Integral')

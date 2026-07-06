@@ -22,14 +22,12 @@ from mola.cfd.preprocess.motion import motion
 from treelab import cgns
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_any_mobile_whith_no_family():
     Motion = dict()
     assert not motion.any_mobile(Motion)
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_any_mobile_with_single_family_not_mobile():
     Motion = dict(
         Rotor = dict(
@@ -42,7 +40,6 @@ def test_any_mobile_with_single_family_not_mobile():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_any_mobile_with_multiple_families():
     Motion = dict(
         Rotor = dict(
@@ -60,7 +57,6 @@ def test_any_mobile_with_multiple_families():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_first_found_rotation_axis_origin_vector_at_motion_1():
     Motion = dict(
         Rotor = dict(
@@ -80,7 +76,6 @@ def test_get_first_found_rotation_axis_origin_vector_at_motion_1():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_first_found_rotation_axis_origin_vector_at_motion_2():
     Motion = dict(
         AnotherRotor = dict(
@@ -95,7 +90,6 @@ def test_get_first_found_rotation_axis_origin_vector_at_motion_2():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_first_found_rotation_speed_vector_at_motion_1():
     Motion = dict(
         Rotor = dict(
@@ -115,7 +109,6 @@ def test_get_first_found_rotation_speed_vector_at_motion_1():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_first_found_rotation_speed_vector_at_motion_2():
     Motion = dict(
         AnotherRotor = dict(
@@ -129,7 +122,6 @@ def test_get_first_found_rotation_speed_vector_at_motion_2():
     assert np.allclose(rotation_speed, expected_rotation_speed)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_rotation_axis_from_first_found_motion_1():
     Motion = dict(
         Rotor = dict(
@@ -150,7 +142,6 @@ def test_get_rotation_axis_from_first_found_motion_1():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_rotation_axis_from_first_found_motion_2():
     Motion = dict(
         AnotherRotor = dict(
@@ -166,7 +157,6 @@ def test_get_rotation_axis_from_first_found_motion_2():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_update_motion_with_defaults():
     Motion = dict()
     motion.update_motion_with_defaults(Motion)
@@ -178,7 +168,6 @@ def test_update_motion_with_defaults():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_update_motion_with_defaults2():
     Motion = dict(RotationSpeed=500)
     motion.update_motion_with_defaults(Motion)
@@ -191,7 +180,6 @@ def test_update_motion_with_defaults2():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_update_motion_with_defaults3():
     Motion = dict(
         RotationSpeed=np.empty(3),
@@ -205,7 +193,6 @@ def test_update_motion_with_defaults3():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_mobile1():
     Motion = dict()
     motion.update_motion_with_defaults(Motion)
@@ -214,7 +201,6 @@ def test_is_mobile1():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_mobile3():
     Motion = dict(
         RotationSpeed      = [500., 0., 0.],
@@ -225,7 +211,6 @@ def test_is_mobile3():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_mobile4():
     Motion = dict(
         TranslationSpeed   = [0., 1., 0.],
@@ -236,7 +221,6 @@ def test_is_mobile4():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_mobile5():
     Motion = dict(
         RotationAxisOrigin = [1., 0., 0.],
@@ -255,7 +239,6 @@ class FakeWorkflow():
         cgns.Node(Name='FamilyName', Type='FamilyName', Value='Fam1', Parent=zone)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_default_motion_on_families():
     workflow = FakeWorkflow()
     motion.set_default_motion_on_families(workflow)

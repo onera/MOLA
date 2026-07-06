@@ -18,6 +18,7 @@
 import copy
 from fnmatch import fnmatch
 from pprint import pformat as pretty
+from treelab import cgns
 from mola.cfd import apply_to_solver
 from mola.cfd.postprocess.signals import AVAILABLE_OPERATIONS_ON_SIGNALS
 from mola.logging import mola_logger
@@ -117,6 +118,7 @@ def replace_shortcuts(workflow):
 def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
     tree = workflow.tree
     bc_families_to_extract = []
+    bc_types_to_skip = ['Null', 'UserDefined']
     if familiesBC is None:
         familiesBC = get_familiesBC_nodes(tree)
     requested_source = Extraction['Source']
@@ -126,7 +128,7 @@ def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
     registered_family_names = []
     registered_bc_types = set()
     for familyBC in familiesBC:
-
+        familyBC : cgns.Node
         family = familyBC.parent()
         family_name = family.name()
         registered_family_names += [ family_name ]
@@ -137,12 +139,15 @@ def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
         # <label/type> <-> <Extraction> in order to be acceptable also for FSDM
         # or other conventions
         bc_type = familyBC.value()
+        if bc_type in bc_types_to_skip: continue
         registered_bc_types.add(bc_type)
         
         try:
             bc_type_generic = bc_dispatcher.to_generic_name(bc_type)
-        except ValueError as err:
-            raise MolaException(f'Error on Family {family_name}: {err}')
+        except ValueError as e:
+            workflow.tree.save("debug.cgns")
+            raise ValueError(f'dumped debug.cgns at call of bc_dispatcher.to_generic_name("{bc_type}")') from e
+
         registered_bc_types.add(bc_type_generic)
 
         family_match_requirement = fnmatch(family_name, requested_source) or \

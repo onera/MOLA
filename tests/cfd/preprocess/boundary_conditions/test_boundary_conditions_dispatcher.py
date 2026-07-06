@@ -32,23 +32,19 @@ def bc_dispatcher():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_all_generic_names(bc_dispatcher):
     assert bc_dispatcher.get_all_generic_names()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_all_specific_names(bc_dispatcher):
     assert bc_dispatcher.get_all_specific_names()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_all_supported_names(bc_dispatcher):
     assert bc_dispatcher.get_all_supported_names()
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_name_used_by_solver(bc_dispatcher):
     for generic_name in bc_dispatcher.get_all_generic_names():
         assert bc_dispatcher.get_name_used_by_solver(generic_name)
@@ -61,14 +57,12 @@ def test_get_name_used_by_solver(bc_dispatcher):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_supported(bc_dispatcher):
     assert bc_dispatcher.is_supported("Wall")
     assert not bc_dispatcher.is_supported("WrongNameBC")
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_to_generic_name(bc_dispatcher):
     try:
         bc_dispatcher.to_generic_name("WrongNameBC")
@@ -83,7 +77,6 @@ def test_to_generic_name(bc_dispatcher):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_allowed_shell_pattern(bc_dispatcher):
     assert bc_dispatcher.is_allowed_shell_pattern("*Wall*")
     assert not bc_dispatcher.is_allowed_shell_pattern("*WrongNameBC*")

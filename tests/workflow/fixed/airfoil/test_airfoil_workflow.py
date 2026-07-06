@@ -68,7 +68,6 @@ def get_workflow_micro_naca(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_workflow_airfoil_init():
     w = WorkflowAirfoil()
     w.print_interface()
@@ -77,14 +76,12 @@ def test_workflow_airfoil_init():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_default_flow_direction():
     w = WorkflowAirfoil(ApplicationContext=dict(AngleOfAttackDeg=10.0))
     assert np.allclose(w.Flow['Direction'], [0.98480775, 0.17364818, 0.0])
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_default_transition_zones():
     w = WorkflowAirfoil(Turbulence=dict(TransitionMode='zonal'))
     expected_keys = [
@@ -106,7 +103,6 @@ def test_default_transition_zones():
 
 @pytest.mark.integration
 @pytest.mark.elsa # TODO include fast and sonics
-@pytest.mark.cost_level_3
 def test_micro_naca(tmp_path):
     w = get_workflow_micro_naca(tmp_path)
     w.RunManagement['Scheduler'] = 'local'

@@ -43,7 +43,6 @@ def build_tree( nb_of_bases=2, nb_of_zones=2 ):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_stress_example():
     import Converter.PyTree as C
     import Converter.Internal as I

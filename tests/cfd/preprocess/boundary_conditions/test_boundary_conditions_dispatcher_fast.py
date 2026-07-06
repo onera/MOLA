@@ -33,7 +33,6 @@ def bc_dispatcher():
 
 @pytest.mark.unit
 @pytest.mark.fast
-@pytest.mark.cost_level_0
 def test_to_generic_name(bc_dispatcher):
     assert bc_dispatcher.to_generic_name("BCInj1") == 'InflowStagnation'
     assert bc_dispatcher.to_generic_name("BCOutpres") == 'OutflowPressure'
@@ -42,6 +41,5 @@ def test_to_generic_name(bc_dispatcher):
 
 @pytest.mark.unit
 @pytest.mark.fast
-@pytest.mark.cost_level_0
 def test_is_allowed_shell_pattern(bc_dispatcher):
     assert bc_dispatcher.is_allowed_shell_pattern("*BCInj1*")

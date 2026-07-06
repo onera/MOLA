@@ -21,7 +21,6 @@ import numpy as np
 import mola.math_tools as mt
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_rotate_3d_vector_from_axis_and_angle_in_degrees():
     i = np.array([1,0,0])
     j = np.array([0,1,0])
@@ -35,7 +34,6 @@ def test_rotate_3d_vector_from_axis_and_angle_in_degrees():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_normalize_numpy_vector():
     vector = np.array([0.5,1,0.75])
     expected_normalized = np.array([0.37139068, 0.74278135, 0.55708601])

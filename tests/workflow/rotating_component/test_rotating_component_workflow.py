@@ -22,7 +22,7 @@ from treelab import cgns
 
 from mola.cfd.preprocess.mesh.tools import compute_azimuthal_extension
 from mola.cfd.preprocess.motion import motion
-from mola.logging import mola_logger, MolaAssertionError
+from mola.logging import mola_logger, MolaAssertionError, MolaUserError
 from mola.workflow.rotating_component.workflow import WorkflowRotatingComponent
 
 from .sector_mesh_tools_for_test import workflow_sector_params, CylinderMeshBuilder, MixedMeshBuilder
@@ -43,6 +43,26 @@ def wf_params(workflow_sector_params) -> dict:
     
     return workflow_sector_params
 
+
+@pytest.fixture
+def tree_with_perio_match() -> cgns.Tree:
+    t = cgns.Tree()
+    b = cgns.Base()
+    z = cgns.Zone()
+    z.attachTo(b)
+    b.attachTo(t)
+
+    zgc = cgns.Node(Name='ZoneGridConnectivity', Type='ZoneGridConnectivity_t', Parent=z)
+
+    for i in range(2):
+        gc = cgns.Node(Name=f'MyPerio{i+1}', Type='GridConnectivity_t', Value="Base/Zone", Parent=zgc)
+        prop = cgns.Node(Name='GridConnectivityProperty', Type='GridConnectivityProperty_t', Parent=gc)
+        perio = cgns.Node(Name='Periodic', Type='Periodic_t', Parent=prop)
+
+        cgns.Node(Name='RotationAngle',Type='DataArray_t',Value=np.array([np.pi,0,0],dtype=float),Parent=perio)
+        cgns.Node(Name='RotationCenter',Type='DataArray_t',Value=np.array([0,0,0],dtype=float),Parent=perio)
+
+    return t
 
 def get_workflow_annular_sector_parameters(RunDirectory):
 
@@ -147,14 +167,12 @@ class FakeWorkflow(WorkflowRotatingComponent):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_init(tmp_path):
     w = get_workflow_annular_sector(tmp_path)
     w.print_interface()
     assert w.Name == 'WorkflowRotatingComponent'
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_shroud_boundary_conditions():
     w = FakeWorkflow()
     w.set_shroud_boundary_conditions()
@@ -168,21 +186,18 @@ def test_set_shroud_boundary_conditions():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_blade_boundary_conditions():
     w = FakeWorkflow()
     w.set_blade_boundary_conditions()
     assert dict(Family='test_Blade1', Type='Wall', Motion=w.Motion['Rotor']) in w.BoundaryConditions
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_hub_boundary_conditions_default():
     w = FakeWorkflow()
     w.set_hub_boundary_conditions()
     assert dict(Family='Hub_test', Type='Wall', Motion=w.Motion['Rotor']) in w.BoundaryConditions
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_hub_boundary_conditions_list():
     w = FakeWorkflow()
     w.ApplicationContext['HubRotationIntervals'] = [(1, 2)]
@@ -193,7 +208,6 @@ def test_set_hub_boundary_conditions_list():
     assert callable(last_bc['Motion']['RotationSpeed'])
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_hub_boundary_conditions_function():
     w = FakeWorkflow()
     w.ApplicationContext['HubRotationIntervals'] = lambda x: 2*x
@@ -204,7 +218,6 @@ def test_set_hub_boundary_conditions_function():
     assert callable(last_bc['Motion']['RotationSpeed'])
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_hub_boundary_conditions_error_axis():
     w = FakeWorkflow()
     w.ApplicationContext['HubRotationIntervals'] = [(1, 2)]
@@ -216,7 +229,6 @@ def test_set_hub_boundary_conditions_error_axis():
         return
     
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_compute_fluxcoef_by_row():
     w = FakeWorkflow()
     w.compute_fluxcoef_by_row()
@@ -225,7 +237,7 @@ def test_compute_fluxcoef_by_row():
         )
 
 # @pytest.mark.unit
-# @pytest.mark.cost_level_3
+# 3
 # def test_parametrize_with_height_with_turbo(tmp_path):
 #     w = get_workflow_annular_sector(tmp_path)
 #     w.assemble()
@@ -237,7 +249,6 @@ def test_compute_fluxcoef_by_row():
 #         pass
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_parametrize_with_height(tmp_path):
     w = get_workflow_annular_sector(tmp_path)
     w.assemble()
@@ -248,7 +259,6 @@ def test_parametrize_with_height(tmp_path):
 @pytest.mark.unit
 @pytest.mark.elsa
 @pytest.mark.sonics  # not available with fast due to the incompatibility between duplication and splitting with Cassiopee
-@pytest.mark.cost_level_2
 def test_duplicate(tmp_path):
     params = get_workflow_annular_sector_parameters(tmp_path)
     params['ApplicationContext']['Rows']['Fluid']['NumberOfBladesSimulated'] = 2
@@ -260,7 +270,6 @@ def test_duplicate(tmp_path):
     assert np.isclose(alpha, 90, rtol=1e-2), f'alpha = {alpha} degrees instead of 90'
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_radius_slice_extraction(tmp_path, wf_params):
     wf_params['Extractions'] = [
         dict(Type="IsoSurface", IsoSurfaceField="Radius", IsoSurfaceValue=0.5,
@@ -277,7 +286,6 @@ def test_radius_slice_extraction(tmp_path, wf_params):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_4
 @pytest.mark.elsa
 def test_rna_hyb(tmp_path):
 
@@ -366,11 +374,164 @@ def test_rna_hyb(tmp_path):
     w.assert_completed_without_errors()
 
 @pytest.mark.integration
-@pytest.mark.cost_level_4
 @pytest.mark.elsa
 def test_mixed(tmp_path):
     mesh = MixedMeshBuilder().get_tree()
     mesh.save(tmp_path/"mesh.cgns")
+    ...
+
+
+@pytest.mark.unit
+def test_check_if_user_is_providing_mesh_for_rotation_around_x_axis(tree_with_perio_match):
+    assert isinstance(tree_with_perio_match, cgns.Tree)
+
+    w = WorkflowRotatingComponent(
+
+        RawMeshComponents=[
+        dict(
+            Name='Base',
+            Source=tree_with_perio_match,
+            Connection = [
+                    dict(Type='PeriodicMatch', 
+                         RotationAngle=np.array([45., 0., 0.]), 
+                         Families=('MyPerio1', 'MyPerio2'),
+                         Tolerance=1e-8
+                         ),
+                ],
+            )
+        ],
+
+
+        ApplicationContext = dict(
+            ShaftRotationSpeed=60.0,
+            Rows=dict(
+                Propeller=dict(
+                    IsRotating = True,
+                    NumberOfBladesSimulated = 1,
+                    NumberOfBladesInInitialMesh = 1,
+                    NumberOfBlades = 1,
+                )
+            )
+            )
+    )
+    w.tree = tree_with_perio_match
+    w.check_if_user_is_providing_mesh_for_rotation_around_x_axis()
+
+
+@pytest.mark.unit
+def test_validate_rotation_axis_and_center_in_tree_correct(tree_with_perio_match):
+
+    assert isinstance(tree_with_perio_match, cgns.Tree)
+
+    w = WorkflowRotatingComponent(
+
+            ApplicationContext = dict(
+                ShaftRotationSpeed=60.0,
+                Rows=dict(
+                    Propeller=dict(
+                        IsRotating = True,
+                        NumberOfBladesSimulated = 1,
+                        NumberOfBladesInInitialMesh = 1,
+                        NumberOfBlades = 1,
+                    )
+                )
+                )
+    )
+    w.tree = tree_with_perio_match
+    w.validate_rotation_axis_and_center_in_tree()
+
+
+
+@pytest.mark.unit
+def test_validate_rotation_axis_and_center_in_tree_incorrect_axis(tree_with_perio_match):
+
+    angles = tree_with_perio_match.get("RotationAngle").value()
+    angles[-1] = 1.0
+
+    assert isinstance(tree_with_perio_match, cgns.Tree)
+
+    w = WorkflowRotatingComponent(
+
+            ApplicationContext = dict(
+                ShaftRotationSpeed=60.0,
+                Rows=dict(
+                    Propeller=dict(
+                        IsRotating = True,
+                        NumberOfBladesSimulated = 1,
+                        NumberOfBladesInInitialMesh = 1,
+                        NumberOfBlades = 1,
+                    )
+                )
+                )
+    )
+    w.tree = tree_with_perio_match
+
+    with pytest.raises(MolaUserError):
+        w.validate_rotation_axis_and_center_in_tree()
+
+@pytest.mark.unit
+def test_validate_rotation_axis_and_center_in_tree_incorrect_center(tree_with_perio_match):
+
+    center = tree_with_perio_match.get("RotationCenter").value()
+    center[1] = 1.0
+
+    assert isinstance(tree_with_perio_match, cgns.Tree)
+
+    w = WorkflowRotatingComponent(
+
+            ApplicationContext = dict(
+                ShaftRotationSpeed=60.0,
+                Rows=dict(
+                    Propeller=dict(
+                        IsRotating = True,
+                        NumberOfBladesSimulated = 1,
+                        NumberOfBladesInInitialMesh = 1,
+                        NumberOfBlades = 1,
+                    )
+                )
+                )
+    )
+    w.tree = tree_with_perio_match
+
+    with pytest.raises(MolaUserError):
+        w.validate_rotation_axis_and_center_in_tree()
+
+
+@pytest.mark.unit
+def test_validate_rotation_axis_requested_by_user_correct():
+
+    w = WorkflowRotatingComponent(
+
+        RawMeshComponents=[
+        dict(
+            Name='Base',
+            Source='dummy.cgns',
+            Connection = [
+                    dict(Type='PeriodicMatch', 
+                         RotationAngle=np.array([45., 0., 0.]), 
+                         Families=('MyPerio1', 'MyPerio2'),
+                         Tolerance=1e-8
+                         ),
+                ],
+            )
+        ],
+
+        ApplicationContext = dict(
+            ShaftRotationSpeed=60.0,
+            Rows=dict(
+                Propeller=dict(
+                    IsRotating = True,
+                    NumberOfBladesSimulated = 1,
+                    NumberOfBladesInInitialMesh = 1,
+                    NumberOfBlades = 1,
+                )
+            )
+            )
+    )
+
+    w.validate_rotation_axis_requested_by_user()
+
+
 # HINT prefer using:
 #
 # pytest -k test_duplicate --basetemp=.
@@ -384,3 +545,4 @@ def test_mixed(tmp_path):
 
 # if __name__ == "__main__":
 #     test_duplicate('.')
+

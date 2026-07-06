@@ -5,7 +5,6 @@ from mola.cfd.preprocess.mesh import connect
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_clip_small_rotation_angles():
     t = cgns.Tree()
     perio = cgns.Node(Name='Periodic', Type='Periodic_t', Parent=t)

@@ -50,7 +50,6 @@ class FakeWorkflow():
 # - tests - #
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_user_signal(tmp_path):
 
     os.chdir(tmp_path)
@@ -73,7 +72,6 @@ def test_get_user_signal(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_save_extractions_from_types():
     Extractions = [
         dict(Type='BC', Name='extraction1'), 
@@ -86,7 +84,6 @@ def test_save_extractions_from_types():
     assert Extractions[2] == dict(Type='BC', Name='extraction3', IsToExtract=True, IsToSave=True)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_save_extractions_from_filename():
     Extractions = [
         dict(Type='BC', Name='extraction1', File='file1.cgns'), 

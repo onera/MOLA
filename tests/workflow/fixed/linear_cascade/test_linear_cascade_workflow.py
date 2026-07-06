@@ -103,7 +103,6 @@ def get_workflow_spleen(tmp_path):
     return w
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_init():
     w = get_workflow_cube()
     w.print_interface()
@@ -112,7 +111,6 @@ def test_init():
 @pytest.mark.unit
 @pytest.mark.elsa
 @pytest.mark.fast  # no sonics because error to create the PeriodicMatch with Maia without families
-@pytest.mark.cost_level_1
 def test_get_periodic_direction():
     w = get_workflow_cube()
     w.assemble()
@@ -123,7 +121,7 @@ def test_get_periodic_direction():
     assert np.allclose(np.absolute(periodic_direction), np.absolute(translation))
 
 # @pytest.mark.unit
-# @pytest.mark.cost_level_3
+# 3
 # def test_parametrize_with_height_with_turbo():
 #     w = get_workflow_cube()
 #     w.assemble()
@@ -135,7 +133,6 @@ def test_get_periodic_direction():
 #         pass
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_parametrize_with_height(tmp_path):
     w = get_workflow_spleen(tmp_path)
     w.assemble()
@@ -146,7 +143,6 @@ def test_parametrize_with_height(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.sonics
-@pytest.mark.cost_level_3
 def test_spleen_cascade(tmp_path):
     w = get_workflow_spleen(tmp_path)
     w.RunManagement['Scheduler'] = 'local'

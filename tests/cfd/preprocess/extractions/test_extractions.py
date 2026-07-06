@@ -28,7 +28,6 @@ from mola.cfd.preprocess.mesh.io import read
 from mola.logging.exceptions import MolaUserError
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_familiesBC_nodes():
 
     workflow = get_workflow2()
@@ -39,7 +38,6 @@ def test_get_familiesBC_nodes():
     assert len(families) == 2
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_families_names_to_extract():
 
     workflow = get_workflow2()
@@ -68,7 +66,6 @@ def test_get_bc_families_names_to_extract():
         pass
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_replace_shortcuts():
     class FakeWorkflow:
         def __init__(self):
@@ -81,7 +78,6 @@ def test_replace_shortcuts():
     assert workflow.Extractions == [dict(Fields=['var1', 'var2', 'cons1', 'cons2']), dict(), dict(Fields=['var0'])]
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_update_extractions_from_convergence_criteria_1():
 
     class FakeWorkflow:
@@ -104,7 +100,6 @@ def test_update_extractions_from_convergence_criteria_1():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_update_extractions_from_convergence_criteria_2():
 
     class FakeWorkflow:
@@ -127,7 +122,6 @@ def test_update_extractions_from_convergence_criteria_2():
     ] 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_update_extractions_from_convergence_criteria_3():
     # Test with a syntax error on the Variable name
     class FakeWorkflow:

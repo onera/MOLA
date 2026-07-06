@@ -21,17 +21,14 @@ import pytest
 from mola.logging import mola_logger, MolaUserError
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_log_info():
     mola_logger.info('toto')
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_log_warning():
     mola_logger.warning('this is a warning test')
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_mola_user_error():
     try:
         raise MolaUserError('error')

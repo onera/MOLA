@@ -27,7 +27,6 @@ pytestmark = pytest.mark.sonics
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_reference_values_for_force_and_torque_extraction():
 
 

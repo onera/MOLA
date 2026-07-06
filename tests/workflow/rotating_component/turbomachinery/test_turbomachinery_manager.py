@@ -24,7 +24,6 @@ from mola.workflow.rotating_component import turbomachinery
 from .test_turbomachinery_workflow import get_compressor_example_rotor_only
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_WorkflowManager_prepare(tmp_path):
 
     test_dir = str(tmp_path)

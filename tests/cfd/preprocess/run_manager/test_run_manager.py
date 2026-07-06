@@ -22,7 +22,6 @@ from mola.server import remote
 
 @pytest.mark.network_onera
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_default():
     RunManagement = dict(
         Machine = 'auto',
@@ -49,7 +48,6 @@ def test_set_default():
         run_manager.set_default(RunManagement)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize('in_out', [
     (50, 50),
     ('50', 50),
@@ -65,7 +63,6 @@ def test_convert_to_seconds_ss_int(in_out):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_time_margin_got_from_scheduler_options():
     RunManagement = dict(QuitMarginBeforeTimeOutInSeconds=600)
     scheduler_options = dict(time='00:30:00')
@@ -74,7 +71,6 @@ def test_time_margin_got_from_scheduler_options():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_time_margin_if_running_in_local_bypassing_slurm():
     RunManagement = dict(TimeLimit='00:01:00',
                          Scheduler='local',
@@ -85,7 +81,6 @@ def test_time_margin_if_running_in_local_bypassing_slurm():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_time_margin_if_running_in_local_unavailable_slurm():
     RunManagement = dict(TimeLimit='00:01:00',
                          Scheduler='local',
@@ -96,7 +91,6 @@ def test_time_margin_if_running_in_local_unavailable_slurm():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_time_margin_if_running_in_local_without_specifying_limit():
     RunManagement = dict(Scheduler='local',
                          QuitMarginBeforeTimeOutInSeconds=3600)
@@ -106,7 +100,6 @@ def test_time_margin_if_running_in_local_without_specifying_limit():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_time_margin_if_running_using_slurm():
     RunManagement = dict(Scheduler='local',
                          QuitMarginBeforeTimeOutInSeconds=300)

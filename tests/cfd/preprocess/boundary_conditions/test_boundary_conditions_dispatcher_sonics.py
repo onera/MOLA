@@ -33,7 +33,6 @@ def bc_dispatcher():
 
 @pytest.mark.unit
 @pytest.mark.sonics
-@pytest.mark.cost_level_0
 def test_to_generic_name(bc_dispatcher):
     assert bc_dispatcher.to_generic_name("BCInflowSubsonicPressure") == 'InflowStagnation'
     assert bc_dispatcher.to_generic_name("BCOutflowRadialEquilibrium") == 'OutflowRadialEquilibrium'
@@ -41,7 +40,6 @@ def test_to_generic_name(bc_dispatcher):
 
 @pytest.mark.unit
 @pytest.mark.sonics
-@pytest.mark.cost_level_0
 def test_is_allowed_shell_pattern(bc_dispatcher):
     assert bc_dispatcher.is_allowed_shell_pattern("*BCInflowSubsonicPressure*")
     assert bc_dispatcher.is_allowed_shell_pattern("*BCOutflowRadialEquilibrium*")

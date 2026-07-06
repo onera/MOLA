@@ -7,7 +7,6 @@ from . import dummy_module
 dummy_backends = ["backend1","backend2"]
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", dummy_backends)
 def test_get_function_at_backend_from(backend):
     function_name = 'dummy_function'
@@ -18,7 +17,6 @@ def test_get_function_at_backend_from(backend):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", dummy_backends)
 def test_call_backend_function(backend):
     funct_return = dummy_module.dummy_function(backend)

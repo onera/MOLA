@@ -28,7 +28,6 @@ from .test_workflow import get_workflow_cart_monoproc
 
 @pytest.mark.integration
 @pytest.mark.elsa
-@pytest.mark.cost_level_4
 @pytest.mark.parametrize('TimeMarching', ['Steady', 'Unsteady'])
 def test_restart(tmp_path, TimeMarching, niter_first_run=5, niter_second_run=7):
 
@@ -86,7 +85,6 @@ def test_restart(tmp_path, TimeMarching, niter_first_run=5, niter_second_run=7):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_4
 @pytest.mark.parametrize('TimeMarching', ['Steady', 'Unsteady'])
 def test_stop_and_go_for_timeout(tmp_path, TimeMarching, niter=500):
     

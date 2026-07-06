@@ -17,13 +17,12 @@
 
 import numpy as np
 from mola.logging import MolaException, MolaUserError, mola_logger, CYAN, ENDC
-from . import default, autogrid, utils, reader, writer, unstructured
+from . import default, autogrid, utils, reader, writer
 
 from treelab import cgns
 
 def apply(workflow):
     read(workflow)
-    unstructured.apply(workflow)
 
 def read(workflow):
     
@@ -31,7 +30,6 @@ def read(workflow):
         mola_logger.info("  📖 reading and 🧩assembling meshes", rank=0)
     else:
         mola_logger.info("  📖 reading mesh", rank=0)
-    
     meshes = []
     for component in workflow.RawMeshComponents:
         
@@ -48,11 +46,12 @@ def read(workflow):
         
         meshes += [base]
     
+    
     workflow.tree = cgns.add(meshes)
 
     set_problem_dimension_based_on_grid(workflow)
     enforce_name_of_FamilyBC(workflow.tree)
-
+    
 
 def set_problem_dimension_based_on_grid(workflow):
 

@@ -42,7 +42,6 @@ class FakeWorkflowTwoBlocks():
         block2.attachTo(base)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_governing_equations():
     workflow = FakeWorkflowTwoBlocks(5)
     workflow.Turbulence = dict( Model = 'SA' )

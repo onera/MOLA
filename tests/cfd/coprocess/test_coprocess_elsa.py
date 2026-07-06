@@ -82,7 +82,6 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("GridLocation", ["Vertex", "CellCenter"])
 def test_extract_fields(tmp_path, GridLocation):
 
@@ -114,7 +113,6 @@ def test_extract_fields(tmp_path, GridLocation):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_extract_isosurface(tmp_path):
 
     os.chdir(tmp_path)
@@ -147,84 +145,3 @@ def test_extract_isosurface(tmp_path):
         assert existing_field_names == expected_field_names
 
     workflow._coprocess_manager._status = 'COMPLETED'
-
-
-# @pytest.mark.unit
-# @pytest.mark.cost_level_0
-# def test_extract_bc(tmp_path):
-
-#     workflow = get_fake_workflow_with_coprocess_manager(tmp_path)
-    
-#     workflow._coprocess_manager.Extractions = [
-#         dict(Type='BC', Source='WALL', Fields=['Pressure', 'Temperature']),
-#         dict(Type='BC', Source='FARFIELD', Fields=['Pressure', 'MomentumX'])]
-
-#     workflow.Extractions = workflow._coprocess_manager.Extractions
-    
-#     output_tree = workflow.tree
-#     families_to_bctype = solver_elsa.get_family_to_BCType(output_tree)
-
-#     for extraction in workflow._coprocess_manager.Extractions:
-#         tRef = solver_elsa.extract_bc(output_tree, extraction, families_to_bctype)
-
-#     workflow._coprocess_manager._status = 'COMPLETED'
-
-
-
-# @pytest.mark.unit
-# @pytest.mark.cost_level_0
-# @pytest.mark.parametrize("modeling", ['euler', 'rans'])
-# def test_extract_residuals(tmp_path,modeling):
-
-#     workflow = get_fake_workflow_with_coprocess_manager(tmp_path, modeling, create_convergence_nodes=True)
-#     output_tree = workflow.tree
-
-#     workflow._interface.add_to_Extractions_Residuals()
-#     extraction = workflow.Extractions[-1]
-    
-#     solver_elsa.extract_residuals(output_tree, extraction)
-
-#     workflow._coprocess_manager._status = 'COMPLETED'
-
-
-# @pytest.mark.unit
-# @pytest.mark.cost_level_0
-# def test_extract_integral(tmp_path):
-    
-#     workflow = get_fake_workflow_with_coprocess_manager(tmp_path, 'laminar')
-    
-#     extraction = dict(Type='Integral', Source='WALL', Name='WALL_LOADS',
-#                       Fields=['Force','Torque','MassFlow'])
-#     workflow._coprocess_manager.Extractions = [ extraction ]
-#     workflow.Extractions = workflow._coprocess_manager.Extractions
-
-#     import FastS.PyTree as FastS
-
-#     niter = 3
-#     for it in range( niter ):
-#         FastS._compute(workflow.tree, workflow._fast_metrics, it)
-    
-#         workflow._coprocess_manager.iteration = it
-#         workflow.tree = cgns.castNode(workflow.tree)
-
-#         output_tree = solver_fast.get_output_tree(workflow, workflow._coprocess_manager)
-        
-#         solver_fast.extract_integral(output_tree, extraction, workflow)
-
-#     flow_sol = extraction['Data'].get('FlowSolution')
-    
-#     assert flow_sol
-
-#     expected_integrals = ('Iteration','ForceX',  'ForceY',   'ForceZ',
-#                           'MassFlow',     'TorqueX','TorqueY', 'TorqueZ')
-#     for k in expected_integrals: 
-#         expected_node = flow_sol.get(k, Type='DataArray_t')
-#         assert expected_node
-#         assert len(expected_node.value()) == niter
-
-#     workflow._coprocess_manager._status = 'COMPLETED'
-
-if __name__ == '__main__':
-    # t = get_tree()
-    # t.save('test_tree.cgns')
-    test_extract_fields('.', 'CellCenter')

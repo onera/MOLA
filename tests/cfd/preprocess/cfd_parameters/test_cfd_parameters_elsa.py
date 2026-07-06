@@ -52,22 +52,18 @@ def tree_hybrid():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_wall_distance_setup_struct(tree_struct):
     assert solver_elsa.get_wall_distance_setup(tree_struct) == dict(walldistcompute='mininterf_ortho')
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_wall_distance_setup_unstruct(tree_unstruct):
     assert solver_elsa.get_wall_distance_setup(tree_unstruct) == dict(walldistcompute='mininterf')
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_wall_distance_setup_hybrid(tree_hybrid):
     assert solver_elsa.get_wall_distance_setup(tree_hybrid) == dict(walldistcompute='mininterf')
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_turbulence_cutoff_setup():
     # standard case
     Turbulence = dict(

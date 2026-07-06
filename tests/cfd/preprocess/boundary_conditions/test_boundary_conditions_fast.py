@@ -24,14 +24,12 @@ from .test_boundary_conditions import get_workflow_prepared_to_test_bcs
 pytestmark = pytest.mark.fast
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_functions_well_defined():
     bc_dict = BoundaryConditionsDispatcherFast()
     for expected_function_name in bc_dict.get_all_specific_names():
         assert getattr(solver_fast, expected_function_name)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_bc_generic():
     BoundaryConditions=[
             dict(Family='imin', Type='Wall'),
@@ -46,7 +44,6 @@ def test_bc_generic():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_bc_specific():
     BoundaryConditions=[
             dict(Family='imin', Type='BCWall'),

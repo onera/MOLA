@@ -38,6 +38,7 @@ from  mola.cfd.preprocess.mesh import (io,
                                     families,
                                     duplicate,
                                     overset)
+from mola.cfd.preprocess.mesh.io import unstructured
 from  mola.cfd.preprocess import (flow_generators,
                                boundary_conditions,
                                initialization,
@@ -69,9 +70,9 @@ class Workflow(object):
         self.set_motion()
         self.set_boundary_conditions()
         self.set_cfd_parameters()
-        self.initialize_flow()  
+        self.initialize_flow()
         self.set_extractions()
-        self.check_preprocess() 
+        self.check_preprocess()
         self.finalize_preprocess()
         mola_logger.info(f'✅ {GREEN}{BOLD}PREPROCESS FINALIZED{ENDC}', rank=0)
 
@@ -89,20 +90,37 @@ class Workflow(object):
 
     def process_mesh(self):
         mola_logger.info("🔧 processing mesh", rank=0)
-        if self.Solver == 'sonics': # CAVEAT specifically verifying sonics, should reverse dependency properly
-            from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-            adapt_workflow_for_sonics(self)
+
+        # CAVEAT specifically verifying solvers, should reverse dependency properly
+        if self.Solver == 'elsa':
+            self.assemble()
+            self.positioning()
+            self.connect()
+            self.define_families()
+            unstructured.apply(self)
+            self.duplicate()
+            self.split_and_distribute()
+
+        elif self.Solver == 'sonics': 
+            self.read_meshes()
+            self.positioning()
+            self.connect()
+            self.define_families()
+            unstructured.apply(self)
+            self.duplicate()
+            self.SplittingAndDistribution = dict(Splitter='maia', Strategy='AtComputation')
+            self.split_and_distribute()
 
         elif self.Solver == 'fast': # CAVEAT specifically verifying fast, should reverse dependency properly
             from mola.cfd.preprocess.initialization.solver_fast import adapt_workflow_for_fast
             adapt_workflow_for_fast(self)
+            self.assemble()
+            self.positioning()
+            self.connect()
+            self.define_families()
+            self.duplicate()
+            self.split_and_distribute()
 
-        self.assemble() 
-        self.positioning()
-        self.connect()
-        self.define_families()
-        self.duplicate()
-        self.split_and_distribute()
 
     def check_consistency_between_solver_and_environment(self):
         requested_solver = self.Solver
@@ -155,8 +173,11 @@ class Workflow(object):
         # access(publicly, which is dangerous). Should redesign the flow of data,
         # for instance using constructor's arguments and dedicated accessors
         # (getters/setters)
+        mola_logger.info('constructing flow generator...', rank=0)
         FlowGen = flow_generators.get_flow_generator(self.Flow['Generator'])(self)
+        mola_logger.info('generating flow...', rank=0)
         FlowGen.generate()
+        mola_logger.info('generating flow... done', rank=0)
         self.Fluid = FlowGen.Fluid
         self.Flow = FlowGen.Flow
         self.Turbulence = FlowGen.Turbulence

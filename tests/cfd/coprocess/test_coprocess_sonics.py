@@ -27,7 +27,6 @@ pytestmark = pytest.mark.sonics
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_sum_convective_and_diffusive_loads():
            
     b = cgns.Node(Name='IntegralDataNode')

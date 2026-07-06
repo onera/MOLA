@@ -20,7 +20,6 @@ from treelab import cgns
 
 @pytest.mark.unit
 @pytest.mark.elsa
-@pytest.mark.cost_level_0
 def test_rename_variables_from_turbo_to_mola():
     from mola.cfd.postprocess.tool_interface import turbo
 

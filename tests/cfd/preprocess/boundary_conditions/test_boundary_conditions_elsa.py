@@ -31,14 +31,12 @@ from ....workflow.rotating_component.turbomachinery.test_turbomachinery_workflow
 pytestmark = pytest.mark.elsa
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_functions_well_defined():
     bc_dict = BoundaryConditionsDispatcherElsa()
     for expected_function_name in bc_dict.get_all_specific_names():
         assert getattr(solver_elsa, expected_function_name)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize('inputs', [
     dict(
         bc_params=dict(PressureAtHub=0.9e5),
@@ -92,7 +90,6 @@ def test_outradeq_interface(inputs):
     boundary_conditions.get_fluxcoeff_on_bc = saved_fun  
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_bc_generic():
     BoundaryConditions=[
             dict(Family='imin', Type='WallViscous'),
@@ -106,7 +103,6 @@ def test_bc_generic():
     workflow.set_boundary_conditions()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_bc_specific():
     BoundaryConditions=[
             dict(Family='imin', Type='walladia'),
@@ -120,7 +116,6 @@ def test_bc_specific():
     workflow.set_boundary_conditions()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_bc_2D(tmp_path):
 
     def _write_outflow_2D_file(filename):
@@ -161,7 +156,6 @@ def test_bc_2D(tmp_path):
 
     
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 @pytest.mark.parametrize('interface_type', ['MixingPlane', 'UnsteadyRotorStatorInterface', 'ChorochronicInterface'])
 def test_RotorStatorInterface(tmp_path, interface_type):
 
@@ -197,7 +191,6 @@ def test_RotorStatorInterface(tmp_path, interface_type):
         assert len(gc.get(Name='.Solver#Property').children()) > 0
     
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 @pytest.mark.parametrize(
     'stage_definition',
     [
@@ -239,7 +232,6 @@ def test_RotorStatorInterface_modif_parameters(tmp_path, stage_definition):
     
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_bc_giles(tmp_path):
 
     params = get_compressor_example_parameters(tmp_path)

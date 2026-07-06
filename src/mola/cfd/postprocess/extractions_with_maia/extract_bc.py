@@ -17,6 +17,7 @@
 
 from treelab import cgns
 import maia
+from packaging.version import Version
 from mola.logging import MolaException
 
 def extract_bc_from_family(tree, Family, comm):
@@ -50,9 +51,17 @@ def extract_bc_from_family(tree, Family, comm):
     else:
         raise MolaException("tree is not recognized as partitioned, distributed nor full. Cannot use maia.")
 
-    surface = maia.algo.part.extract_part_from_family(part_tree, Family, comm,
-        # CAUTION https://gitlab.onera.net/numerics/mesh/maia/-/issues/201
-        containers_name=['BCDataSet'])
+    if Version(maia.__version__) >= Version('1.8'):
+        raise NotImplementedError('TODO implement containers_name="all" following https://gitlab.onera.net/numerics/mesh/maia/-/issues/201')
+
+    else:
+        try:
+            surface = maia.algo.part.extract_part_from_family(part_tree, Family,
+                                            comm, containers_name=['BCDataSet'])
+        except Exception as e:
+            maia.io.part_tree_to_file(part_tree,'debug.cgns', comm, single_file=True)
+            raise Exception("failed at maia.algo.part.extract_part_from_family, dumped debug.cgns") from e
+
     return surface
 
 

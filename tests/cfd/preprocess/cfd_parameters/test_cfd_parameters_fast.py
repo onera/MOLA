@@ -41,7 +41,6 @@ class FakeWorkflowMonoBlock():
         self.Motion = dict()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_governing_equations():
     workflow = FakeWorkflowMonoBlock(5)
     solver_fast.add_FlowEquationSet_in_zones(workflow.tree)
@@ -49,7 +48,6 @@ def test_add_governing_equations():
         assert zone.get('FlowEquationSet')
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_spatial_fluxes_jameson():
     Numerics = dict(Scheme='Jameson')
     SchemeSetup = solver_fast.get_spatial_fluxes(Numerics)
@@ -59,7 +57,6 @@ def test_get_spatial_fluxes_jameson():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_spatial_fluxes_roe():
     Numerics = dict(Scheme='Roe')
     SchemeSetup = solver_fast.get_spatial_fluxes(Numerics)
@@ -69,7 +66,6 @@ def test_get_spatial_fluxes_roe():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_spatial_fluxes_ausm():
     Numerics = dict(Scheme='ausm+')
     SchemeSetup = solver_fast.get_spatial_fluxes(Numerics)
@@ -77,7 +73,6 @@ def test_get_spatial_fluxes_ausm():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_time_marching_setup_steady():
     Numerics = dict(TimeMarching='Steady', CFL=1)
     SchemeSetup = solver_fast.get_time_marching_setup(Numerics)
@@ -85,7 +80,6 @@ def test_get_time_marching_setup_steady():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_time_marching_setup_unsteady():
     Numerics = dict(TimeMarching='UnsteadyFirstOrder', TimeStep=0.1)
     SchemeSetup = solver_fast.get_time_marching_setup(Numerics)
@@ -93,60 +87,51 @@ def test_get_time_marching_setup_unsteady():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_cfl_setup_float():
     cfl = solver_fast.get_cfl_setup(1.0)
     assert cfl['cfl'] == 1.0
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_cfl_setup_dict():
     cfl = solver_fast.get_cfl_setup(dict(EndValue=1.0))
     assert cfl['cfl'] == 1.0
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_fluid_setup():
     params = solver_fast.get_fluid_setup(dict(PrandtlTurbulent=1.0))
     assert params['Num2Zones']['prandtltb'] == 1.0
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_turbulence_setup_DNS():
     params = solver_fast.get_turbulence_setup(dict(Model='DNS'))
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_turbulence_setup_LES():
     params = solver_fast.get_turbulence_setup(dict(Model='LES'))
     assert params['Num2Zones']['sgsmodel'] == 'smsm'
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_turbulence_setup_Euler():
     params = solver_fast.get_turbulence_setup(dict(Model='Euler'))
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_turbulence_setup_zdes2():
     params = solver_fast.get_turbulence_setup(dict(Model='ZDES-2'))
     assert params['Num2Zones']['DES'] == 'zdes2'
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_turbulence_setup_SA():
     params = solver_fast.get_turbulence_setup(dict(Model='SA'))
     assert params['Num2Zones']['ransmodel'] == 'SA'
     assert params['Num2Zones']['ratiom']
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_motion():
     Motion = dict(
         Family = dict(
@@ -162,7 +147,6 @@ def test_get_motion():
     )
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_model():
     workflow = FakeWorkflowMonoBlock(5)
     workflow.Fluid = dict( PrandtlTurbulent = 1)
@@ -174,7 +158,6 @@ def test_set_model():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_numerics():
     workflow = FakeWorkflowMonoBlock(5)
     workflow.Numerics = dict( TimeMarching = "Steady", Scheme='ausm+', CFL=1 )
@@ -186,7 +169,6 @@ def test_set_numerics():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_to_solver():
     workflow = FakeWorkflowMonoBlock(5)
     workflow.Numerics = dict( TimeMarching = "Steady", Scheme='ausm+', CFL=1 )

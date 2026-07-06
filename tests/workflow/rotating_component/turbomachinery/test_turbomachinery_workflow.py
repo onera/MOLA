@@ -143,7 +143,7 @@ def get_compressor_example_rotor_only(RunDirectory):
 
 # @pytest.mark.unit
 # @pytest.mark.elsa
-# @pytest.mark.cost_level_3
+# 3
 # def test_initialize_with_turbo(tmp_path):
 #     w = get_compressor_example(tmp_path)
 #     w.Initialization['Method'] = 'turbo'
@@ -177,14 +177,12 @@ def get_compressor_example_rotor_only(RunDirectory):
 #         assert all([v in variables for v in expected_variables])
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_init(tmp_path):
     w = get_compressor_example(tmp_path)
     w.print_interface()
     assert w.Name == 'WorkflowTurbomachinery'
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_extractions_definition_coherency(tmp_path):
     params = get_compressor_example_rotor_only_parameters(tmp_path)
 
@@ -211,7 +209,6 @@ def test_extractions_definition_coherency(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa  
 @pytest.mark.sonics
-@pytest.mark.cost_level_4
 def test_compressor_example_local_stage(tmp_path):
     w = get_compressor_example(tmp_path)
     w.RunManagement['Scheduler'] = "local" # otherwise we will have sync problem at simulation_status
@@ -221,7 +218,6 @@ def test_compressor_example_local_stage(tmp_path):
     w.assert_completed_without_errors()
 
 @pytest.mark.integration
-@pytest.mark.cost_level_4
 def test_compressor_example_local_rotor_only(tmp_path):
     w = get_compressor_example_rotor_only(tmp_path)
     w.RunManagement['Scheduler'] = "local" # otherwise we will have sync problem at simulation_status

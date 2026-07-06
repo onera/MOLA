@@ -22,7 +22,6 @@ from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 
 @pytest.mark.network_onera
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_onera_sator_get_job_text():
     RunManagement = dict(
         mola_target_path = __MOLA_PATH__,

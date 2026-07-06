@@ -20,7 +20,6 @@ import pytest
 from mola.workflow.rotating_component.workflow import WorkflowRotatingComponentInterface
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_HubRotationIntervals():
 
     class FakeInterface():

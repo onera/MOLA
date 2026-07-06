@@ -28,7 +28,6 @@ MOLA_SOLVER = os.getenv('MOLA_SOLVER', 'no_solver')
 
 @pytest.mark.network_onera
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize('path_machine', [
     ('/tmp_user/sator/test', 'sator'),
     ('/scratchm/toto/', 'spiro'),
@@ -38,7 +37,6 @@ def test_guess_machine_from_path(path_machine):
     assert remote.guess_machine_from_path(path) == machine
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_guess_machine_from_path_error():
     try:
         remote.guess_machine_from_path('/this/path/does/not/exist/') 
@@ -49,7 +47,6 @@ def test_guess_machine_from_path_error():
         assert False
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_submit_command(tmp_path):
     try:
         localhost = remote.guess_localhost()
@@ -64,7 +61,6 @@ def test_submit_command(tmp_path):
 
 @pytest.mark.network_onera
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_submit_command_sator():
     # create an empty file with a python command send with submit_command
     machine = 'sator'
@@ -73,7 +69,6 @@ def test_submit_command_sator():
     FOP.remove_path(filename, machine=machine)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_submit_python_command(tmp_path):
     try:
         localhost = remote.guess_localhost()
@@ -94,7 +89,6 @@ with open('{filename}', 'w') as f:
     os.remove(filename)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_submit_python_command_with_error():
     try: localhost = remote.guess_localhost()
     except: return
@@ -114,7 +108,6 @@ def test_submit_python_command_with_error():
     
 @pytest.mark.network_onera
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_submit_command_python_sator():
     # create an empty file with a python command send with submit_command
     machine = 'sator'
@@ -126,7 +119,6 @@ def test_submit_command_python_sator():
     FOP.remove_path(filename, machine=machine)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_wait_until():
     def sleep(duration):
         elapsed_time = time.time() - tic 
@@ -146,7 +138,6 @@ def test_wait_until():
         assert False
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_adapt_username_of_mola_installation_path():
     username = getpass.getuser() # NOTE pytest launcher must own the mola sources being called
     input_mola_install_path = '/tmp_user/remotemachine/$USER/codes/MOLA/Dev/src'

@@ -22,7 +22,6 @@ import numpy as np
 from mola.cfd.postprocess import signals
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_slidding_average():
     array = np.arange(10)**2
     window = 5
@@ -30,7 +29,6 @@ def test_slidding_average():
     assert np.allclose(avg, np.array([1, 2, 6, 11, 18, 27, 38, 51, 62, 67]))
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_slidding_std():
     array = np.arange(10)**2
     window = 5
@@ -41,7 +39,6 @@ def test_slidding_std():
                                       15.93737745]))
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_slidding_rsd():
     array = np.arange(10)**2
     window = 5

@@ -21,7 +21,6 @@ import numpy as np
 import mola.workflow.fixed.flow_direction_calculator as fdc
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_from_two_angles_and_aircraft_yaw_pitch_axis():
     alpha = 10
     beta = 5

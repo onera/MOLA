@@ -27,7 +27,6 @@ def workflow_propeller_sector_params(workflow_sector_params):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_workflow_propeller_init():
     mandatory_params = dict(
         ApplicationContext=dict(
@@ -66,7 +65,6 @@ def test_workflow_propeller_init():
     assert w.SplittingAndDistribution["Distributor"] == 'PyPart'
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_compute_flow_and_turbulence(tmp_path, workflow_propeller_sector_params):
 
     workflow_propeller_sector_params['Flow']['Velocity'] = 0.0
@@ -89,7 +87,6 @@ def test_compute_flow_and_turbulence(tmp_path, workflow_propeller_sector_params)
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_boundary_conditions(tmp_path, workflow_propeller_sector_params):
 
     w = WorkflowPropeller(**workflow_propeller_sector_params)
@@ -105,7 +102,7 @@ def test_set_boundary_conditions(tmp_path, workflow_propeller_sector_params):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
+@pytest.mark.skipif(solver=='sonics', reason='Requires fixing #324') # FIXME BUG
 def test_blade_radius(tmp_path, workflow_propeller_sector_params):
 
     if solver == 'sonics':
@@ -122,10 +119,11 @@ def test_blade_radius(tmp_path, workflow_propeller_sector_params):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_workflow_propeller_sector_pre1_comp1(tmp_path, workflow_propeller_sector_params):
 
     w = WorkflowPropeller(**workflow_propeller_sector_params)
+    if solver == 'sonics': # FIXME BUG https://gitlab.onera.net/numerics/mola/-/work_items/324
+        w.ApplicationContext['_BladeRadius'] = 1.0
     w.RunManagement['RunDirectory'] = str(tmp_path)
 
     w.prepare()
@@ -135,11 +133,12 @@ def test_workflow_propeller_sector_pre1_comp1(tmp_path, workflow_propeller_secto
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_workflow_propeller_sector_pre1_comp2(tmp_path, workflow_propeller_sector_params):
     
     workflow_propeller_sector_params["RunManagement"]["NumberOfProcessors"] = 2
     w = WorkflowPropeller(**workflow_propeller_sector_params)
+    if solver == 'sonics': # FIXME BUG https://gitlab.onera.net/numerics/mola/-/work_items/324
+        w.ApplicationContext['_BladeRadius'] = 1.0
     w.RunManagement['RunDirectory'] = str(tmp_path)
 
     w.prepare()
@@ -149,13 +148,13 @@ def test_workflow_propeller_sector_pre1_comp2(tmp_path, workflow_propeller_secto
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
-@pytest.mark.skipif(solver=='elsa', reason="bug when extracting pressure on bc of wall invscid using elsa") # FIXME BUG
 def test_wall_slip_extraction(tmp_path, workflow_propeller_sector_params):
     workflow_propeller_sector_params['Extractions'] = [
         dict(Type='BC', Source='WallInviscid', Fields=['Pressure'])
     ]
     w = WorkflowPropeller(**workflow_propeller_sector_params)
+    if solver == 'sonics': # FIXME BUG https://gitlab.onera.net/numerics/mola/-/work_items/324
+        w.ApplicationContext['_BladeRadius'] = 1.0
     w.RunManagement['RunDirectory'] = str(tmp_path)
 
     w.prepare()

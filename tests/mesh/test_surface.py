@@ -23,7 +23,6 @@ import os
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_0
 def test_getDistribution_and_copyDistribution():
 
     import mola.mesh.surface as GSD

@@ -193,8 +193,10 @@ def add_data_in_skeleton(Skeleton, PartTree):
     #                    'FlowSolution#DataSourceTerm',
     #                    'FlowSolution#Average']
 
-    containers2read = [':CGNS#Ppart', ':CGNS#Distribution', ':CGNS#GlobalNumbering']
-    containers2read += ['FlowSolution#Height']
+    containers2read = [':CGNS#Ppart',
+                       ':CGNS#Distribution',
+                       ':CGNS#GlobalNumbering',
+                       'FlowSolution#Height']
     if not I.getNodeFromName1(PartTree, 'FlowSolution#EndOfRun#Coords'):
         containers2read.append('GridCoordinates')
     
@@ -212,6 +214,29 @@ def add_data_in_skeleton(Skeleton, PartTree):
             for nodeName2read in containers2read:
                 if I.getNodeFromName1(zoneInPartialTree, nodeName2read):
                     replaceNodeByName(zone, zonePath, nodeName2read)
+
+            # For unstructured mesh
+            if I.getZoneType(zone) == 2: # unstructured zone
+                replaceNodeByName(zone, zonePath, ':elsA#Hybrid')
+                # TODO: Add other types of Elements_t nodes if needed
+                replaceNodeByName(zone, zonePath, 'NGonElements')
+                replaceNodeByName(zone, zonePath, 'NFaceElements')
+                # PointList in BCs and GridConnectivities
+
+                for GC in I.getNodesFromType2(zone, 'GridConnectivity_t'):
+                    GCpath = '{}/ZoneGridConnectivity/{}'.format(zonePath, I.getName(GC))
+                    replaceNodeByName(GC, GCpath, 'PointList')
+
+            for BC in I.getNodesFromType2(zone, 'BC_t'):
+                BCpath = '{}/ZoneBC/{}'.format(zonePath, I.getName(BC))
+                replaceNodeByName(BC, BCpath, 'PointList')
+                replaceNodeByName(BC, BCpath, 'BCDataSet#Average')
+        
+        # always require to fully read Mask nodes 
+        masks = I.getNodeFromName1(base, '.MOLA#Masks')
+        if masks:
+            replaceNodeValuesRecursively(masks, '/'.join([basename, masks[0]]))
+
 
 def read_and_split_with_pypart(src):
     import Converter.Internal as I

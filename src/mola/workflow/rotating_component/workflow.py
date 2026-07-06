@@ -20,7 +20,7 @@ import numpy as np
 
 from treelab import cgns
 
-from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_logger
+from mola.logging import mola_logger, MolaUserError, MolaException, MolaAssertionError, redirect_streams_to_logger
 from mola.cfd.preprocess.mesh.families import get_bc_family_nodes_from_patterns, get_bc_family_names_from_patterns
 from mola.cfd.preprocess.mesh.tools import parametrize_with_height, compute_azimuthal_extension
 
@@ -77,6 +77,47 @@ class WorkflowRotatingComponent(Workflow):
         self._blade_patterns = ['blade', 'aube', 'propeller', 'rotor', 'stator']
         self._shroud_patterns = ['shroud', 'carter']
 
+    def process_mesh(self):
+        self.check_if_user_is_providing_mesh_for_rotation_around_x_axis()
+        super().process_mesh()
+
+    def check_if_user_is_providing_mesh_for_rotation_around_x_axis(self):
+        self.validate_rotation_axis_and_center_in_tree()
+        self.validate_rotation_axis_requested_by_user()
+
+    def validate_rotation_axis_and_center_in_tree(self):
+        if not self.tree: return
+        for base in self.tree.bases():
+            for zone in base.zones():
+                zgc = zone.get('ZoneGridConnectivity')
+                if zgc:
+                    for perio_node in zgc.group(Type='Periodic_t'):
+                        axis = perio_node.get('RotationAngle').value()
+                        axis_dir = np.abs(axis/np.linalg.norm(axis))
+                        if not np.allclose(axis_dir, [1,0,0]):
+                            raise MolaUserError(
+                                f"RotatingComponent worklow requires rotation around axis X, "
+                                f"but found rotation around {axis_dir} in tree node:\n{perio_node.path()}")
+
+                        center = perio_node.get('RotationCenter').value()
+                        if not np.allclose(center, [0,0,0]):
+                            raise MolaUserError(
+                                f"RotatingComponent worklow requires rotation around center (0,0,0), "
+                                f"but found rotation around {center} in tree node:\n{perio_node.path()}")
+
+    def validate_rotation_axis_requested_by_user(self):
+        for comp in self.RawMeshComponents:
+            if 'Connection' in comp:
+                for conn in comp['Connection']:
+                    if conn['Type'] == 'PeriodicMatch':
+                        axis = conn['RotationAngle']
+                        axis_dir = np.abs(axis/np.linalg.norm(axis))
+                        if not np.allclose(axis_dir, [1,0,0]):
+                            raise MolaUserError(
+                                f"RotatingComponent worklow requires rotation around axis X, "
+                                f"but user requested PeriodicMatch around {axis_dir} in RawMeshComponents/Connection/RotationAngle\n"
+                                "HINT: rotate your mesh using RawMeshComponents/Positioning/Type=TranslationAndRotation")
+
     def define_families(self):
         super().define_families()
         self.set_default_parameters_for_rows() 
@@ -115,11 +156,25 @@ class WorkflowRotatingComponent(Workflow):
     def set_default_parameters_for_rows(self):
 
         some_duplication_has_been_done = False
-
-        for row, rowParams in self.ApplicationContext['Rows'].items():
+        rows = self.ApplicationContext['Rows']
+        for row, rowParams in rows.items():
 
             if not self.tree.get(Name=row, Type='Family', Depth=2):
-                raise MolaException(f'The family {row} given in ApplicationContext is not found in the mesh.')
+
+                available_families = set()
+                for zone in self.tree.zones():
+                    famile_name_nodes = zone.group(Type='FamilyName_t',Depth=1) + \
+                                        zone.group(Type='AdditionalFamilyName_t',Depth=1)
+                    for node in famile_name_nodes:
+                        available_families.add(node.value())
+
+                if not available_families:
+                    raise MolaException('The blocks in the mesh are not tagged with any family.\n' \
+                                 f'They shall be tagged following the names provided to ApplicationContext/Rows: {list(rows)}')
+                
+                raise MolaException(f'The family "{row}" given in ApplicationContext is not found in the mesh.\n'
+                                    f'Available families are: {available_families}.\n'
+                                     'Consider tagging your volume mesh blocks accordingly.')
 
             if hasattr(self, 'BodyForceModeling') and row in self.BodyForceModeling:
                 # Replace the number of blades to be consistant with the body-force mesh

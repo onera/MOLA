@@ -206,13 +206,18 @@ def get_turbulence_template(Turbulence):
         parameters = dict()
     
     else:
-        try:
-            turb_dict = TURBULENCE_SONICS_KEYS[Turbulence['Model']]
-            features = turb_dict['features']
-            parameters = turb_dict.get('parameters', dict())
-        except:
-            raise MolaException(f"Scheme={Turbulence['Model']} is not available for solver sonics")
+        model = Turbulence['Model']
+        if model not in TURBULENCE_SONICS_KEYS:
+            if model == 'Wilcox2006-klim':
+                mola_logger.user_warning(f'{model} not available in sonics, fallback using SST-2003')
+                model = 'SST'
+            else:
+                raise MolaException(f"Turbulence model '{model}' is not available for solver sonics and no fallback provided for this model") from e
+
+        turb_dict = TURBULENCE_SONICS_KEYS[model]
         
+        features = turb_dict['features']
+        parameters = turb_dict.get('parameters', dict())
         parameters['cutvars'] = get_turbulence_cutoff_setup(Turbulence)
 
     return features, parameters

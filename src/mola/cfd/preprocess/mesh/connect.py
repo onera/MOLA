@@ -22,7 +22,6 @@ from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd.preprocess.mesh.tools import to_distributed
 
 def apply(workflow):
-
     _clip_small_rotation_angles(workflow.tree)
 
     no_connection_to_add = not any([
@@ -33,15 +32,16 @@ def apply(workflow):
     if no_connection_to_add:
         return
 
-    mola_logger.info("  🔗 connecting mesh", rank=0)
     
     reason_for_not_using_maia = get_reason_why_maia_cannot_connect(workflow)
     use_maia = not bool(reason_for_not_using_maia)
 
     if use_maia:
+        mola_logger.info("  🔗 connecting mesh with maia", rank=0)
         apply_with_maia(workflow)
 
     else:
+        mola_logger.info("  🔗 connecting mesh with cassiopee", rank=0)
         try:
             apply_with_cassiopee(workflow)
         except BaseException as e:
@@ -151,6 +151,7 @@ def apply_with_cassiopee(workflow):
                     msg = ('cannot make periodic match using Cassiopee and MPI parallel execution:\n'
                            'https://elsa.onera.fr/issues/11706')
                     raise MolaException(msg)
+
                 base_out = X.connectMatchPeriodic(
                     base,
                     rotationCenter=rotation_center,
@@ -202,16 +203,25 @@ def apply_with_maia(workflow):
 
             # Work only on a top Tree, not on a Base
             connect_periodic_with_maia(workflow.tree, operation['Families'], rotation_center, rotation_angle, translation)
+            workflow.tree = cgns.castNode(workflow.tree)
+            remove_families_on_periodic_match(workflow.tree, operation['Families'])
+            
 
         else:
             raise MolaException(f'  Connection type {ConnectionType} not implemented')
     
     workflow.tree = cgns.castNode(workflow.tree)
 
-def get_reason_why_maia_cannot_connect(workflow):
+def remove_families_on_periodic_match(tree : cgns.Tree, families_names):
+    for base in tree.bases():
+        for name in families_names:
+            orphan_family = base.get(Name=name, Type='Family_t', Depth=1)
+            path = orphan_family.path()+' '
+            orphan_family.remove()
 
-    if workflow.Solver != 'sonics':
-        return f'Maia is not used with {workflow.Solver}'
+    
+
+def get_reason_why_maia_cannot_connect(workflow):
     
     if not workflow.tree.isUnstructured():
         return 'Periodic Match with Maia is possible only for unstructured mesh'
@@ -220,14 +230,19 @@ def get_reason_why_maia_cannot_connect(workflow):
         for connection in component['Connection']:
             if connection['Type'] != 'PeriodicMatch':
                 return 'Connection operations are possible only for Type PeriodicMatch without Cassiopee.'
-            elif not 'Families' in connection:
-                return 'PeriodicMatch with Maia needs Families.'
-            elif not len(connection['Families']) == 2:
+            
+            if not 'Families' in connection:
+                mola_logger.user_warning("Argument 'Family' was not provided in Connection item of type PeriodicMatch.\n"
+                                    "Will attempt using Families=['PerioL','PerioR']",rank=0)
+                connection['Families']=['PerioL','PerioR']
+            
+            if not len(connection['Families']) == 2:
                 return 'Families must be a tuple of length 2.'
+            
             elif not any([workflow.tree.get(Type='Family', Depth=2, Name=fam) for fam in connection['Families']]):
                 return (f'Families {connection["Families"]}, '
                     'needed to perform PeriodicMatch operation with Maia, '
-                    'cannot be found in the mesh tree.')
+                    'were not found in the mesh.')
 
 def _check_connections(connections):
     '''
@@ -308,4 +323,4 @@ def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, 
         and PT.get_value(PT.get_node_from_label(n, 'FamilyName_t')) in families
     for node in maia.pytree.get_nodes_from_predicate(tree, gc_in_families):
         maia.pytree.rm_nodes_from_label(node, 'FamilyName_t')
-    
+

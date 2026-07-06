@@ -23,7 +23,6 @@ from treelab import cgns
 from mola.cfd.postprocess.signals import fields_manipulator as fields
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_project_load():
     shape = (10,)
     fx = np.full( shape, 1, dtype=np.float64 )
@@ -40,7 +39,6 @@ def test_project_load():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_forces_from(zone_with_loads):
     arrays = fields.get_forces_from(zone_with_loads, 'FlowSolution')
     assert len(arrays) == 3
@@ -50,7 +48,6 @@ def test_get_forces_from(zone_with_loads):
         assert a.size == number_of_grid_points
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_moments_from(zone_with_loads):
     arrays = fields.get_moments_from(zone_with_loads, 'FlowSolution')
     assert len(arrays) == 3
@@ -61,7 +58,6 @@ def test_get_moments_from(zone_with_loads):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_new_coefficients_from(zone_with_loads):
     coefs = fields.new_coefficients_from(zone_with_loads, 'FlowSolution')
 

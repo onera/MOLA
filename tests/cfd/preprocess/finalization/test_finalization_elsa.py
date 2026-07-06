@@ -37,7 +37,6 @@ class FakeWorkflow():
         )
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_elsa_keys_to_cgns():
     t = cgns.Tree()
     base = cgns.Base(Name='Base1', Parent=t)

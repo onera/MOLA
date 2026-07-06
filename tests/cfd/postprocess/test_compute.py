@@ -21,7 +21,6 @@ from treelab import cgns
 from mola.cfd.postprocess.compute import compute_radius
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize('axis', [None, 'x', 'y', 'z'])
 def test_compute_radius(axis):
     N = 4 # number of cells in each direction

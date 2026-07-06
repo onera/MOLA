@@ -18,13 +18,13 @@
 from treelab import cgns
 from mola.logging import mola_logger
 from mola.cfd.preprocess.mesh.io.unstructured import convert_elements_to_ngon, merge_all_unstructured_zones_from_families
-from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
+from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0, tree_has_not_any_ngon
 
 def apply_to_solver(workflow):
     if workflow.tree.isStructured():
         return
         
-    any_not_ngon = any([elt_type not in ['NGON_n', 'NFACE_n'] for elt_type in workflow.tree.getElementsTypes()])
+    any_not_ngon = tree_has_not_any_ngon(workflow.tree)
     tree_was_full = not(bool(workflow.tree.get(':CGNS#Distribution')) or bool(workflow.tree.get(':CGNS#GlobalNumbering')))
 
     if any_not_ngon:
