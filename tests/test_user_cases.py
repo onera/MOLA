@@ -42,7 +42,6 @@ def run_script(filename):
 
 
 @pytest.mark.user_case
-@pytest.mark.cost_level_4
 @pytest.mark.parametrize(
     'run_script',
     EXAMPLE_CASES

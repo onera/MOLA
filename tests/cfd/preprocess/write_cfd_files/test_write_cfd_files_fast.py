@@ -42,7 +42,6 @@ class FakeWorkflow():
         self._treeCellCenter = cgns.Tree()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_write_compute():
 
     RunManagement = dict(RunDirectory=module_directory, Machine=None)
@@ -51,7 +50,6 @@ def test_write_compute():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_write_job_launcher():
 
     RunManagement = dict(RunDirectory=module_directory,
@@ -69,7 +67,6 @@ def test_write_job_launcher():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_write_run_scripts():
 
     workflow = FakeWorkflow()
@@ -81,7 +78,6 @@ def test_write_run_scripts():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_write_data_files():
     
     workflow = FakeWorkflow()
@@ -93,7 +89,6 @@ def test_write_data_files():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_to_solver():
     
     workflow = FakeWorkflow()

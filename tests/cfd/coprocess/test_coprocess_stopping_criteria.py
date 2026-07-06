@@ -54,7 +54,6 @@ class FakeWorkflow():
 # - tests - #
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_check_timeout(tmp_path):
 
     os.chdir(tmp_path)
@@ -70,7 +69,6 @@ def test_check_timeout(tmp_path):
     coprocess.status = 'COMPLETED'
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_has_reached_timeout(tmp_path):
     workflow = FakeWorkflow(tmp_path)
     coprocess = CoprocessManager(workflow)
@@ -83,7 +81,6 @@ def test_has_reached_timeout(tmp_path):
     coprocess.status = 'COMPLETED'
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_check_max_iteration(tmp_path):
 
     workflow = FakeWorkflow(tmp_path)
@@ -97,7 +94,6 @@ def test_check_max_iteration(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_check_convergence_criteria_when_empty(tmp_path):
 
     workflow = FakeWorkflow(tmp_path)
@@ -111,7 +107,6 @@ def test_check_convergence_criteria_when_empty(tmp_path):
     coprocess.status = 'COMPLETED'
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_check_convergence_criteria_verified(tmp_path):
 
     workflow = FakeWorkflow(tmp_path)
@@ -138,7 +133,6 @@ def test_check_convergence_criteria_verified(tmp_path):
     
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("params",[
     
     dict(Criteria=[
@@ -211,7 +205,6 @@ def test_is_converged(tmp_path, params):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_criterion_flux_lower_than_threshold():
 
     criterion = dict(Variable='var1', ExtractionName='FamA', Threshold=1)
@@ -233,7 +226,6 @@ def test_is_criterion_flux_lower_than_threshold():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_data_to_test_criterion():
 
     criterion = dict(Variable='var1', ExtractionName='FamA', Threshold=1)
@@ -255,7 +247,6 @@ def test_get_data_to_test_criterion():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_convergence_message():
     
     ConvergenceCriteria = [

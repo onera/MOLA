@@ -22,7 +22,6 @@ from treelab import cgns
 from mola.cfd.preprocess.mesh import split
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_splitAndDistributeUsingNPartsAndNProcsWithCassiopee():
 
     class FakeWorkflow():
@@ -45,7 +44,6 @@ def test_splitAndDistributeUsingNPartsAndNProcsWithCassiopee():
         w, nb_parts, nb_aimed_procs, raise_error=True)
     
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_distribute_with_cassiopee():
     tree = get_cart_block(10,10,10)
     nb_aimed_procs = 1
@@ -53,7 +51,6 @@ def test_distribute_with_cassiopee():
     split._distribute_with_cassiopee(tree, nb_aimed_procs, cores_per_node)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_splitAndDistributeUsingNPartsAndNProcsWithCassiopee_only_distribute():
 
     class FakeWorkflow():

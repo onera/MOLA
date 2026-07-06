@@ -9,7 +9,6 @@ dummy_backends = ["backend1","backend2"]
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_caller_path():
     this_path = test.get_caller_path()
     expected_path = os.environ["MOLA"].replace("/src","")+"/tests/dependency_injector/user/test_retriever.py"
@@ -17,7 +16,6 @@ def test_get_caller_path():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", dummy_backends )
 def test_get_wrap_module_path(backend):
     path = test.get_wrap_module_path(backend,
@@ -26,7 +24,6 @@ def test_get_wrap_module_path(backend):
     assert path == expected_path
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", dummy_backends)
 def test_get_backend_module_from(backend):
     expected_path = os.environ["MOLA"].replace("/src","")+f"/tests/dependency_injector/wrap/{backend}/dummy_module.py"

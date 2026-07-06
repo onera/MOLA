@@ -90,21 +90,18 @@ all_trees = ["tree2D_with_bc_defined", "tree2D_with_bc_undefined",
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize('tree_dispatcher',all_trees, indirect=True)
 def testassert_bc_and_connectivity_coherency(tree_dispatcher):
     check.assert_bc_and_connectivity_coherency(tree_dispatcher)
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize('tree_dispatcher',all_trees, indirect=True)
 def test_ignore_undefined_periodic_boundaries_in_2D_structured_grids(tree_dispatcher):
     check._ignore_undefined_periodic_boundaries_in_2D_structured_grids(tree_dispatcher)
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize('tree_dispatcher',["tree2D_with_bc_undefined", "tree3D_with_bc_undefined"], indirect=True)
 def test_raise_undefined_bc_error_saving_undefined_bc_surfaces(tree_dispatcher):
 
@@ -121,7 +118,6 @@ def test_raise_undefined_bc_error_saving_undefined_bc_surfaces(tree_dispatcher):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_are_point_ranges_overlapping():
     x = np.array([[1, 10], [1, 10],[1,1]])
     y = np.array([[2, 7],  [1, 10],[1,1]])
@@ -153,7 +149,6 @@ def test_are_point_ranges_overlapping():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_check_no_empty_Family_of_BC():
     tree = PT.yaml.parse_yaml_cgns.to_cgns_tree('''
 Base CGNSBase_t:

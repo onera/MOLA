@@ -5,7 +5,6 @@ from mola.cfd.preprocess.mesh.tools import EmptyNodesManager
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 class TestEmptyNodesManager:
     """Test suite for EmptyNodesManager class."""
 

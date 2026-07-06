@@ -23,7 +23,6 @@ import os
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_1
 def test_designBlade(tmp_path):
 
     import mola.mesh.propeller_mesher as RW
@@ -33,7 +32,6 @@ def test_designBlade(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_0
 def test_rediscretizeBlade():
 
     import mola.mesh.propeller_mesher as RW
@@ -44,7 +42,6 @@ def test_rediscretizeBlade():
 @pytest.mark.user_case
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_1
 def test_getBladesORAS_ONERA_SE(tmp_path):
 
     import mola.mesh.propeller_mesher as RW
@@ -54,7 +51,6 @@ def test_getBladesORAS_ONERA_SE(tmp_path):
 @pytest.mark.user_case
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_3
 def test_oras_mesher_single(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -116,7 +112,6 @@ def test_oras_mesher_single(tmp_path):
 @pytest.mark.user_case
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_3
 def test_oras_mesher_ultracoarse(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -217,7 +212,6 @@ def test_oras_mesher_ultracoarse(tmp_path):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_3
 def test_oras_mesher_designer_ultracoarse(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -431,7 +425,6 @@ def test_oras_mesher_designer_ultracoarse(tmp_path):
 @pytest.mark.restricted_user_case
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_3
 def test_oras_mesher_inpro_ultracoarse(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -573,7 +566,6 @@ def test_oras_mesher_inpro_ultracoarse(tmp_path):
 @pytest.mark.restricted_user_case
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_3
 def test_oras_mesher_inpro(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -742,7 +734,6 @@ def test_oras_mesher_inpro(tmp_path):
 @pytest.mark.restricted_user_case
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_4
 def test_oras_mesher_barrier_ultracoarse(tmp_path):
 
     if os.getenv('USER') != 'lbernard': return # confidential case
@@ -906,7 +897,6 @@ def test_oras_mesher_barrier_ultracoarse(tmp_path):
 @pytest.mark.restricted_user_case
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_4
 def test_oras_mesher_barrier_acoustic(tmp_path):
 
     if os.getenv('USER') != 'lbernard': return # confidential case
@@ -1066,7 +1056,6 @@ def test_oras_mesher_barrier_acoustic(tmp_path):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_3
 def test_mesh_ultra_light_sharp():
     import mola.mesh.propeller_mesher as RW
     import mola.mesh.easy_propellers as ep

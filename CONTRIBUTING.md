@@ -144,7 +144,6 @@ import pytest
 
 @pytest.mark.unit
 @pytest.mark.elsa
-@pytest.mark.cost_level_1
 def test_some_elsa_feature():
     pass
 ```

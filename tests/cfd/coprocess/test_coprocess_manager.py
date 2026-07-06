@@ -67,7 +67,7 @@ def check_existance_of_coprocess_files_and_directories_by_removing_them(path):
 # - tests - #
 
 # @pytest.mark.unit
-# @pytest.mark.cost_level_0
+# 0
 # def test_run_iteration(tmp_path):
     
 #     workflow = FakeWorkflow(tmp_path)
@@ -81,7 +81,6 @@ def check_existance_of_coprocess_files_and_directories_by_removing_them(path):
 @pytest.mark.unit
 @pytest.mark.elsa
 @pytest.mark.fast  # sonics needs the attribute coprocess._iterators
-@pytest.mark.cost_level_0
 def test_update_iteration(tmp_path):
     
     os.chdir(tmp_path)
@@ -94,7 +93,6 @@ def test_update_iteration(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_status(tmp_path):
 
     os.chdir(tmp_path)
@@ -118,7 +116,6 @@ def test_status(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize('arrays',[
 
     dict(previous_it    = [1],
@@ -189,7 +186,6 @@ def test_update_signals(arrays):
     assert np.allclose(arrays['expected_field'], updated_field )
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_write_extraction_log():
     extraction = dict(
         Type = 'Integral',

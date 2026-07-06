@@ -54,7 +54,6 @@ class FakeWorkflow():
             SutherlandTemperature      = 288.15)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_to_solver():
 
     workflow = FakeWorkflow()

@@ -31,14 +31,12 @@ def get_fake():
     return Fake()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_value_on_leaf_1():
     d = dict(x=1, y=dict(z=3))
     WM.set_value_on_leaf(d, ['y', 'z'], 2)
     assert d['y']['z'] == 2
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_value_on_leaf_2():
     l = [dict(x=1), dict(y=2, z=3)]
     WM.set_value_on_leaf(l, ['y=2', 'z'], 5)
@@ -46,7 +44,6 @@ def test_set_value_on_leaf_2():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_value_on_leaf_3():
     fake = get_fake()
     WM.set_value_on_leaf(fake, ['RunManagement', 'RunDirectory'], 'other_test')
@@ -54,7 +51,6 @@ def test_set_value_on_leaf_3():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_value_on_leaf_4():
     fake = get_fake()
     WM.set_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'], 20)
@@ -62,14 +58,12 @@ def test_set_value_on_leaf_4():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_value_on_leaf():
     fake = get_fake()
     value = WM.get_value_on_leaf(fake, ['BoundaryConditions', 'Family=OUTFLOW', 'Pressure'])
     assert value == 10
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_find_matching_leaves():
     class Fake(Workflow):
 
@@ -156,7 +150,6 @@ def get_fake_workflow():
     return w
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_dispatcher_error_new_job_empty():
 
     w = object()
@@ -166,7 +159,6 @@ def test_dispatcher_error_new_job_empty():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_dispatcher_directories():
 
     w = get_fake_workflow()
@@ -189,7 +181,6 @@ def test_dispatcher_directories():
     assert directories == ['root/test_10', 'root/test_20', 'root/test_30', 'root2/test_40', 'root2/test_50']
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_dispatcher_convert_to_dict_and_read():
 
     w = get_fake_workflow()
@@ -211,7 +202,6 @@ def test_dispatcher_convert_to_dict_and_read():
     assert dispatcher == dispatcher_read
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_WorkflowManager_prepare(tmp_path):
 
     test_dir = str(tmp_path)
@@ -267,7 +257,6 @@ def test_WorkflowManager_prepare(tmp_path):
         assert init_files == ['no_file', '../test_10/main.cgns', '../test_20/main.cgns']
     
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_WorkflowManager_prepare_remote_sator(tmp_path):
 
     test_dir = str(tmp_path)
@@ -297,7 +286,6 @@ def test_WorkflowManager_prepare_remote_sator(tmp_path):
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.integration
-@pytest.mark.cost_level_4
 def test_WorkflowManager_cart_local(tmp_path):
 
     if isinstance(tmp_path,str): os.makedirs(tmp_path,exist_ok=True)
@@ -342,7 +330,6 @@ def test_WorkflowManager_cart_local(tmp_path):
 @pytest.mark.elsa
 @pytest.mark.fast
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_WorkflowManager_write_local(tmp_path):
 
     if isinstance(tmp_path,str): os.makedirs(tmp_path,exist_ok=True)
@@ -379,7 +366,6 @@ def test_WorkflowManager_write_local(tmp_path):
 @pytest.mark.fast
 @pytest.mark.network_onera
 @pytest.mark.integration
-@pytest.mark.cost_level_4
 def test_WorkflowManager_sphere_remote_sator(tmp_path):
 
     from .test_workflow import  get_workflow_sphere_struct

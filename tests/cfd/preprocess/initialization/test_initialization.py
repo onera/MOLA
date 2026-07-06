@@ -100,7 +100,6 @@ def apply_all_previous_stages(workflow : Workflow):
     workflow.set_cfd_parameters()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_initialization_copy_not_existing_file(debug_mesh):
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=debug_mesh)],
@@ -120,12 +119,10 @@ def test_initialization_copy_not_existing_file(debug_mesh):
         raise AssertionError('Should raise an exception when the source file for initialization does not exist.')
     
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_compute_wall_distance_with_maia(debug_mesh):
     tree = initialization.compute_wall_distance_with_maia(debug_mesh)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_force_grid_location_as_first_sibling(debug_mesh):
     
     GridLocation = debug_mesh.get('GridLocation')
@@ -139,7 +136,6 @@ def test_force_grid_location_as_first_sibling(debug_mesh):
     assert FlowSolution.children()[0].name() == 'GridLocation'
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_initialization_uniform(debug_mesh):
 
     fs_name = get_correct_FlowSolution_name_from_solver()
@@ -163,7 +159,6 @@ def test_initialization_uniform(debug_mesh):
     assert np.allclose(FS.get(Name='TurbulentSANuTildeDensity', Type='DataArray').value(), 4.42211463e-05)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("method", ["copy", "interpolate"])
 def test_initialization_method(debug_mesh, FlowSolution_ref, method):    
 
@@ -190,7 +185,6 @@ def test_initialization_method(debug_mesh, FlowSolution_ref, method):
     assert_is_same_node(FlowSolution_ref, fs)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("method", ["copy", "interpolate"])
 def test_initialization_method_missing_value(debug_mesh, method):  
 
@@ -212,7 +206,6 @@ def test_initialization_method_missing_value(debug_mesh, method):
         initialization.apply(workflow)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("method", ["copy", "interpolate"])
 def test_initialization_copy_missing_turb_quantities(debug_mesh, FlowSolution_ref, method):    
 

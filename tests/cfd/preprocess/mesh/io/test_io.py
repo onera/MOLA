@@ -40,12 +40,10 @@ def build_zone():
     return zone
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_using_mpi():
     print(io.utils.is_using_mpi())
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_file_reader():
     file_src = 'tmp_zone.cgns'
     import mpi4py.MPI as MPI
@@ -64,7 +62,6 @@ def test_file_reader():
     MPI.COMM_WORLD.barrier()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_file_writer():
     file_src = 'tmp_zone.cgns'
     import mpi4py.MPI as MPI
@@ -113,7 +110,6 @@ def surface():
     return zone
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_cell_multilayer(cube, monolayer, surface):
     assert io.is_cell_multilayer(cube)
     assert not io.is_cell_multilayer(monolayer)
@@ -121,7 +117,6 @@ def test_is_cell_multilayer(cube, monolayer, surface):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_cell_monolayer(cube, monolayer, surface):
     assert not io.is_cell_monolayer(cube)
     assert io.is_cell_monolayer(monolayer)
@@ -129,7 +124,6 @@ def test_is_cell_monolayer(cube, monolayer, surface):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_surface(cube, monolayer, surface):
     assert not io.is_surface(cube)
     assert not io.is_surface(monolayer)
@@ -137,7 +131,6 @@ def test_is_surface(cube, monolayer, surface):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_homogeneous_dimension():
 
     class FakeWorkflow():
@@ -164,7 +157,6 @@ def test_set_homogeneous_dimension():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_homogeneous_dimension_cube(cube):
 
     class FakeWorkflow():
@@ -177,7 +169,6 @@ def test_set_homogeneous_dimension_cube(cube):
     assert w.ProblemDimension == 3
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_homogeneous_dimension_monolayer(monolayer):
 
     class FakeWorkflow():
@@ -191,7 +182,6 @@ def test_set_homogeneous_dimension_monolayer(monolayer):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_set_homogeneous_dimension_surface(surface):
 
     class FakeWorkflow():

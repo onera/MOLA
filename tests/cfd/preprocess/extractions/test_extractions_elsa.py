@@ -28,7 +28,6 @@ pytestmark = pytest.mark.elsa
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_extractions_for_overset_components():
 
     def add_overset_component(w):
@@ -55,7 +54,6 @@ def test_add_extractions_for_overset_components():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_trigger():
     ref_trigger = ['ELSA_TRIGGER', None, [
         ['.Solver#Trigger', None, [
@@ -78,7 +76,6 @@ def test_add_trigger():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_global_convergence_history():
     ref_node = ['GlobalConvergenceHistory', np.array([0], dtype=np.int32), [
         ['NormDefinitions', np.array([b'C', b'o', b'n', b'v', b'e', b'r', b'g', b'e', b'n', b'c', b'e', b'H', b'i', b's', b't', b'o', b'r', b'y'], dtype='|S1'), [], 'Descriptor_t'], 
@@ -98,7 +95,6 @@ def test_global_convergence_history():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_process_extractions_of_type_field_base():
     params = get_workflow2_parameters()
     params['Extractions'] = [dict(Type='3D', Fields=['Density', 'MomentumX'], Container='FlowSolution#Output')]
@@ -117,7 +113,6 @@ def test_process_extractions_of_type_field_base():
     assert FS.get(Name='var').value() == ['ro', 'rovx']
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_process_extractions_3d_additional_variables():
     params = get_workflow2_parameters()
     params['Extractions'] = [
@@ -141,7 +136,6 @@ def test_process_extractions_3d_additional_variables():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_process_extractions_3d_coords():
     params = get_workflow2_parameters()
     params['Extractions'] = [
@@ -164,7 +158,6 @@ def test_process_extractions_3d_coords():
     assert FS.get(Name='var').value() == ['x', 'y', 'z']
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_process_extractions_3d_average():
     params = get_workflow2_parameters()
     params['Extractions'] = [dict(Type='3D', Container='FlowSolution#Average', Fields=['Density', 'MomentumX'], OtherOptions=dict(average='time', period_init='inactive'))]
@@ -186,7 +179,6 @@ def test_process_extractions_3d_average():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_wall():
 
     workflow = get_workflow2()
@@ -207,7 +199,6 @@ def test_adapt_variables_for_2d_extraction_wall():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_BCWallInviscid():
 
     workflow = get_workflow2()
@@ -227,7 +218,6 @@ def test_adapt_variables_for_2d_extraction_BCWallInviscid():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_unstructured():
 
     workflow = get_workflow2()
@@ -250,7 +240,6 @@ def test_adapt_variables_for_2d_extraction_unstructured():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_TransitionMode_NonLocalCriteria_LSTT():
 
     workflow = get_workflow2()
@@ -272,7 +261,6 @@ def test_adapt_variables_for_2d_extraction_TransitionMode_NonLocalCriteria_LSTT(
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_adapt_variables_for_2d_extraction_TransitionMode_imposed():
 
     workflow = get_workflow2()
@@ -315,7 +303,6 @@ def get_workflow_1():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_2d_extractions_in_SolverOutput_wall():
 
     workflow = get_workflow_1()
@@ -358,7 +345,6 @@ def test_add_2d_extractions_in_SolverOutput_wall():
     assert solver_output == solver_output_ref
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_multiple_2d_extractions_in_SolverOutput_wall():
 
     workflow = get_workflow_1()
@@ -436,7 +422,6 @@ def test_add_multiple_2d_extractions_in_SolverOutput_wall():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("field_name",['Pressure','Temperature','PressureStagnation'])
 def test_add_2d_extractions_in_SolverOutput_inflow(field_name):
 
@@ -472,7 +457,6 @@ def test_add_2d_extractions_in_SolverOutput_inflow(field_name):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_integral_extractions_in_wall():
 
     workflow = get_workflow_1()

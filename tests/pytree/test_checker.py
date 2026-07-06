@@ -8,7 +8,6 @@ from mola.logging.exceptions import MolaException
 backends = ["maia","cassiopee","treelab"]
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", backends)
 def test_full_tree_is_not_partitioned_for_use_in_maia(backend, dummy_tree):
 
@@ -17,7 +16,6 @@ def test_full_tree_is_not_partitioned_for_use_in_maia(backend, dummy_tree):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", backends)
 def test_full_tree_is_not_distributed_for_use_in_maia(backend, dummy_tree):
 
@@ -26,7 +24,6 @@ def test_full_tree_is_not_distributed_for_use_in_maia(backend, dummy_tree):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", backends)
 def test_dist_tree_is_distributed_and_not_partitioned_for_use_in_maia(backend, dummy_tree):
     from mpi4py import MPI
@@ -38,7 +35,6 @@ def test_dist_tree_is_distributed_and_not_partitioned_for_use_in_maia(backend, d
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", backends)
 def test_part_tree_is_partitioned_and_not_distributed_for_use_in_maia(backend, dummy_tree):
     from mpi4py import MPI
@@ -51,7 +47,6 @@ def test_part_tree_is_partitioned_and_not_distributed_for_use_in_maia(backend, d
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("backend", backends)
 def test_assert_zones_have_zone_type_node(backend, dummy_tree):
     t = dummy_tree

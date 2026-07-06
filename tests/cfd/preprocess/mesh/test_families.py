@@ -4,7 +4,6 @@ from mola.cfd.preprocess.mesh import families
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_name_nodes_from_patterns_blade(tree_r37_like):
     tree = tree_r37_like
     patterns = ['blade', 'aube', 'propeller', 'rotor', 'stator']
@@ -12,7 +11,6 @@ def test_get_bc_family_name_nodes_from_patterns_blade(tree_r37_like):
     assert family_nodes_found_in_tree
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_name_nodes_from_patterns_hub(tree_r37_like):
     tree = tree_r37_like
     patterns = ['hub', 'moyeu', 'spinner']
@@ -20,7 +18,6 @@ def test_get_bc_family_name_nodes_from_patterns_hub(tree_r37_like):
     assert family_nodes_found_in_tree
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_name_nodes_from_patterns_shroud(tree_r37_like):
     tree = tree_r37_like
     patterns = ['shroud', 'carter']
@@ -29,7 +26,6 @@ def test_get_bc_family_name_nodes_from_patterns_shroud(tree_r37_like):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_names_from_patterns_blade(tree_r37_like):
     tree = tree_r37_like
     patterns = ['blade', 'aube', 'propeller', 'rotor', 'stator']
@@ -40,7 +36,6 @@ def test_get_bc_family_names_from_patterns_blade(tree_r37_like):
         assert name in expected_family_names
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_names_from_patterns_hub(tree_r37_like):
     tree = tree_r37_like
     patterns = ['hub', 'moyeu', 'spinner']
@@ -52,7 +47,6 @@ def test_get_bc_family_names_from_patterns_hub(tree_r37_like):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_names_from_patterns_shroud(tree_r37_like):
     tree = tree_r37_like
     patterns = ['shroud', 'carter']
@@ -64,7 +58,6 @@ def test_get_bc_family_names_from_patterns_shroud(tree_r37_like):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_nodes_from_patterns_blade(tree_r37_like):
     tree = tree_r37_like
     patterns = ['blade', 'aube', 'propeller', 'rotor', 'stator']
@@ -76,7 +69,6 @@ def test_get_bc_family_nodes_from_patterns_blade(tree_r37_like):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_nodes_from_patterns_hub(tree_r37_like):
     tree = tree_r37_like
     patterns = ['hub', 'moyeu', 'spinner']
@@ -88,7 +80,6 @@ def test_get_bc_family_nodes_from_patterns_hub(tree_r37_like):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_bc_family_nodes_from_patterns_shroud(tree_r37_like):
     tree = tree_r37_like
     patterns = ['shroud', 'carter']

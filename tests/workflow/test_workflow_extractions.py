@@ -128,7 +128,6 @@ def assert_tecplot_containing_expected_field(filename, fieldnames: list, path: s
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_found_requested_extraction():
 
     dist = np.linspace(0,1,5)
@@ -183,7 +182,6 @@ def test_found_requested_extraction():
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_2
 def test_integrals_one_run(tmp_path, niter=10):
     
     separated_filename = 'test_integrals.cgns'
@@ -254,7 +252,6 @@ def test_integrals_one_run(tmp_path, niter=10):
         pytest.param("maia", marks=pytest.mark.skipif(solver == "fast", reason="Maia not available with Fast")),
     ],
 )
-@pytest.mark.cost_level_3
 def test_integrals_two_runs(tmp_path, Splitter, niter_first_run=5, niter_second_run=7):
 
     w = get_workflow_cart_monoproc(tmp_path, Splitter=Splitter)
@@ -297,7 +294,6 @@ def test_integrals_two_runs(tmp_path, Splitter, niter_first_run=5, niter_second_
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_2
 def test_bc_one_run(tmp_path, niter=10):
     
     separated_filename = 'test_bc.cgns'
@@ -330,7 +326,6 @@ def test_bc_one_run(tmp_path, niter=10):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_2
 def test_iso_surface_only(tmp_path, niter=10):
     
     w = get_workflow_cart_monoproc(tmp_path) 
@@ -358,7 +353,6 @@ def test_iso_surface_only(tmp_path, niter=10):
     
 
 @pytest.mark.integration
-@pytest.mark.cost_level_2
 def test_exclusive_fields_in_iso_surface_and_bc(tmp_path, niter=10):
     
     w = get_workflow_cart_monoproc(tmp_path)
@@ -417,7 +411,6 @@ def test_exclusive_fields_in_iso_surface_and_bc(tmp_path, niter=10):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_2
 def test_exclusive_fields_in_3D(tmp_path, niter=10):
     
     w = get_workflow_cart_monoproc(tmp_path)
@@ -441,7 +434,6 @@ def test_exclusive_fields_in_3D(tmp_path, niter=10):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_2
 @pytest.mark.skipif(solver=='sonics', reason="FIXME allow cgns transform and write in tecplot")
 def test_write_extractions_in_tecplot_format_co1(tmp_path, niter=10):
     
@@ -499,7 +491,6 @@ def test_write_extractions_in_tecplot_format_co1(tmp_path, niter=10):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_2
 @pytest.mark.skipif(solver=='sonics', reason="FIXME allow cgns transform and write in tecplot")
 def test_write_extractions_in_tecplot_format_co2(tmp_path, niter=10):
     
@@ -557,7 +548,6 @@ def test_write_extractions_in_tecplot_format_co2(tmp_path, niter=10):
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_2
 def test_integral_with_postprocess(tmp_path, niter=10):
     
     w = get_workflow_cart_monoproc(tmp_path)
@@ -584,7 +574,6 @@ def test_integral_with_postprocess(tmp_path, niter=10):
 @pytest.mark.integration
 @pytest.mark.elsa
 @pytest.mark.fast
-@pytest.mark.cost_level_2
 def test_convergence_on_criterion(tmp_path, niter=20):
     
     w = get_workflow_cart_monoproc(tmp_path)

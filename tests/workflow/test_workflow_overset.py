@@ -24,7 +24,6 @@ from mola.workflow import Workflow
 
 
 @pytest.mark.integration
-@pytest.mark.cost_level_4
 def test_overset_sphere(tmp_path):
 
     Dpsi = 2.0

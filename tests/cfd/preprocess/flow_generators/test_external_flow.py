@@ -48,7 +48,6 @@ class FakeWorkflow():
             )
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_ExternalFlowGenerator():
     workflow = FakeWorkflow()
     FlowGen = ExternalFlowGenerator(workflow)

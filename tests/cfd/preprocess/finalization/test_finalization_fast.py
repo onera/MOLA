@@ -60,7 +60,6 @@ class FakeWorkflowTwoBlocks():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_ghost_cells():
     NbOfGhostCellsPerDirection = 2
     NbOfPts = 5
@@ -70,7 +69,6 @@ def test_add_ghost_cells():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_create_cell_center_tree():
     NbOfPts = 5
     workflow = FakeWorkflowMonoBlock(NbOfPts)
@@ -79,7 +77,6 @@ def test_create_cell_center_tree():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_multibloc_transfer_data():
     
     import Connector.PyTree as X
@@ -119,7 +116,6 @@ def test_multibloc_transfer_data():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_reynolds_to_reference_state():
     
     workflow = FakeWorkflowMonoBlock(5)
@@ -142,7 +138,6 @@ def test_add_reynolds_to_reference_state():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_Rok_to_reference_state():
     
     workflow = FakeWorkflowMonoBlock(5)
@@ -163,7 +158,6 @@ def test_add_Rok_to_reference_state():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_add_RoOmega_to_reference_state():
     
     workflow = FakeWorkflowMonoBlock(5)

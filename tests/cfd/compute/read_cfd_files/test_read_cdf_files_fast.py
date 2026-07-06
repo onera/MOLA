@@ -22,7 +22,6 @@ from mola.cfd.compute.read_cfd_files.solver_fast import _split_global_and_local_
 pytestmark = pytest.mark.fast
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_split_global_and_local_parameters():
 
     Num2Zones = dict(key1='value1', key2='value2')

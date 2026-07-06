@@ -23,7 +23,6 @@ from mola.logging import check_error_message
 import mola.naming_conventions as names
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_existing_path_local_file(tmp_path):
     filepath = tmp_path / 'test_is_existing_path_FILE'
     with open(filepath, 'w') as fi:
@@ -36,7 +35,6 @@ def test_is_existing_path_local_file(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_is_existing_path_local_directory(tmp_path):
     dirpath = tmp_path / 'test_is_existing_path_DIR'
     try:
@@ -53,7 +51,6 @@ def test_is_existing_path_local_directory(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_scp_local_destination_is_a_directory(tmp_path):
     filename = '.dummy_test_file'
     source = tmp_path / filename
@@ -75,7 +72,6 @@ def test_scp_local_destination_is_a_directory(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_scp_local_destination_is_a_file(tmp_path):
     filename = '.dummy_test_file'
     source = tmp_path / filename
@@ -97,7 +93,6 @@ def test_scp_local_destination_is_a_file(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_scp_local_destination_is_an_existing_file(tmp_path):
     source = tmp_path / '.dummy_test_file'
     with open(source, 'w') as fi:
@@ -122,7 +117,6 @@ def test_scp_local_destination_is_an_existing_file(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_scp_local_destination_and_source_are_the_same(tmp_path):
     source = tmp_path / '.dummy_test_file'
     with open(source, 'w') as fi:
@@ -136,7 +130,6 @@ def test_scp_local_destination_and_source_are_the_same(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_copy_remote_local_destination_is_a_file(tmp_path):
     filename = '.dummy_test_file'
     source = tmp_path / filename
@@ -156,7 +149,6 @@ def test_copy_remote_local_destination_is_a_file(tmp_path):
     assert not FOP.is_existing_path(source)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_move_remote_local(tmp_path):
     filename = 'dummy_test_file'
     source = tmp_path / 'dummy_test_file'
@@ -169,7 +161,6 @@ def test_move_remote_local(tmp_path):
     assert FOP.is_existing_path(destination)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_read_text_file_from_errors_local(tmp_path):
     source = tmp_path / '.dummy_test_err_file.log'
     expected_err_msg = (
@@ -189,7 +180,6 @@ def test_read_text_file_from_errors_local(tmp_path):
 
 @pytest.mark.network_onera
 @pytest.mark.unit
-@pytest.mark.cost_level_2
 def test_read_text_file_from_errors_sator():
     MOLA_SOLVER = os.getenv('MOLA_SOLVER', 'no_solver')
     directory = f'/tmp_user/sator/$USER/.test_read_text_file_from_errors_sator_{MOLA_SOLVER}/'
@@ -208,7 +198,6 @@ def test_read_text_file_from_errors_sator():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_read_last_run_error_file_in_log_directory_local(tmp_path):
 
     log_path = os.path.join(tmp_path,names.DIRECTORY_LOG)

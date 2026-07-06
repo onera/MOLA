@@ -36,7 +36,6 @@ def test_node():
     return node
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_operations_on_signal_1(test_node):
     apply_operations_on_signal(test_node, 'rsd-avg-var', 5)
     print(test_node)
@@ -44,21 +43,18 @@ def test_apply_operations_on_signal_1(test_node):
     assert test_node.get(Name='rsd-avg-var').value().size == 10
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_operations_on_signal_2(test_node):
     apply_operations_on_signal(test_node, 'var', 5, ['rsd-avg'])
     assert test_node.getChildrenNames() == ['Iteration', 'var', 'avg-var', 'rsd-avg-var']
     assert test_node.get(Name='rsd-avg-var').value().size == 10
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_operations_on_signal_3(test_node):
     # nothing is done with a window of size 1
     apply_operations_on_signal(test_node, 'var', 1, ['rsd-avg'])
     assert test_node.getChildrenNames() == ['Iteration', 'var']
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_build_operation_tree():
     operation_tree = _build_operation_tree('std-MassFlow', ['rsd-avg', 'std'])
 

@@ -27,7 +27,6 @@ from ....cfd.postprocess.signals.test_airplane_coefficients_computer import (
     zone_with_loads)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_workflow_airplane_init():
     w = WorkflowAirplane()
     w.print_interface()
@@ -39,7 +38,6 @@ def test_workflow_airplane_init():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_workflow_airplane_cart_init(workflow_cart_monoproc_params):
     w = WorkflowAirplane(**workflow_cart_monoproc_params)
     w.print_interface()
@@ -47,13 +45,11 @@ def test_workflow_airplane_cart_init(workflow_cart_monoproc_params):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_default_flow_direction():
     w = WorkflowAirplane(ApplicationContext=dict(AngleOfAttackDeg=10.0))
     assert np.allclose(w.Flow['Direction'], [0.98480775, 0.0, 0.17364818])
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_compute_aerodynamic_coefficients(small_workflow):
     extraction = small_workflow.Extractions[0]
     small_workflow.compute_aerodynamic_coefficients(extraction)
@@ -61,7 +57,6 @@ def test_compute_aerodynamic_coefficients(small_workflow):
                                             small_workflow.ApplicationContext)
 
 @pytest.mark.integration
-@pytest.mark.cost_level_1
 def test_workflow_airplane_cart_full_pre1_comp1(tmp_path, workflow_cart_monoproc_params):
     w = WorkflowAirplane(**workflow_cart_monoproc_params)
     w.RunManagement['RunDirectory'] = str(tmp_path)

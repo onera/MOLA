@@ -31,14 +31,12 @@ RSM_CGNS2ElsaDict = dict(
     )
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_translate_to_elsa_dict():
     d = dict((key, 0) for key in solver_elsa.cgns_to_elsa_bc_field_name)
     res = solver_elsa.translate_to_elsa(d)
     assert set(res) == set(list(solver_elsa.cgns_to_elsa_bc_field_name.values())+['inj_tur7'])
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_translate_to_elsa_dict_rsm():
     d = dict((key, 0) for key in RSM_CGNS2ElsaDict)
     res = solver_elsa.translate_to_elsa(d)
@@ -46,7 +44,6 @@ def test_translate_to_elsa_dict_rsm():
     assert res == dict((value, 0) for value in RSM_CGNS2ElsaDict.values())
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_translate_to_elsa_list():
     input_list = list(solver_elsa.cgns_to_elsa_bc_field_name)
     res = solver_elsa.translate_to_elsa(input_list)
@@ -57,14 +54,12 @@ def test_translate_to_elsa_list():
     assert res == expected_list
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_translate_to_elsa_str():
     for cgns_name, elsa_name in solver_elsa.cgns_to_elsa_bc_field_name.items():
         res = solver_elsa.translate_to_elsa(cgns_name)
         assert res == elsa_name
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_translate_to_elsa_error():
     for var in [1, 1., None, True, False]:
         try:

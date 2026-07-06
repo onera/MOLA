@@ -39,7 +39,6 @@ class FakeWorkflow():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_rotation_parameter_1():
     Motion = dict(
         Rotor = dict(
@@ -56,7 +55,6 @@ def test_get_rotation_parameter_1():
     assert np.allclose(fast_parameter, expected_parameter)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_rotation_parameter_2():
     Motion = dict(
         Rotor = dict(
@@ -74,7 +72,6 @@ def test_get_rotation_parameter_2():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_rpm():
     Motion = dict(
         Rotor = dict(
@@ -96,7 +93,6 @@ def test_get_rpm():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_timestep_based_on_azimutal_step():
     Motion = dict(
         Rotor = dict(
@@ -119,7 +115,6 @@ def test_get_timestep_based_on_azimutal_step():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_must_be_unsteady_if_has_motion_when_steady_no_timestep():
     Motion = dict(
         Rotor = dict(
@@ -144,7 +139,6 @@ def test_must_be_unsteady_if_has_motion_when_steady_no_timestep():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_must_be_unsteady_if_has_motion_when_steady_with_timestep():
     Motion = dict(
         Rotor = dict(
@@ -169,7 +163,6 @@ def test_must_be_unsteady_if_has_motion_when_steady_with_timestep():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_check_unique_motion_when_it_is_not():
     Motion = dict(
         Rotor = dict(
@@ -193,7 +186,6 @@ def test_check_unique_motion_when_it_is_not():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_check_unique_motion_when_it_is_true():
     Motion = dict(
         Rotor = dict(
@@ -214,7 +206,6 @@ def test_check_unique_motion_when_it_is_true():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_to_solver_steady_fix():
     Motion = dict(
         Rotor = dict(
@@ -228,7 +219,6 @@ def test_apply_to_solver_steady_fix():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_to_solver_unsteady():
     Motion = dict(
         Rotor = dict(

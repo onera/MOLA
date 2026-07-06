@@ -180,7 +180,6 @@ def get_fake_workflow_with_coprocess_manager(RunDirectory, type_of_tree='rans',
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_output_tree(tmp_path):
     
     os.chdir(tmp_path)
@@ -195,7 +194,6 @@ def test_get_output_tree(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("extract_field", solver_fast.post_fields_using_fast + \
         solver_fast.post_fields_using_cassiopee_computeVariables + 
         solver_fast.post_fields_using_cassiopee_computeExtraVariable)
@@ -242,7 +240,6 @@ def test_compute_missing_fields_at_cell_centers(tmp_path, extract_field):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("GridLocation", ["Vertex", "CellCenter"])
 @pytest.mark.parametrize("GhostCells", [True, False])
 def test_extract_fields(tmp_path, GridLocation, GhostCells):
@@ -275,7 +272,6 @@ def test_extract_fields(tmp_path, GridLocation, GhostCells):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_extract_isosurface(tmp_path):
 
     os.chdir(tmp_path)
@@ -314,7 +310,6 @@ def test_extract_isosurface(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_extract_bc(tmp_path):
 
     os.chdir(tmp_path)
@@ -344,7 +339,6 @@ def test_extract_bc(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("modeling", ['euler', 'rans'])
 def test_extract_residuals(tmp_path,modeling):
 
@@ -384,7 +378,6 @@ def test_extract_residuals(tmp_path,modeling):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_get_stress_and_state(tmp_path):
 
     os.chdir(tmp_path)
@@ -408,7 +401,6 @@ def test_get_stress_and_state(tmp_path):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_dimensionalize_torque():
 
     stress = dict(t0x=1.0, t0y=1.0, t0z=1.0, S=0.1)
@@ -421,7 +413,6 @@ def test_dimensionalize_torque():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_extract_integral(tmp_path):
     
     os.chdir(tmp_path)

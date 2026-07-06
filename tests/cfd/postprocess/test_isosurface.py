@@ -106,7 +106,6 @@ def compute_workflow(run_directory):
     
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.elsa
 @pytest.mark.mpi
 @pytest.mark.parametrize('splitter', ['cassiopee', 'pypart'])
@@ -158,7 +157,6 @@ def test_iso_surface_elsa(splitter):
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.elsa
 @pytest.mark.mpi
 @pytest.mark.parametrize('splitter', ['cassiopee', 'pypart'])

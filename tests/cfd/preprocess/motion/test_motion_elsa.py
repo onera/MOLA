@@ -36,7 +36,6 @@ class FakeWorkflow():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_to_solver():
     Motion = dict(
         Rotor = dict(
@@ -69,7 +68,6 @@ def test_apply_to_solver():
 
     
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_to_solver_no_motion_for_all_families():
     Motion = dict(
         Stator = dict(
@@ -84,7 +82,6 @@ def test_apply_to_solver_no_motion_for_all_families():
     assert str(workflow.tree.get(Name='Stator')) == str(['Stator', None, [], 'Family_t'])
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_apply_to_solver_no_motion_for_one_family():
     # NOTE The node .Solver#Motion must be defined even for fixed zones, 
     # if at least one zone is moving. Otherwise, elsA rises an error like in 
@@ -134,7 +131,6 @@ def test_apply_to_solver_no_motion_for_one_family():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 @pytest.mark.parametrize("RotationSpeed", [[1.,3.,0.], [1.,0.,4.], [1.,1.,1.]])
 def test_apply_to_solver_invalid_axis(RotationSpeed):
     Motion = dict(

@@ -28,7 +28,6 @@ from ....workflow.rotating_component.turbomachinery.test_turbomachinery_workflow
 pytestmark = pytest.mark.sonics
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_functions_well_defined():
     bc_dict = BoundaryConditionsDispatcherSonics()
     for expected_function_name in bc_dict.get_all_specific_names():
@@ -36,7 +35,6 @@ def test_functions_well_defined():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_bc_generic():
     BoundaryConditions=[
             dict(Family='imin', Type='Farfield'),
@@ -50,7 +48,6 @@ def test_bc_generic():
     # workflow.set_boundary_conditions()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 def test_bc_specific():
     BoundaryConditions=[
             dict(Family='imin', Type='BCFarfield'),
@@ -64,7 +61,6 @@ def test_bc_specific():
     workflow.set_boundary_conditions()
 
 @pytest.mark.unit
-@pytest.mark.cost_level_1
 @pytest.mark.parametrize('interface_type', ['MixingPlane']) #, 'UnsteadyRotorStatorInterface', 'ChorochronicInterface'])
 def test_RotorStatorInterface(tmp_path, interface_type):
 

@@ -53,7 +53,6 @@ class FakeWorkflow():
             )
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_MassFlowFromMach():
     workflow = FakeWorkflow()
     FlowGen = InternalFlowGenerator(workflow)
@@ -61,7 +60,6 @@ def test_MassFlowFromMach():
     np.testing.assert_allclose(Massflow, 1.80018457)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_MachFromMassFlow():
     workflow = FakeWorkflow()
     FlowGen = InternalFlowGenerator(workflow)
@@ -70,7 +68,6 @@ def test_MachFromMassFlow():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_InternalFlowGenerator_Mach_and_MassFlow():
     workflow = FakeWorkflow()
     workflow.Flow['MassFlow'] = 1.
@@ -85,7 +82,6 @@ def test_InternalFlowGenerator_Mach_and_MassFlow():
     
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_InternalFlowGenerator_without_Mach_and_MassFlow():
     workflow = FakeWorkflow()
     workflow.Flow.pop('MassFlow')
@@ -102,7 +98,6 @@ def test_InternalFlowGenerator_without_Mach_and_MassFlow():
 
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_InternalFlowGenerator():
     workflow = FakeWorkflow()
     FlowGen = InternalFlowGenerator(workflow)
@@ -179,7 +174,6 @@ def test_InternalFlowGenerator():
     assert misc.allclose_dict(FlowGen.Turbulence, RefTurbulence)
 
 @pytest.mark.unit
-@pytest.mark.cost_level_0
 def test_InternalFlowGenerator_with_incidence():
     workflow = FakeWorkflow()
     α = np.radians(30)
