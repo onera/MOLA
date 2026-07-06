@@ -90,15 +90,14 @@ def get_correct_FlowSolution_name_from_solver():
         raise Exception('unknown solver: {solver}. If needed, update this test function.')
     return fs_name
 
-def apply_all_previous_stages(workflow):
-    workflow.assemble()
-    workflow.positioning()
-    workflow.connect()
-    workflow.define_families()
-    workflow.split_and_distribute() 
+def apply_all_previous_stages(workflow : Workflow):
+    workflow.prepare_job()
+    workflow.process_mesh()
     workflow.process_overset()
     workflow.compute_flow_and_turbulence()
-    workflow.set_motion()
+    workflow.set_motion() 
+    workflow.set_boundary_conditions()
+    workflow.set_cfd_parameters()
 
 @pytest.mark.unit
 @pytest.mark.cost_level_0

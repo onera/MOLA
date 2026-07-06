@@ -447,8 +447,7 @@ def _update_solver_parameters_for_restart(workflow, tree):
     # Update WorkflowParameters
     WorkflowParameters = tree.get(Name=workflow._workflow_parameters_container_, Depth=1)
     if WorkflowParameters:
-        WorkflowParameters.setParameters('Numerics', **workflow.Numerics)
-    WorkflowParameters.setParameters('SolverParameters', **workflow.SolverParameters)
+        WorkflowParameters.setParameters('SolverParameters', **workflow.SolverParameters)
 
 def _unstructured_zones_must_have_elements_connectivity( t : cgns.Tree):
     for zone in t.zones():

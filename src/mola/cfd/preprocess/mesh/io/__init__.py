@@ -17,21 +17,12 @@
 
 import numpy as np
 from mola.logging import MolaException, MolaUserError, mola_logger, CYAN, ENDC
-from . import default, autogrid, utils, reader, writer, unstructured
+from . import default, autogrid, utils, reader, writer
 
 from treelab import cgns
 
 def apply(workflow):
     read(workflow)
-
-    # We need to define families before converting to unstructured.
-    # This makes evident the need of separating reading from struct-unstruct
-    # conversions. They shall be taken as two separated operations, done in the
-    # context of workflow's preprocess and not in the context of "mesh reading".
-    workflow.define_families()
-    raise TypeError(workflow.RawMeshComponents[0]['Connection'])
-
-    unstructured.apply(workflow)
 
 def read(workflow):
     
