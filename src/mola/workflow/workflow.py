@@ -89,7 +89,6 @@ class Workflow(object):
 
     def process_mesh(self):
         mola_logger.info("🔧 processing mesh", rank=0)
-        
         if self.Solver == 'sonics': # CAVEAT specifically verifying sonics, should reverse dependency properly
             from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
             adapt_workflow_for_sonics(self)

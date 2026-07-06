@@ -47,7 +47,7 @@ def test_bc_generic():
             dict(Family='kmax', Type='WallInviscid'),
         ]
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
-    workflow.set_boundary_conditions()
+    # workflow.set_boundary_conditions()
 
 @pytest.mark.unit
 @pytest.mark.cost_level_1

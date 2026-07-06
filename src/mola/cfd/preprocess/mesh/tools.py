@@ -704,35 +704,35 @@ class EmptyNodesManager:
                     parent.addChild(node)
             comm.barrier()
 
-def restore_empty_FlowSolution_nodes_in_file(self, dst):
-    """Restore empty FlowSolution nodes directly to a CGNS file.
+    def restore_empty_FlowSolution_nodes_in_file(self, dst):
+        """Restore empty FlowSolution nodes directly to a CGNS file.
 
-    This method writes the stored empty nodes directly to a CGNS file
-    without requiring them to be in a tree structure first. It compares
-    the stored nodes with existing nodes in the file and only writes
-    nodes that have more DataArray children than the file version.
+        This method writes the stored empty nodes directly to a CGNS file
+        without requiring them to be in a tree structure first. It compares
+        the stored nodes with existing nodes in the file and only writes
+        nodes that have more DataArray children than the file version.
 
-    Args:
-        dst (str): Path to the destination CGNS file.
+        Args:
+            dst (str): Path to the destination CGNS file.
 
-    """
-    from mpi4py import MPI
-    current_rank = MPI.COMM_WORLD.Get_rank()
+        """
+        from mpi4py import MPI
+        current_rank = MPI.COMM_WORLD.Get_rank()
 
-    for path, value in self.empty_nodes_by_path.items():
-        rank_with_source_node, fs_node = value[0], value[1]
+        for path, value in self.empty_nodes_by_path.items():
+            rank_with_source_node, fs_node = value[0], value[1]
 
-        # Only process if we have the actual node data
-        if fs_node is not None:
-            # Read existing node from file
-            print(f"[{current_rank}] {path=}")
-            saved_FS = cgns.readNode(dst, path)
+            # Only process if we have the actual node data
+            if fs_node is not None:
+                # Read existing node from file
+                print(f"[{current_rank}] {path=}")
+                saved_FS = cgns.readNode(dst, path)
 
-            # Write if stored node has more DataArrays than file version
-            if len(saved_FS.group(Type='DataArray')) < len(fs_node.group(Type='DataArray')):
-                fs_node.saveThisNodeOnly(dst)
-                for child in fs_node.children():
-                    child.saveThisNodeOnly(dst)
+                # Write if stored node has more DataArrays than file version
+                if len(saved_FS.group(Type='DataArray')) < len(fs_node.group(Type='DataArray')):
+                    fs_node.saveThisNodeOnly(dst)
+                    for child in fs_node.children():
+                        child.saveThisNodeOnly(dst)
 
 
 def is_partitioned(tree, backend='maia'):

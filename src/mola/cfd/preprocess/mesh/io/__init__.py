@@ -23,6 +23,14 @@ from treelab import cgns
 
 def apply(workflow):
     read(workflow)
+
+    # We need to define families before converting to unstructured.
+    # This makes evident the need of separating reading from struct-unstruct
+    # conversions. They shall be taken as two separated operations, done in the
+    # context of workflow's preprocess and not in the context of "mesh reading".
+    workflow.define_families()
+    raise TypeError(workflow.RawMeshComponents[0]['Connection'])
+
     unstructured.apply(workflow)
 
 def read(workflow):
@@ -31,7 +39,6 @@ def read(workflow):
         mola_logger.info("  📖 reading and 🧩assembling meshes", rank=0)
     else:
         mola_logger.info("  📖 reading mesh", rank=0)
-    
     meshes = []
     for component in workflow.RawMeshComponents:
         
@@ -48,11 +55,12 @@ def read(workflow):
         
         meshes += [base]
     
+    
     workflow.tree = cgns.add(meshes)
 
     set_problem_dimension_based_on_grid(workflow)
     enforce_name_of_FamilyBC(workflow.tree)
-
+    
 
 def set_problem_dimension_based_on_grid(workflow):
 

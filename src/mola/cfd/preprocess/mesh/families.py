@@ -22,7 +22,7 @@ from mola.logging import mola_logger, MolaException, MolaUserError
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 
 def apply(workflow):
-
+    
     if any(['Families' in component for component in workflow.RawMeshComponents]):
 
         mola_logger.info("  🏷 defining tags", rank=0)

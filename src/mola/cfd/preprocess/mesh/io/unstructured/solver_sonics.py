@@ -36,6 +36,8 @@ def apply_to_solver(workflow):
     if any_not_ngon and tree_was_full:
         workflow.tree = to_full_tree_at_rank_0(workflow.tree)
 
+    
+
 def make_mesh_unstructured(t):
     import maia 
     from mpi4py import MPI

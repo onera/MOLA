@@ -67,8 +67,11 @@ class WorkflowPropeller(WorkflowRotatingComponent):
             base.addChild(family_under_base)
 
             for zone in base.zones():
-                family_name_under_zone = cgns.Node(Name='FamilyName',Type='FamilyName_t',Value='Propeller')
-                zone.addChild(family_name_under_zone)
+                cgns.Node(Name='FamilyName',
+                          Type='FamilyName_t',
+                          Value='Propeller',
+                          Parent=zone,
+                          override_sibling_by_name=True)
 
 
     def compute_flow_and_turbulence(self):
