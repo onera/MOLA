@@ -108,13 +108,14 @@ def get_turbulence_setup( Turbulence : dict ) -> dict:
         zdes_mode = requested_model.split('-')[1]
         Parameters['Num2Zones']['DES'] = 'zdes'+zdes_mode
 
-    else: # RANS modeling
-        if requested_model != 'SA':
-            mola_logger.user_warning("RANS model %s not implemented in Fast. Switching to 'SA'"%requested_model)
+    elif requested_model == 'SA':
             Turbulence['Model'] = 'SA' 
         
-        Parameters['Num2Zones']['ransmodel'] = 'SA'
-        Parameters['Num2Zones']['ratiom'] = 1e4 
+            Parameters['Num2Zones']['ransmodel'] = 'SA'
+            Parameters['Num2Zones']['ratiom'] = 1e4 
+
+    else:
+        raise NotImplementedError(f"requested turbulence model was {requested_model}")
 
     return Parameters
 
@@ -132,6 +133,7 @@ def get_spatial_fluxes(Numerics : dict):
         scheme             = "ausmpred", # "ausmpred", "roe_min", "senseur"
         slope              = "o3",
         ))
+        
     elif Numerics['Scheme'] == 'Roe':
         Parameters['Num2Zones'].update( dict(
         scheme = 'roe_min',

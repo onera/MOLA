@@ -21,6 +21,14 @@ import numpy as np
 from treelab import cgns
 from mola.workflow.workflow import Workflow
 
+def apply_all_previous_stages(workflow : Workflow):
+    workflow.adjust_compatibilities()
+    workflow.prepare_job()
+    workflow.process_mesh()
+    workflow.process_overset()
+    workflow.compute_flow_and_turbulence()
+    workflow.set_motion()
+
 def get_workflow_prepared_to_test_bcs(BoundaryConditions):
 
     x, y, z = np.meshgrid( np.linspace(0,1,5),
@@ -58,9 +66,6 @@ def get_workflow_prepared_to_test_bcs(BoundaryConditions):
 
         )
     workflow = Workflow(**params)
-    workflow.process_mesh()
-    workflow.process_overset()
-    workflow.compute_flow_and_turbulence()
-    workflow.set_motion()
+    apply_all_previous_stages(workflow)
     return workflow
 

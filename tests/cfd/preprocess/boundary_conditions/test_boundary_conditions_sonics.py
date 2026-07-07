@@ -20,12 +20,14 @@ import pytest
 from mola.logging import mola_logger
 from mola.cfd.preprocess.boundary_conditions import solver_sonics
 from mola.cfd.preprocess.boundary_conditions.boundary_conditions_dispatcher_sonics import BoundaryConditionsDispatcherSonics
-from .test_boundary_conditions import get_workflow_prepared_to_test_bcs
+from .test_boundary_conditions import get_workflow_prepared_to_test_bcs, apply_all_previous_stages
 
 from mola.workflow.rotating_component import turbomachinery
 from ....workflow.rotating_component.turbomachinery.test_turbomachinery_workflow import get_compressor_example_parameters
 
 pytestmark = pytest.mark.sonics
+
+
 
 @pytest.mark.unit
 def test_functions_well_defined():
@@ -45,7 +47,7 @@ def test_bc_generic():
             dict(Family='kmax', Type='WallInviscid'),
         ]
     workflow = get_workflow_prepared_to_test_bcs(BoundaryConditions)
-    # workflow.set_boundary_conditions()
+    workflow.set_boundary_conditions()
 
 @pytest.mark.unit
 def test_bc_specific():
@@ -75,10 +77,6 @@ def test_RotorStatorInterface(tmp_path, interface_type):
 
     workflow = turbomachinery.Workflow(**params)
 
-    workflow.prepare_job()
-    workflow.process_mesh()
-    workflow.process_overset()
-    workflow.compute_flow_and_turbulence()
-    workflow.set_motion()
+    apply_all_previous_stages(workflow)
 
     workflow.set_boundary_conditions()
