@@ -760,12 +760,14 @@ def test_prepare_assemble_dist():
 
 
 @pytest.mark.integration
-def test_process_mesh_workflow1():
+def test_process_mesh_workflow1(tmp_path):
+    dir_path = str(tmp_path)
     w = get_workflow1()
+    w.adjust_compatibilities()
+    w.prepare_job()
     w.process_mesh()
-    w.write_tree('test.cgns')
-    try: os.unlink('test.cgns')
-    except: pass
+    os.makedirs(dir_path)
+    w.write_tree(dir_path+'/test.cgns')
 
 @pytest.mark.integration
 def test_prepare_workflow2(tmp_path):
@@ -784,16 +786,6 @@ def test_prepare_workflow2_comp2(tmp_path):
     w.prepare()
     w.write_cfd_files()
 
-# @pytest.mark.integration
-# 1
-# @pytest.mark.mpi
-# def test_prepare_workflow_dist():
-#     w = get_workflow_dist()
-#     if w.Solver == 'sonics':
-#         from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-#         adapt_workflow_for_sonics(w)
-#     w.prepare()
-#     w.write_cfd_files()
 
 @pytest.mark.integration
 @pytest.mark.skipif(solver=="sonics", reason="replaced by its own parametrized test") # avoids executing twice the case dim=3 CellCenter in sonics context
@@ -994,19 +986,6 @@ def test_workflow_sphere_unstruct_pypart(tmp_path):
 
     w.assert_completed_without_errors()
 
-# @pytest.mark.integration
-# 3
-# def test_workflow_sphere_hybrid_local(tmp_path):
-#     # Tested with elsA v5.3.03 and Maia, it works. Other cases are to debug
-#     w = get_workflow_sphere_hybrid(tmp_path)
-#     if w.Solver == 'sonics':
-#         from mola.cfd.preprocess.boundary_conditions.solver_sonics import adapt_workflow_for_sonics
-#         adapt_workflow_for_sonics(w)
-#     # w.SplittingAndDistribution=dict(Strategy='AtComputation', Splitter='maia')
-#     w.prepare()
-#     w.write_cfd_files()
-#     w.submit(f'cd {tmp_path}; bash job.sh')
-#     w.assert_completed_without_errors()
 
 @pytest.mark.network_onera
 @pytest.mark.integration
@@ -1023,16 +1002,6 @@ def test_workflow_sphere_struct_remote_sator():
     w.prepare()
     w.write_cfd_files()
     w.submit()
-
-    # TODO: 
-    # w.simulation_status( wait_until_simulation_end=True ) # TODO implement option
-    # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
-
-    # NOTE: do not wait for job to end, since that approach would provoke
-    # too important delays (waiting for resources of SLURM)
-    # COMPLETED_PATH = os.path.join(w.RunManagement['RunDirectory'], names.FILE_JOB_COMPLETED)
-    # SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=30)
-    # SV.remove_path(w.RunManagement['RunDirectory'], machine='sator', file_only=False)
 
 def unstructured_cart_grid():
     from mola.cfd.preprocess.mesh.io.unstructured.solver_sonics import make_mesh_unstructured
