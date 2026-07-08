@@ -1025,9 +1025,6 @@ def closeWingTipAndRoot(wingsurface, tip_window='jmax', close_root=True,
             applyGlue(root, [rootContour])
             I._rmNodesByName(root,'.glueData')
 
-    silence = J.OutputGrabber()
-    with silence: T._reorderAll(zones)
-
     return zones
 
 def closeAirfoil(Airfoil, Topology='ThickTE_simple', options=dict(NPtsUnion=21,
@@ -1142,7 +1139,7 @@ def closeAirfoil(Airfoil, Topology='ThickTE_simple', options=dict(NPtsUnion=21,
             TFIFront = G.TFIMono(UnionLine,FrontTFIline)
             TFIFrontJoin = T.join(TFIFront,TFIRearJoin)
             ClosedZones = [TFIFrontJoin, TFIRearSingleElmnt]
-            _reorderAll(ClosedZones,1)
+            T._reorder(TFIRearSingleElmnt,(1,-2,3))
         else:
             raise AttributeError('Could not close airfoil. Change the number of points of the airfoil.')
     elif Topology == 'ThickTE_simple':
@@ -1217,9 +1214,9 @@ def closeAirfoil(Airfoil, Topology='ThickTE_simple', options=dict(NPtsUnion=21,
         ClosedZones = [Closed]
 
     elif Topology == 'ThickTE_Hshape':
-        raise ValueError('Topology="ThickTE_Hshape" not implemented yet.')
+        raise NotImplementedError('Topology="ThickTE_Hshape" not implemented yet.')
     else:
-        raise ValueError('Topology="%s" not recognized.'%Topology)
+        raise NotImplementedError('Topology="%s" not recognized.'%Topology)
 
 
     return ClosedZones

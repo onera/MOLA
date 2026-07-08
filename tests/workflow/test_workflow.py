@@ -766,7 +766,8 @@ def test_process_mesh_workflow1(tmp_path):
     w.adjust_compatibilities()
     w.prepare_job()
     w.process_mesh()
-    os.makedirs(dir_path, exist_ok=True)
+    try: os.makedirs(dir_path, exist_ok=True)
+    except: pass
     w.write_tree(dir_path+'/test.cgns')
 
 @pytest.mark.integration

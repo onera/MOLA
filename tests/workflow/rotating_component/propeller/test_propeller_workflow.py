@@ -177,8 +177,6 @@ def test_propeller_ultra_light(tmp_path):
         'Viscosity_EddyMolecularRatio',
         'Mach']
 
-    nproc = 1 if solver=='fast' else 2 # HACK because of BUG https://github.com/onera/Fast/issues/102
-
     w = WorkflowPropeller(
 
             ApplicationContext=dict(
@@ -255,7 +253,7 @@ def test_propeller_ultra_light(tmp_path):
             ],
 
             RunManagement=dict(
-                NumberOfProcessors=nproc,
+                NumberOfProcessors=2,
                 RunDirectory=str(tmp_path),
                 Scheduler = 'local',
                 ),

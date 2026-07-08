@@ -44,7 +44,7 @@ native_fields = ['Density','VelocityX','VelocityY','VelocityZ','Temperature',
                  'ViscosityEddy','ViscosityMolecular','TurbulentSANuTilde',
                  'Force','Torque','MassFlow']
 
-# https://fast.onera.fr/FastS.html#FastS.PyTree._computeVariables
+# https://fast.onera.fr/FastS.html#FastS.Mpi._computeVariables
 post_fields_using_fast = ['QCriterion', 'Enstrophy'] 
 
 # https://cassiopee.onera.fr/Post.html#Post.computeVariables
@@ -166,7 +166,7 @@ def extract_fields(output_tree, extraction) -> cgns.Tree:
 
 def extract_bc(output_tree, extraction, families_to_bctype, metrics):
 
-    import FastS.PyTree as FastS
+    import FastS.Mpi as FastS
 
     SurfacesTree = cgns.Tree()
 
@@ -380,7 +380,7 @@ def compute_missing_fields_at_cell_centers( workflow, t : cgns.Tree, field_names
     
     assert isinstance(field_names, list)
 
-    import FastS.PyTree as FastS
+    import FastS.Mpi as FastS
     import Post.PyTree as P
     import Converter.PyTree as C
     import Converter.Internal as I
@@ -512,7 +512,7 @@ def unstack_residual( residual : cgns.Node ):
 
 def get_stress_and_state(output_tree : cgns.Tree , source : str, metrics) -> list:
     
-    import FastS.PyTree as FastS
+    import FastS.Mpi as FastS
     stress_tree = FastS.createStressNodes(output_tree, [source])
     stress_list = FastS._computeStress(output_tree, stress_tree, metrics)
 

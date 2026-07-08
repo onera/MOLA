@@ -1,5 +1,5 @@
 import Fast.PyTree as Fast
-import FastS.PyTree as FastS
+import FastS.Mpi as FastS
 
 inititer = 1 
 niter = 2000
