@@ -190,15 +190,15 @@ def test_propeller_ultra_light(tmp_path):
                 Velocity = 100.0,
             ),
 
-            # Turbulence = dict(
-            #     Model = 'SA',
-            # ),
+            Turbulence = dict(
+                Model = 'SA',
+            ),
 
             Numerics = dict(
                 Scheme='Roe',
-                NumberOfIterations=20,
+                NumberOfIterations=150,
                 MinimumNumberOfIterations=3,
-                CFL=dict(EndIteration=1000, StartValue=1.0, EndValue=30.0),
+                # CFL=dict(EndIteration=1000, StartValue=1.0, EndValue=30.0),
             ),
 
             BoundaryConditions=[
@@ -254,7 +254,8 @@ def test_propeller_ultra_light(tmp_path):
             ],
 
             RunManagement=dict(
-                NumberOfProcessors=2,
+                NumberOfProcessors=1,
+                NumberOfThreads=8,
                 RunDirectory=str(tmp_path),
                 Scheduler = 'local',
                 ),

@@ -24,7 +24,6 @@ from mola.cfd.compute.solver_fast import get_theta_and_omega
 
 def apply_to_solver(workflow):
 
-    import Fast.PyTree as Fast
     import FastS.Mpi as FastS
     import FastC.PyTree as FastC
     FastC.MX_SYNCHRO= 25000

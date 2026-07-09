@@ -28,7 +28,7 @@ export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 export MACHINE=juno
 export CASSIOPEE=/tmp_user/juno/cassiope/git/releases/Cassiopee/v4.1
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
-
+export HDF5_DISABLE_VERSION_CHECK=1 # BUG https://elsa.onera.fr/issues/12068
 
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/tools/netcdf/4.8.0-gnu831/lib
