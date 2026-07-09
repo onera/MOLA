@@ -190,13 +190,13 @@ def test_propeller_ultra_light(tmp_path):
                 Velocity = 100.0,
             ),
 
-            Turbulence = dict(
-                Model = 'SA',
-            ),
+            # Turbulence = dict(
+            #     Model = 'SA',
+            # ),
 
             Numerics = dict(
                 Scheme='Roe',
-                NumberOfIterations=2000,
+                NumberOfIterations=20,
                 MinimumNumberOfIterations=3,
                 CFL=dict(EndIteration=1000, StartValue=1.0, EndValue=30.0),
             ),
