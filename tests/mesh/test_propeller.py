@@ -21,8 +21,6 @@ import pytest
 import os
 
 @pytest.mark.integration
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_designBlade(tmp_path):
 
     import mola.mesh.propeller_mesher as RW
@@ -30,8 +28,6 @@ def test_designBlade(tmp_path):
 
 
 @pytest.mark.integration
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_rediscretizeBlade():
 
     import mola.mesh.propeller_mesher as RW
@@ -40,8 +36,6 @@ def test_rediscretizeBlade():
     
 
 @pytest.mark.user_case
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_getBladesORAS_ONERA_SE(tmp_path):
 
     import mola.mesh.propeller_mesher as RW
@@ -49,8 +43,6 @@ def test_getBladesORAS_ONERA_SE(tmp_path):
 
 
 @pytest.mark.user_case
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_oras_mesher_single(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -110,8 +102,6 @@ def test_oras_mesher_single(tmp_path):
 
 
 @pytest.mark.user_case
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_oras_mesher_ultracoarse(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -210,8 +200,6 @@ def test_oras_mesher_ultracoarse(tmp_path):
 
 
 @pytest.mark.integration
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_oras_mesher_designer_ultracoarse(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -423,8 +411,6 @@ def test_oras_mesher_designer_ultracoarse(tmp_path):
 
 @pytest.mark.user_case
 @pytest.mark.restricted_user_case
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_oras_mesher_inpro_ultracoarse(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -564,8 +550,6 @@ def test_oras_mesher_inpro_ultracoarse(tmp_path):
 
 @pytest.mark.user_case
 @pytest.mark.restricted_user_case
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_oras_mesher_inpro(tmp_path):
 
     import mola.pytree.InternalShortcuts as J
@@ -732,8 +716,6 @@ def test_oras_mesher_inpro(tmp_path):
 
 @pytest.mark.user_case
 @pytest.mark.restricted_user_case
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_oras_mesher_barrier_ultracoarse(tmp_path):
 
     if os.getenv('USER') != 'lbernard': return # confidential case
@@ -895,8 +877,6 @@ def test_oras_mesher_barrier_ultracoarse(tmp_path):
 
 @pytest.mark.user_case
 @pytest.mark.restricted_user_case
-@pytest.mark.elsa
-@pytest.mark.fast
 def test_oras_mesher_barrier_acoustic(tmp_path):
 
     if os.getenv('USER') != 'lbernard': return # confidential case

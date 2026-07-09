@@ -20,7 +20,7 @@ source $SCRIPT_DIR/../network.sh
 
 # Cassiopee
 export MACHINE=ld
-export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/v4.0
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 
@@ -30,6 +30,7 @@ unset I_MPI_PMI_LIBRARY
 export OMPI_MCA_mca_base_component_show_load_errors=0
 
 source /stck/sonics/LD8/sonics/$SONICSVERSION/gcc/source.sh
+
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 
 module load pointwise

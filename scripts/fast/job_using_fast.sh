@@ -1,7 +1,6 @@
 #!/bin/bash
 export MACHINE=ld
-export CASSIOPEE_VERSION=main #main #v4.0a
-export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/v4.1
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 export KMP_WARNINGS=FALSE

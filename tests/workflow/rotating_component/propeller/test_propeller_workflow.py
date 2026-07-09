@@ -191,13 +191,14 @@ def test_propeller_ultra_light(tmp_path):
             ),
 
             Turbulence = dict(
-                Model = 'Wilcox2006-klim',
+                Model = 'SA',
             ),
 
             Numerics = dict(
-                NumberOfIterations=20,
+                Scheme='Roe',
+                NumberOfIterations=2000,
                 MinimumNumberOfIterations=3,
-                CFL=1.0,
+                CFL=dict(EndIteration=1000, StartValue=1.0, EndValue=30.0),
             ),
 
             BoundaryConditions=[

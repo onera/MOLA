@@ -73,8 +73,8 @@ def get_rotation_parameter(Motion):
         RotationAxisOrigin[0], 
         RotationAxisOrigin[1], 
         RotationAxisOrigin[2],
-        0., # freq
-        0.  # amplitude
+        0.0, # freq
+        0.0  # amplitude
     ]
     return rotation
 
