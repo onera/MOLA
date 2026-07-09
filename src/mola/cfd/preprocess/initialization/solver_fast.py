@@ -47,25 +47,3 @@ def add_info_in_reference_state(workflow):
         reference_state = base.get(Type='ReferenceState', Depth=1)
         for name, value in additional_data.items():
             cgns.Node(Name=name, Value=value, Type='DataArray', Parent=reference_state)
-
-def adapt_workflow_for_fast(workflow):
-    split_opts = workflow.SplittingAndDistribution
-    _must_split_at_preprocess_with_cassiopee(split_opts)
-    _must_distribute_with_cassiopee(split_opts)
-    
-
-def _must_split_at_preprocess_with_cassiopee(split_opts):
-    strategy = split_opts['Strategy']
-    if strategy != 'AtPreprocess':
-        msg = f'fast solver requires splitting in preprocess, switching strategy from "{strategy}" to "AtPreprocess"'
-        mola_logger.user_warning(msg)
-        split_opts['Strategy'] = 'AtPreprocess'
-        split_opts['Splitter'] = 'Cassiopee'
-
-def _must_distribute_with_cassiopee(split_opts):
-    if split_opts['Distributor'].lower() != 'cassiopee':
-        distributor = split_opts['Distributor']
-        msg = f'fast solver requires to pre-assign mpi ranks in preprocess, for doing this switching distributor from distributor "{distributor}" to "Cassiopee"'
-        mola_logger.user_warning(msg)
-        split_opts['Distributor'] = 'Cassiopee'
-

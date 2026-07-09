@@ -47,7 +47,7 @@ def add_convergence_history(t, niter):
     I._rmNodesByType(t, 'ConvergenceHistory_t')
 
     
-    import FastS.PyTree as FastS
+    import FastS.Mpi as FastS
     FastS._createConvergenceHistory(t, niter+1) # https://github.com/onera/Fast/issues/13 
     
 

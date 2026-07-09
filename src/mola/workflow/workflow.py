@@ -39,7 +39,9 @@ from  mola.cfd.preprocess.mesh import (io,
                                     duplicate,
                                     overset)
 from mola.cfd.preprocess.mesh.io import unstructured
-from  mola.cfd.preprocess import (flow_generators,
+from  mola.cfd.preprocess import (
+                               compatibilities_adjustor,
+                               flow_generators,
                                boundary_conditions,
                                initialization,
                                motion,
@@ -63,6 +65,7 @@ class Workflow(object):
     def prepare(self):
         start_msg = f'START PREPROCESS WITH MOLA {__version__}'
         mola_logger.info(f'{CYAN}{BOLD}{"="*len(start_msg)}\n{start_msg}\n{"="*len(start_msg)}{ENDC}', rank=0)
+        self.adjust_compatibilities()
         self.prepare_job()
         self.process_mesh()
         self.process_overset()
@@ -90,37 +93,13 @@ class Workflow(object):
 
     def process_mesh(self):
         mola_logger.info("🔧 processing mesh", rank=0)
-
-        # CAVEAT specifically verifying solvers, should reverse dependency properly
-        if self.Solver == 'elsa':
-            self.assemble()
-            self.positioning()
-            self.connect()
-            self.define_families()
-            unstructured.apply(self)
-            self.duplicate()
-            self.split_and_distribute()
-
-        elif self.Solver == 'sonics': 
-            self.read_meshes()
-            self.positioning()
-            self.connect()
-            self.define_families()
-            unstructured.apply(self)
-            self.duplicate()
-            self.SplittingAndDistribution = dict(Splitter='maia', Strategy='AtComputation')
-            self.split_and_distribute()
-
-        elif self.Solver == 'fast': # CAVEAT specifically verifying fast, should reverse dependency properly
-            from mola.cfd.preprocess.initialization.solver_fast import adapt_workflow_for_fast
-            adapt_workflow_for_fast(self)
-            self.assemble()
-            self.positioning()
-            self.connect()
-            self.define_families()
-            self.duplicate()
-            self.split_and_distribute()
-
+        self.assemble()
+        self.positioning()
+        self.connect()
+        self.define_families()
+        unstructured.apply(self)
+        self.duplicate()
+        self.split_and_distribute()
 
     def check_consistency_between_solver_and_environment(self):
         requested_solver = self.Solver
@@ -519,6 +498,11 @@ class Workflow(object):
             boundary_conditions._instantiate_bc_dispatcher(self)
         return self._bc_dispatcher
 
+    def adjust_compatibilities(self):
+        if not hasattr(self,"_compatibilities_adjustor"):
+            adjustor = compatibilities_adjustor._instantiate_compatibilities_adjustor(self.Solver)
+            self._compatibilities_adjustor = adjustor
+        self._compatibilities_adjustor.apply(self)
 
     def print_interface(self, keep=None, maxlevel : int = 1000):
         if keep is not None:

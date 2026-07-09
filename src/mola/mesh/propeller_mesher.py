@@ -453,11 +453,12 @@ def extrudeBladeSupportedOnSpinner(blade_surface, spinner, rotation_center,
 
     print('checking negative volume cells in blade... ',end='')
     negative_volume_cells = GVD.checkNegativeVolumeCells(base, volume_threshold=0)
-    if negative_volume_cells and DIRECTORY_CHECKME:
-        try: os.makedirs(DIRECTORY_CHECKME)
-        except: pass
-        J.save(base, os.path.join(DIRECTORY_CHECKME,'3_blade_extruded.cgns'))
-        J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells_in_blade.cgns'))
+    if negative_volume_cells:
+        if DIRECTORY_CHECKME:
+            try: os.makedirs(DIRECTORY_CHECKME)
+            except: pass
+            J.save(base, os.path.join(DIRECTORY_CHECKME,'3_blade_extruded.cgns'))
+            J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells_in_blade.cgns'))
         if raise_error_if_negative_volume_cells:
             raise ValueError(J.FAIL+"stopped since detected negative cells in blade"+J.ENDC)
 
@@ -1983,7 +1984,8 @@ def buildMatchMesh(spinner, blade, blade_number, rotation_axis=[-1,0,0],
     print('checking negative volume cells... ',end='')
     negative_volume_cells = GVD.checkNegativeVolumeCells(t, volume_threshold=0)
     if negative_volume_cells:
-        J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells_match_mesh.cgns'))
+        if DIRECTORY_CHECKME:
+            J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells_match_mesh.cgns'))
         if raise_error_if_negative_volume_cells:
             raise ValueError(J.FAIL+"stopped since detected negative cells in match mesh"+J.ENDC)
     else:
@@ -4094,7 +4096,7 @@ def _buildFarfieldSector(sector_bnds, profile, blade_number, npts_azimut,
 
     print('checking negative volume cells in farfield 3D TFI... ',end='')
     negative_volume_cells = GVD.checkNegativeVolumeCells(grids, volume_threshold=0)
-    if negative_volume_cells:
+    if negative_volume_cells and DIRECTORY_CHECKME:
         try: os.makedirs(DIRECTORY_CHECKME)
         except: pass
         J.save(negative_volume_cells, os.path.join(DIRECTORY_CHECKME,'negative_volume_cells.cgns'))

@@ -6,6 +6,7 @@ from treelab import cgns
 from mola.workflow.rotating_component.propeller.workflow import WorkflowPropeller
 from mola.misc import allclose_dict
 from mola import solver
+import mola.mesh.propeller_mesher as RW
 from ..sector_mesh_tools_for_test import (workflow_sector_params,
                                           write_mesh_and_read_it_again)
 
@@ -163,7 +164,106 @@ def test_wall_slip_extraction(tmp_path, workflow_propeller_sector_params):
 
     w.assert_completed_without_errors()
 
+@pytest.mark.integration
+def test_propeller_ultra_light(tmp_path):
 
+    mesh = RW.easy_mesher(dir_check=None)
 
-# if __name__ == '__main__':
-#     print("toto")
+    slice_fields = [
+        'Density',
+        'MomentumX',
+        'MomentumY',
+        'MomentumZ',
+        'Viscosity_EddyMolecularRatio',
+        'Mach']
+
+    w = WorkflowPropeller(
+
+            ApplicationContext=dict(
+                NumberOfBlades=8,
+                ShaftRotationSpeed = -2000.0,
+            ),
+
+            Flow=dict(
+                Density = 1.0,
+                Temperature = 300.0,
+                Velocity = 100.0,
+            ),
+
+            # Turbulence = dict(
+            #     Model = 'SA',
+            # ),
+
+            Numerics = dict(
+                Scheme='Roe',
+                NumberOfIterations=20,
+                MinimumNumberOfIterations=3,
+                CFL=dict(EndIteration=1000, StartValue=1.0, EndValue=30.0),
+            ),
+
+            BoundaryConditions=[
+                dict(Family='BLADE',   Type='WallViscous'),
+                dict(Family='SPINNER',    Type='WallInviscid'),
+                dict(Family='FARFIELD', Type='Farfield'),
+            ],
+
+            Extractions = [
+                dict(Type="IsoSurface",
+                     IsoSurfaceField="CoordinateX",
+                     IsoSurfaceValue=0.5,
+                     Fields=slice_fields),
+                dict(Type="IsoSurface",
+                     IsoSurfaceField="CoordinateZ",
+                     IsoSurfaceValue=0.0,
+                     Fields=slice_fields),
+                dict(Type="IsoSurface",
+                     IsoSurfaceField="Radius",
+                     IsoSurfaceValue=0.75,
+                     Fields=slice_fields),
+                dict(Type="BC",
+                     Source="BLADE",
+                     Fields=[
+                         "Pressure",
+                         "SkinFriction"
+                     ]),
+            ],
+
+            ConvergenceCriteria = [
+                dict(
+                    ExtractionName = 'BLADE',
+                    Variable = "std-Thrust",
+                    Threshold = 1.0,
+                ),
+                dict(
+                    ExtractionName = 'BLADE',
+                    Variable = "Thrust",
+                    Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
+                ),
+                dict(
+                    ExtractionName = 'BLADE',
+                    Variable = "Power",
+                    Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
+                )
+            ],
+
+            RawMeshComponents=[
+                dict(
+                    Name='Base',
+                    Source=mesh,
+                )
+            ],
+
+            RunManagement=dict(
+                NumberOfProcessors=2,
+                RunDirectory=str(tmp_path),
+                Scheduler = 'local',
+                ),
+        )
+
+    w.ApplicationContext['_BladeRadius'] = 1.0 # FIXME BUG https://gitlab.onera.net/numerics/mola/-/work_items/324
+
+    w.prepare()
+    w.write_cfd_files()
+    w.submit()
+
+    w.assert_completed_without_errors()

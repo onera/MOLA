@@ -71,7 +71,7 @@ def test_stress_example():
     Fast._setNum2Zones(t, numz); Fast._setNum2Base(t, numb)
 
 
-    import FastS.PyTree as FastS
+    import FastS.Mpi as FastS
 
     t, _, metrics = FastS.warmup(t, None)
 

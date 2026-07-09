@@ -25,12 +25,16 @@ from mola.cfd.compute.solver_fast import get_theta_and_omega
 def apply_to_solver(workflow):
 
     import Fast.PyTree as Fast
-    import FastS.PyTree as FastS
+    import FastS.Mpi as FastS
+    import FastC.PyTree as FastC
+    FastC.MX_SYNCHRO= 25000
+    
     from mola.cfd.compute.solver_fast import get_range_of_iterations
 
     inititer, niter = get_range_of_iterations(workflow)
 
-    t, tc, ts, graph = Fast.load(names.FILE_INPUT_SOLVER, 'tc.cgns')
+    t = FastC.loadTree(fileName='main.cgns', split='single')
+    tc, graph  = FastC.loadTree(fileName='tc.cgns', split='single', graph=True)
 
     set_numerics(workflow, t)
 
@@ -45,7 +49,7 @@ def apply_to_solver(workflow):
     # The warmup function optimizes data storage in memory. 
     # Zones may be moved. After warmup, all operations on the trees must be in-place
     infos_ale = get_infos_ale(workflow)
-    t, tc, metrics = FastS.warmup(t, tc, graph, infos_ale=infos_ale)
+    (t, tc, metrics) = FastS.warmup(t, tc, graph, infos_ale=infos_ale)
 
     workflow.tree = cgns.castNode(t)
     workflow._treeAtCenters = cgns.castNode(tc)

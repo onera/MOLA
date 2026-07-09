@@ -1640,7 +1640,14 @@ def _computeExtrusionIndicators(tExtru):
     _,_,_,_,DimExtrudeLayer = I.getZoneDim(ExtrudeLayer)
     if DimExtrudeLayer == 2:
         G._getNormalMap(ExtrudeLayer)
-        G._getMaxLength(ExtrudeLayer)
+
+        if hasattr(G,'_getEdgeLength'):
+            G._getEdgeLength(ExtrudeLayer, type=0, dim=2)
+            fs = I.getNodeFromName1(ExtrudeLayer,I.__FlowSolutionCenters__)
+            field_node = I.getNodeFromName1(fs,'EdgeLength')
+            I.setName(field_node,'MaxLength')
+        else:
+            G._getMaxLength(ExtrudeLayer)
     elif DimExtrudeLayer == 1:
         W.getCurveNormalMap(ExtrudeLayer)
         C._initVars(ExtrudeLayer,'centers:MaxLength={centers:vol}')

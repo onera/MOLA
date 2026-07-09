@@ -91,6 +91,7 @@ def get_correct_FlowSolution_name_from_solver():
     return fs_name
 
 def apply_all_previous_stages(workflow : Workflow):
+    workflow.adjust_compatibilities()
     workflow.prepare_job()
     workflow.process_mesh()
     workflow.process_overset()
@@ -215,14 +216,12 @@ def test_initialization_copy_missing_turb_quantities(debug_mesh, FlowSolution_re
     target.findAndRemoveNodes(Type='FlowSolution')
 
     # remove turbulent quantities
-    debug_mesh.findAndRemoveNode(Name='TurbulentEnergyKineticDensity')
-    debug_mesh.findAndRemoveNode(Name='TurbulentDissipationRateDensity')
+    debug_mesh.findAndRemoveNode(Name='TurbulentSANuTildeDensity')
 
     workflow = Workflow(
         RawMeshComponents = [dict(Name='cart', Source=target)],
         Flow = dict(Velocity=10.0),
-        SplittingAndDistribution=dict(Strategy='AtComputation',Splitter='PyPart'),
-        Turbulence = dict(Model='SST'),
+        Turbulence = dict(Model='SA'), # choose a model that exist in all solvers
         Initialization=dict(Method=method, Source=debug_mesh),
     )
     apply_all_previous_stages(workflow)
@@ -231,6 +230,5 @@ def test_initialization_copy_missing_turb_quantities(debug_mesh, FlowSolution_re
     fs = workflow.tree.get(Name=fs_name)
     FlowSolution_ref.setName(fs_name)
 
-    assert fs.get(Name='TurbulentEnergyKineticDensity')
-    assert fs.get(Name='TurbulentDissipationRateDensity')
+    assert fs.get(Name='TurbulentSANuTildeDensity')
 

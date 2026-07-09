@@ -20,7 +20,7 @@ source $SCRIPT_DIR/../network.sh
 
 # TODO use stable release
 export MACHINE=sator_sph
-export CASSIOPEE=/tmp_user/sator/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+export CASSIOPEE=/tmp_user/sator/cassiope/git/releases/Cassiopee/v4.1
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 unset I_MPI_PMI_LIBRARY

@@ -29,7 +29,7 @@ from mola.cfd.preprocess.motion.motion import any_mobile
 
 def apply_to_solver(workflow):
 
-    import FastS.PyTree as FastS
+    import FastS.Mpi as FastS
     from mola.cfd.coprocess.manager import CoprocessManager
 
     read_cfd_files.apply(workflow)
@@ -52,18 +52,14 @@ def apply_to_solver(workflow):
         FastS._compute(workflow.tree,
                        workflow._fast_metrics,
                        it,
-                       workflow._treeAtCenters,
-                       workflow._fast_graph)
+                       tc=workflow._treeAtCenters,
+                       graph=workflow._fast_graph,
+                       vtune=True)
 
         FastS.display_temporal_criteria(workflow.tree, workflow._fast_metrics, it, format='store') 
         FastS._calc_global_convergence(workflow.tree) # should work now: https://github.com/onera/Fast/issues/14
 
         workflow._iteration = it + 1  # we are after the method Fast._compute
-
-        # TODO : split run_iteration in two ?
-        # workflow._iteration = it
-        # workflow._status = 'RUNNING_AFTER_ITERATION'
-        # workflow._coprocess_manager.run_iteration()
 
         if workflow._coprocess_manager.status == 'TO_FINALIZE': break
 

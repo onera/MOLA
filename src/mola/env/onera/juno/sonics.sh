@@ -26,7 +26,7 @@ export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
 export MACHINE=juno
-export CASSIOPEE=/tmp_user/juno/cassiope/git/releases/Cassiopee/$CASSIOPEE_VERSION
+export CASSIOPEE=/tmp_user/juno/cassiope/git/releases/Cassiopee/v4.0
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
