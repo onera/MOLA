@@ -21,7 +21,7 @@ source $SCRIPT_DIR/../network.sh
 export MACHINE=ld
 export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/v4.1
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
-
+export HDF5_DISABLE_VERSION_CHECK=1 # BUG https://elsa.onera.fr/issues/12068
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 

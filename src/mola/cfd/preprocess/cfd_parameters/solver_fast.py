@@ -78,12 +78,14 @@ def set_model(workflow):
 
 
 def set_numerics(workflow):
-
+    use_omp = use_open_mp(workflow)
     deep_update( workflow.SolverParameters, get_spatial_fluxes(workflow.Numerics) )
-    deep_update( workflow.SolverParameters, get_time_marching_setup(workflow.Numerics) )
+    deep_update( workflow.SolverParameters, get_time_marching_setup(workflow.Numerics,use_omp) )
     for key, local_params in get_motion(workflow.Motion)['Num2Zones'].items():
         workflow.SolverParameters['Num2Zones'][key] = local_params
 
+def use_open_mp(workflow) -> bool:
+    return workflow.RunManagement['NumberOfThreads'] > 1
 
 def get_fluid_setup( Fluid : dict ) -> dict:
     
@@ -146,11 +148,12 @@ def get_spatial_fluxes(Numerics : dict):
     return Parameters
 
 
-def get_time_marching_setup(Numerics):
+def get_time_marching_setup(Numerics, use_omp : bool):
 
     Parameters = dict(
         Num2Base =dict(ss_iteration=5,
-                       temporal_scheme = "implicit"),
+                       temporal_scheme = "implicit",
+                       omp_mode=int(use_omp)),
     
         Num2Zones=dict( # ssdom_IJK=[10000,10000,10000], # TODO investigate this key
                        nb_relax=1, # newton

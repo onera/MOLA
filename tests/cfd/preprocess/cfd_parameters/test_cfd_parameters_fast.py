@@ -39,6 +39,7 @@ class FakeWorkflowMonoBlock():
         self.SolverParameters = dict()
         self.ProblemDimension = 3
         self.Motion = dict()
+        self.RunManagement=dict(NumberOfThreads=1)
 
 @pytest.mark.unit
 def test_add_governing_equations():
@@ -75,15 +76,17 @@ def test_get_spatial_fluxes_ausm():
 @pytest.mark.unit
 def test_get_time_marching_setup_steady():
     Numerics = dict(TimeMarching='Steady', CFL=1)
-    SchemeSetup = solver_fast.get_time_marching_setup(Numerics)
+    SchemeSetup = solver_fast.get_time_marching_setup(Numerics, True)
     assert SchemeSetup['Num2Base']["temporal_scheme"] == "implicit"
+    assert SchemeSetup['Num2Base']["omp_mode"] == 1
 
 
 @pytest.mark.unit
 def test_get_time_marching_setup_unsteady():
     Numerics = dict(TimeMarching='UnsteadyFirstOrder', TimeStep=0.1)
-    SchemeSetup = solver_fast.get_time_marching_setup(Numerics)
+    SchemeSetup = solver_fast.get_time_marching_setup(Numerics, False)
     assert SchemeSetup['Num2Zones']["time_step"] == Numerics['TimeStep']
+    assert SchemeSetup['Num2Base']["omp_mode"] == 0
 
 
 @pytest.mark.unit

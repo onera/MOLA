@@ -311,6 +311,8 @@ def extract_integral(output_tree, extraction, workflow) -> None:
     
     stress, state = get_stress_and_state(output_tree, extraction['Source'],
                                          workflow._fast_metrics)
+    if workflow._coprocess_manager.iteration > 3 and extraction['Source']=='BLADE':
+        workflow._coprocess_manager.mola_logger.info(f"{pretty(stress)}", rank=0)
     dimensionalize_torque(stress, state)    
 
     fields = initialize_integral_fields_dict(workflow._coprocess_manager)
