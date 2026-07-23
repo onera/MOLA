@@ -68,7 +68,7 @@ def load_source(ModuleName, filename, safe=True):
     return LoadedModule
 
 def get_wrap_module_path(backend : str,
-        interface_switch=["user", "wrap/<backend>"]):
+        interface_switch=["/user/", "/wrap/<backend>/"]):
 
     previous_module_path = get_caller_path()
     try:
