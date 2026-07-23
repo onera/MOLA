@@ -19,7 +19,7 @@ def test_get_caller_path():
 @pytest.mark.parametrize("backend", dummy_backends )
 def test_get_wrap_module_path(backend):
     path = test.get_wrap_module_path(backend,
-        interface_switch=["user", "wrap/<backend>"])
+        interface_switch=["/user/", "/wrap/<backend>/"])
     expected_path = os.environ["MOLA"].replace("/src","")+f"/tests/dependency_injector/wrap/{backend}/test_retriever.py"
     assert path == expected_path
 
