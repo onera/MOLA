@@ -64,10 +64,15 @@ def plot_massflow(signals):
 def plot_loads(signals):
     quantities = ['Thrust', 'Torque', 'Power']
 
+    integral_base = signals.get(Type='CGNSBase', Name='Integral', Depth=1)
+    if integral_base is None:
+        mola_logger.user_warning('No loads results found (no base named "Integral" found)')
+        return
+
     loads = dict()
-    for integral_base in signals.group(Type='CGNSBase', Name='Integral', Depth=1):
-        extraction = integral_base.name() 
-        fs = integral_base.get(Type='FlowSolution')
+    for integral_zone in integral_base.zones():
+        extraction = integral_zone.name() 
+        fs = integral_zone.get(Type='FlowSolution')
 
         for quantity in quantities: 
 
@@ -89,7 +94,7 @@ def plot_loads(signals):
                     pass
                 
     if len(loads) == 0:
-        mola_logger.warning('No loads results found')
+        mola_logger.user_warning('No loads results found')
     else:
         for quantity in quantities: 
 
@@ -118,27 +123,6 @@ def plot_loads(signals):
             plt.legend(handles=legend_elements, loc='best')
             plt.grid()
             save_figure_if_required(f'{names.DIRECTORY_OUTPUT}/{quantity}.png')
-
-            # if any(['rsd' in loads[quantity][extraction] for extraction in extractions]):
-            #     prefix = 'rsd'
-            # elif any(['std' in loads[quantity][extraction] for extraction in extractions]):
-            #     prefix = 'std'
-            # else:
-            #     prefix = None
-
-            # if prefix:
-            #     plt.figure()
-            #     for i, extraction in enumerate(extractions):
-            #         array = loads[quantity][extraction]
-            #         if prefix in array:
-            #             plt.plot(array['Iteration'], array[prefix], '-', color=f'C{i}', label=extraction)
-            #     plt.xlabel('Iterations')
-            #     plt.ylabel(f'{prefix}-{quantity}')
-            #     if prefix == 'rsd':
-            #         plt.yscale('log')
-            #     plt.legend(loc='best')
-            #     plt.grid()
-            #     save_figure_if_required(f'{names.DIRECTORY_OUTPUT}/{prefix}-{quantity}.png')
 
 def plot_probes(signals, abscissa='Iteration'):
 

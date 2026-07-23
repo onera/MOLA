@@ -76,6 +76,8 @@ w = propeller.Workflow(
     ),
 )
 
+w.ApplicationContext['_BladeRadius'] = 0.60021735  # mandatory for unstructured grids
+
 w.prepare()
 w.write_cfd_files()
 w.submit()
