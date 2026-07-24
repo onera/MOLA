@@ -1,5 +1,6 @@
 import numpy as np
 from mola.workflow.rotating_component import turbomachinery
+from mola import solver
 
 # Define the section where the hub rotates
 def hub_rotation_function(CoordinateX, CoordinateY, CoordinateZ):
@@ -76,10 +77,10 @@ w = turbomachinery.Workflow(
 
     RunManagement=dict(
         JobName='SRV2',
-        RunDirectory=f'/tmp_user/sator/$USER/.test_user_case/SRV2/',
+        RunDirectory=f'/tmp_user/sator/$USER/.test_user_case/SRV2_{solver}/',
         NumberOfProcessors=48,
         RemovePreviousRunDirectory = True,
-        AER = '37753003F', # RG MOLA 2026
+        AER='37753003F', # RGC MOLA 2026
         ),
 
     )

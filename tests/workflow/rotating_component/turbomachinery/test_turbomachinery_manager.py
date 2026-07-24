@@ -47,3 +47,5 @@ def test_WorkflowManager_prepare(tmp_path):
         tmp_path/'isospeed_6000rpm'/'Pressure_120000.00',
         }
     
+    os.remove('gather_results.py')
+    

@@ -86,7 +86,7 @@ class WorkflowRotatingComponent(Workflow):
         self.validate_rotation_axis_requested_by_user()
 
     def validate_rotation_axis_and_center_in_tree(self):
-        if not self.tree: return
+        if not self.tree or not isinstance(self.tree, cgns.Tree): return
         for base in self.tree.bases():
             for zone in base.zones():
                 zgc = zone.get('ZoneGridConnectivity')

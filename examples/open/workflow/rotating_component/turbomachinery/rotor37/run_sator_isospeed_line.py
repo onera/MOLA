@@ -1,4 +1,5 @@
 from mola.workflow.rotating_component import turbomachinery
+from mola import solver
 
 w = turbomachinery.Workflow( 
     
@@ -63,22 +64,18 @@ w = turbomachinery.Workflow(
     ],
 
     RunManagement=dict(
-        JobName='rotor37',
+        JobName='rotor37_isospeed',
         NumberOfProcessors=24,
-        RunDirectory='/tmp_user/sator/$USER/.test_user_case/rotor37',
-        AER='34790003F', # PDEV MOLA 2025
+        RunDirectory=f'/tmp_user/sator/$USER/.test_user_case/rotor37_{solver}',
+        AER='37753003F', # RGC MOLA 2026
         ),
 
     )
 
 
 import numpy as np
-manager = turbomachinery.WorkflowManager(w, root_directory='/tmp_user/sator/$USER/.test_user_case/rotor37_multi')
+manager = turbomachinery.WorkflowManager(w, root_directory=f'/tmp_user/sator/$USER/.test_user_case/rotor37_multi_{solver}')
 manager.add_isospeed_line(np.arange(0.2, 0.61, 0.05))
 manager.prepare()
 manager.submit()
 
-## To plot the result, use the following lines in the same directory where you executed lines above
-# manager = turbomachinery.WorkflowManager('workflow_manager.cgns')
-# perfo = manager.gather_performance('R37')
-# manager.plot_isospeed_lines(perfo)

@@ -84,11 +84,12 @@ class WorkflowTurbomachineryManager(WorkflowManager):
 
         for throttle in throttles:
             if ParallelMode:
-                self.new_job(f'{job_key}_{throttle:.2f}')
+                job_name = f'{job_name}_{throttle:.2f}'
+                self.new_job(job_name)
             self.add_variations(
                 [
-                    ('RunManagement|JobName', f'{job_name}_{throttle:.2f}'),
-                    ('RunManagement|RunDirectory', f'{throttle_key}_{throttle:.2f}'),
+                    ('RunManagement|JobName', job_name),
+                    ('RunManagement|RunDirectory', f'{job_key}_{throttle:.2f}'),
                     ('ApplicationContext|ShaftRotationSpeed', ShaftRotationSpeed),
                     (f'BoundaryConditions|Family={outflow_family}|{throttle_key}', throttle),
                 ], 
