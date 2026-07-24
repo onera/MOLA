@@ -417,6 +417,40 @@ def test_check_if_user_is_providing_mesh_for_rotation_around_x_axis(tree_with_pe
     w.tree = tree_with_perio_match
     w.check_if_user_is_providing_mesh_for_rotation_around_x_axis()
 
+@pytest.mark.unit
+def test_check_if_user_is_providing_mesh_for_rotation_around_x_axis_with_filename():
+
+    w = WorkflowRotatingComponent(
+
+        RawMeshComponents=[
+        dict(
+            Name='Base',
+            Source='fake_filename.cgns',
+            Connection = [
+                    dict(Type='PeriodicMatch', 
+                         RotationAngle=np.array([45., 0., 0.]), 
+                         Families=('MyPerio1', 'MyPerio2'),
+                         Tolerance=1e-8
+                         ),
+                ],
+            )
+        ],
+
+
+        ApplicationContext = dict(
+            ShaftRotationSpeed=60.0,
+            Rows=dict(
+                Propeller=dict(
+                    IsRotating = True,
+                    NumberOfBladesSimulated = 1,
+                    NumberOfBladesInInitialMesh = 1,
+                    NumberOfBlades = 1,
+                )
+            )
+            )
+    )
+    w.tree = 'fake_filename.cgns'
+    w.check_if_user_is_providing_mesh_for_rotation_around_x_axis()
 
 @pytest.mark.unit
 def test_validate_rotation_axis_and_center_in_tree_correct(tree_with_perio_match):

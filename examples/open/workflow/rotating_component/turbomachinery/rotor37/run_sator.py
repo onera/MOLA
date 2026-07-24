@@ -1,4 +1,5 @@
 from mola.workflow.rotating_component import turbomachinery
+from mola import solver
 
 w = turbomachinery.Workflow( 
     
@@ -71,9 +72,9 @@ w = turbomachinery.Workflow(
     RunManagement=dict(
         JobName='rotor37',
         NumberOfProcessors=24,
-        RunDirectory='/tmp_user/sator/$USER/.test_user_case/rotor37',
+        RunDirectory=f'/tmp_user/sator/$USER/.test_user_case/rotor37_{solver}',
         RemovePreviousRunDirectory = True,
-        AER='34790003F', # PDEV MOLA 2025
+        AER='37753003F', # RGC MOLA 2026
         # TimeLimit = '00:30:00',
         ),
 
