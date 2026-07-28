@@ -49,10 +49,6 @@ export TURBO_COMPILER='gcc'
 export EZPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/bin/eos
 export PYTHONPATH=/stck/rbarrier/PARTAGE/ersatZ_$ERSTAZVERSION/python_module:$PYTHONPATH
 
-# external python dependencies
-export PYTHONPATH=$MOLAext/ld8/lib/python3.8/site-packages/:$PYTHONPATH
-export PATH=$MOLAext/ld8/bin:$PATH
-export LD_LIBRARY_PATH=$MOLAext/ld8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
 
 # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
 pdf()

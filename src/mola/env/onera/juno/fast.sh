@@ -52,16 +52,6 @@ export FI_PROVIDER=tcp
 # export FI_PROVIDER=tcp
 
 
-
-# # maia
-# module use --append /tmp_user/juno/sonics/usr/modules/
-# module load maia/$MAIAVERSION-dsi-cfd6
-
-# # external python packages
-# export PYTHONPATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/:$PYTHONPATH
-# export PATH=$MOLAext/spiro_el8/bin:$PATH
-# export LD_LIBRARY_PATH=$MOLAext/spiro_el8/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
-
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH
 

@@ -37,12 +37,6 @@ source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 source /tmp_user/sator/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
 # export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
 
-# # external python packages
-# export MOLAext=/tmp_user/sator/mola/future_v2/ext
-# export PYTHONPATH=$MOLAext/sator/lib/python3.8/site-packages/:$PYTHONPATH
-# export PATH=$MOLAext/sator/bin:$PATH
-# export LD_LIBRARY_PATH=$MOLAext/sator/lib/python3.8/site-packages/PyQt5/Qt5/lib/:$LD_LIBRARY_PATH
-
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH
 
