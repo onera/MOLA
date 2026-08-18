@@ -1240,7 +1240,7 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
 
     choroParamsRow1 = dict(
         f_freq = Nblade_Row2*np.abs(omega_Row1-omega_Row2)/(2*np.pi), 
-        f_omega = float(omega_Row1 - omega_Row2), 
+        f_omega = float(omega_Row2 - omega_Row1), 
         f_harm = float(Nharm_Row1), 
         f_relax = float(relax), 
         axis_ang_1 = Nblade_Row1, 
@@ -1248,7 +1248,7 @@ def compute_choro_parameters(ApplicationContext, row1, row2, Nharm_Row1, Nharm_R
         )
     choroParamsRow2 = dict(
         f_freq = Nblade_Row1*np.abs(omega_Row1-omega_Row2)/(2*np.pi), 
-        f_omega = float(omega_Row2 - omega_Row1), 
+        f_omega = float(omega_Row1 - omega_Row2), 
         f_harm = float(Nharm_Row2), 
         f_relax = float(relax), 
         axis_ang_1 = Nblade_Row2, 

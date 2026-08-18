@@ -32,21 +32,23 @@ v2.0.1
 🐞 Fixes
 ========
 
+* Fix `bug #326 <https://gitlab.onera.net/numerics/mola/-/work_items/326>`_: 
+  correction for chorochronic simulations with elsA.
 * Fix a bug for iso-surface with SoNICS for multi-zones domains.
 * Fix a bug to allow the copy or move of the run directory.
-* Fix `bug #283 <https://gitlab.onera.net/numerics/mola/-/issues/283>`_: 
+* Fix `bug #283 <https://gitlab.onera.net/numerics/mola/-/work_items/283>`_: 
   PyPart output file writing issue in elsA simulations, 
   specifically when extracting boundary conditions data.
-* Fix `bug #296 <https://gitlab.onera.net/numerics/mola/-/issues/296>`_: 
+* Fix `bug #296 <https://gitlab.onera.net/numerics/mola/-/work_items/296>`_: 
   Incomplete or missing data extraction on a boundary condition.
-* Fix `bug #273 <https://gitlab.onera.net/numerics/mola/-/issues/273>`_:
+* Fix `bug #273 <https://gitlab.onera.net/numerics/mola/-/work_items/273>`_:
   Correction on force and torque extraction with SoNICS.
-* Fix bug `#286 <https://gitlab.onera.net/numerics/mola/-/issues/286>`_:
+* Fix bug `#286 <https://gitlab.onera.net/numerics/mola/-/work_items/286>`_:
   issues to write a tree in parallel with PyPart.
-* Fix bugs `#288 <https://gitlab.onera.net/numerics/mola/-/issues/288>`_
-  and `#292 <https://gitlab.onera.net/numerics/mola/-/issues/292>`_:
+* Fix bugs `#288 <https://gitlab.onera.net/numerics/mola/-/work_items/288>`_
+  and `#292 <https://gitlab.onera.net/numerics/mola/-/work_items/292>`_:
   issues to restart a simulation.
-* Fix `bug #304 <https://gitlab.onera.net/numerics/mola/-/issues/304>`_:
+* Fix `bug #304 <https://gitlab.onera.net/numerics/mola/-/work_items/304>`_:
   Correction on elsa simulation interruption when using 2nd order time marching.
 * Fix bugs in WorkflowManager
 * Fix bugs in postprocess interface for turbomachinery
