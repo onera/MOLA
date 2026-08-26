@@ -381,7 +381,7 @@ def outradeq_interface(workflow, Family, **kwargs):
 
     # Default values, will be updated below depending on the valve law
     valve_ref_pres = workflow.Flow['Pressure']
-    valve_ref_mflow = workflow.Flow['MassFlow']
+    # valve_ref_mflow = workflow.Flow['MassFlow']
     valve_relax = 0.1
     indpiv = kwargs.get('indpiv', 1)
     dirorder = kwargs.get('dirorder', -1)
