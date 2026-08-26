@@ -354,6 +354,13 @@ def get_fluxcoeff_on_bc(workflow, Family):
     return fluxcoeff
 
 def OutflowRadialEquilibrium_interface(workflow, bcparams):
+
+    def set_default_massflow(workflow, bcparams):
+        if 'MassFlow' not in workflow.Flow:
+            if 'MassFlowRef' not in bcparams['ValveLaw']: 
+                raise MolaUserError(f"MassFlowRef must be provided in ValveLaw dict for boundary condition {bcparams['Family']}")
+        else:
+            bcparams['ValveLaw'].setdefault('MassFlowRef', workflow.Flow['MassFlow'])
     
     # Check minimal information is given
     possible_arguments = ['PressureAtHub', 'PressureAtShroud', 'PressureAtSpecifiedHeight', 'MassFlow', 'ValveLaw']
@@ -380,11 +387,11 @@ def OutflowRadialEquilibrium_interface(workflow, bcparams):
         if bcparams['ValveLaw']['Type'] == 'Linear':
             bcparams['ValveLaw'].setdefault('RelaxationCoefficient', 0.1)
             bcparams['ValveLaw'].setdefault('PressureRef', workflow.Flow['Pressure'])
-            bcparams['ValveLaw'].setdefault('MassFlowRef', workflow.Flow['MassFlow'])
+            set_default_massflow(workflow, bcparams)
 
         elif bcparams['ValveLaw']['Type'] == 'Quadratic':
             bcparams['ValveLaw'].setdefault('PressureRef', 0.75 * workflow.Flow['PressureStagnation'])
-            bcparams['ValveLaw'].setdefault('MassFlowRef', workflow.Flow['MassFlow'])
+            set_default_massflow(workflow, bcparams)
 
             if not 'ValveCoefficient' in bcparams['ValveLaw'] \
                 or not isinstance(bcparams['ValveLaw']['ValveCoefficient'], float):

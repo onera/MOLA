@@ -345,7 +345,7 @@ def get_bc_family_name_nodes_from_patterns(tree, patterns):
         for zone in tree.zones():
             zone_bc = zone.get(Type='ZoneBC_t', Depth=1)
             if not zone_bc:
-                raise MolaException(f'zone {zone.path()} did not have a node ZoneBC_t')
+                continue
             nodes = zone_bc.group(Name='FamilyName', Value=f'*{pattern}*')
             for family_name_node in nodes:
                 family_name_nodes += [ family_name_node ]
