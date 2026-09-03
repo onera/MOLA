@@ -404,21 +404,50 @@ class WorkflowRotatingComponent(Workflow):
         '''
         self.ApplicationContext.setdefault('NormalizationCoefficient', dict())
 
-        for bc in self.BoundaryConditions:
+        # List of BC families that were already treated and that are present
+        # in several rows (zone families)
+        family_exceptions = []
+
+        for bc in self.tree.group(Type='BC') + self.tree.group(Type='GridConnectivity'):
             
-            Families = [value for key, value in bc.items() if key in ['Family', 'LinkedFamily']]
-            for Family in Families:
-                row = self._get_row_from_BC_Family(self.tree, Family)
-        
-                try:
-                    rowParams = self.ApplicationContext['Rows'][row]
-                    fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
-                except KeyError:
-                    # since a FamilyNode does not necessarily belong to a row
-                    fluxcoeff = 1.
-                
-                mola_logger.debug(f'fluxcoeff on Family {Family} is {fluxcoeff}')
-                self.ApplicationContext['NormalizationCoefficient'][Family] = dict(FluxCoef=fluxcoeff)
+            Family = bc.get(Type='FamilyName').value()
+            if Family in family_exceptions:
+                continue
+
+            try: 
+                # if FluxCoef was already computed before in that loop
+                previous_value = self.ApplicationContext['NormalizationCoefficient'][Family]['FluxCoef']
+            except:
+                previous_value = None
+    
+            zone = bc.getParent(Type='Zone_t')
+            row = zone.get(Type='FamilyName', Depth=1).value()
+
+            try:
+                rowParams = self.ApplicationContext['Rows'][row]
+                fluxcoeff = rowParams['NumberOfBlades'] / float(rowParams['NumberOfBladesSimulated'])
+                if previous_value is not None:
+                    if previous_value != fluxcoeff:
+                        # Ambiguous value for FluxCoef, because the boundary is defined
+                        # through several rows => FluxCoef set to None for now, 
+                        # and an error will be raised later if an extraction with Type='Integral'
+                        # is asked on this same Family
+                        family_exceptions.append(Family)
+                        fluxcoeff = None
+                    else:
+                        continue
+            except KeyError:
+                # since a FamilyNode does not necessarily belong to a row
+                mola_logger.warning(
+                    f'No associated row '
+                    f'(defined in ApplicationContext["Rows"]={self.ApplicationContext["Rows"]}) '
+                    f'is found for BC Family {Family} => FluxCoef set to 1 for this Family.', 
+                    rank=0
+                    )
+                fluxcoeff = 1.
+            
+            mola_logger.debug(f'fluxcoeff on Family {Family} is {fluxcoeff}')
+            self.ApplicationContext['NormalizationCoefficient'][Family] = dict(FluxCoef=fluxcoeff)
 
     def get_hub_family_names(self, must_be_unique=False, must_exist=False)  -> list:
 
