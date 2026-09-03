@@ -138,7 +138,7 @@ class FakeWorkflow(WorkflowRotatingComponent):
         cgns.Node(Parent=zbc, Name="blade", Type="BC_t", Children=[
             cgns.Node(Name='FamilyName', Type='FamilyName_t', Value='test_Blade1')])
         cgns.Node(Parent=zbc, Name="hub", Type="BC_t", Children=[
-            cgns.Node(Name='FamilyName', Type='FamilyName_t', Value='Hub_test')])        
+            cgns.Node(Name='FamilyName', Type='FamilyName_t', Value='Hub_test')])
         cgns.Node(Parent=zbc, Name="fake_shroud", Type="BC_t", Children=[
             cgns.Node(Name='FamilyName', Type='FamilyName_t', Value='fake_shroud')])
 
@@ -233,6 +233,8 @@ def test_compute_fluxcoef_by_row():
     w = FakeWorkflow()
     w.compute_fluxcoef_by_row()
     assert w.ApplicationContext['NormalizationCoefficient'] == dict(
+        test_Blade1 = dict(FluxCoef=16.0),
+        Hub_test = dict(FluxCoef=16.0),
         fake_shroud = dict(FluxCoef=16.0)
         )
 

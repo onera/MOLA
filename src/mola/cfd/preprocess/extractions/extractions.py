@@ -33,6 +33,7 @@ def apply(workflow):
     add_time_monitoring_extraction(workflow)
     split_bc_and_integral_extractions_by_family(workflow)
     update_extractions_from_convergence_criteria(workflow)
+    add_fluxcoef_to_integral_extractions(workflow)
     apply_to_solver(workflow)
     print_extractions(workflow.Extractions)
 
@@ -74,10 +75,6 @@ def split_bc_and_integral_extractions_by_family(workflow):
                 ext['Source'] = fam_name
                 if ext['Name'] == 'ByFamily':
                     ext['Name'] = fam_name
-                try:
-                    ext['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][fam_name]['FluxCoef']
-                except:
-                    ext['FluxCoef'] = 1.
                 Extractions.append(ext)
         
         else:
@@ -86,7 +83,22 @@ def split_bc_and_integral_extractions_by_family(workflow):
     assert_no_extraction_named_by_family_is_left(Extractions)
     workflow.Extractions = Extractions
 
+def add_fluxcoef_to_integral_extractions(workflow):
+    for extraction in workflow.Extractions:
+        try:
+            extraction['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][extraction['Source']]['FluxCoef']
+        except:
+            extraction['FluxCoef'] = 1.
 
+        if extraction['FluxCoef'] is None:
+            raise MolaUserError(
+                f"Extraction of Type {extraction['Type']} on {extraction['Source']} "
+                "cannot be done because FluxCoef has an ambiguous value. "
+                f"It is probably because {extraction['Source']} is defined "
+                "through several zones attached with different families, " 
+                "with different FluxCoef values."
+                )
+        
 def assert_no_extraction_named_by_family_is_left(Extractions : dict):
     unsplit_extractions = []
     for extraction in Extractions:
@@ -97,7 +109,6 @@ def assert_no_extraction_named_by_family_is_left(Extractions : dict):
         msg = f'Some "ByFamily" extractions where not correctly split:\n'
         msg+= f'{pretty(unsplit_extractions)}'
         raise MolaException(msg)
-
 
 def replace_shortcuts(workflow):
     shortcuts = dict(
@@ -113,7 +124,6 @@ def replace_shortcuts(workflow):
             if shortcut in extraction['Fields']:
                 extraction['Fields'].remove(shortcut)
                 extraction['Fields'].extend(variables)
-
 
 def get_bc_families_to_extract(workflow, Extraction, familiesBC=None):
     tree = workflow.tree
@@ -186,7 +196,6 @@ def get_familiesBC_nodes(tree):
             familiesBC += [ familyBC ]
 
     return familiesBC
-
 
 def get_bc_families_names_to_extract(workflow, Extraction, familiesBC=None):
     bc_families_to_extract = get_bc_families_to_extract(workflow, Extraction, familiesBC=familiesBC)
@@ -294,7 +303,7 @@ def update_extractions_from_convergence_criteria(workflow):
 
 def print_extractions(Extractions: list):
 
-    def sort_by_file_and_type(Extractions):
+    def _sort_by_file_and_type(Extractions):
         extraction_files = dict()
         for ext in Extractions:
             if ext['File'] not in extraction_files:
@@ -307,30 +316,34 @@ def print_extractions(Extractions: list):
 
         return extraction_files
     
-    for filename, extractions in sort_by_file_and_type(Extractions).items():
+    def _get_extraction_synthesis_message(ext):
+        try:
+            fields = ', '.join(ext['Fields'])
+        except:
+            fields = 'no fields'
+        if ext['Type'] == 'Restart':
+            return None
+        elif ext['Type'] in ['Residuals', 'TimeMonitoring', 'MemoryUsage']:
+            return f"    - {ext['Type']}"
+        elif ext['Type'] in ['3D', 'Interpolation']:
+            return f"    - {ext['Type']} extraction at {ext['GridLocation']} in {ext['Frame']} Frame for {fields} "
+        elif ext['Type'] == 'Probe':
+            return f"    - Probe {ext['Name']} at {ext['Position']} for {fields}"
+        elif ext['Type'] == 'Integral':
+            return f"    - {fields} on {ext['Source']} with FluxCoef={ext['FluxCoef']}"
+        elif ext['Type'] == 'IsoSurface':
+            return f"    - {ext['Name']} with {fields}"
+        elif ext['Type'] == 'BC':
+            return f"    - BC {ext['Source']} with {fields}"
+        elif ext['Type'] == 'RawSolverOutput':
+            return f"    - raw solver output"
+    
+    for filename, extractions in _sort_by_file_and_type(Extractions).items():
         if filename == FILE_INPUT_SOLVER:
             continue
         mola_logger.info(f'  To write in {filename}:', rank=0)
         for ext in extractions:
-            msg = False
-            try:
-                fields = ', '.join(ext['Fields'])
-            except:
-                fields = 'no fields'
-            if ext['Type'] == 'Restart':
-                continue
-            elif ext['Type'] in ['Residuals', 'TimeMonitoring', 'MemoryUsage']:
-                msg = f"    - {ext['Type']}"
-            elif ext['Type'] in ['3D', 'Interpolation']:
-                msg = f"    - {ext['Type']} extraction at {ext['GridLocation']} in {ext['Frame']} Frame for {fields} "
-            elif ext['Type'] == 'Probe':
-                msg = f"    - Probe {ext['Name']} at {ext['Position']} for {fields}"
-            elif ext['Type'] == 'Integral':
-                msg = f"    - {fields} on {ext['Source']}"
-            elif ext['Type'] == 'IsoSurface':
-                msg = f"    - {ext['Name']} with {fields}"
-            elif ext['Type'] == 'BC':
-                msg = f"    - BC {ext['Source']} with {fields}"
-        
-            if msg: mola_logger.info(msg, rank=0)
+            if msg := _get_extraction_synthesis_message(ext): 
+                mola_logger.info(msg, rank=0)
+
     
