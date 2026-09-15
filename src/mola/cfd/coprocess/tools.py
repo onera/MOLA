@@ -167,7 +167,7 @@ def _update_signals_container_stacking_partially(previous_flow_sol, current_flow
     PreviousIterations = previous_flow_sol.get(Name='Iteration',Type='DataArray_t',Depth=1).value()
     CurrentIterations = current_flow_sol.get(Name='Iteration',Type='DataArray_t',Depth=1).value()
 
-    ε = 1e-12
+    ε = 0.5
     UpdatePortion = PreviousIterations > (CurrentIterations[0] - ε)
     if len(UpdatePortion) == 1 and not UpdatePortion[0]:
         FirstPreviousIndex2Update = len(PreviousIterations) - 1 
