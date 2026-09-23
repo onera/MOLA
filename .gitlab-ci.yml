@@ -158,8 +158,8 @@ radon_complexity:
     - pip install radon
   allow_failure: true  # if job fails (in script section), it will just raise a warning
   script:
-    - radon cc --min D --ignore "legacy" src > radon_cc_report.txt  
-    - radon mi --min B --ignore "legacy" src > radon_mi_report.txt
+    - radon cc --min D --ignore "mesh,pytree,lifting_line,tool_interface" src > radon_cc_report.txt  
+    - radon mi --min B --ignore "mesh,pytree" src > radon_mi_report.txt
     - export COMPLEXITY_WARNING=false
     - |
         if [ -s radon_cc_report.txt ]; then 

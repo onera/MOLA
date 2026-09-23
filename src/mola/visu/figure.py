@@ -353,98 +353,178 @@ class Figure():
         
         return cbar
 
-    def plot_signals(self, signals: Union[str, cgns.Tree, None]=None, left=0.05, right=0.5, bottom=0.05, top=0.4,
-            xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
-            background_opacity=1.0, font_color='black', 
-            curves=None,
-            iterationTracer=None):
-        
+    def _prepare_curves(self, curves):
+        """Normalize curves parameter and set default values for each curve.
+
+        Parameters
+        ----------
+        curves : None, dict, or list of dict
+            If None, returns None. If dict, wraps in a list.
+
+        Returns
+        -------
+        list of dict or None
+            Normalized list of curves with defaults set, or None if input was None.
+        """
         if curves is None:
-            return
-        elif isinstance(curves, dict):
+            return None
+        if isinstance(curves, dict):
             curves = [curves]
+        if len(curves) > 1:
+            for curve in curves:
+                curve.setdefault('include_last_point_label', False)
+                curve.setdefault('multiply_by', 1)
+                curve.setdefault('plot_params', {})
+                curve['plot_params'].setdefault('label', curve['zone_name'])
         else:
-            assert isinstance(curves, list)
-        
-        if not self.fig: 
-            self._create_overlap()
-     
+            curves[0].setdefault('include_last_point_label', False)
+            curves[0].setdefault('multiply_by', 1)
+            curves[0].setdefault('plot_params', {})
+        return curves
+
+    def _load_signals(self, signals):
+        """Load signals CGNS tree, using default path if not provided.
+
+        Parameters
+        ----------
+        signals : str or None
+            Path to signals CGNS file, or None for default path.
+
+        Returns
+        -------
+        cgns.Tree
+            The loaded signals tree.
+        """
         if signals is None:
             if not self.signals:
                 self.signals = cgns.load(os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D))
         else:
             self.signals = cgns.load(signals)
-        
-        ax = self.fig.add_axes([left,bottom,right-left,top-bottom])
+        return self.signals
 
-        for curve in curves:
-            # Available parameters in curve: zone_name, x, y, include_last_point_label, plot_params
-            curve.setdefault('include_last_point_label', False)
-            curve.setdefault('multiply_by', 1)
-            curve.setdefault('plot_params', {})
-            if len(curves) > 1:
-                curve['plot_params'].setdefault('label', curve['zone_name'])
+    def _plot_single_curve(self, ax, curve, signals, xmax, iterationTracer):
+        """Plot a single curve on the given axes.
 
-            zone = self.signals.group(Type='Zone_t', Name=curve['zone_name'])
-            if not zone: raise ValueError(f'zone {curve["zone_name"]} not found in arrays')
-            if len(zone) > 1:
-                mola_logger.info(f'found {len(zone)} zones with name {curve["zone_name"]}. Will use first found.')
-            zone = zone[0]
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            The axes to plot on.
+        curve : dict
+            Curve configuration with keys: zone_name, x, y, include_last_point_label,
+            multiply_by, plot_params.
+        signals : cgns.Tree
+            The signals tree containing zone data.
+        xmax : float or None
+            Maximum x value for filtering; if None, no filtering is applied.
+        iterationTracer : int, dict, or None
+            Iteration tracer configuration.
+        """
+        zone = signals.group(Type='Zone_t', Name=curve['zone_name'])
+        if not zone:
+            raise ValueError(f'zone {curve["zone_name"]} not found in arrays')
+        if len(zone) > 1:
+            mola_logger.info(f'found {len(zone)} zones with name {curve["zone_name"]}. Will use first found.')
+        zone = zone[0]
 
-            x, y = zone.fields([curve['x'],curve['y']], BehaviorIfNotFound='raise')
-            y *= curve['multiply_by']
+        x, y = zone.fields([curve['x'], curve['y']], BehaviorIfNotFound='raise')
+        y *= curve['multiply_by']
 
-            if xmax is not None:
-                interval = x <= xmax
-                x = x[interval]
-                y = y[interval]
+        if xmax is not None:
+            interval = x <= xmax
+            x = x[interval]
+            y = y[interval]
 
-            ax.plot(x,y,**curve['plot_params'])
-            if iterationTracer:
-                try:
-                    if isinstance(iterationTracer, int):
-                        iterationTracer = dict(iteration=iterationTracer)
-                    iterations = zone.fields(['Iteration'])[0]
-                    # On the following line: -1 because quantities correspond to the previous iteration
-                    index = np.where(iterations == iterationTracer['iteration'] - 1)[0]
-                    if not 'plot_params' in iterationTracer:
-                        iterationTracer['plot_params'] = dict(marker='o', color='red')
-                    ax.plot(x[index], y[index], **iterationTracer['plot_params'])
-                except:
-                    pass
-            
-            if curve['include_last_point_label']:
-                ax.text(x[-1], y[-1], "%g"%y[-1],
-                        horizontalalignment='right',
-                        verticalalignment='bottom',
-                        color=plt.gca().lines[-1].get_color())
+        ax.plot(x, y, **curve['plot_params'])
 
+        if iterationTracer:
+            try:
+                if isinstance(iterationTracer, int):
+                    iterationTracer = dict(iteration=iterationTracer)
+                iterations = zone.fields(['Iteration'])[0]
+                index = np.where(iterations == iterationTracer['iteration'] - 1)[0]
+                iterationTracer.setdefault('plot_params', dict(marker='o', color='red'))
+                ax.plot(x[index], y[index], **iterationTracer['plot_params'])
+            except Exception:
+                pass
 
-        if xlim is not None: ax.set_xlim(xlim)
-        if ylim is not None: ax.set_ylim(ylim)
-        if isinstance(xlabel,str): ax.set_xlabel(xlabel)
-        else: ax.set_xlabel(curve['x'])
-        if isinstance(ylabel,str): ax.set_ylabel(ylabel)
+        if curve['include_last_point_label']:
+            ax.text(x[-1], y[-1], "%g" % y[-1],
+                    horizontalalignment='right',
+                    verticalalignment='bottom',
+                    color=plt.gca().lines[-1].get_color())
+
+    def _format_axes(self, ax, curves, xlim, ylim, xlabel, ylabel, figure_name,
+                     background_opacity, font_color):
+        """Configure axis properties: limits, labels, title, colors, and legend.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            The axes to format.
+        curves : list of dict
+            List of curve configurations.
+        xlim, ylim : tuple or None
+            Axis limits.
+        xlabel, ylabel, figure_name : str or None
+            Axis labels and title.
+        background_opacity : float
+            Background patch alpha value.
+        font_color : str
+            Color for spines, ticks, and labels.
+        """
+        if xlim is not None:
+            ax.set_xlim(xlim)
+        if ylim is not None:
+            ax.set_ylim(ylim)
+        if isinstance(xlabel, str):
+            ax.set_xlabel(xlabel)
+        else:
+            ax.set_xlabel(curves[-1]['x'])
+        if isinstance(ylabel, str):
+            ax.set_ylabel(ylabel)
         else:
             ylabels = [c['y'] for c in curves]
             if ylabels.count(ylabels[0]) == len(ylabels):
                 ax.set_ylabel(ylabels[0])
-        if isinstance(figure_name,str): ax.set_title(figure_name)
+        if isinstance(figure_name, str):
+            ax.set_title(figure_name)
         ax.patch.set_alpha(background_opacity)
-        self.axes += [ ax ]
 
         if len(curves) > 1:
             ax.legend()
 
-        ax.spines['bottom'].set_color(font_color)
-        ax.spines['top'].set_color(font_color) 
-        ax.spines['right'].set_color(font_color)
-        ax.spines['left'].set_color(font_color)
+        for spine in ('bottom', 'top', 'right', 'left'):
+            ax.spines[spine].set_color(font_color)
         ax.tick_params(axis='x', colors=font_color)
         ax.tick_params(axis='y', colors=font_color)
         ax.yaxis.label.set_color(font_color)
         ax.xaxis.label.set_color(font_color)
         ax.title.set_color(font_color)
+
+    def plot_signals(self, signals: Union[str, cgns.Tree, None]=None, left=0.05, right=0.5, bottom=0.05, top=0.4,
+            xlim=None, ylim=None, xmax=None, xlabel=None, ylabel=None, figure_name=None,
+            background_opacity=1.0, font_color='black',
+            curves=None,
+            iterationTracer=None):
+
+        curves = self._prepare_curves(curves)
+        if curves is None:
+            return
+
+        if not self.fig:
+            self._create_overlap()
+
+        signals = self._load_signals(signals)
+
+        ax = self.fig.add_axes([left, bottom, right-left, top-bottom])
+
+        for curve in curves:
+            self._plot_single_curve(ax, curve, signals, xmax, iterationTracer)
+
+        self._format_axes(ax, curves, xlim, ylim, xlabel, ylabel, figure_name,
+                          background_opacity, font_color)
+
+        self.axes += [ax]
 
         return ax
 
