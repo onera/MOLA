@@ -85,19 +85,21 @@ def split_bc_and_integral_extractions_by_family(workflow):
 
 def add_fluxcoef_to_integral_extractions(workflow):
     for extraction in workflow.Extractions:
-        try:
-            extraction['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][extraction['Source']]['FluxCoef']
-        except:
-            extraction['FluxCoef'] = 1.
+        # FluxCoef is used only for Integral extractions, as a normalization coefficient
+        if extraction['Type'] == 'Integral':
+            try:
+                extraction['FluxCoef'] = workflow.ApplicationContext['NormalizationCoefficient'][extraction['Source']]['FluxCoef']
+            except:
+                extraction['FluxCoef'] = 1.
 
-        if extraction['FluxCoef'] is None:
-            raise MolaUserError(
-                f"Extraction of Type {extraction['Type']} on {extraction['Source']} "
-                "cannot be done because FluxCoef has an ambiguous value. "
-                f"It is probably because {extraction['Source']} is defined "
-                "through several zones attached with different families, " 
-                "with different FluxCoef values."
-                )
+            if extraction['FluxCoef'] is None:
+                raise MolaUserError(
+                    f"Extraction of Type {extraction['Type']} on {extraction['Source']} "
+                    "cannot be done because FluxCoef has an ambiguous value. "
+                    f"It is probably because {extraction['Source']} is defined "
+                    "through several zones attached with different families, " 
+                    "with different FluxCoef values."
+                    )
         
 def assert_no_extraction_named_by_family_is_left(Extractions : dict):
     unsplit_extractions = []
@@ -330,7 +332,7 @@ def print_extractions(Extractions: list):
         elif ext['Type'] == 'Probe':
             return f"    - Probe {ext['Name']} at {ext['Position']} for {fields}"
         elif ext['Type'] == 'Integral':
-            return f"    - {fields} on {ext['Source']} with FluxCoef={ext['FluxCoef']}"
+            return f"    - {fields} on {ext['Source']} with FluxCoef={ext['FluxCoef']:g}"
         elif ext['Type'] == 'IsoSurface':
             return f"    - {ext['Name']} with {fields}"
         elif ext['Type'] == 'BC':
