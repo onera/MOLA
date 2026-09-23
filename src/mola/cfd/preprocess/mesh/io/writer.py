@@ -167,6 +167,12 @@ def write_with_pypart(w, tree, dst):
     empty_node_manager.restore_empty_FlowSolution_nodes(t)
     t = _add_GridLocation_and_PointRange_in_BCDataSet(t)
 
+    # HACK Modifications on parameters under a Family_t node are not taken into 
+    # account throught method PyPartBase.mergeAndSave... need to apply these 
+    # modification here
+    from mola.cfd.coprocess.solver_elsa import update_pressure_pivot_for_restart
+    update_pressure_pivot_for_restart(t, w.BoundaryConditions)
+
     # Write a unique file
     Cmpi._convert2PartialTree(t)
     Cmpi.barrier()

@@ -217,6 +217,14 @@ def test_compressor_example_local_stage(tmp_path):
     w.submit()
     w.assert_completed_without_errors()
 
+    if w.Solver == 'elsa':
+        # Check that prespiv_restart has been set at the end of run
+        prespiv_restart_path = 'CompressorStage/Stator_OUTFLOW/.Solver#BC/prespiv_restart'
+        try:
+            node = cgns.load_from_path(str(tmp_path/names.FILE_INPUT_SOLVER), prespiv_restart_path)
+        except:
+            raise AssertionError('The parameter prespiv_restart has not be correctly set at end of run')
+
 @pytest.mark.integration
 def test_compressor_example_local_rotor_only(tmp_path):
     w = get_compressor_example_rotor_only(tmp_path)
