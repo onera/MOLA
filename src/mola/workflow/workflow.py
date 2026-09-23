@@ -152,11 +152,8 @@ class Workflow(object):
         # access(publicly, which is dangerous). Should redesign the flow of data,
         # for instance using constructor's arguments and dedicated accessors
         # (getters/setters)
-        mola_logger.info('constructing flow generator...', rank=0)
         FlowGen = flow_generators.get_flow_generator(self.Flow['Generator'])(self)
-        mola_logger.info('generating flow...', rank=0)
         FlowGen.generate()
-        mola_logger.info('generating flow... done', rank=0)
         self.Fluid = FlowGen.Fluid
         self.Flow = FlowGen.Flow
         self.Turbulence = FlowGen.Turbulence

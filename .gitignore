@@ -24,6 +24,7 @@ doc/html
 doc/theme
 !doc/src/**/*.png
 !doc/src/**/*.svg
+!src/mola/visu/backgrounds/*.png
 .vscode
 .continue
 ext

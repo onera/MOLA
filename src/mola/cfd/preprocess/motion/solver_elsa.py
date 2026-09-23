@@ -128,17 +128,39 @@ def translate_motion_to_elsa(Motion, remove_null_motions=True):
 
     return motion_elsa
         
-def addOversetMotion(t, OversetMotion):
-    if not OversetMotion: return
-    bases = I.getBases(t)
+def _resolve_overset_motion_map(OversetMotion, bases):
+    """Resolve overset motion keys to actual base names.
+
+    For each key in OversetMotion, if it does not directly match a base name,
+    attempt to find a matching base name by prefix (e.g. key ``Rotor`` matches
+    ``Rotor_1``). Updates OversetMotion in place with the resolved entries.
+
+    Parameters
+    ----------
+    OversetMotion : dict
+        The overset motion dictionary to resolve. Modified in place.
+    bases : list of tuple
+        List of base tuples from the CGNS tree (``(name, ...)``).
+
+    Returns
+    -------
+    dict
+        The updated OversetMotion dict with resolved entries.
+
+    Raises
+    ------
+    ValueError
+        If a key cannot be resolved to any base or inherited base.
+    """
     bases_names = [b[0] for b in bases]
     NewOversetMotion = dict()
     for k in OversetMotion:
         base_found = bool([b for b in bases if b[0]==k])
-        if base_found: continue
+        if base_found:
+            continue
         base_candidates = [b for b in bases if b[0].startswith(k)]
         never_found = True
-        for i, b in enumerate(base_candidates):
+        for i in base_candidates:
             try:
                 base_found = [b for b in base_candidates if b[0]==k+'_%d'%(i+1)][0]
                 never_found = False
@@ -150,105 +172,146 @@ def addOversetMotion(t, OversetMotion):
                  '\nAvailable component names are: %s')%(k,str(bases_names))
             raise ValueError(J.FAIL+msg+J.ENDC)
     OversetMotion.update(NewOversetMotion)
+    return OversetMotion
+
+def _configure_base_motion(base, OversetMotionData):
+    """Configure motion for a single base.
+
+    Creates the family node, sets up motion parameters (rotation center, axis,
+    translation direction, blade direction), handles blade duplication, and
+    configures the MOLA motion node.
+
+    Parameters
+    ----------
+    base : tuple
+        Base tuple from the CGNS tree (``(name, ...)``).
+    OversetMotionData : dict
+        Motion data for this base, typically from ``OversetMotion[base[0]]``.
+    """
+    FamilyMotionName = 'MOTION_'+base[0]
+    for z in I.getZones(base):
+        I.createUniqueChild(z,'FamilyName','FamilyName_t',
+                                value=FamilyMotionName)
+    family = I.createChild(base, FamilyMotionName, 'Family_t')
+    I.createChild(family,'FamilyBC','FamilyBC_t',value='UserDefined')
+
+    motion_keys = dict( motion=1, omega=0.0, transl_speed=0.0,
+                        axis_ang_1=1, axis_ang_2=1 )
+
+    rc, ra, td = _getMotionDataFromMeshInfo(base)
+    motion_keys['function_name']=FamilyMotionName
+    motion_keys['omega']=OversetMotionData['RPM']*np.pi/30
+    motion_keys['axis_pnt_x']=rc[0]
+    motion_keys['axis_pnt_y']=rc[1]
+    motion_keys['axis_pnt_z']=rc[2]
+    motion_keys['axis_vct_x']=ra[0]
+    motion_keys['axis_vct_y']=ra[1]
+    motion_keys['axis_vct_z']=ra[2]
+    motion_keys['transl_vct_x']=td[0]
+    motion_keys['transl_vct_y']=td[1]
+    motion_keys['transl_vct_z']=td[2]
+
+    _setMobileCoefAtBCsExceptOverlap(base, mobile_coef=-1.0)
+
+    J.set(family,'.Solver#Motion', **motion_keys)
+
+    MeshInfo = J.get(base,'.MOLA#InputMesh')
+    try:
+        is_duplicated = bool(MeshInfo['DuplicatedFrom'] != base[0])
+    except KeyError:
+        is_duplicated = False
+
+    phase = 0.0
+
+    if is_duplicated:
+        blade_id = int(base[0].split('_')[-1])
+        blade_nb = MeshInfo['OversetMotion']['NumberOfBlades']
+        try:
+            RH=MeshInfo['OversetMotion']['RequestedFrame']['RightHandRuleRotation']
+            sign = 1 if RH else -1
+        except KeyError:
+            sign = 1
+        psi0_b = (blade_id-1)*sign*(360.0/float(blade_nb)) + phase
+    else:
+        psi0_b = phase
+
+    try:
+        bd = MeshInfo['OversetMotion']['RequestedFrame']['BladeDirection']
+    except KeyError:
+        bd = [1,0,0]
+    bd = np.array(bd,dtype=float)
+
+    default_rotor_motion = dict(type='rotor_motion',
+        initial_angles=[0.,psi0_b],
+        alp0=0.,
+        alp_pnt=[0.,0.,0.],
+        alp_vct=[0.,1.,0.],
+        rot_pnt=[float(rc[0]),float(rc[1]),float(rc[2])],
+        rot_vct=[float(ra[0]),float(ra[1]),float(ra[2])],
+        rot_omg=motion_keys['omega'],
+        span_vct=bd,
+        pre_lag_pnt=[0.,0.,0.],
+        pre_lag_vct=[0.,0.,1.],
+        pre_lag_ang=0.,
+        pre_con_pnt=[0.,0.,0.],
+        pre_con_vct=[0.,1.,0.],
+        pre_con_ang=0.,
+        del_pnt=[0.,0.,0.],
+        del_vct=[0.,0.,1.],
+        del0=0.,
+        bet_pnt=[0.,0.,0.],
+        bet_vct=[0.,1.,0.],
+        bet0=0.,
+        tet_pnt=[0.,0.,0.],
+        tet_vct=[1.,0.,0.],
+        tet0=0.)
+
+    try:
+        function_motion_type = OversetMotionData['Function']['type']
+    except KeyError:
+        function_motion_type = 'rotor_motion'
+        try:
+            OversetMotionData['Function']['type'] = 'rotor_motion'
+        except KeyError:
+            OversetMotionData['Function'] = dict(type='rotor_motion')
+
+    if function_motion_type == 'rotor_motion':
+        default_rotor_motion.update(OversetMotionData['Function'])
+        J.set(family,'.MOLA#Motion',**default_rotor_motion)
+    else:
+        J.set(family,'.MOLA#Motion',**OversetMotionData['Function'])
+
+    MOLA_Motion = I.getNodeFromName1(family,'.MOLA#Motion')
+    I.setValue(MOLA_Motion, FamilyMotionName)
+
+def addOversetMotion(t, OversetMotion):
+    """Apply overset motion to the CGNS tree.
+
+    Resolves overset motion keys to base names, then configures motion for
+    each base in the tree.
+
+    Parameters
+    ----------
+    t : cgns.Tree
+        The CGNS tree to modify.
+    OversetMotion : dict or None
+        The overset motion dictionary. If None or empty, the function returns
+        without modifying the tree.
+
+    Returns
+    -------
+    cgns.Tree
+        The modified CGNS tree (cast to the appropriate node type).
+    """
+    if not OversetMotion:
+        return
+
+    bases = I.getBases(t)
+    OversetMotion = _resolve_overset_motion_map(OversetMotion, bases)
 
     for base in bases:
-        motion_keys = dict( motion=1, omega=0.0, transl_speed=0.0,
-                            axis_ang_1=1, axis_ang_2=1 )
-
-        try:             OversetMotionData = OversetMotion[base[0]]
-        except KeyError: OversetMotionData = dict(RPM=0.0)
-
-
-        FamilyMotionName = 'MOTION_'+base[0]
-        for z in I.getZones(base):
-            I.createUniqueChild(z,'FamilyName','FamilyName_t',
-                                    value=FamilyMotionName)
-        family = I.createChild(base, FamilyMotionName, 'Family_t')
-        I.createChild(family,'FamilyBC','FamilyBC_t',value='UserDefined')
-
-        rc, ra, td = _getMotionDataFromMeshInfo(base)
-        motion_keys['function_name']=FamilyMotionName
-        motion_keys['omega']=OversetMotionData['RPM']*np.pi/30
-        motion_keys['axis_pnt_x']=rc[0]
-        motion_keys['axis_pnt_y']=rc[1]
-        motion_keys['axis_pnt_z']=rc[2]
-        motion_keys['axis_vct_x']=ra[0]
-        motion_keys['axis_vct_y']=ra[1]
-        motion_keys['axis_vct_z']=ra[2]
-        motion_keys['transl_vct_x']=td[0]
-        motion_keys['transl_vct_y']=td[1]
-        motion_keys['transl_vct_z']=td[2]
-        
-        _setMobileCoefAtBCsExceptOverlap(base, mobile_coef=-1.0)
-
-        J.set(family,'.Solver#Motion', **motion_keys)
-
-        MeshInfo = J.get(base,'.MOLA#InputMesh') 
-        try: is_duplicated = bool(MeshInfo['DuplicatedFrom'] != base[0])
-        except KeyError: is_duplicated = False
-
-        
-        phase = 0.0
-
-        if is_duplicated:
-            blade_id = int(base[0].split('_')[-1])
-            blade_nb = MeshInfo['OversetMotion']['NumberOfBlades']
-            try:
-                RH=MeshInfo['OversetMotion']['RequestedFrame']['RightHandRuleRotation']
-                sign = 1 if RH else -1
-            except KeyError:
-                sign = 1
-            psi0_b = (blade_id-1)*sign*(360.0/float(blade_nb)) + phase
-        else:
-            psi0_b = phase
-
-        try: bd = MeshInfo['OversetMotion']['RequestedFrame']['BladeDirection']
-        except KeyError: bd = [1,0,0]
-        bd = np.array(bd,dtype=float)
-
-        default_rotor_motion = dict(type='rotor_motion',
-            initial_angles=[0.,psi0_b],
-            alp0=0.,
-            alp_pnt=[0.,0.,0.],
-            alp_vct=[0.,1.,0.],
-            rot_pnt=[float(rc[0]),float(rc[1]),float(rc[2])],
-            rot_vct=[float(ra[0]),float(ra[1]),float(ra[2])],
-            rot_omg=motion_keys['omega'],
-            span_vct=bd,
-            pre_lag_pnt=[0.,0.,0.],
-            pre_lag_vct=[0.,0.,1.],
-            pre_lag_ang=0.,
-            pre_con_pnt=[0.,0.,0.],
-            pre_con_vct=[0.,1.,0.],
-            pre_con_ang=0.,
-            del_pnt=[0.,0.,0.],
-            del_vct=[0.,0.,1.],
-            del0=0.,
-            bet_pnt=[0.,0.,0.],
-            bet_vct=[0.,1.,0.],
-            bet0=0.,
-            tet_pnt=[0.,0.,0.],
-            tet_vct=[1.,0.,0.],
-            tet0=0.)        
-        
-
-        try:
-            function_motion_type = OversetMotionData['Function']['type']
-        except KeyError:
-            function_motion_type = 'rotor_motion'
-            try:
-                OversetMotionData['Function']['type'] = 'rotor_motion'
-            except KeyError:
-                OversetMotionData['Function'] = dict(type='rotor_motion')
-
-        if function_motion_type == 'rotor_motion':
-            default_rotor_motion.update(OversetMotionData['Function'])
-            J.set(family,'.MOLA#Motion',**default_rotor_motion)
-        else:
-            J.set(family,'.MOLA#Motion',**OversetMotionData['Function'])
-        
-        MOLA_Motion = I.getNodeFromName1(family,'.MOLA#Motion')
-        I.setValue(MOLA_Motion, FamilyMotionName)
+        OversetMotionData = OversetMotion.get(base[0], dict(RPM=0.0))
+        _configure_base_motion(base, OversetMotionData)
 
     return cgns.castNode(t)
 

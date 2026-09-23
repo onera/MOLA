@@ -40,6 +40,7 @@ import mola.cfd.postprocess as POST
 from mola.cfd.preprocess.mesh.tools import ravel_FlowSolution, remove_empty_BCDataSet, force_FamilyBC_as_FamilySpecified
 from mola.cfd.preprocess.mesh.families import get_family_to_BCType
 from mola.cfd.preprocess.solver_specific_tools.solver_elsa import translate_elsa_CGNS_field_names_to_MOLA
+from mola.cfd.preprocess.boundary_conditions.boundary_conditions import get_bc_nodes_from_family
 
 from mola.cfd.postprocess.signals.tree_manipulation import update_zones_shape_using_iteration_number
 
@@ -180,6 +181,66 @@ def update_restart_fields(workflow, output_tree):
         parent_in_main_tree.addChild(node)
     
     workflow.tree = cgns.castNode(workflow.tree)
+    
+    # update prespiv if a valve law is used for an outflow BC
+    update_pressure_pivot_for_restart(workflow.tree, workflow.BoundaryConditions)
+
+def update_pressure_pivot_for_restart(tree, BoundaryConditions):
+    '''
+    Based on previous log files named ``'LOGS/prespiv_<FamilyName>-*.log'``, update the pivot pressure 
+    for an outradeq/outradeqhyb condition for a restart.
+    '''
+    def _is_a_bc_with_valve_law(bc):
+        if bc['Type'] == 'OutflowRadialEquilibrium':
+            if 'ValveLaw' in bc or 'MassFlow' in bc:
+                return True
+        return False
+    
+    def _get_prespiv_for_restart(FamilyName):
+        prespiv_for_restart = None
+        if rank == 0:
+            # Get prespiv file
+            prespiv_filename = f"prespiv_{FamilyName}.log"
+            try:
+                prespiv_data_tree = cgns.load(prespiv_filename, backend='cassiopee')
+                prespiv_for_restart = prespiv_data_tree.get(Name='pres_piv').value()[-1]
+            except:
+                import warnings
+                warnings.warn("prespiv_restart has not be updated")
+
+        comm.barrier()
+        prespiv_for_restart = comm.bcast(prespiv_for_restart, root=0)
+        comm.barrier()
+        return prespiv_for_restart
+    
+    def _update_prespiv_value_under_node(node, prespiv_for_restart, BoundaryCondition):
+        if solverBC := node.get(Name='.Solver#BC'):
+            if existing_node := solverBC.get(Name='prespiv_restart'):
+                existing_node.remove()
+            cgns.Node(Name='prespiv_restart', Value=prespiv_for_restart, Type='DataArray', Parent=solverBC)
+
+            if 'MassFlow' in BoundaryCondition:
+                # Also update valve_ref_pres with the same value (because valve_law=2)
+                if existing_node := solverBC.get(Name='valve_ref_pres'):
+                    existing_node.remove()
+                cgns.Node(Name='valve_ref_pres', Value=prespiv_for_restart, Type='DataArray', Parent=solverBC)
+
+    for BoundaryCondition in BoundaryConditions:
+        if not _is_a_bc_with_valve_law(BoundaryCondition):
+            continue
+        
+        prespiv_for_restart = _get_prespiv_for_restart(BoundaryCondition['Family'])
+        if prespiv_for_restart == None:
+            # A warning has been raised in _get_prespiv_for_restart
+            continue
+
+        # For outradeq --> in BC_t
+        for bc in get_bc_nodes_from_family(tree, BoundaryCondition['Family']):
+            _update_prespiv_value_under_node(bc, prespiv_for_restart, BoundaryCondition)
+
+        # For outradeqhyb --> in Family_t
+        for Family_node in tree.group(Name=BoundaryCondition['Family'], Type='Family', Depth=2):
+            _update_prespiv_value_under_node(Family_node, prespiv_for_restart, BoundaryCondition)
 
 def extract_fields(output_tree, extraction):
 

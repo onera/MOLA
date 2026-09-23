@@ -1038,6 +1038,23 @@ def compute_RNA_ref_time(workflow, Family, LinkedFamily):
 
     LapPeriod = 2*np.pi / abs(workflow.ApplicationContext['ShaftRotationSpeed'])
 
+    # Check if row1 and row2 are both stators or both rotors
+    row1_is_a_stator = not workflow.ApplicationContext['Rows'][row1]['IsRotating']
+    row2_is_a_stator = not workflow.ApplicationContext['Rows'][row2]['IsRotating']
+    INF_VALUE = 1e12
+    if row1_is_a_stator and row2_is_a_stator: 
+        mola_logger.user_warning((
+            f"{row1} and {row2} are both stators, hence "
+            f"the reference time period for RNA interface is set to {INF_VALUE:g}"
+            ), rank=0)
+        return INF_VALUE
+    if not row1_is_a_stator and not row2_is_a_stator: 
+        mola_logger.user_warning((
+            f"{row1} and {row2} are both rotors, hence "
+            f"the reference time period for RNA interface is set to {INF_VALUE:g}"
+            ), rank=0)
+        return INF_VALUE
+
     N1 = workflow.ApplicationContext['Rows'][row1]['NumberOfBlades']
     N2 = workflow.ApplicationContext['Rows'][row2]['NumberOfBlades']
     K1 = workflow.ApplicationContext['Rows'][row1]['NumberOfBladesSimulated']
@@ -1315,8 +1332,8 @@ def set_turbomachinery_interface_FamilyBC(t, left, right):
     
     leftFamily = t.get(Name=left, Type='Family', Depth=2)
     rightFamily = t.get(Name=right, Type='Family', Depth=2)
-    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCOutflow', Parent=leftFamily)
-    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCInflow', Parent=rightFamily)
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCOutflowSubsonic', Parent=leftFamily)
+    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCInflowSubsonic', Parent=rightFamily)
 
 def _compute_giles_monitoring_flag(tree):
     '''
@@ -1470,10 +1487,7 @@ def giles_stage_mxpl(workflow, Family, LinkedFamily,
     
     flag = _compute_giles_monitoring_flag(workflow.tree)
 
-    leftFamily = workflow.tree.get(Name=Family, Type='Family', Depth=2)
-    rightFamily = workflow.tree.get(Name=LinkedFamily, Type='Family', Depth=2)
-    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCOutflow', Parent=leftFamily)
-    cgns.Node(Name='FamilyBC', Type='FamilyBC', Value='BCInflow', Parent=rightFamily)
+    set_turbomachinery_interface_FamilyBC(workflow.tree, Family, LinkedFamily)
 
     # creation of dictionnary of keys for Giles mxpl left 
     DictKeysGilesMxpl = {}
