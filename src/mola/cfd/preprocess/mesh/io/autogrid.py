@@ -96,6 +96,7 @@ def reader(w, component):
         apply_cleaning_macro_autogrid(mesh)
         join_families(mesh, 'HUB')
         join_families(mesh, 'SHROUD')
+        join_families(mesh, 'NOZZLE')
     elif component['CleaningMacro'] == 'Autogrid_Propeller':
         apply_cleaning_macro_autogrid_propeller(mesh)
 
