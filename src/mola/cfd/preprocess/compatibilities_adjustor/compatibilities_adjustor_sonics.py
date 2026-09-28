@@ -10,17 +10,19 @@ class CompatibilitiesAdjustorSonics(CompatibilitiesAdjustor):
         split_opts = workflow.SplittingAndDistribution
 
         strategy = split_opts['Strategy']
-        if strategy != 'AtComputation':
+        if strategy.lower() != 'atcomputation':
             msg = f'sonics solver requires splitting at computation, switching strategy from "{strategy}" to "AtComputation"'
             mola_logger.user_warning(msg)
             split_opts['Strategy'] = 'AtComputation'
-            splitter = split_opts['Splitter']
+
+        splitter = split_opts['Splitter']
+        if splitter.lower() != 'maia':
             msg = f'sonics solver requires maia splitter, switching from "{splitter}" to "maia"'
             mola_logger.user_warning(msg)
             split_opts['Splitter'] = 'maia'
 
-        if split_opts['Distributor'].lower() != 'maia':
-            distributor = split_opts['Distributor']
+        distributor = split_opts['Distributor']
+        if distributor.lower() != 'maia':
             msg = f'sonics solver requires maia distributor. Switching from {distributor} to maia.'
             mola_logger.user_warning(msg)
             split_opts['Distributor'] = 'maia'
