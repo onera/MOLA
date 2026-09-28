@@ -76,6 +76,7 @@ class WorkflowRotatingComponent(Workflow):
         self._hub_patterns = ['hub', 'moyeu', 'spinner']
         self._blade_patterns = ['blade', 'aube', 'propeller', 'rotor', 'stator']
         self._shroud_patterns = ['shroud', 'carter']
+        self._nozzle_patterns = ['nozzle']
 
     def process_mesh(self):
         self.check_if_user_is_providing_mesh_for_rotation_around_x_axis()
@@ -257,6 +258,7 @@ class WorkflowRotatingComponent(Workflow):
     def set_boundary_conditions(self):
 
         self.set_shroud_boundary_conditions()
+        self.set_nozzle_boundary_conditions()  # for bypass
         self.set_hub_boundary_conditions()
         self.set_blade_boundary_conditions()
 
@@ -271,6 +273,20 @@ class WorkflowRotatingComponent(Workflow):
 
             self.BoundaryConditions.append(
                 # Careful, it is mandatory to impose a null Motion on the shroud, 
+                # otherwise the frame of reference of the BC will be inheritated 
+                # from the zone with a FoR in rotation 
+                dict(Family=bc_family_name, Type='Wall', Motion=dict(RotationSpeed=[0.,0.,0.]))  
+                )
+    
+    def set_nozzle_boundary_conditions(self):
+        for famNode in get_bc_family_nodes_from_patterns(self.tree, self._nozzle_patterns):
+            bc_family_name = famNode.name()
+            
+            if self._is_boundary_already_defined(bc_family_name) or self._is_boundary_to_skip(bc_family_name):
+                continue
+
+            self.BoundaryConditions.append(
+                # Careful, it is mandatory to impose a null Motion on the nozzle, 
                 # otherwise the frame of reference of the BC will be inheritated 
                 # from the zone with a FoR in rotation 
                 dict(Family=bc_family_name, Type='Wall', Motion=dict(RotationSpeed=[0.,0.,0.]))  
