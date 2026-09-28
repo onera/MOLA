@@ -213,17 +213,11 @@ def update_pressure_pivot_for_restart(tree, BoundaryConditions):
         comm.barrier()
         return prespiv_for_restart
     
-    def _update_prespiv_value_under_node(node, prespiv_for_restart, BoundaryCondition):
+    def _update_prespiv_value_under_node(node, prespiv_for_restart):
         if solverBC := node.get(Name='.Solver#BC'):
             if existing_node := solverBC.get(Name='prespiv_restart'):
                 existing_node.remove()
             cgns.Node(Name='prespiv_restart', Value=prespiv_for_restart, Type='DataArray', Parent=solverBC)
-
-            if 'MassFlow' in BoundaryCondition:
-                # Also update valve_ref_pres with the same value (because valve_law=2)
-                if existing_node := solverBC.get(Name='valve_ref_pres'):
-                    existing_node.remove()
-                cgns.Node(Name='valve_ref_pres', Value=prespiv_for_restart, Type='DataArray', Parent=solverBC)
 
     for BoundaryCondition in BoundaryConditions:
         if not _is_a_bc_with_valve_law(BoundaryCondition):
@@ -236,11 +230,11 @@ def update_pressure_pivot_for_restart(tree, BoundaryConditions):
 
         # For outradeq --> in BC_t
         for bc in get_bc_nodes_from_family(tree, BoundaryCondition['Family']):
-            _update_prespiv_value_under_node(bc, prespiv_for_restart, BoundaryCondition)
+            _update_prespiv_value_under_node(bc, prespiv_for_restart)
 
         # For outradeqhyb --> in Family_t
         for Family_node in tree.group(Name=BoundaryCondition['Family'], Type='Family', Depth=2):
-            _update_prespiv_value_under_node(Family_node, prespiv_for_restart, BoundaryCondition)
+            _update_prespiv_value_under_node(Family_node, prespiv_for_restart)
 
 def extract_fields(output_tree, extraction):
 
