@@ -20,17 +20,23 @@ except: pass
 
 from mola.logging.exceptions import MolaException
 
+def _cast_tree(tree):
+    if isinstance(tree, cgns.Node):
+        return tree
+    return cgns.castNode(tree)
+
+
 def is_partitioned_for_use_in_maia(tree):
-    t = cgns.castNode(tree)
+    t = _cast_tree(tree)
     return bool(t.get(':CGNS#GlobalNumbering'))
 
 
 def is_distributed_for_use_in_maia(tree):
-    t = cgns.castNode(tree)
+    t = _cast_tree(tree)
     return bool(t.get(':CGNS#Distribution'))
 
 def assert_zones_have_zone_type_node(tree):
-    t = cgns.castNode(tree)
+    t = _cast_tree(tree)
     for zone in t.zones():
         zone_type = zone.get(Name="ZoneType")
         

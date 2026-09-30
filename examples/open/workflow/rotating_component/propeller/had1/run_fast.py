@@ -1,10 +1,11 @@
-import os
-from mola.workflow.rotating_component import propeller, solver
-import numpy as np
+from mola.workflow.rotating_component import propeller
 
-assert solver == 'fast'
+solver = 'fast'
+example_name = 'had1_'+solver
 
 w = propeller.Workflow( 
+
+    Solver=solver,
 
     RawMeshComponents=[
         dict(
@@ -50,6 +51,7 @@ w = propeller.Workflow(
         dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
         dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.3, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
         dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="BC", Source="BLADE", Fields=['Pressure']),
     ],
 
     ConvergenceCriteria = [
@@ -61,24 +63,26 @@ w = propeller.Workflow(
         dict(
             ExtractionName = 'BLADE',
             Variable = "Thrust",
-            Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
+            Threshold = float('-inf'), # HINT just for showing Variable progress in coprocess.log
         ),
         dict(
             ExtractionName = 'BLADE',
             Variable = "Power",
-            Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
+            Threshold = float('-inf'), # HINT just for showing Variable progress in coprocess.log
         )
     ],
 
     RunManagement = dict(
-        NumberOfProcessors = 1,
-        NumberOfThreads = 96,
-        Machine='juno',
-        RunDirectory = os.path.join(os.getcwd(),f'example_{solver}'),
-        TimeLimit = '24:00:00',
+        NumberOfProcessors = 96,
+        JobName=example_name,
+        RunDirectory = '/tmp_user/sator/$USER/mola_examples/'+example_name,
+        TimeLimit = '15:00:00',
+        AER='37753003F',
     ),
 )
 
-w.prepare()
-w.write_cfd_files()
+# w.prepare()
+# w.write_cfd_files()
 w.submit()
+
+# BUG excluded from examples -> leads to NaN

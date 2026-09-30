@@ -1,9 +1,13 @@
-from mola.workflow.rotating_component import propeller, solver
-import numpy as np
+from mola.workflow.rotating_component import propeller
 
-assert solver == 'elsa'
+solver = 'fast'
+example_name = 'prop_light_'+solver
 
 w = propeller.Workflow( 
+
+    Solver=solver,
+
+    Initialization = dict(WallDistanceComputingTool='cassiopee'),
 
     RawMeshComponents=[
         dict(
@@ -49,6 +53,7 @@ w = propeller.Workflow(
         dict(Type="IsoSurface", IsoSurfaceField="CoordinateX", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
         dict(Type="IsoSurface", IsoSurfaceField="CoordinateY", IsoSurfaceValue=0.45, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
         dict(Type="IsoSurface", IsoSurfaceField="CoordinateZ", IsoSurfaceValue=0.0, Fields=['MomentumX','MomentumY','MomentumZ','Viscosity_EddyMolecularRatio']),
+        dict(Type="BC", Source="BLADE", Fields=['Pressure']),
     ],
 
     ConvergenceCriteria = [
@@ -60,30 +65,33 @@ w = propeller.Workflow(
         dict(
             ExtractionName = 'BLADE',
             Variable = "Thrust",
-            Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
+            Threshold = float('-inf'), # HINT just for showing Variable progress in coprocess.log
         ),
         dict(
             ExtractionName = 'BLADE',
             Variable = "Power",
-            Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
+            Threshold = float('-inf'), # HINT just for showing Variable progress in coprocess.log
         )
     ],
 
     RunManagement = dict(
         NumberOfProcessors = 8,
-        RunDirectory = f'example_{solver}',
-        Scheduler = 'local',
+        JobName=example_name,
+        RunDirectory = '/tmp_user/juno/$USER/mola_examples/'+example_name,
+        TimeLimit = '3:00:00',
     ),
 
-    # HINT if running in local LD, avoid using PyPart since it provokes huge overhead
-    # https://elsa.onera.fr/issues/11440
-    SplittingAndDistribution = dict(
-        Strategy='AtPreprocess',
-        Splitter='Cassiopee',
-        Distributor='Cassiopee',
-    ),
+    # # HINT if running in local LD, avoid using PyPart since it provokes huge overhead
+    # # https://elsa.onera.fr/issues/11440
+    # SplittingAndDistribution = dict(
+    #     Strategy='AtPreprocess',
+    #     Splitter='Cassiopee',
+    #     Distributor='Cassiopee',
+    # ),
 )
 
-w.prepare()
-w.write_cfd_files()
+# w.prepare()
+# w.write_cfd_files()
 w.submit()
+
+# MOLA_CI_MODE: "mono"

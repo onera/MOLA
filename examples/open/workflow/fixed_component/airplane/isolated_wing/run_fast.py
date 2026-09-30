@@ -1,9 +1,11 @@
 from mola.workflow.fixed.airplane.workflow import WorkflowAirplane
-from mola import solver
 
-# WorkflowAirplane().print_interface();exit()
+solver = 'fast'
+example_name = 'isol_wing_'+solver
 
 w = WorkflowAirplane(
+
+    Solver=solver,
 
     RawMeshComponents=[
         dict(
@@ -50,29 +52,29 @@ w = WorkflowAirplane(
         dict(Family='SYMMETRY', Type='SymmetryPlane'),
     ],
 
-    # ConvergenceCriteria = [
-    #     dict(
-    #         ExtractionName = 'WING',
-    #         Variable = "rsd-CD",
-    #         Threshold = 1e-4,
-    #     ),
-    #     dict(
-    #         ExtractionName = 'WING',
-    #         Variable = "CL",
-    #         Threshold = -1e9, # HINT just for showing Variable progress in coprocess.log
-    #     )
-    # ],
+    ConvergenceCriteria = [
+        dict(
+            ExtractionName = 'WING',
+            Variable = "rsd-CD",
+            Threshold = 1e-4,
+        ),
+        dict(
+            ExtractionName = 'WING',
+            Variable = "CL",
+            Threshold = float("-inf"), # HINT just for showing Variable progress in coprocess.log
+        )
+    ],
 
     RunManagement = dict(
-        NumberOfProcessors = 1, # CAVEAT cannot be >1 until solved https://github.com/onera/Fast/issues/90 
-        NumberOfThreads = 8,
-        RunDirectory = f'example_{solver}',
-        Scheduler = 'local',
+        NumberOfProcessors = 8,
+        JobName=example_name,
+        RunDirectory = '/tmp_user/juno/$USER/mola_examples/'+example_name,
         TimeLimit = '3:00:00',
     ),
 )
 
-w.prepare()
-w.write_cfd_files()
+# w.prepare()
+# w.write_cfd_files()
 w.submit()
-w.assert_completed_without_errors()
+
+# MOLA_CI_MODE: "mono"

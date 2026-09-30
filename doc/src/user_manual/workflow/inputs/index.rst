@@ -368,11 +368,6 @@ The `Initialization` attribute of the Workflow is a dictionnary with the followi
 `Source` (str or a trelab Tree, Base, Zone, optional):
     Source mesh for `copy` or `interpolate` methods, given as a file name or as a treelab Tree.
 
-.. warning::
-    
-    In case you are using method `Workflow.prepare_and_submit_remotely()`, `Source` cannot be a path 
-    ending with :mola_name:`FILE_INPUT_SOLVER`. If you want to do so, please rename the file first.
-
 
 `SourceContainer` (str, optional):
     Container to consider in the source mesh, by default 'FlowSolution#Init'

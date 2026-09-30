@@ -1,6 +1,8 @@
-import numpy as np
 from mola.workflow.rotating_component import turbomachinery
-from mola import solver
+import numpy as np
+
+solver = 'sonics'
+example_name = 'srv2_'+solver
 
 # Define the section where the hub rotates
 def hub_rotation_function(CoordinateX, CoordinateY, CoordinateZ):
@@ -8,10 +10,13 @@ def hub_rotation_function(CoordinateX, CoordinateY, CoordinateZ):
     xmin = -0.056
     rmax = 0.1137
     omega = np.zeros(CoordinateX.shape, dtype=float)
-    omega[(xmin<=CoordinateX) & (CoordinateR<=rmax)] = 40000./30*np.pi # ShaftRotationSpeed in rad/s
+    omega[(xmin<=CoordinateX) & (CoordinateR<=rmax)] = 40000.0/30*np.pi # ShaftRotationSpeed in rad/s
     return np.asfortranarray(omega).ravel(order='K')
 
 w = turbomachinery.Workflow( 
+
+    Solver=solver,
+    
     RawMeshComponents=[
         dict(
             Name='SRV2',
@@ -21,22 +26,25 @@ w = turbomachinery.Workflow(
     ],
 
     ApplicationContext = dict(
-        ShaftRotationSpeed = 40000., 
-        HubRotationIntervals = hub_rotation_function,
+        ShaftRotationSpeed = 40000.0, 
+
+        # if enabled, user-specified function; else apply uniform rot speed
+        # HubRotationIntervals = hub_rotation_function, 
+        
         Rows = dict(
             Impeller = dict(
                 IsRotating = True,
                 NumberOfBlades = 13,
-                FlowAngleAtRootDeg = -35.,
-                FlowAngleAtTipDeg = -35.,
+                FlowAngleAtRootDeg = -35.0,
+                FlowAngleAtTipDeg = -35.0,
             )
         )
     ),
 
     Flow = dict(
-        MassFlow              = 2.,  # for the 360 degrees section, even it is simulated entirely
+        MassFlow              = 2.0,  # for the 360 degrees section, even it is simulated entirely
         TemperatureStagnation = 288.15,
-        PressureStagnation    = 101325.,
+        PressureStagnation    = 101325.0,
     ),
 
     Turbulence = dict(
@@ -57,7 +65,7 @@ w = turbomachinery.Workflow(
 
     Initialization = dict(
         Method = 'copy',
-        Source = 'init.cgns',
+        Source = '/stck/mola/data/open/mesh/SRV2/init_field/init.cgns',
         ParametrizeWithHeight = 'turbo',
     ),
 
@@ -76,19 +84,17 @@ w = turbomachinery.Workflow(
     ],
 
     RunManagement=dict(
-        JobName='SRV2',
-        RunDirectory=f'/tmp_user/sator/$USER/.test_user_case/SRV2_{solver}/',
-        NumberOfProcessors=48,
-        RemovePreviousRunDirectory = True,
-        AER='37753003F', # RGC MOLA 2026
+        NumberOfProcessors = 48,
+        JobName=example_name,
+        RunDirectory = '/tmp_user/sator/$USER/mola_examples/'+example_name,
+        TimeLimit = '15:00:00',
+        AER='37753003F',
         ),
 
     )
 
-w.prepare()
-w.write_cfd_files()
+# w.prepare()
+# w.write_cfd_files()
 w.submit()
 
-# w.prepare_and_submit_remotely()
-
-
+# MOLA_CI_MODE: "mono"

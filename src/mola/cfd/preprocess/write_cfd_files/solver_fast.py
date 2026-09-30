@@ -21,20 +21,34 @@ import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_logger
 from mola import server as SV
-from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text
+from mola.cfd.preprocess.write_cfd_files.write_cfd_files import (
+    get_job_text,
+    get_lines_to_submit_job_again,
+    write_compute)
 
 
-def apply_to_solver(workflow):
+def apply_to_solver(workflow, items : str ='all'):
 
-    write_run_scripts(workflow)
-    write_data_files(workflow)
+    adjust_run_management(workflow)
 
-def write_run_scripts(workflow):
+    if items == 'all':
+        write_compute(workflow.RunManagement)
+        write_data_files(workflow)
+        write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
 
-    write_compute(workflow.RunManagement)
+    elif items == 'only_job':
+        write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
 
-    write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
-    
+    elif items == 'except_existing_job':
+        write_compute(workflow.RunManagement)
+        write_data_files(workflow)
+        path_of_job = os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_JOB)
+        machine = workflow.RunManagement['Machine']
+        if not SV.files_operations.is_file(path_of_job, machine):
+            write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
+        
+    else:
+        raise NotImplementedError(f'items={items} not implemented, shall be one of: "all","only_job","except_existing_job"')
 
 def write_data_files(workflow):
 
@@ -61,35 +75,10 @@ def write_data_files(workflow):
             SV.remove_path(filename, machine='localhost')
 
 
-def write_compute(RunManagement):
-    txt = 'from mola.workflow import read_workflow\n'
-    txt+= 'import mola.naming_conventions as names\n'
-    txt+= 'workflow = read_workflow(names.FILE_INPUT_SOLVER)\n'
-    txt+= 'workflow.compute()'
-
-    SV.save_file_maybe_remote(names.FILE_COMPUTE, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
-
 def write_job_launcher(RunManagement, scheduler_options):
-    if 'cpus-per-task' not in scheduler_options:
-        scheduler_options['cpus-per-task'] = 1
 
+    nthreads = RunManagement["NumberOfThreads"]
     nranks = RunManagement["NumberOfProcessors"]
-
-    if "NumberOfThreads" not in RunManagement or \
-        RunManagement["NumberOfThreads"] is None:
-        if RunManagement['Scheduler'] == 'SLURM':
-            nthreads = '$SLURM_CPUS_PER_TASK'
-        elif RunManagement['Scheduler'] == 'local':
-            import multiprocessing
-            nthreads = multiprocessing.cpu_count()
-        elif RunManagement['Scheduler'] is None:
-            raise MolaUserError(f"for solver fast you must provide RunManagement['Scheduler'] value")
-        else:
-            raise MolaUserError(f"Scheduler {RunManagement['Scheduler']} not supported")
-
-    else:
-        nthreads = RunManagement["NumberOfThreads"]
-
 
     job_text = get_job_text('fast', RunManagement, scheduler_options)+'\n\n'
     job_text += 'export KMP_WARNINGS=FALSE\n'
@@ -101,8 +90,30 @@ def write_job_launcher(RunManagement, scheduler_options):
         argcmd = '-a $OPENMPIOVERSUBSCRIBE' if bool(os.environ.get("OPENMPIOVERSUBSCRIBE")) else ''
         job_text += f'kpython -n {nranks} -t {nthreads} {argcmd} {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}'
 
+    job_text += get_lines_to_submit_job_again(RunManagement)
     job_text += '\nmola_plot --no-show\n'
     
     SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 
+def adjust_run_management(workflow):
+    workflow.RunManagement['SchedulerOptions']['cpus-per-task'] = 1
+
+    if "NumberOfThreads" not in workflow.RunManagement or \
+        workflow.RunManagement["NumberOfThreads"] is None:
+        if workflow.RunManagement['Scheduler'] == 'SLURM':
+            nthreads = '$SLURM_CPUS_PER_TASK'
+        elif workflow.RunManagement['Scheduler'] == 'local':
+            import multiprocessing
+            nthreads = multiprocessing.cpu_count()
+        elif workflow.RunManagement['Scheduler'] is None:
+            raise MolaUserError(f"for solver fast you must provide RunManagement['Scheduler'] value")
+        else:
+            raise MolaUserError(f"Scheduler {workflow.RunManagement['Scheduler']} not supported")
+
+    else:
+        nthreads = workflow.RunManagement["NumberOfThreads"]
+
+    workflow.RunManagement["NumberOfThreads"] = nthreads
+
+    workflow.set_workflow_parameters_in_tree()

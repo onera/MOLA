@@ -18,10 +18,19 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+# Save SLURM variables before sourcing Cassiopee
+SLURM_VARS_TO_SAVE=$(env | grep '^SLURM_' | cut -d= -f1)
+for var in $SLURM_VARS_TO_SAVE; do
+    eval "SAVED_$var=\"\$$var\""
+done
 
-unset I_MPI_PMI_LIBRARY
-unset I_MPI_TCP_NETMASK 
-unset I_MPI_FABRICS_LIST
+if [[ -v OMP_NUM_THREADS ]]; then
+    _omp_was_set=1
+    _omp_original_value=$OMP_NUM_THREADS
+else
+    _omp_was_set=0
+fi
+
 
 # Treelab
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp_user/sator/lbernard/treelab/lib # because required libxcb-cursor is missing in sator https://bugreports.qt.io/browse/PYSIDE-2306
@@ -32,10 +41,25 @@ export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
 export MACHINE=sator_sph
 export CASSIOPEE=/tmp_user/sator/cassiope/git/releases/Cassiopee/v4.0
-source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null # CAUTION Cassiopee clears SLURM vars
+
+if (( _omp_was_set )); then
+    export OMP_NUM_THREADS="$_omp_original_value"
+fi
+
+unset _omp_was_set _omp_original_value
+
 
 source /tmp_user/sator/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
-# export PYTHONPATH=/tmp_user/sator/tbontemp/miles:$PYTHONPATH
+
+unset I_MPI_PMI_LIBRARY
+
+
+# Restore SLURM variables
+for var in $SLURM_VARS_TO_SAVE; do
+    eval "export $var=\"\${SAVED_$var}\""
+done
+
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH

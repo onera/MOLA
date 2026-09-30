@@ -29,7 +29,8 @@ def test_WorkflowManager_prepare(tmp_path):
     test_dir = str(tmp_path)
     w = get_compressor_example_rotor_only('not_used_directory')
     manager = turbomachinery.WorkflowManager(w, root_directory=test_dir,
-                    manager_file_path=str(tmp_path/names.FILE_WORKFLOW_MANAGER))
+                    manager_file_path=str(tmp_path/names.FILE_WORKFLOW_MANAGER),
+                    script_directory=str(tmp_path))
     manager.add_isospeed_line(throttles=[1e5, 1.1e5, 1.2e5])
     manager.prepare()
 
@@ -46,6 +47,4 @@ def test_WorkflowManager_prepare(tmp_path):
         tmp_path/'isospeed_6000rpm'/'Pressure_110000.00',
         tmp_path/'isospeed_6000rpm'/'Pressure_120000.00',
         }
-    
-    os.remove('gather_results.py')
     

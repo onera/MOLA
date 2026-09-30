@@ -29,6 +29,7 @@ from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, G
 from mola.cfd.preprocess.run_manager import run_manager
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 from mola import server as SV
+from mola.server.submission import Submission, emit_submission, parse_job_ids
 from . import Workflow
 
 class WorkflowManager():
@@ -114,7 +115,8 @@ class WorkflowManager():
                  root_directory='.', 
                  data_directory='SHARED_DATA', 
                  skip_if_exists=True,
-                 manager_file_path=names.FILE_WORKFLOW_MANAGER,
+                 manager_file_path=None,
+                 script_directory=None,
                  ):
         
         if isinstance(arg, str):
@@ -123,14 +125,50 @@ class WorkflowManager():
         else:
             # arg is the base workflow of the manager object
             assert isinstance(arg, Workflow)
-            self.root_directory = root_directory
-            self.data_directory = data_directory
+            self.root_directory = os.path.expandvars(root_directory)
+            self.data_directory = os.path.expandvars(data_directory)
             self.skip_if_exists = skip_if_exists
             self.base_workflow = arg
             self.dispatcher = WorkflowDispatcher(self.base_workflow)
             self.machine = None
             self.sequential_managers = None
-            self.manager_file_path = manager_file_path
+            self.submissions = []
+            
+            # Determine script_directory: location where the example script is run
+            if script_directory is None:
+                # Try to detect the calling script's directory using inspect
+                import inspect
+                frame = inspect.currentframe()
+                try:
+                    # Walk up the call stack to find a .py file that's not from mola
+                    caller_script = None
+                    for i in range(1, 10):  # Check up to 10 levels up
+                        try:
+                            frame = frame.f_back
+                            if frame is None:
+                                break
+                            filename = frame.f_code.co_filename
+                            if filename.endswith('.py') and 'mola' not in filename:
+                                caller_script = filename
+                                break
+                        except:
+                            break
+                    
+                    if caller_script:
+                        script_directory = os.path.expandvars(os.path.dirname(os.path.abspath(caller_script)))
+                        mola_logger.info(f"Detected script directory from caller: {script_directory}")
+                    else:
+                        script_directory = os.getcwd()
+                except:
+                    script_directory = os.getcwd()
+            self.script_directory = script_directory
+            
+            # Determine manager_file_path: default to script_directory, but also write to root_directory
+            if manager_file_path is None:
+                # Primary location: script_directory (local)
+                self.manager_file_path = os.path.join(script_directory, names.FILE_WORKFLOW_MANAGER)
+            else:
+                self.manager_file_path = manager_file_path
     
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -157,16 +195,20 @@ class WorkflowManager():
         SV.makedirs_remote(self.root_directory, machine=self.machine)
         for sequence_of_workflows in self.sequential_managers:
             sequence_of_workflows.prepare()
-        
-        self.write()
-        if not SV.is_existing_path("gather_results.py"):
-            self.write_gather_script()
 
     def submit(self):
+        self.submissions = []
         for sequence_of_workflows in self.sequential_managers:
             sequence_of_workflows.submit()
+            self.submissions.extend(sequence_of_workflows.submissions)
 
-    def write_gather_script(self):
+    def write_gather_script(self, output_path=None):
+        """
+        Write the gather_results.py script for post-processing results.
+        
+        Args:
+            output_path: Path where to write the script. If None, uses script_directory.
+        """
         # to be defined in the WorkflowManager specific to the application if applicable
         pass
 
@@ -192,14 +234,139 @@ class WorkflowManager():
         return [workflow.RunManagement['RunDirectory'] 
                 for sequential_manager in self.sequential_managers 
                 for workflow in sequential_manager.workflows]
+
+    @staticmethod
+    def get_simulation_status_remote(sequence_jobs, machine=None, user=None):
+        """Query statuses for all cases in one or more remote sequences.
+
+        The query is executed once on the target machine. Each case is then
+        resolved by :meth:`Workflow.simulation_status_from_run_directory`,
+        which handles pre-workflow files locally on that target and delegates
+        solver-state checks to ``Workflow.simulation_status``.
+
+        ``sequence_jobs`` is a list of dictionaries with ``job_id`` and
+        ``run_directories`` keys. The optional machine/user values are used
+        for the SSH connection; case-level status checks run with
+        ``Machine='localhost'`` because the Python query is already remote.
+        """
+        import base64
+        import json
+
+        normalized_sequences = []
+        for sequence in sequence_jobs or []:
+            if not isinstance(sequence, dict):
+                continue
+            run_directories = sequence.get('run_directories') or []
+            if not run_directories:
+                continue
+            normalized_sequences.append({
+                'job_id': sequence.get('job_id'),
+                'scheduler': sequence.get('scheduler', 'SLURM'),
+                'run_directories': [str(directory) for directory in run_directories],
+            })
+
+        if not normalized_sequences:
+            return {'details': []}
+
+        target_machine = machine
+        if target_machine is None:
+            target_machine = next(
+                (sequence.get('machine') for sequence in sequence_jobs
+                 if isinstance(sequence, dict) and sequence.get('machine')),
+                'localhost')
+
+        target_user = user
+        if target_user is None:
+            target_user = next(
+                (sequence.get('user') for sequence in sequence_jobs
+                 if isinstance(sequence, dict) and sequence.get('user')),
+                None)
+
+        if target_machine == 'localhost':
+            details = []
+            for sequence in normalized_sequences:
+                for run_directory in sequence['run_directories']:
+                    detail = {'run_directory': run_directory}
+                    try:
+                        detail['status'] = Workflow.simulation_status_from_run_directory(
+                            run_directory=run_directory,
+                            machine='localhost',
+                            job_id=sequence.get('job_id'),
+                            scheduler=sequence.get('scheduler'),
+                        )
+                    except Exception as error:
+                        detail['status'] = 'ERROR'
+                        detail['error'] = str(error)
+                    details.append(detail)
+            return {'details': details}
+
+        payload = json.dumps(normalized_sequences)
+        python_code = f'''import json
+from mola.workflow.workflow import Workflow
+
+sequences = json.loads({payload!r})
+result = {{"details": []}}
+for sequence in sequences:
+    for run_directory in sequence["run_directories"]:
+        detail = {{"run_directory": run_directory}}
+        try:
+            detail["status"] = Workflow.simulation_status_from_run_directory(
+                run_directory=run_directory,
+                machine="localhost",
+                job_id=sequence.get("job_id"),
+                scheduler=sequence.get("scheduler"),
+            )
+        except Exception as error:
+            detail["status"] = "ERROR"
+            detail["error"] = str(error)
+        result["details"].append(detail)
+print(json.dumps(result))
+'''
+        encoded_code = base64.b64encode(python_code.encode()).decode()
+        wrapped_command = f'echo "{encoded_code}" | base64 -d | python3 2>/dev/null'
+        output = SV.submit_command(
+            command=wrapped_command,
+            machine=target_machine,
+            user=target_user,
+            use_mola_env=True,
+        )
+
+        for line in reversed(output.strip().splitlines()):
+            line = line.strip()
+            if line.startswith('{') and line.endswith('}'):
+                try:
+                    return json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+        raise MolaException(
+            f'Failed to parse remote workflow status result: {output}')
     
     def write(self):
+        """Write the workflow manager file to both local and remote locations."""
         if self.manager_file_path.endswith('.cgns'):
             self.write_cgns(self.manager_file_path)
         elif self.manager_file_path.endswith('.yaml'):
             self.write_yaml(self.manager_file_path)
         else:
             raise MolaException(f"cannot read {self.manager_file_path}. Accepted formats are .yaml and .cgns")
+        
+        # ALSO write to root_directory for remote access
+        if self.root_directory and self.root_directory != '.':
+            remote_manager_path = os.path.join(self.root_directory, names.FILE_WORKFLOW_MANAGER)
+            
+            # Only write remotely if different from local path
+            if remote_manager_path != self.manager_file_path:
+                # Copy the local file to remote
+                from mola import server as SV
+                machine = self.machine or "localhost"
+                
+                SV.copy_remote(
+                    source_path=self.manager_file_path,
+                    source_machine="localhost",
+                    destination_path=remote_manager_path,
+                    destination_machine=machine,
+                    force_copy=True
+                )
             
     def write_cgns(self, manager_file_path):
         if self.sequential_managers is None:
@@ -250,7 +417,6 @@ class WorkflowManager():
             self.read_yaml(manager_file_path)
         else:
             raise MolaException(f"cannot read {manager_file_path}. Accepted formats are .yaml and .cgns")
-        mola_logger.info(f'WorkflowManager is ready.')
 
     def read_cgns(self, manager_file_path):
         tree = cgns.load(manager_file_path)
@@ -657,6 +823,7 @@ class WorkflowSequentialManager():
         # The only case when it will keep value False is if all cases have already been 
         # created by a previous WorkflowManager.
         self.at_least_one_new_case = False  
+        self.submissions = []
 
 
         self._check_structure_of_workflows()
@@ -757,6 +924,8 @@ class WorkflowSequentialManager():
                                   self.root_directory, machine=self.machine, force_copy=True)
 
     def submit(self):
+        """Submit the sequence and record each resulting scheduler job."""
+        self.submissions = []
         if self.at_least_one_new_case:
             mola_logger.info(f'  > submission of job sequence in {self.root_directory}')
             if self.manager == 'SLURM':
@@ -764,9 +933,116 @@ class WorkflowSequentialManager():
             else:
                 command = f"cd {self.root_directory}; ./{self._sequential_job_filename}"
 
-            SV.submit_command(command, self.machine)
+            out = SV.submit_command(command, self.machine)
+            
+            job_ids = parse_job_ids(out)
+            run_directories = [
+                workflow.RunManagement['RunDirectory']
+                for workflow in self.workflows
+            ]
+            first_workflow = self.workflows[0]
+            recorded_job_ids = job_ids or [None]
+            for job_id in recorded_job_ids:
+                submission = Submission.create(
+                    job_id=job_id,
+                    scheduler=self.manager,
+                    machine=self.machine,
+                    user=first_workflow.RunManagement.get('User'),
+                    run_directories=run_directories,
+                    solver=first_workflow.Solver,
+                    sequence_id=str(self.root_directory),
+                )
+                self.submissions.append(submission)
+                emit_submission(submission)
+                mola_logger.info(
+                    f"🚀 Submit job sequence {job_id} for {len(run_directories)} cases")
         else:
             mola_logger.user_warning(f'  > job sequence in {self.root_directory} was not submitted, because all cases were already existing.')
+
+    def get_job_ids(self):
+        """
+        Get job IDs from all workflows in the sequence.
+        
+        Returns
+        -------
+        list of dict
+            List of dictionaries with keys 'run_directory' and 'job_id' for each workflow
+        """
+        job_ids = []
+        for submission in self.submissions:
+            if submission.job_id is None:
+                continue
+            for run_directory in submission.run_directories:
+                job_ids.append({
+                    'run_directory': run_directory,
+                    'job_id': submission.job_id,
+                })
+        if job_ids:
+            return job_ids
+        for workflow in self.workflows:
+            job_id = workflow.RunManagement.get('JobID')
+            if job_id is not None:
+                job_ids.append({
+                    'run_directory': workflow.RunManagement['RunDirectory'],
+                    'job_id': job_id
+                })
+        return job_ids
+
+    def update_simulation_metadata(self, metadata_dict):
+        """
+        Update simulation metadata for all workflows in the sequence.
+        
+        This method allows adding custom metadata to workflows, such as:
+        - CI/CD pipeline information
+        - Test case identifiers
+        - Version information
+        - Submission context
+        
+        Parameters
+        ----------
+        metadata_dict : dict
+            Dictionary with keys 'run_directory' (or pattern) and metadata to add.
+            Can also be a list of such dictionaries for multiple updates.
+        
+        Examples
+        --------
+        >>> # Update metadata for a specific workflow
+        >>> manager.update_simulation_metadata({
+        ...     'run_directory': '/path/to/case',
+        ...     'ci_pipeline_id': 12345,
+        ...     'ci_job_id': 67890,
+        ...     'version': 'v2.0.1'
+        ... })
+        >>> 
+        >>> # Update metadata for multiple workflows
+        >>> manager.update_simulation_metadata([
+        ...     {'run_directory': '/path/to/case1', 'test_group': 'A'},
+        ...     {'run_directory': '/path/to/case2', 'test_group': 'B'},
+        ... ])
+        """
+        if not isinstance(metadata_dict, list):
+            metadata_dict = [metadata_dict]
+        
+        for meta in metadata_dict:
+            target_dir = meta.get('run_directory')
+            if not target_dir:
+                mola_logger.user_warning('update_simulation_metadata: missing run_directory, skipping')
+                continue
+            
+            # Find matching workflow
+            for workflow in self.workflows:
+                if workflow.RunManagement['RunDirectory'] == target_dir:
+                    # Add metadata to RunManagement
+                    if 'SimulationMetadata' not in workflow.RunManagement:
+                        workflow.RunManagement['SimulationMetadata'] = {}
+                    workflow.RunManagement['SimulationMetadata'].update({
+                        k: v for k, v in meta.items() 
+                        if k != 'run_directory'
+                    })
+                    mola_logger.info(f"Updated metadata for {target_dir}")
+                    break
+            else:
+                mola_logger.user_warning(f"update_simulation_metadata: no workflow found for {target_dir}")
 
     @staticmethod
     def _build_loop_on_cases(sequence_of_paths, sequential_job_filename):
@@ -785,7 +1061,7 @@ for case in $SEQUENCE_OF_PATHS; do
         echo "this run has failed, end job."
         exit 0
     elif [ ! -f "{names.FILE_INPUT_SOLVER}" ]; then
-        mola_prepare {names.FILE_INPUT_WORKFLOW}
+        {write_cfd_files.get_prepare_command()}
     elif [ -f "{names.FILE_JOB_COMPLETED}" ]; then
         # job already done in a previous submission: exit the for loop
         cd ..
@@ -901,7 +1177,7 @@ class WorkflowSender():
         run_on_localhost = SV.run_on_localhost(self.machine, self.run_directory)
         if run_on_localhost:    
             self.workflow.set_workflow_parameters_in_tree()    
-            SV.makedirs_remote(self.run_directory, machine='localhost')    
+            SV.makedirs_remote(self.run_directory, machine='localhost')
             self.workflow.write_tree(filename=destination)
             
         else:
@@ -1083,5 +1359,3 @@ def find_matching_leaves(tree, patterns: list, operation=None, excluded_attribut
             matches.extend(find_matching_leaves(item, patterns, operation))
 
     return matches
-
-

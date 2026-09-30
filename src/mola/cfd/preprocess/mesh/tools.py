@@ -24,12 +24,15 @@ from mola.pytree.user.checker import (is_partitioned_for_use_in_maia,
 from mola.cfd import parallel_execution_with_maia
 from treelab import cgns
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 @parallel_execution_with_maia()
 def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='Vertex'):
-    from mpi4py import MPI
     import maia
     import maia.pytree as PT
     from maia.algo.part.wall_distance import compute_projection_to
+    from mpi4py.MPI import LAND
 
     mola_logger.info('Parametrize domain with channel height (add FlowSolution#Height)', rank=0)
 
@@ -43,18 +46,18 @@ def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='V
         hub_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in hub_families])
         shroud_bc_predicate = lambda n : any([PT.predicate.belongs_to_family(n, wall_bc_family) for wall_bc_family in shroud_families])
 
-    hub_was_not_found = MPI.COMM_WORLD.reduce(len(PT.get_nodes_from_predicate(tree, hub_bc_predicate)) == 0, op=MPI.LAND)
+    hub_was_not_found = comm.reduce(len(PT.get_nodes_from_predicate(tree, hub_bc_predicate)) == 0, op=LAND)
     if hub_was_not_found:
         raise MolaException(f'Cannot find hub families in tree from names {hub_families}')
-    shroud_was_not_found = MPI.COMM_WORLD.reduce(len(PT.get_nodes_from_predicate(tree, shroud_bc_predicate)) == 0, op=MPI.LAND)
+    shroud_was_not_found = comm.reduce(len(PT.get_nodes_from_predicate(tree, shroud_bc_predicate)) == 0, op=LAND)
     if shroud_was_not_found:
         raise MolaException(f'Cannot find shroud families in tree from names {shroud_families}')
     
     # TODO make this operation separately for each row family to prevent errors
     # and to reduce the duration of the process
     # Compute distances to hub and shroud
-    compute_projection_to(tree, hub_bc_predicate, MPI.COMM_WORLD, out_fs_name='DistanceToHub', point_cloud=GridLocation)
-    compute_projection_to(tree, shroud_bc_predicate, MPI.COMM_WORLD, out_fs_name='DistanceToShroud', point_cloud=GridLocation)
+    compute_projection_to(tree, hub_bc_predicate, comm, out_fs_name='DistanceToHub', point_cloud=GridLocation)
+    compute_projection_to(tree, shroud_bc_predicate, comm, out_fs_name='DistanceToShroud', point_cloud=GridLocation)
 
     # Compute ChannelHeight
     for zone in PT.get_all_Zone_t(tree):
@@ -96,7 +99,8 @@ def get_surface_of_family(tree, Family):
     import Converter.PyTree as C
     import Converter.Internal as I
     import Post.PyTree as P
-    from mpi4py import MPI
+
+    from mpi4py.MPI import SUM
 
     tree = I.fixNGon(tree)  # it would be better without making a copy, but it would need adaptation latter for maia
     zones = C.extractBCOfName(tree, f'FamilySpecified:{Family}')
@@ -105,7 +109,7 @@ def get_surface_of_family(tree, Family):
     SurfaceTree = C.convertArray2Tetra(zones)
     SurfaceTree = C.initVars(SurfaceTree, 'ones=1')
     Surface = P.integ(SurfaceTree, var='ones')[0]        # Compute normalization coefficient
-    Surface = MPI.COMM_WORLD.allreduce(Surface, op=MPI.SUM)
+    Surface = comm.allreduce(Surface, op=SUM)
     mola_logger.debug(f'Surface of family {Family} = {Surface} m^2', rank=0)
 
     return Surface
@@ -205,7 +209,7 @@ def _compute_azimuthal_extension_from_periodic(t):
 
 
 def to_distributed(tree : cgns.Tree, data_transfer = 'ALL'):
-    from mpi4py import MPI
+
     import maia
 
     if bool(tree.get(':CGNS#Distribution')): 
@@ -215,17 +219,17 @@ def to_distributed(tree : cgns.Tree, data_transfer = 'ALL'):
         mola_logger.debug('convert tree to maia dist_tree')
 
         if bool(tree.get(':CGNS#GlobalNumbering')):
-            t = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD,
+            t = maia.factory.recover_dist_tree(tree, comm,
                                                        data_transfer = data_transfer)
         else:
-            t = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+            t = maia.factory.full_to_dist_tree(tree, comm)
         
         t = cgns.castNode(t)
      
     return t
 
 def to_partitioned(tree : cgns.Tree):
-    from mpi4py import MPI
+
     import maia
     
     is_maia_dist = is_distributed_for_use_in_maia(tree)
@@ -240,7 +244,7 @@ def to_partitioned(tree : cgns.Tree):
     else:
         _apply_all_maia_check(tree)
         if not is_maia_dist:
-            tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+            tree = maia.factory.full_to_dist_tree(tree, comm)
         tree = cgns.castNode(tree)
         return to_partitioned_if_distributed(tree, cassiopee_distribution=distrib)
 
@@ -267,17 +271,16 @@ def to_partitioned_if_distributed(tree : cgns.Tree, cassiopee_distribution={}):
     is_dist = is_distributed_for_use_in_maia(tree)
     if not is_dist: return tree
 
-    from mpi4py import MPI
+
     import maia
 
     mola_logger.debug('convert tree to maia part_tree')
 
-    t = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL', preserve_orientation=True)
+    t = maia.factory.partition_dist_tree(tree, comm, data_transfer='ALL', preserve_orientation=True)
 
     t = cgns.castNode(t)
     for base in t.bases():
         for zone in base.zones():
-            rank = int(MPI.COMM_WORLD.Get_rank())
             base_name_plus_zone_name = base.name() + "/" + remove_maia_part_zone_suffix(zone.name())
             proc = cassiopee_distribution.get(base_name_plus_zone_name, rank)
 
@@ -295,9 +298,9 @@ def remove_maia_part_zone_suffix(zone_name : str) -> str:
 
 
 def to_full_tree_at_rank_0(tree : cgns.Tree):
-    from mpi4py import MPI
+
     import maia
-    MPI.COMM_WORLD.barrier()
+    comm.barrier()
     
     try:
         import maia.pytree.maia.check_tree as check
@@ -311,23 +314,23 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
         is_dist = check.is_distributed_for_use_in_maia(tree)
         is_full = not is_part and not is_dist
                    
-    if is_full or MPI.COMM_WORLD.Get_size() == 1:
+    if is_full or size == 1:
         return tree
     else:
         mola_logger.debug('convert tree to maia full_tree')
     
     if is_part:
         additional_nodes_to_transfer = _get_additional_nodes_to_transfer(tree)
-        tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
+        tree = maia.factory.recover_dist_tree(tree, comm, data_transfer='ALL')
         tree = cgns.castNode(tree)
         _transfer_additional_nodes(tree, additional_nodes_to_transfer)
 
     empty_node_manager = EmptyNodesManager()
     empty_node_manager.get_empty_FlowSolution_nodes(tree, remove=True)
 
-    tree = maia.factory.dist_to_full_tree(tree, MPI.COMM_WORLD, target=0)
+    tree = maia.factory.dist_to_full_tree(tree, comm, target=0)
     tree = cgns.castNode(tree)
-    empty_node_manager.restore_empty_FlowSolution_nodes(t)
+    empty_node_manager.restore_empty_FlowSolution_nodes(tree)
     
     if tree is not None:
         tree = cgns.castNode(tree)
@@ -337,7 +340,7 @@ def to_full_tree_at_rank_0(tree : cgns.Tree):
                 reshape_DataArray(zone)
             
         tree = cgns.castNode(tree)
-    MPI.COMM_WORLD.barrier()
+    comm.barrier()
     return tree
 
 def is_partitioned(tree, backend='maia'):
@@ -520,9 +523,9 @@ class EmptyNodesManager:
             before storage, as it's not part of the original node structure.
         """
         import copy
-        from mpi4py import MPI
+    
 
-        current_rank = MPI.COMM_WORLD.Get_rank()
+        current_rank = comm.Get_rank()
 
         # Scan all FlowSolution nodes in the tree
         for FS in tree.group(Type='FlowSolution'):
@@ -549,7 +552,7 @@ class EmptyNodesManager:
 
         # Distribute path information to all MPI ranks
         empty_nodes_paths = list(self.empty_nodes_by_path)
-        empty_nodes_ranks_and_paths = MPI.COMM_WORLD.allgather((current_rank, empty_nodes_paths))
+        empty_nodes_ranks_and_paths = comm.allgather((current_rank, empty_nodes_paths))
 
         # Populate entries for paths found on other ranks
         for item in empty_nodes_ranks_and_paths:
@@ -584,9 +587,9 @@ class EmptyNodesManager:
         Side Effects:
             Updates self.empty_nodes_by_path to set node to None on non-owner ranks.
         """
-        from mpi4py import MPI
+    
 
-        current_rank = MPI.COMM_WORLD.Get_rank()
+        current_rank = comm.Get_rank()
 
         # Collect all ranks that have each path
         ranks_by_path = {}
@@ -620,8 +623,7 @@ class EmptyNodesManager:
             to be transferred between ranks. The MPI_TAG_EMPTY_NODE_RESTORE
             constant is used for communication tagging.
         """
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
+    
         current_rank = comm.Get_rank()
 
         def _get_parent_from_path(tree, path):
@@ -716,8 +718,8 @@ class EmptyNodesManager:
             dst (str): Path to the destination CGNS file.
 
         """
-        from mpi4py import MPI
-        current_rank = MPI.COMM_WORLD.Get_rank()
+    
+        current_rank = comm.Get_rank()
 
         for path, value in self.empty_nodes_by_path.items():
             rank_with_source_node, fs_node = value[0], value[1]

@@ -20,13 +20,25 @@ from mola.cfd import apply_to_solver
 from mola import server as SV
 from mola import naming_conventions as names
 
-def apply(workflow):
+def apply(workflow, items : str ='all'):
+    '''
+        items : str
+            Options:
+                * `'all'`: will write all scripts, data files and job
+                * `'only_job'`: will only write job
+                * `'except_existing_job'`: will write all except the job if already exists
+    '''
 
-    apply_to_solver(workflow)
+    apply_to_solver(workflow, items=items)
 
-    run_on_localhost = SV.run_on_localhost(workflow.RunManagement['Machine'], workflow.RunManagement['RunDirectory'])
-    if not run_on_localhost:
-        write_info_for_data_retrieval(workflow.RunManagement)
+def write_compute(RunManagement):
+
+    compute_file_path = os.path.join(os.path.dirname(__file__), 'compute.py')
+    with open(compute_file_path, 'r') as f:
+        txt = f.read()
+
+    SV.save_file_maybe_remote(names.FILE_COMPUTE, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
+
 
 def write_info_for_data_retrieval(RunManagement):
     run_directory = str(RunManagement['RunDirectory'])
@@ -59,7 +71,9 @@ def get_job_text(solver, RunManagement, scheduler_options):
     job_text = ('#!/bin/bash\n'
                f'{header}\n'
                f'source {env}\n'
-                'unset "${!OMPI_@}" "${!MPI_@}"' # https://stackoverflow.com/questions/76672866/running-an-independent-slurm-job-with-mpirun-inside-a-python-script-recursive
+                'unset "${!OMPI_@}" "${!MPI_@}"\n' # https://stackoverflow.com/questions/76672866/running-an-independent-slurm-job-with-mpirun-inside-a-python-script-recursive
+                'set -e\n' # aborts on first failure encountered
+               f'{get_prepare_command()}' # TODO displace at solver-level for conditionally prepending MPI launcher
                 )
 
     return job_text
@@ -74,6 +88,16 @@ def build_job_scheduler_header(Scheduler, scheduler_options):
             header += "\n"
     
     return header
+
+def get_prepare_command():
+    # NOTE: it has no effect if names.FILE_INPUT_WORKFLOW is absent
+    # NOTE: the pipe ("||") is used to catch error
+    cmd = (f'python3 -m mola.cfd.preprocess.prepare 1>stdout_pre.log 2>stderr_pre.log || '+'{\n'
+           f'touch {names.FILE_ERROR_PREPARING_WORKFLOW}\n'
+           f'rm {names.FILE_PREPROCESSING}\n'
+            'exit 1\n'
+            '}\n')
+    return cmd
 
 def get_lines_to_submit_job_again(RunManagement):
     command = RunManagement['LauncherCommand'] 
@@ -90,12 +114,12 @@ def get_lines_to_submit_job_again(RunManagement):
         command += ' --dependency=singleton'
 
     signal = names.FILE_RELAUNCH_JOB
-    
+
     text = f"""
 if [ -f "{signal}" ]; then
+    rm -f {signal}
     echo "LAUNCHING JOB AGAIN"
     {command}
-    rm -f {signal}
     exit 0
 fi
 """

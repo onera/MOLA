@@ -16,10 +16,31 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+from pathlib import Path
+
+import yaml
 
 import mola.naming_conventions as names
 from mola.logging import MolaException
 from .files_operations import rsync
+
+
+def get_repatriation_filters(mode='full', extra_patterns=()):
+    """Return rsync filters for a full, light, or custom repatriation."""
+    mode = str(mode).lower()
+    if mode == 'full':
+        return None, None
+    if mode not in {'light', 'custom'}:
+        raise ValueError(f'Unknown repatriation mode: {mode}')
+
+    included_files = set(names.STATUS_FILES)
+    if mode == 'light':
+        included_files.update(names.REPATRIATION_LIGHT_PATTERNS)
+    elif mode == 'custom':
+        included_files.update(names.REPATRIATION_LOG_PATTERNS)
+    included_files.update(extra_patterns)
+    return included_files, {'*'}
+
 
 def extract_variables_from_file(file_path):
     """
@@ -120,3 +141,56 @@ def get_all_cases_from_workflow_manager(included_files: set=set(), excluded_file
             destination_path=local_dir, destination_machine='localhost',
             included_files=included_files, excluded_files=excluded_files
             )
+
+
+def get_cases_from_submission_state(
+        state_path, included_files=None, excluded_files=None, destination_path='.',
+        flatten_single_case=False):
+    """Repatriate cases described by a submission state file."""
+    with open(Path(state_path), encoding='utf-8') as stream:
+        state = yaml.safe_load(stream) or {}
+
+    cases = []
+    submissions = state.get('submissions', []) or []
+    for submission in submissions:
+        for run_directory in submission.get('run_directories', []) or []:
+            cases.append((
+                str(run_directory),
+                submission.get('machine', state.get('machine', 'localhost')),
+                submission.get('user', state.get('user')),
+            ))
+    if not cases:
+        run_directories = list(state.get('run_directories', []) or [])
+        if state.get('run_directory'):
+            run_directories.append(state['run_directory'])
+        cases.extend((str(path), state.get('machine', 'localhost'), state.get('user'))
+                     for path in run_directories)
+
+    unique_cases = []
+    seen = set()
+    for case in cases:
+        if case in seen:
+            continue
+        seen.add(case)
+        unique_cases.append(case)
+
+    root_directory = state.get('root_directory')
+    for run_directory, machine, user in unique_cases:
+        if flatten_single_case and len(unique_cases) == 1:
+            destination = destination_path
+        else:
+            relative_path = (
+                os.path.relpath(run_directory, root_directory)
+                if root_directory else Path(run_directory).name
+            )
+            destination = os.path.join(destination_path, relative_path)
+        os.makedirs(os.path.dirname(destination) or '.', exist_ok=True)
+        rsync(
+            source_path=f'{run_directory}{os.path.sep}',
+            source_machine=machine,
+            source_user=user,
+            destination_path=f'{destination}{os.path.sep}',
+            destination_machine='localhost',
+            included_files=included_files,
+            excluded_files=excluded_files,
+        )

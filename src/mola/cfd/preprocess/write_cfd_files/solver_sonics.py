@@ -21,12 +21,32 @@ import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import server as SV
-from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text
+from mola.cfd.preprocess.write_cfd_files.write_cfd_files import (
+    get_job_text,
+    write_compute)
+from mola.mpi import get_mpi_launcher
 
-def apply_to_solver(workflow):
 
-    write_run_scripts(workflow)
-    write_data_files(workflow)
+def apply_to_solver(workflow, items : str ='all'):
+
+    if items == 'all':
+        write_compute(workflow.RunManagement)
+        write_data_files(workflow)
+        write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
+
+    elif items == 'only_job':
+        write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
+
+    elif items == 'except_existing_job':
+        write_compute(workflow.RunManagement)
+        write_data_files(workflow)
+        path_of_job = os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_JOB)
+        machine = workflow.RunManagement['Machine']
+        if not SV.files_operations.is_file(path_of_job, machine):
+            write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
+        
+    else:
+        raise NotImplementedError(f'items={items} not implemented, shall be one of: "all","only_job","except_existing_job"')
 
 def write_data_files(workflow):
 
@@ -54,24 +74,15 @@ def write_data_files(workflow):
             destination_machine=workflow.RunManagement['Machine'],
             )
         SV.remove_path(names.FILE_INPUT_SOLVER, machine='localhost')
-        
-def write_run_scripts(workflow):
-    write_compute(workflow.RunManagement)
-    write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
 
-def write_compute(RunManagement):
-    txt = f'''
-from mola.workflow import read_workflow
-import mola.naming_conventions as names
-
-workflow = read_workflow(names.FILE_INPUT_SOLVER)
-workflow.compute()
-'''
-    SV.save_file_maybe_remote(names.FILE_COMPUTE, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 def write_job_launcher(RunManagement, scheduler_options):
 
     job_text = get_job_text('sonics', RunManagement, scheduler_options)+'\n\n'
-    job_text += f'mpirun $OPENMPIOVERSUBSCRIBE -np {RunManagement["NumberOfProcessors"]} python3 {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}\n'
-    job_text += 'mola_plot --no-show\n'
+
+    launcher = get_mpi_launcher(RunManagement)
+    
+    job_text += f'{launcher} python3 {names.FILE_COMPUTE} 1>{names.FILE_STDOUT} 2>{names.FILE_STDERR}\n'
+
+    job_text += f'mola_plot --no-show\n'
     SV.save_file_maybe_remote(names.FILE_JOB, job_text, RunManagement['RunDirectory'], machine=RunManagement['Machine'])

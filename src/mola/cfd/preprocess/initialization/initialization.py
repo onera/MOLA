@@ -19,7 +19,11 @@ from treelab import cgns
 from mola.cfd import apply_to_solver, call_solver_specific_function, parallel_execution_with_maia
 from mola.logging import mola_logger, MolaException, MolaUserError
 from mola.cfd.preprocess.mesh.tools import to_partitioned
-from .initialization_with_turbo import initialize_flow_with_turbo
+from mola.cfd.preprocess.initialization.initialization_with_turbo import initialize_flow_with_turbo
+
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 
 def apply(workflow):
     '''
@@ -49,9 +53,8 @@ def apply(workflow):
         mola_logger.user_warning("Method='copy' for initialization is not compatible with maia -> Method='interpolate' will be used instead.")
         workflow.Initialization['Method'] = 'interpolate'
 
-    initialize_flow_with_given_method = initialization_functions[workflow.Initialization['Method']]
+    initialization_functions[workflow.Initialization['Method']](workflow, FlowSolution_name)
 
-    initialize_flow_with_given_method(workflow, FlowSolution_name)
     check_initial_flow_is_in_all_zones(workflow, FlowSolution_name)
     compute_wall_distance_if_needed(workflow, FlowSolution_name)
     
@@ -81,6 +84,7 @@ def set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source
     else:  
         workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
 
+
 def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     '''
     Initialize the flow solution of **t** from the flow solution in the file **sourceFilename**.
@@ -90,12 +94,14 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
 
         workflow : :py:obj:`mola.workflow.worflow.Workflow`
     '''
-    from mpi4py import MPI
-    import maia
+    source_tree = _get_source_of_interpolation_for_maia(workflow, FlowSolution_name)
+    workflow.tree = _interpolate_using_maia(source_tree, workflow.tree,
+                        workflow.Numerics['GridLocation'], FlowSolution_name)
 
+def _get_source_of_interpolation_for_maia(workflow, FlowSolution_name : str) -> cgns.Tree:
     source_tree_repr = workflow.Initialization['Source'] if isinstance(workflow.Initialization['Source'], str) else 'given tree'
     mola_logger.info(f" - initialize flow by interpolation of {source_tree_repr}", rank=0)
-    
+
     source_tree = cgns.load(workflow.Initialization['Source'], backend='maia')
 
     set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source_tree_repr)
@@ -135,15 +141,28 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
                     raise MolaException(f'{var} cannot be found in {FS.path()}')
     
     source_tree.findAndRemoveNodes(Type='ZoneBC')  # BC are useless here, and may cause incompatibility between frameworks
+
+    # HACK due to possible presence of 0 size C1 char arrays: may cause future read error for maia
+    source_tree.findAndRemoveNodes(Name=".SoNICS#Codegen",Depth=3) 
+    workflow.tree.findAndRemoveNodes(Name=".SoNICS#Codegen",Depth=3)
+
+    return source_tree
+
+# @parallel_execution_with_maia(second_tree=True)
+def _interpolate_using_maia(source_tree, destination_tree, GridLocation : str,
+                            FlowSolution_name : str):
+    import maia
+    comm, rank, size, nb_digs = get_mpi_elements_safely()
+
     source_tree = to_partitioned(source_tree)
-    workflow.tree = to_partitioned(workflow.tree)
+    destination_tree = to_partitioned(destination_tree)
 
     maia.algo.part.interpolate(
         source_tree, 
-        workflow.tree, 
-        MPI.COMM_WORLD, 
+        destination_tree, 
+        comm, 
         containers_name=[FlowSolution_name], 
-        location=workflow.Numerics['GridLocation'],
+        location=GridLocation,
         strategy='Closest',
         n_closest_pt=4,
         )
@@ -151,15 +170,15 @@ def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
     if maia.pytree.get_node_from_name(source_tree, 'FlowSolution#Height'):
         maia.algo.part.interpolate(
             source_tree, 
-            workflow.tree, 
-            MPI.COMM_WORLD, 
+            destination_tree, 
+            comm, 
             containers_name=['FlowSolution#Height'], 
             location='Vertex',
             strategy='Closest',
             n_closest_pt=4,
             )
-    
-    workflow.tree = cgns.castNode(workflow.tree)
+
+    return cgns.castNode(destination_tree)
 
 def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
     '''
@@ -262,8 +281,6 @@ def compute_wall_distance_if_needed(workflow, FlowSolution_name='FlowSolution#In
 def compute_wall_distance_with_maia(tree: cgns.Tree, FlowSolution_name: str = 'FlowSolution#Init'):
     import maia
     import maia.pytree as PT
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
 
     # TODO compute row by row for turbomachinery application
     # TODO get out this function if no BC Wall*

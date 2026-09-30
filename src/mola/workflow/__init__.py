@@ -17,7 +17,7 @@
 
 from pathlib import Path
 from treelab import cgns
-from mola.logging import MolaAssertionError
+from mola.logging.exceptions import MolaAssertionError
 
 from .workflow import Workflow 
 from .interface import WorkflowInterface

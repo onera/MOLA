@@ -21,11 +21,14 @@ from mola.cfd import apply_to_solver
 from mola.logging import mola_logger
 from ...tools import to_distributed
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 def apply(workflow):
     apply_to_solver(workflow)
 
 def convert_elements_to_ngon(t):
-    from mpi4py import MPI
     import maia
 
     mola_logger.user_warning('Some cells are not NGon: converting to NGon')
@@ -33,7 +36,7 @@ def convert_elements_to_ngon(t):
     t = to_distributed(t)
 
     try:
-        maia.algo.dist.convert_elements_to_ngon(t, MPI.COMM_WORLD)
+        maia.algo.dist.convert_elements_to_ngon(t, comm)
     except BaseException as e:
         mola_logger.warning(f'Could not convert to NGon using maia, received error:\n{e}\nattempting using Cassiopee...')
         import Converter.Internal as I
@@ -62,7 +65,6 @@ def convert_elements_to_ngon(t):
     return cgns.castNode(t)
 
 def merge_all_unstructured_zones_from_families(t):
-    from mpi4py import MPI
     import maia 
 
     def correct_type_i8_to_i4(t):
@@ -101,7 +103,7 @@ def merge_all_unstructured_zones_from_families(t):
         mola_logger.info(f' --> merging zones of family {family}', rank=0)
 
         # maia.pytree.rm_nodes_from_name(t, 'NFaceElements')
-        maia.algo.dist.merge_zones(t, zone_paths, MPI.COMM_WORLD,
+        maia.algo.dist.merge_zones(t, zone_paths, comm,
             output_path=f'{base_name}/{family}_Zone',
             concatenate_jns=False, # HACK https://gitlab.onera.net/numerics/mesh/maia/-/issues/230#note_66270
             subset_merge='family')

@@ -49,6 +49,22 @@ def test_is_existing_path_local_directory(tmp_path):
     assert not FOP.is_existing_path(dirpath)
 
 
+@pytest.mark.unit
+def test_local_file_operations_do_not_require_posix_commands(tmp_path):
+    directory = tmp_path / "nested" / "directory"
+    filepath = directory / "content.txt"
+
+    FOP.makedirs_remote(directory, machine="localhost")
+    FOP.save_file(filepath.name, "content", directory)
+
+    assert FOP.is_file(filepath, machine="localhost")
+    FOP.remove_path(filepath, machine="localhost")
+    assert not FOP.is_existing_path(filepath, machine="localhost")
+
+    FOP.remove_path(directory, machine="localhost", file_only=False)
+    assert not FOP.is_existing_path(directory, machine="localhost")
+
+
 
 @pytest.mark.unit
 def test_scp_local_destination_is_a_directory(tmp_path):

@@ -25,9 +25,10 @@ import os
 import logging
 import warnings
 import numpy as np
+from ..mpi import get_mpi_elements_safely
 
 from .formatters import CustomFormatter, YELLOW, ENDC
-import mola.naming_conventions as names
+
     
 class MaxLevelFilter(logging.Filter):
 
@@ -48,30 +49,22 @@ class MolaLogger(logging.Logger):
             self.add_stream_handler(formatter)
         if filename:
             if self.rank == 0:
-                if os.path.exists(filename):
-                    os.remove(filename)
-            if self.NumberOfProcessors > 1:
-                self.comm.barrier()
+                try: os.remove(filename)
+                except: pass
+
             self.add_file_handler(formatter, filename)
         
     def _init_MPI(self):
-        try:
-            from mpi4py import MPI
-            self.comm = MPI.COMM_WORLD
-            self.rank = self.comm.Get_rank()
-            self.NumberOfProcessors = self.comm.Get_size()
-            self.comm.barrier()
-        except:
-            self.comm = None
-            self.rank = 0
-            self.NumberOfProcessors = 1
-            
-        if self.NumberOfProcessors > 1:
-            nbOfDigitsOfNProcs = int(np.ceil(np.log10(self.NumberOfProcessors+1)))
-            self.preffix = ('[{:0%d}]: '%nbOfDigitsOfNProcs).format(self.rank)
+        comm, rank, size, nb_digs = get_mpi_elements_safely()
+        self.comm = comm
+        self.rank = rank
+        self.NumberOfProcessors = size
+
+        if size >1:
+            self.preffix = ('[{:0%d}]: '%nb_digs).format(self.rank)
         else:
             self.preffix = ''
-
+            
     def set_level(self, level):
         self.setLevel(level)
 

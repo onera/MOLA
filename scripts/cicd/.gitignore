@@ -1,0 +1,5 @@
+# ONERA-specific deployment scripts
+# These files are tracked in GitLab (origin) using 'git add -f'
+# but excluded from GitHub by removing from index before push
+deploy.sh
+deploy_as_mola.sh

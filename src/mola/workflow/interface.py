@@ -21,7 +21,6 @@ from pathlib import Path
 import numpy as np
 import copy
 
-from mpi4py import MPI
 from treelab import cgns
 from treelab.cgns.tree import Tree
 from treelab.cgns.base import Base
@@ -36,6 +35,9 @@ from mola.logging import (mola_logger,
 from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
 import mola.naming_conventions as names
 from mola import solver
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 
 
 class WorkflowInterface(object):
@@ -951,7 +953,7 @@ class WorkflowInterface(object):
     def set_RunManagement(self,
         JobName : str = None,
         RunDirectory : Union[str, Path] = '.',
-        NumberOfProcessors : int = MPI.COMM_WORLD.Get_size(),
+        NumberOfProcessors : int = size,
         NumberOfThreads : int = 1,
         Machine : str = None,
         User : str = None,
@@ -1021,6 +1023,7 @@ class WorkflowInterface(object):
         RunDirectory = str(RunDirectory)
         self.RunManagement = self._get_comp(
             WorkflowInterface.set_RunManagement, self.get_default_values_from_local_signature())
+        self.RunManagement['RunDirectory'] = os.path.expandvars(self.RunManagement['RunDirectory'])
         
     def set_SolverParameters(self, **kwargs):
         # no check on this attribute, because it is solver dependent. 

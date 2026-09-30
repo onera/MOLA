@@ -33,13 +33,17 @@ class FakeWorkflow():
         self.RunManagement = dict(RunDirectory=module_directory,
                             Machine=os.getenv('MOLA_MACHINE'),
                             NumberOfProcessors=2,
-                            NumberOfThreads=3,
+                            NumberOfThreads=2,
                             Scheduler=None,
                             mola_target_path=__MOLA_PATH__,
                             SchedulerOptions = dict(opt1="a", opt2="b"),
+                            LauncherCommand="auto"
                             )
         self.tree = cgns.Tree()
         self._treeCellCenter = cgns.Tree()
+
+    def set_workflow_parameters_in_tree(self):
+        ...
 
 @pytest.mark.unit
 def test_write_compute():
@@ -53,28 +57,23 @@ def test_write_compute():
 def test_write_job_launcher():
 
     RunManagement = dict(RunDirectory=module_directory,
-                         Machine=os.getenv('MOLA_MACHINE'),
+                         Machine=os.getenv('MOLA_MACHINE') or 'localhost',
                          NumberOfProcessors=2,
-                         NumberOfThreads=3,
-                         Scheduler=None,
+                         NumberOfThreads=2,
+                         Scheduler='local',
+                         LauncherCommand=f'cd {module_directory}; bash job.sh',
                          mola_target_path=__MOLA_PATH__)
     
     scheduler_options = dict(opt1="a", opt2="b")
 
     solver_fast.write_job_launcher(RunManagement, scheduler_options)
 
-    os.unlink(os.path.join(module_directory,solver_fast.names.FILE_JOB))
-
-
-@pytest.mark.unit
-def test_write_run_scripts():
-
-    workflow = FakeWorkflow()
-
-    solver_fast.write_run_scripts(workflow)
+    job_text = pathlib.Path(
+        os.path.join(module_directory, solver_fast.names.FILE_JOB)).read_text()
+    assert 'if [ -f "RELAUNCH_JOB" ]; then' in job_text
+    assert job_text.index('rm -f RELAUNCH_JOB') < job_text.index('bash job.sh')
 
     os.unlink(os.path.join(module_directory,solver_fast.names.FILE_JOB))
-    os.unlink(os.path.join(module_directory,solver_fast.names.FILE_COMPUTE))
 
 
 @pytest.mark.unit

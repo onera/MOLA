@@ -146,11 +146,7 @@ def test_parametrize_with_height(tmp_path):
 def test_spleen_cascade(tmp_path):
     w = get_workflow_spleen(tmp_path)
     w.RunManagement['Scheduler'] = 'local'
-    try:
-        w.prepare()
-    except KeyError as e:
-        w.tree.save('debug.cgns')
-        raise KeyError('catched error') from e
+    w.prepare()
     w.write_cfd_files()
     w.submit(f'cd {tmp_path}; bash job.sh')
     w.assert_completed_without_errors()

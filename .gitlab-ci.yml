@@ -1,51 +1,51 @@
-# This file is a template, and might need editing before it works on your project.
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
+# MOLA CI/CD Configuration
+# This file defines the pipeline for automated testing and deployment
 
-# This is a sample GitLab CI/CD configuration file that should run without any modifications.
-# It demonstrates a basic 3 stage CI/CD pipeline. Instead of real tests or scripts,
-# it uses echo commands to simulate the pipeline execution.
-#
-# A pipeline is composed of independent jobs that run scripts, grouped into stages.
-# Stages run in sequential order, but jobs within stages run in parallel.
-#
-# For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
-
-# workflow:
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-#     - when: always
-
+# Global variables
 variables:
   MOLA_ENV_DEFAULT: src/mola/env/onera/env.sh
-  MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa 
+  MOLA_ENV_ELSA: src/mola/env/onera/env.sh elsa
   MOLA_ENV_FAST: src/mola/env/onera/env.sh fast
-  MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics 
-  SCHEDULER_PARAMETERS: "--ntasks=1 --time=00:30:00"  #Slurm default parameters
+  MOLA_ENV_SONICS: src/mola/env/onera/env.sh sonics
+  SCHEDULER_PARAMETERS: "--ntasks=1 --time=00:30:00"  # Slurm default parameters
   PYTEST_ADDOPTS: "-vv --durations=20 -k 'not sator'"  # default options for pytest
 
+# Default job configuration
 default:
-  tags: 
+  tags:
     - juno-slurm
   id_tokens:
     CI_JOB_JWT:
       aud: https://gitlab.onera.net
 
+# Pipeline stages
 stages:
   - test-unit
   - test-integration
+  - release-candidate
+  - examples-submit
+  - examples-validate
+  - examples-repatriate
+  - examples-postprocess
+  - examples-publish
   - code-quality
   - doc
+  - final_release
 
+.no_tests_on_tags:
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - when: on_success
 
-test_unit_elsa: 
+test_unit_elsa:
+  extends: .no_tests_on_tags
   stage: test-unit 
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+    SCHEDULER_PARAMETERS: "--ntasks=2 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_ELSA
+    - export OMP_NUM_THREADS=2
   script:
     - coverage run --data-file=.coverage_test_unit_elsa -m pytest -m unit 
   artifacts:
@@ -53,13 +53,15 @@ test_unit_elsa:
       - .coverage_test_unit_elsa
     expire_in: 1 day
   
-test_integration_elsa:  
+test_integration_elsa:
+  extends: .no_tests_on_tags  
   stage: test-integration
   needs: ["test_unit_elsa"]
   variables:
     SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_ELSA
+    - export OMP_NUM_THREADS=4
   script:
     - coverage run --data-file=.coverage_test_integration_elsa -m pytest -m integration
   artifacts:
@@ -67,12 +69,14 @@ test_integration_elsa:
       - .coverage_test_integration_elsa
     expire_in: 1 day
 
-test_unit_fast: 
+test_unit_fast:
+  extends: .no_tests_on_tags
   stage: test-unit 
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+    SCHEDULER_PARAMETERS: "--ntasks=2 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_FAST
+    - export OMP_NUM_THREADS=2
   script:
     - coverage run --data-file=.coverage_test_unit_fast -m pytest -m unit 
   artifacts:
@@ -80,13 +84,15 @@ test_unit_fast:
       - .coverage_test_unit_fast
     expire_in: 1 day
   
-test_integration_fast:  
+test_integration_fast:
+  extends: .no_tests_on_tags 
   stage: test-integration
   needs: ["test_unit_fast"]
   variables:
     SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
   before_script:
     - source $MOLA_ENV_FAST
+    - export OMP_NUM_THREADS=4
   script:
     - coverage run --data-file=.coverage_test_integration_fast -m pytest -m integration
   artifacts:
@@ -94,12 +100,15 @@ test_integration_fast:
       - .coverage_test_integration_fast
     expire_in: 1 day
 
-test_unit_sonics: 
+test_unit_sonics:
+  extends: .no_tests_on_tags 
   stage: test-unit
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+    SCHEDULER_PARAMETERS: "--time=00:30:00 --ntasks=2"
   before_script:
     - source $MOLA_ENV_SONICS
+    - unset PYTEST_PLUGINS
+    - export OMP_NUM_THREADS=2
   script:
     - coverage run --data-file=.coverage_test_unit_sonics -m pytest -m unit
   artifacts:
@@ -107,13 +116,16 @@ test_unit_sonics:
       - .coverage_test_unit_sonics
     expire_in: 1 day
 
-test_integration_sonics:  
+test_integration_sonics:
+  extends: .no_tests_on_tags  
   stage: test-integration
   needs: ["test_unit_sonics"]
   variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=1:00:00"
+    SCHEDULER_PARAMETERS: "--time=01:00:00 --ntasks=4"
   before_script:
     - source $MOLA_ENV_SONICS
+    - export OMP_NUM_THREADS=4
+    - unset PYTEST_PLUGINS
   script:
     - coverage run --data-file=.coverage_test_integration_sonics -m pytest -m integration
   artifacts:
@@ -121,7 +133,142 @@ test_integration_sonics:
       - .coverage_test_integration_sonics
     expire_in: 1 day
 
+
+release_candidate_prepare:
+  stage: release-candidate
+  tags:
+    - juno-shell  # Use login node for SSH-based deployment
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+(-.*)?$/  # Match release candidate tags
+  variables:
+    RELEASE_VERSION: $CI_COMMIT_TAG
+    DEPLOY_TARGET: "/stck/mola/${CI_COMMIT_TAG}"
+  script:
+    - echo "Starting Release Candidate ${RELEASE_VERSION}"
+    - chmod +x scripts/cicd/deploy.sh
+    - scripts/cicd/deploy.sh ${CI_PROJECT_DIR} ${RELEASE_VERSION}
+  artifacts:
+    paths:
+      - .release/
+    expire_in: 1 week
+  allow_failure: false
+
+
+examples_submit:
+  stage: examples-submit
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/
+  needs:
+    - release_candidate_prepare
+  script:
+    - source $MOLA_ENV_ELSA
+    - export OMP_NUM_THREADS=1
+    - echo "Submitting examples..."
+    - python3 -m mola.cicd.examples_runner submit --force --version "$CI_COMMIT_TAG"
+    - echo ""
+    - echo "Examples submission complete!"
+  artifacts:
+    paths:
+      - .release/example_states/
+    expire_in: 1 week
+
+
+examples_validate:
+  stage: examples-validate
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/
+  needs:
+    - job: examples_submit
+      artifacts: true
+  variables:
+    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
+  script:
+    - source $MOLA_ENV_ELSA
+    - export OMP_NUM_THREADS=4
+    - echo "Validating example results..."
+    - echo ""
+    - python3 -m mola.cicd.examples_runner validate
+  artifacts:
+    paths:
+      - .release/example_states/
+    expire_in: 1 week
+    when: always
+  when: manual
+  allow_failure: false
+
+
+examples_repatriate:
+  stage: examples-repatriate
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
+  needs:
+    - job: examples_validate
+      artifacts: true
+  tags:
+    - juno-shell
+  script:
+    - source $MOLA_ENV_DEFAULT
+    - python3 -m mola.cicd.examples_runner repatriate --full --tag "$CI_COMMIT_TAG"
+  artifacts:
+    paths:
+      - .release/example_states/
+    expire_in: 1 week
+
+
+examples_postprocess:
+  stage: examples-postprocess
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
+  needs:
+    - job: examples_repatriate
+      artifacts: true
+  tags:
+    - juno-shell
+  script:
+    - source $MOLA_ENV_DEFAULT
+    - python3 -m mola.cicd.examples_runner postprocess --tag "$CI_COMMIT_TAG"
+  artifacts:
+    paths:
+      - .release/example_states/
+    expire_in: 1 week
+
+
+examples_publish:
+  stage: examples-publish
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
+  needs:
+    - job: examples_postprocess
+      artifacts: true
+  tags:
+    - juno-shell
+  script:
+    - source $MOLA_ENV_DEFAULT
+    - python3 -m mola.cicd.examples_runner repatriate --light --tag "$CI_COMMIT_TAG"
+
+
+final_release:
+  stage: final_release
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+  tags:
+    - juno-shell
+  script:
+    - echo "Promoting the validated release candidate."
+    - chmod +x scripts/cicd/promote_release.sh scripts/cicd/promote_release_as_mola.sh
+    - scripts/cicd/promote_release.sh "$CI_COMMIT_TAG" "${RELEASE_CANDIDATE_TAG:-}"
+    - source "$MOLA_ENV_DEFAULT"
+    - MOLA_DOC_VERSION="$CI_COMMIT_TAG" make -C doc install_doc_requirements
+    - MOLA_DOC_VERSION="$CI_COMMIT_TAG" make -C doc doc
+    - python3 scripts/cicd/update_doc_versions.py doc/html/_static/versions.json "$CI_COMMIT_TAG"
+    - mkdir -p "/stck/mola/html/$CI_COMMIT_TAG"
+    - rsync -a --delete doc/html/ "/stck/mola/html/$CI_COMMIT_TAG/"
+    - chmod +x scripts/sync_to_github.sh
+    - scripts/sync_to_github.sh "$CI_COMMIT_TAG"
+
+
 coverage_report:
+  extends: .no_tests_on_tags
   stage: code-quality
   dependencies:
     - test_unit_elsa
@@ -152,6 +299,7 @@ coverage_report:
 
 
 radon_complexity:
+  extends: .no_tests_on_tags
   stage: code-quality
   before_script:
     - source $MOLA_ENV_DEFAULT
@@ -210,4 +358,3 @@ pages:    # Name to use for doc deployment
     paths:
       - public
     expire_in: 30 seconds
-

@@ -210,9 +210,6 @@ class WorkflowLinearCascade(Workflow):
         Cmpi.barrier()
 
     def after_compute(self, logger):
-        from mpi4py import MPI
-        rank = MPI.COMM_WORLD.Get_rank()
-
         postprocess_possible = self.tree.get(Name='ChannelHeight') is not None \
             and isinstance(self.ApplicationContext['lin_axis'], str)
         if not postprocess_possible:

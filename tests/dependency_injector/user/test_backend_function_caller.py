@@ -1,5 +1,5 @@
-import os
 import pytest
+from pathlib import Path
 
 import mola.dependency_injector.backend_function_caller as test
 from . import dummy_module
@@ -10,7 +10,7 @@ dummy_backends = ["backend1","backend2"]
 @pytest.mark.parametrize("backend", dummy_backends)
 def test_get_function_at_backend_from(backend):
     function_name = 'dummy_function'
-    module_path = os.environ["MOLA"].replace("/src","")+f"/tests/dependency_injector/wrap/{backend}/dummy_module.py"
+    module_path = Path(__file__).resolve().parents[1] / "wrap" / backend / "dummy_module.py"
     module = test.get_backend_module_from(module_path)
     fun = test.get_function_at_backend_from(module, function_name)
     assert fun() == backend

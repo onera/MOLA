@@ -18,6 +18,7 @@
 import pytest
 
 import os
+import sys
 import shutil
 import numpy as np
 
@@ -29,15 +30,18 @@ from mola import server as SV
 from mola.cfd.preprocess.run_manager import run_manager
 from mola.workflow import Workflow, WorkflowInterface
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 
 def get_workflow_dist():
-    from mpi4py import MPI
+
     import maia
     
 
-    MPI.COMM_WORLD.barrier()
+    comm.barrier()
     mesh = None
-    if MPI.COMM_WORLD.Get_rank() == 0:
+    if rank == 0:
         x, y, z = np.meshgrid( np.linspace(0,1,21),
                             np.linspace(0,1,21),
                             np.linspace(0,1,21), indexing='ij')
@@ -46,10 +50,10 @@ def get_workflow_dist():
         mesh = cgns.add(mesh) # mesh must be CGNSTree_t for full_to_dist_tree
 
 
-    MPI.COMM_WORLD.barrier()
-    mesh = maia.factory.full_to_dist_tree(mesh, MPI.COMM_WORLD, owner=0)
+    comm.barrier()
+    mesh = maia.factory.full_to_dist_tree(mesh, comm, owner=0)
     mesh = cgns.castNode(mesh) 
-    MPI.COMM_WORLD.barrier()
+    comm.barrier()
 
     w = Workflow(
         RawMeshComponents=[
@@ -274,7 +278,7 @@ def get_workflow_sphere_struct(RunDirectory):
     return w
 
 def get_workflow_sphere_struct_cassiopee_mpi_to_connect(RunDirectory):
-    from mpi4py import MPI
+
     w = Workflow(
         RawMeshComponents=[
             dict(
@@ -327,7 +331,7 @@ def get_workflow_sphere_struct_cassiopee_mpi_to_connect(RunDirectory):
             ],
 
         RunManagement=dict(
-            NumberOfProcessors=MPI.COMM_WORLD.Get_size(),
+            NumberOfProcessors=size,
             RunDirectory=RunDirectory,
             ),
         )
@@ -335,7 +339,7 @@ def get_workflow_sphere_struct_cassiopee_mpi_to_connect(RunDirectory):
     return w
 
 def get_workflow_sphere_struct_dist(RunDirectory):
-    from mpi4py import MPI
+
 
     w = Workflow(
         RawMeshComponents=[
@@ -387,7 +391,7 @@ def get_workflow_sphere_struct_dist(RunDirectory):
             ],
 
         RunManagement=dict(
-            NumberOfProcessors=MPI.COMM_WORLD.Get_size(), 
+            NumberOfProcessors=size, 
             RunDirectory=RunDirectory,
             ),
         )
@@ -592,15 +596,15 @@ def get_workflow_cart_monoproc(
         #the unstructured grid has to be created here because maia nor cassiopee
         #can handle the conversion to unstructured grids in 2D ...
         import maia
-        from mpi4py import MPI
-        mesh = maia.factory.generate_dist_block(n_pts_dir, 'S', MPI.COMM_WORLD,
+    
+        mesh = maia.factory.generate_dist_block(n_pts_dir, 'S', comm,
                                           origin=[0., 0.], length=[(1.,0.), (0.,1.)])
         mesh = cgns.castNode(mesh)
         mesh.get('GridCoordinates').addChild(
             cgns.Node(Name = 'CoordinateZ', Value = np.zeros(n_pts_dir**2),
                                                                Type = 'DataArray_t'))
-        maia.algo.dist.convert_s_to_ngon(mesh, MPI.COMM_WORLD)
-        maia.algo.edge_pe_to_ngon(mesh, MPI.COMM_WORLD)
+        maia.algo.dist.convert_s_to_ngon(mesh, comm)
+        maia.algo.edge_pe_to_ngon(mesh, comm)
         mesh = cgns.castNode(mesh)
         for n, m in zip(['Xmin', 'Ymin', 'Xmax', 'Ymax'],
                         ['Inlet', 'Ground', 'Farfield.0', 'Farfield.1']):
@@ -675,17 +679,25 @@ def test_print_interface_1():
 @pytest.mark.unit
 def test_submit(tmp_path):
     test_dir = str(tmp_path)
+    output_file = os.path.join(test_dir, 'test.txt')
+    launcher_command = (
+        f'"{sys.executable}" -c "from pathlib import Path; '
+        f'Path(r\'{output_file}\').write_text(\'hostname\')"'
+    )
     w = Workflow(RunManagement=dict(
         RunDirectory=test_dir, 
-        # Force launching with bash, whatever the machine, this is a simple test
-        LauncherCommand=f"cd {test_dir}; bash {names.FILE_JOB}"
+        Machine='localhost',
+        Scheduler='local',
+        LauncherCommand=launcher_command,
         ))
+    # ``submit`` generates the solver job script when preprocessing is not
+    # complete.  This test supplies its own script, so exercise only the
+    # submission part of the method.
+    w.RunManagement['PreprocessDone'] = True
     run_manager.set_default(w.RunManagement)
     os.makedirs(test_dir, exist_ok=True)
-    with open(os.path.join(test_dir,'job.sh'),'w') as f:
-        f.write('hostname > test.txt')
     w.submit()
-    if not os.path.exists(os.path.join(test_dir,'test.txt')):
+    if not os.path.exists(output_file):
         raise MolaException('submit test failed')
     shutil.rmtree(test_dir)
     

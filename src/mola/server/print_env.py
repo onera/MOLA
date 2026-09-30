@@ -22,8 +22,8 @@ from timeit import default_timer as tic
 import importlib
 from packaging.version import Version
 
-from mola import __version__, __MOLA_PATH__
-from mola.logging import RED, GREEN, YELLOW, ENDC
+from .. import __version__, __MOLA_PATH__
+from ..logging import RED, GREEN, YELLOW, ENDC
 
 def print_environment():
 

@@ -21,6 +21,10 @@ import os
 from mola.cfd.coprocess.manager import CoprocessManager, names
 from mola.cfd.coprocess import user_interface
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 
 class FakeWorkflow():
     def __init__(self,RunDirectory=None):
@@ -55,12 +59,6 @@ def test_get_user_signal(tmp_path):
     os.chdir(tmp_path)
     workflow = FakeWorkflow(tmp_path)
     coprocess = CoprocessManager(workflow)
-
-    try: 
-        from mpi4py import MPI
-        rank = MPI.COMM_WORLD.Get_rank()
-    except:
-        rank = 0
 
     if rank == 0:
         with open('A_SIGNAL', 'w') as f: 

@@ -19,6 +19,9 @@ import copy
 import treelab.cgns as cgns
 from mola.logging import mola_logger, MolaException, MolaUserError
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 
 def apply(workflow):
@@ -28,10 +31,7 @@ def apply(workflow):
         mola_logger.info("  🏷 defining tags", rank=0)
 
         t = workflow.tree
-        from mpi4py import MPI
-        mpi_size = MPI.COMM_WORLD.Get_size()
-        rank = MPI.COMM_WORLD.Get_rank()
-        if mpi_size > 1:
+        if size > 1:
             import maia
             is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
             if is_dist:
@@ -54,11 +54,11 @@ def apply(workflow):
                     location   = operation.get('Location')
                     set_bc_family_from_location(base, FamilyName, location)  # use cassiopee, and need a full_tree as input
 
-        if mpi_size > 1:
-            MPI.COMM_WORLD.barrier()
-            workflow.tree = maia.factory.full_to_dist_tree(t, MPI.COMM_WORLD, owner=0)
+        if size > 1:
+            comm.barrier()
+            workflow.tree = maia.factory.full_to_dist_tree(t, comm, owner=0)
             workflow.tree = cgns.castNode(workflow.tree)
-            MPI.COMM_WORLD.barrier()
+            comm.barrier()
         else:
             workflow.tree = cgns.castNode(workflow.tree)
 

@@ -71,8 +71,6 @@ class WorkflowTurbomachinery(WorkflowRotatingComponent):
         Cmpi.barrier()
 
     def after_compute(self, logger):
-        from mpi4py import MPI
-        rank = MPI.COMM_WORLD.Get_rank()
 
         postprocess_possible = self.tree.get(Name='ChannelHeight') is not None
         if not postprocess_possible:

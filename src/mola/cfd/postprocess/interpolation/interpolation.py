@@ -21,14 +21,18 @@ from itertools import product
 from mola.cfd.preprocess.mesh.tools import to_partitioned, to_distributed
 import mola.pytree.InternalShortcuts as J
 from treelab import cgns
-import maia
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
+
+from ....mpi import get_mpi_elements_safely
+
+comm, rank, size, nb_digs = get_mpi_elements_safely()
+
+
 import Converter.Internal as I
 import Converter.PyTree as C
 
 def interpolate_closest(tree_source, tree_target, comm = comm, n_closest_pt = 8,
     strategy = 'Closest', **kwargs):
+    import maia
     _tree_target = tree_target.copy(deep = True)
     if _tree_target.get(':CGNS#Distribution') is not None:
         if tree_source.get(':CGNS#Distribution') is None:

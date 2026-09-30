@@ -18,10 +18,23 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+if [[ -v OMP_NUM_THREADS ]]; then
+    _omp_was_set=1
+    _omp_original_value=$OMP_NUM_THREADS
+else
+    _omp_was_set=0
+fi
+
 export MACHINE=ld
 export CASSIOPEE=/stck/cassiope/git/releases/Cassiopee/v4.1
 source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
 export HDF5_DISABLE_VERSION_CHECK=1 # BUG https://elsa.onera.fr/issues/12068
+
+if (( _omp_was_set )); then
+    export OMP_NUM_THREADS="$_omp_original_value"
+fi
+
+unset _omp_was_set _omp_original_value
 
 module load texlive/2021 # for LaTeX rendering in matplotlib with STIX font
 

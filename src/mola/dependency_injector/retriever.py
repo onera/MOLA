@@ -47,6 +47,8 @@ def load_source(ModuleName, filename, safe=True):
         module : module
             the loaded module
     '''
+    filename = os.fspath(filename)
+
     if safe:
         current_path_file = filename.split(os.path.sep)[-1]
         for fn in [filename, current_path_file]:
@@ -71,20 +73,24 @@ def get_wrap_module_path(backend : str,
         interface_switch=["/user/", "/wrap/<backend>/"]):
 
     previous_module_path = get_caller_path()
-    try:
-        # previous_module_path is like '/<root_path>/src/mola/folder/user/module.py'
-        # In the floowing lines, it is split to prevent unwanted modification of '/<root_path>/' if it contains 'user'
-        root_path, previous_module_path = previous_module_path.split('src/mola/')
-        wrap_path = previous_module_path.replace(interface_switch[0],
-                               interface_switch[1].replace('<backend>',f'{backend}'))
-        wrap_path = os.path.join(root_path,'src/mola', wrap_path)
-    except ValueError:
-        # the pattern "src/mola/" is not in previous_module_path
-        # It appends to import modules from "test" for instance
-        wrap_path = previous_module_path.replace(interface_switch[0],
-                               interface_switch[1].replace('<backend>',f'{backend}'))
+    # Normalize only for pattern replacement.  Convert back to the host
+    # platform's representation before returning the path.
+    normalized_path = previous_module_path.replace('\\', '/')
+    source_marker = 'src/mola/'
+    source_switch = interface_switch[0].replace('\\', '/')
+    backend_switch = interface_switch[1].replace('\\', '/').replace(
+        '<backend>', f'{backend}')
 
-    return wrap_path
+    if source_marker in normalized_path:
+        root_path, relative_path = normalized_path.split(source_marker, 1)
+        relative_path = relative_path.replace(source_switch, backend_switch)
+        normalized_path = f'{root_path}{source_marker}{relative_path}'
+    else:
+        # The helper is also used by tests and user extensions outside the
+        # source tree, where only the interface switch is relevant.
+        normalized_path = normalized_path.replace(source_switch, backend_switch)
+
+    return os.path.normpath(normalized_path)
 
 def get_caller_path(
     # CAUTION put in exclude_modules all the module directly importing retriever:
@@ -107,6 +113,4 @@ def get_backend_module_from(expected_module_path : str):
         raise FileNotFoundError(msg) from e
 
     return backend_module
-
-
 

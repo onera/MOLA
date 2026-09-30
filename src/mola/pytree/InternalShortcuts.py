@@ -32,6 +32,9 @@ from timeit import default_timer as tic
 from fnmatch import fnmatch
 from contextlib import contextmanager
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 
 import Converter.PyTree as C
 import Converter.Internal as I
@@ -1483,9 +1486,8 @@ def load(*args, **kwargs):
         filename = args[0]
         if filename.endswith('.cgns') or filename.endswith('.hdf'):
             import maia
-            from mpi4py import MPI
             try:
-                t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD, **kwargs)
+                t = maia.io.file_to_dist_tree(filename, comm, **kwargs)
             except BaseException as e:
                 print(WARN+f'could not open {filename} with maia, received error:')
                 print(e)
@@ -1497,9 +1499,8 @@ def load(*args, **kwargs):
         t = C.convertFile2PyTree(*args, **kwargs)
     elif backend.lower() == 'maia':
         import maia
-        from mpi4py import MPI
         filename = args[0]
-        t = maia.io.file_to_dist_tree(filename, MPI.COMM_WORLD,**kwargs)
+        t = maia.io.file_to_dist_tree(filename, comm,**kwargs)
     else:
         raise NotImplementedError(f'backend {backend} unknown')
 

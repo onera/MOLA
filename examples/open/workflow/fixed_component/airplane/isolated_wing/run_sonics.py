@@ -1,9 +1,11 @@
-from mola.workflow.fixed.airplane.workflow import WorkflowAirplane, solver
-import numpy as np
+from mola.workflow.fixed.airplane.workflow import WorkflowAirplane
 
-assert solver == 'sonics'
+solver = 'sonics'
+example_name = 'isol_wing_'+solver
 
 w = WorkflowAirplane(
+
+    Solver=solver,
 
     RawMeshComponents=[
         dict(
@@ -50,26 +52,29 @@ w = WorkflowAirplane(
         dict(Family='SYMMETRY', Type='SymmetryPlane'),
     ],
 
-    # ConvergenceCriteria = [
-    #     dict(
-    #         ExtractionName = 'WING',
-    #         Variable = "rsd-CD",
-    #         Threshold = 1e-4,
-    #     ),
-    #     dict(
-    #         ExtractionName = 'WING',
-    #         Variable = "CL",
-    #         Threshold = -np.inf, # HINT just for showing Variable progress in coprocess.log
-    #     )
-    # ],
+    ConvergenceCriteria = [
+        dict(
+            ExtractionName = 'WING',
+            Variable = "rsd-CD",
+            Threshold = 1e-4,
+        ),
+        dict(
+            ExtractionName = 'WING',
+            Variable = "CL",
+            Threshold = float('-inf'), # HINT just for showing Variable progress in coprocess.log
+        )
+    ],
 
     RunManagement = dict(
         NumberOfProcessors = 8,
-        RunDirectory = f'example_{solver}',
-        Scheduler = 'local',
+        JobName=example_name,
+        RunDirectory = '/tmp_user/juno/$USER/mola_examples/'+example_name,
+        TimeLimit = '3:00:00',
     ),
 )
 
-w.prepare()
-w.write_cfd_files()
+# w.prepare()
+# w.write_cfd_files()
 w.submit()
+
+# MOLA_CI_MODE: "mono"

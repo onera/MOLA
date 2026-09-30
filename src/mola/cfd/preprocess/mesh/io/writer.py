@@ -22,12 +22,8 @@ from .utils import get_io_tool
 from ..tools import to_full_tree_at_rank_0, EmptyNodesManager
 from treelab import cgns
 import mola.naming_conventions as names
-
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
-nb_digit = int(np.ceil(np.log10(size+1)))
+from .....mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
 
 def write(w, tree, dst, io_tool=None):
 
@@ -46,7 +42,8 @@ def write(w, tree, dst, io_tool=None):
 
 def write_with_treelab(w, tree, dst):
     t = tree.copy()
-    t = to_full_tree_at_rank_0(t)
+    if size >1:
+        t = to_full_tree_at_rank_0(t)
     cgns.save(t, dst)
 
 def write_with_cassiopee(w, tree, dst):
@@ -60,7 +57,7 @@ def write_with_cassiopee(w, tree, dst):
         if _shall_write_one_file_per_proc(tree):        
             try: os.makedirs(start_path)
             except: pass
-            dst = os.path.join(start_path, ('rank_{:0%d}.'%nb_digit).format(rank) + fmt)
+            dst = os.path.join(start_path, ('rank_{:0%d}.'%nb_digs).format(rank) + fmt)
 
     links = tree.getLinks()
     for l in links: l[0] = '.' # HACK treelab 0.1.1
@@ -94,7 +91,6 @@ def write_with_cassiopee_mpi(w, tree, dst):
     Cmpi.barrier()
     
 def write_with_maia(w, tree, dst):
-    from mpi4py import MPI
     import maia
 
     def get_links_for_maia(tree):
@@ -107,25 +103,25 @@ def write_with_maia(w, tree, dst):
         return links
     
     links = get_links_for_maia(tree)
-    MPI.COMM_WORLD.barrier()
+    comm.barrier()
     if maia.pytree.get_node_from_name(tree, ':CGNS#GlobalNumbering') is not None:
         tree.removeEmptyZones()
-        # maia.io.part_tree_to_file(tree, dst, MPI.COMM_WORLD, single_file=True, links=links)
-        tree = maia.factory.recover_dist_tree(tree, MPI.COMM_WORLD, data_transfer='ALL')
-        maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
+        # maia.io.part_tree_to_file(tree, dst, comm, single_file=True, links=links)
+        tree = maia.factory.recover_dist_tree(tree, comm, data_transfer='ALL')
+        maia.io.dist_tree_to_file(tree, dst, comm, links=links)
 
 
     elif maia.pytree.get_node_from_name(tree, ':CGNS#Distribution') is not None:
         tree.removeEmptyZones()
-        maia.io.dist_tree_to_file(tree, dst, MPI.COMM_WORLD, links=links)
+        maia.io.dist_tree_to_file(tree, dst, comm, links=links)
     
     else:
         # The tree is nor partitioned neither distributed.
         # It is then considered as full on rank 0
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if rank == 0:
             maia.io.write_tree(tree, dst, links=links)
 
-    MPI.COMM_WORLD.barrier()
+    comm.barrier()
 
 def write_with_pypart(w, tree, dst):
     import Converter.Mpi as Cmpi

@@ -16,13 +16,15 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+from ..mpi import get_mpi_elements_safely
 
 sys_excepthook = sys.excepthook
 
-def mpi_excepthook(type, value, traceback):
-    from mpi4py import MPI
+comm, rank, size, _ = get_mpi_elements_safely()
+is_sequential = size == 1
 
-    rank = MPI.COMM_WORLD.Get_rank()
+def mpi_excepthook(type, value, traceback):
+
     err_mssg = f"Your application aborted because of an uncaught exception on rank {rank}:\n\n"
 
     sys.stderr.write(err_mssg)
@@ -31,9 +33,10 @@ def mpi_excepthook(type, value, traceback):
     sys.stdout.flush()
     sys.stderr.flush()
 
-    MPI.COMM_WORLD.Abort(1)
+    comm.Abort(1)
 
 def enable_mpi_excepthook():
+    if is_sequential: return
     try:
         sys.excepthook = mpi_excepthook
     except:
