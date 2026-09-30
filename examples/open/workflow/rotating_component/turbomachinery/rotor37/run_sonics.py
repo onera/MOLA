@@ -69,15 +69,15 @@ w = turbomachinery.Workflow(
         ),
     ],
 
-    # Initialization = dict(
-    #     ParametrizeWithHeight = 'turbo'
-    # ),
+    Initialization = dict(
+        ParametrizeWithHeight = 'maia'
+    ),
 
     RunManagement=dict(
         NumberOfProcessors = 24,
         JobName=example_name,
         RunDirectory = '/tmp_user/sator/$USER/mola_examples/'+example_name,
-        TimeLimit = '15:00:00',
+        # TimeLimit = '0:30:00',
         AER='37753003F',
         ),
     )

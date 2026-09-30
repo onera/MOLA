@@ -66,7 +66,7 @@ w = turbomachinery.Workflow(
     Initialization = dict(
         Method = 'copy',
         Source = '/stck/mola/data/open/mesh/SRV2/init_field/init.cgns',
-        ParametrizeWithHeight = 'turbo',
+        ParametrizeWithHeight = 'maia',
     ),
 
     Extractions = [
@@ -87,7 +87,7 @@ w = turbomachinery.Workflow(
         NumberOfProcessors = 48,
         JobName=example_name,
         RunDirectory = '/tmp_user/sator/$USER/mola_examples/'+example_name,
-        TimeLimit = '15:00:00',
+        # TimeLimit = '0:30:00',
         AER='37753003F',
         ),
 

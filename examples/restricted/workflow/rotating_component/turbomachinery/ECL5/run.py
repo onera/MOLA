@@ -52,7 +52,7 @@ w = turbomachinery.Workflow(
         Method = 'copy',
         Source = '/stck/mola/data/restricted/mesh/ECL5/init_fields/init.cgns',
         # Method = 'uniform',
-        # ParametrizeWithHeight = 'turbo',
+        ParametrizeWithHeight = 'maia',
     ),
 
     Extractions = [
@@ -117,4 +117,4 @@ for solver in ['elsa',
 manager.prepare()
 manager.submit()
 
-# MOLA_CI_MODE: "multi" # disabled until restart is solved
+# MOLA_CI_MODE: "multi"
