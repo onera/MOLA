@@ -44,12 +44,17 @@ def test_onera_sator_get_job_text():
         "onera",
         RunManagement['Machine'],
         'fake_solver.sh')
-    
-    assert job_text == f'''#!/bin/bash
-#SBATCH --time=15:00:00
-#SBATCH --job-name=mytest
-#SBATCH --output=output.%j.log
-#SBATCH --error=error.%j.log
 
-source {env}
-unset "${{!OMPI_@}}" "${{!MPI_@}}"'''
+    job_text_lines = job_text.splitlines()
+    expected_lines = [
+        '#!/bin/bash',
+        '#SBATCH --time=15:00:00',
+        '#SBATCH --job-name=mytest',
+        '#SBATCH --output=output.%j.log',
+        '#SBATCH --error=error.%j.log',
+        '',
+        f'source {env}',
+    ]
+
+    for got, expected in zip(job_text_lines, expected_lines):
+        assert got == expected

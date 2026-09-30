@@ -23,6 +23,10 @@ from .tools import (
     update_signals_using, 
 )
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
+
+
 def has_probes(workflow):
     return any([ext['Type']=='Probe' for ext in workflow.Extractions])
 
@@ -35,12 +39,10 @@ def search_zone_and_index_for_probes(coprocess_manager, comm):
         - The function modifies the probe dictionaries by adding information about the zone, element, distance to the nearest vertex, and processor rank.
         - Probes that are too far from the nearest vertex are removed from the list.
     '''
-    from mpi4py import MPI
+    from mpi4py.MPI import MIN, MAX
     import Converter.PyTree as C
     import Converter.Internal as I
     import Geom.PyTree as D
-
-    rank = comm.Get_rank()
 
     coprocess_manager.mola_logger.info('initialize probes', rank=0)
 
@@ -85,7 +87,7 @@ def search_zone_and_index_for_probes(coprocess_manager, comm):
         
         Probe['rank'] = -1
         comm.barrier()
-        minDistanceForAllProcessors = comm.allreduce(minDistance, op=MPI.MIN)
+        minDistanceForAllProcessors = comm.allreduce(minDistance, op=MIN)
         if minDistance == minDistanceForAllProcessors:
             # Probe on this proc
             Probe['rank'] = rank
@@ -101,7 +103,7 @@ def search_zone_and_index_for_probes(coprocess_manager, comm):
                 Probe['Name'] = f'Probe_{xp:.3g}_{yp:.3g}_{zp:.3g}'
 
         comm.barrier()
-        rankForComm = comm.allreduce(Probe['rank'], op=MPI.MAX)
+        rankForComm = comm.allreduce(Probe['rank'], op=MAX)
         comm.barrier()
         UpdatedProbe = comm.bcast(Probe, root=rankForComm)
         comm.barrier()
@@ -118,8 +120,6 @@ def search_zone_and_index_for_probes(coprocess_manager, comm):
 
 def extract_probe(output_tree: cgns.Tree, extraction: dict, coprocess_manager):
 
-    from mpi4py import MPI
-    rank = MPI.COMM_WORLD.Get_rank()
 
     t = cgns.Tree()
     base = cgns.Base(Name='Probes', Parent=t)

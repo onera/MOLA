@@ -30,4 +30,7 @@ doc/theme
 ext
 DOCUMENTATION
 .mola_run_directory
-examples/restricted
+
+# Generated version file by hatch-vcs
+src/mola/_version.py
+

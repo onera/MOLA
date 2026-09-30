@@ -3,72 +3,91 @@
 # Repatriate directories after submitting several simulations on sator at once
 
 from pathlib import Path
+import os
 import argparse
 
 import mola.naming_conventions as names
 from mola.logging import MolaException
-from mola.server import get_one_case, get_all_cases_from_workflow_manager
+from mola.server import (
+    get_repatriation_filters,
+    get_cases_from_submission_state,
+    get_one_case,
+    get_all_cases_from_workflow_manager,
+)
 
 __DOC__ = (
     "repatriate data from a remote machine after submitting one simulation with a Workflow "
     "or several simulations with a WorkflowManager. "
-    f"There has to be a file {names.FILE_LOG_REMOTE_DIRECTORY} "
-    f"or a file {names.FILE_WORKFLOW_MANAGER} in the current directory. "
+    "Use --state or explicit run-directory options. Legacy files "
+    f"{names.FILE_LOG_REMOTE_DIRECTORY} and {names.FILE_WORKFLOW_MANAGER} "
+    "remain supported. "
     "This command must be used with at least one option."
 )
 
 def parse_args():
-    # Predefined file patterns
-    BASE_INCLUDES = set(names.STATUS_FILES)
-    IMAGE_PATTERNS = ['**.png', '**.pdf', '**.svg']
-    LOG_PATTERNS = ['*.log', f'{names.DIRECTORY_LOG}**']
-    SIGNALS_PATTERNS = [names.DIRECTORY_OUTPUT, f'*/{names.FILE_OUTPUT_1D}']
-    EXTRACTIONS_PATTERNS = [names.DIRECTORY_OUTPUT, f'*/{names.FILE_OUTPUT_2D}']
-    OUTPUT_PATTERN = [f'{names.DIRECTORY_OUTPUT}**']
-
-    LIGHT_PATTERNS = IMAGE_PATTERNS + SIGNALS_PATTERNS + EXTRACTIONS_PATTERNS
-
     parser = argparse.ArgumentParser(usage=__DOC__)
     args_group = parser.add_mutually_exclusive_group()
     args_group.add_argument('-f', '--full', action='store_true', help='Copy all files')
-    args_group.add_argument('-l', '--light', help=(
-        f'Copy main files for data analysis ({names.FILE_OUTPUT_1D}, '
-        f'{names.FILE_OUTPUT_2D}, plots, figures, etc.)'),
-        dest='patterns', action='append_const', const=LIGHT_PATTERNS
-        )
+    args_group.add_argument(
+        '-l', '--light', action='store_true',
+        help=(
+            f'Copy main files for data analysis ({names.FILE_OUTPUT_1D}, '
+            f'{names.FILE_OUTPUT_2D}, plots, figures, etc.)'
+        ),
+    )
     
     parser.add_argument('--log', help='Copy log files', 
-                      dest='patterns', action='append_const', const=LOG_PATTERNS
+                      dest='patterns', action='append_const', const=names.REPATRIATION_LOG_PATTERNS
                       )
     parser.add_argument('-s', '--signals', help=f'Copy {names.FILE_OUTPUT_1D}', 
-                        dest='patterns', action='append_const', const=SIGNALS_PATTERNS
+                        dest='patterns', action='append_const', const=names.REPATRIATION_SIGNALS_PATTERNS
                         )
     parser.add_argument('-e', '--extractions', help=f'Copy {names.FILE_OUTPUT_2D}', 
-                        dest='patterns', action='append_const', const=EXTRACTIONS_PATTERNS
+                        dest='patterns', action='append_const', const=names.REPATRIATION_EXTRACTIONS_PATTERNS
                         )
     parser.add_argument('-o', '--output', help=f'Copy directory {names.DIRECTORY_OUTPUT}', 
-                        dest='patterns', action='append_const', const=OUTPUT_PATTERN
+                        dest='patterns', action='append_const', const=names.REPATRIATION_OUTPUT_PATTERNS
                         )
+    parser.add_argument('--state', help='Submission state YAML file')
+    parser.add_argument('--run-directory', help='Remote run directory for one case')
+    parser.add_argument('--machine', help='Remote machine for --run-directory')
+    parser.add_argument('--user', help='Remote user for --run-directory')
 
     args = parser.parse_args()
-    if not args.patterns and not args.full:
+    if not args.patterns and not args.full and not args.light:
         raise MolaException('mola_repatriate must be used with at least one option. See help with mola_repatriate --help')
 
-    included_files = set(BASE_INCLUDES)
-    excluded_files = set()
+    patterns = [pattern for pattern_list in (args.patterns or [])
+                for pattern in pattern_list]
+    mode = 'full' if args.full else 'light' if args.light else 'custom'
+    included_files, excluded_files = get_repatriation_filters(mode, patterns)
 
-    if not args.full:
-        # args.patterns is a list of lists, so we need to flatten it
-        patterns = [p for patterns_list in args.patterns for p in patterns_list]
-        included_files.update(patterns)
-        # exclude all other files
-        excluded_files = set('*')
-
-    return included_files, excluded_files
+    return included_files, excluded_files, args
 
 def main():
 
-    included_files, excluded_files = parse_args()
+    included_files, excluded_files, args = parse_args()
+
+    if args.state:
+        get_cases_from_submission_state(
+            args.state,
+            included_files=included_files,
+            excluded_files=excluded_files,
+        )
+        return
+
+    if args.run_directory:
+        from mola.server.files_operations import rsync
+        rsync(
+            source_path=f'{args.run_directory}{os.path.sep}',
+            source_machine=args.machine or 'localhost',
+            source_user=args.user,
+            destination_path=f'.{os.path.sep}',
+            destination_machine='localhost',
+            included_files=included_files,
+            excluded_files=excluded_files,
+        )
+        return
 
     is_remote_case_file = Path(names.FILE_LOG_REMOTE_DIRECTORY).is_file()
     is_workflow_manager_file = Path(names.FILE_WORKFLOW_MANAGER).is_file()

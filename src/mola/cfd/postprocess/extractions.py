@@ -15,8 +15,8 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
-from mpi4py import MPI
-rank = MPI.COMM_WORLD.Get_rank()
+from ...mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
 
 from treelab import cgns
 from mola.logging import MolaException
@@ -35,7 +35,7 @@ def iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, Name, 
     elif tool.lower() == 'maia':
         from .extractions_with_maia import iso_surface
         try:
-            extraction = iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm=MPI.COMM_WORLD)
+            extraction = iso_surface(t, IsoSurfaceField, IsoSurfaceValue, IsoSurfaceContainer, comm=comm)
         except Exception as e:
             tree = cgns.Node(t)
             tree.save(f'debug_{rank}.cgns')
@@ -63,12 +63,12 @@ def extract_bc(t, Family, BaseName=None, tool='cassiopee'):
     
     elif tool == 'maia_family':
         from .extractions_with_maia import extract_bc_from_family
-        tree = extract_bc_from_family(t, Family=Family, comm=MPI.COMM_WORLD)
+        tree = extract_bc_from_family(t, Family=Family, comm=comm)
         extraction = cgns.castNode(tree)
     
     elif tool == 'maia_zsr':
         from .extractions_with_maia import extract_bc_from_zsr
-        zones = extract_bc_from_zsr(t, Family=Family, comm=MPI.COMM_WORLD)
+        zones = extract_bc_from_zsr(t, Family=Family, comm=comm)
         extraction = get_renamed_tree_maia(zones, BaseName, CellDimension=CellDimension)
         extraction = cgns.castNode(extraction)
         for zsr in extraction.group(Type='ZoneSubRegion'):

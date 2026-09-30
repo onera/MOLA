@@ -19,17 +19,15 @@
 Creation by recycling GenerativeShapeDesign.py of v1.18.1
 '''
 
-from mola.pytree import InternalShortcuts as J
-from mola.mesh import curve as W
-from mola.math_tools import interpolate__
-from mola.cfd.postprocess.interpolation import migrateFields
-
-
 import sys
 import pprint
 from copy import deepcopy as cdeep
 import numpy as np
 
+from mola.pytree import InternalShortcuts as J
+from mola.mesh import curve as W
+from mola.math_tools import interpolate__
+from mola.cfd.postprocess.interpolation import migrateFields
 
 # Cassiopee
 import Converter.PyTree as C

@@ -16,8 +16,8 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from mpi4py import MPI
-rank = MPI.COMM_WORLD.Get_rank()
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
 
 import Converter.PyTree as C
 import Converter.Internal as I

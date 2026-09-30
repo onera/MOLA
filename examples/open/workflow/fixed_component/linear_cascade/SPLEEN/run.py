@@ -1,8 +1,11 @@
 from mola.workflow.fixed import linear_cascade
-import os
-solver = os.getenv('MOLA_SOLVER')
+
+solver = 'elsa'
+example_name = 'lin_casc_spleen_'+solver
 
 w = linear_cascade.Workflow(
+
+    Solver=solver,
 
     Mesh = '/stck/mola/data/open/mesh/spleen/SPLEEN.cgns',
 
@@ -18,7 +21,7 @@ w = linear_cascade.Workflow(
 
     Turbulence = dict(
         Level = 0.025,
-        Viscosity_EddyMolecularRatio = 100.,
+        Viscosity_EddyMolecularRatio = 100.0,
         Model = 'SST-V2003',
     ),
 
@@ -47,13 +50,15 @@ w = linear_cascade.Workflow(
 
     RunManagement = dict(
         NumberOfProcessors = 8,
-        RunDirectory = f'example_{solver}',
-        Scheduler = 'local',
+        JobName=example_name,
+        RunDirectory = '/tmp_user/juno/$USER/mola_examples/'+example_name,
         TimeLimit = '3:00:00',
     )
 
 )
 
-w.prepare()
-w.write_cfd_files()
+# w.prepare()
+# w.write_cfd_files()
 w.submit()
+
+# MOLA_CI_MODE: "mono"

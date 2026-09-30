@@ -23,6 +23,10 @@ from mola.dependency_injector.retriever import load_source
 from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null_if_not_debug
 from mola.cfd.postprocess.interpolation import migrateFields
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, mpi_size, _ = get_mpi_elements_safely()
+
+
 def apply(workflow, selected_boundaries_conditions=None):
     '''
     Set all boundary conditions for **workflow**.
@@ -332,7 +336,6 @@ def _instantiate_bc_dispatcher(workflow):
     return workflow._bc_dispatcher
 
 def get_fluxcoeff_on_bc(workflow, Family):
-    from mpi4py.MPI import COMM_WORLD as comm
     try:
         bc = get_bc_nodes_from_family(workflow.tree, Family)[0]
     except:
@@ -401,9 +404,7 @@ def OutflowRadialEquilibrium_interface(workflow, bcparams):
                 ))
 
 def _add_skeleton_in_tree(tree):
-    from mpi4py import MPI
     import Converter.Mpi as Cmpi
-    MPI.COMM_WORLD
     
     skeleton = Cmpi.convert2SkeletonTree(tree)
     skeleton = Cmpi.allgatherTree(skeleton)

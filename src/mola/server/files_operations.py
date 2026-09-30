@@ -21,18 +21,29 @@ import subprocess
 from pathlib import Path
 
 import mola.naming_conventions as names
-from mola.logging import mola_logger, MolaException
+from mola.logging.exceptions import MolaException
 from . import remote
 
-def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000,
+
+def _ends_with_path_separator(path):
+    """Return whether *path* uses either common path separator."""
+    return str(path).endswith(('/', '\\'))
+
+def read_text_file_from_errors(filepath, machine=None, max_lines=1000,
         start_keywords=['error','traceback','abort','signal: segmentation fault'],
         skip_keywords=['userwarning','warnings.warn']):
+
+    if not machine:
+        machine = remote.guess_machine(filepath)
 
     separator_line = 'SCANNED_ERRORS\n'
     if remote.run_on_localhost(machine=machine, run_directory=filepath):
         # implementation of the function
         found_info = False
         result_lines = [separator_line]
+
+        if not is_file(filepath): return ''
+
         with open(filepath, 'r') as f:
             for line in f:
                 if found_info or any([word in line.lower() for word in start_keywords]):
@@ -48,7 +59,8 @@ def read_text_file_from_errors(filepath, machine=None, user=None, max_lines=1000
         pycode = [f"import mola.server.files_operations as FOP"]
         pycode+= [f"print(FOP.read_text_file_from_errors('{filepath}'))"]
         pycode = ';'.join(pycode)
-        out = remote.submit_command(f'python3 -c "{pycode}"', machine, user=user,
+        cmd = f'python3 -c "{pycode}"'
+        out = remote.submit_command(cmd, machine,
                                     use_mola_env=True)
         
         if separator_line in out: return separator_line+out.split(separator_line)[-1]
@@ -90,7 +102,8 @@ def save_file(filename, text, directory='.'):
     os.chmod(filename, 0o777)
 
 def save_file_maybe_remote(filename, txt, directory='.', machine=None, force_copy=False):
-    if not directory.endswith(os.path.sep):
+    directory = str(directory)
+    if not _ends_with_path_separator(directory):
         directory += os.path.sep
 
     if remote.run_on_localhost(machine, directory):
@@ -124,19 +137,16 @@ def is_existing_path(path, machine=None, user=None, file_only=False):
     -------
     bool
     '''
-    ssh_host = remote.get_ssh_host_command(machine, user, path)
+    if remote.run_on_localhost(machine=machine, run_directory=path):
+        path = Path(path)
+        return path.is_file() if file_only else path.exists()
 
+    ssh_host = remote.get_ssh_host_command(machine, user, path)
     if file_only:
         option = '-f'
     else:
         option = '-e'
-
-    # mola_target_path = RunManagement['mola_target_path']
-    # network = remote.get_network()
-    # env = os.path.join(mola_target_path, 'mola', 'env', network, 'env.sh')
-    # python_command = f"{sys.executable} -c 'import os; os.path.exits({path})'"
-    # source_env = f"source {env}"
-    
+   
     try:
         subprocess.run([f'{ssh_host} test {option} {path} || exit 1'], shell=True, check=True)
         return True
@@ -153,6 +163,22 @@ def is_directory(path, machine=None, user=None):
 
 def remove_path(path, machine=None, user=None, file_only=True):
 
+    if remote.run_on_localhost(machine=machine, run_directory=path):
+        path = Path(path)
+        try:
+            if not path.exists() and not path.is_symlink():
+                return
+            if path.is_dir() and not path.is_symlink():
+                if file_only:
+                    raise IsADirectoryError(str(path))
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+            return
+        except OSError as error:
+            precision_if_needed = f' on {machine}' if machine is not None else ''
+            raise MolaException(f'Cannot remove {path}{precision_if_needed}.') from error
+
     ssh_host = remote.get_ssh_host_command(machine, user, path)
 
     if file_only:
@@ -167,6 +193,10 @@ def remove_path(path, machine=None, user=None, file_only=True):
         raise MolaException(f'Cannot remove {path}{precision_if_needed}.')
     
 def makedirs_remote(path, machine=None, user=None):
+    if remote.run_on_localhost(machine=machine, run_directory=path):
+        Path(path).mkdir(parents=True, exist_ok=True)
+        return
+
     ssh_host = remote.get_ssh_host_command(machine, user, path)
     subprocess.run([f'{ssh_host} mkdir -p {path}'], shell=True)
 
@@ -193,8 +223,8 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
         raise MolaException(f'The source path and the destination path are the same ({source_path}).')
     
     raise_error = (
-        not force_copy 
-        and not destination_path.endswith(os.path.sep)
+        not force_copy
+        and not _ends_with_path_separator(destination_path)
         and is_existing_path(destination_path, destination_machine, destination_user) 
     )
     if raise_error:
@@ -215,7 +245,7 @@ def scp(source_path, destination_path, source_machine=None, destination_machine=
             subprocess.run(['scp', '-r', source,destination], check=True, capture_output=True, timeout=timeout)
 
         except:
-            if destination_path.endswith(os.path.sep):
+            if _ends_with_path_separator(destination_path):
                 destination_dir = destination_path
             else:
                 destination_dir = os.path.sep.join(destination_path.split(os.path.sep)[:-1])
@@ -259,7 +289,6 @@ def rsync(source_path, destination_path, source_machine=None, destination_machin
     rsync_cmd.append(destination)
 
     # Executing the rsync command with subprocess
-    mola_logger.debug(f"Executing command: {' '.join(rsync_cmd)}")
     subprocess.run(rsync_cmd, check=True)
 
 
@@ -349,7 +378,7 @@ def safe_local_copy(source_path, destination_path, force_copy=False):
         # If dst is an existing dir, copy inside it like scp
         if dst.exists() and dst.is_dir():
             dst = dst / src.name
-        elif str(destination_path).endswith(os.path.sep):  # e.g. 'dir/'
+        elif _ends_with_path_separator(destination_path):  # e.g. 'dir/'
             dst.mkdir(parents=True, exist_ok=True)
             dst = dst / src.name
         else:

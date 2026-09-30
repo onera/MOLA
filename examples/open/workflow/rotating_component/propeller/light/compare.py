@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 from treelab import cgns
@@ -8,8 +11,10 @@ x_name = 'Iteration'
 include_cost = True
 
 
-for case in ['elsa','fast','sonics']:
-    tree = cgns.load(f'example_{case}/OUTPUT/signals.cgns')
+signal_files = sorted(Path('.').glob('example_*/OUTPUT/signals.cgns'))
+for signal_file in signal_files:
+    case = signal_file.parent.parent.name[len('example_'):]
+    tree = cgns.load(str(signal_file))
     integrals = tree.get("Integral")
     component = integrals.get(component_name)
     x, y = component.fields([x_name, y_name])
@@ -27,6 +32,5 @@ plt.ylabel(y_name)
 plt.grid()
 plt.tight_layout()
 plt.savefig(f'light_propeller_{y_name}_convergence_comparison.png')
-plt.show()
-
-
+if os.environ.get('MOLA_HEADLESS', '').lower() not in {'1', 'true', 'yes'}:
+    plt.show()

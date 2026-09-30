@@ -17,7 +17,13 @@
 
 import numpy as np
 from mola.logging import MolaException, MolaUserError, mola_logger, CYAN, ENDC
-from . import default, autogrid, utils, reader, writer
+from . import (
+    default,
+    autogrid,
+    utils,
+    reader,
+    writer
+)
 
 from treelab import cgns
 

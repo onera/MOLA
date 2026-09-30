@@ -33,6 +33,21 @@ CYAN  = '\033[96m'
 BOLD_CYAN = '\033[96m;1m'
 ENDC  = '\033[0m'
 
+colors = dict(
+    BOLD=BOLD,
+    UNDERLINE=UNDERLINE,
+    GREY=GREY,
+    RED=RED,
+    BOLD_RED=BOLD_RED,
+    GREEN=GREEN,
+    BOLD_GREEN=BOLD_GREEN,
+    YELLOW=YELLOW,
+    PINK=PINK,
+    CYAN=CYAN,
+    BOLD_CYAN=BOLD_CYAN,
+    ENDC=ENDC,
+)
+
 class CustomFormatter(logging.Formatter):
     '''
     This class defines the format for all loggers in MOLA.

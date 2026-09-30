@@ -2,10 +2,9 @@
 import numpy as np
 from mola import visu
 
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
+
 
 if size >2:
     import os

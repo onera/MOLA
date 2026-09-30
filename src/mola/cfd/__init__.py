@@ -19,9 +19,9 @@ import os
 import functools
 from treelab import cgns
 from mola import __MOLA_PATH__
-from mola.misc import run_as_mpi_subprocess
 from mola.dependency_injector.retriever import load_source
 from ..logging import mola_logger, MolaException, MolaNotImplementedError, redirect_streams_to_null_if_not_debug
+
 
 def get_path_back_in_traceback(step=3):
     import traceback
@@ -59,12 +59,12 @@ def call_solver_specific_function(workflow, function_name, step=3, *args, **kwar
     return fun(workflow, *args, **kwargs)
 
 
-def apply_to_solver(workflow):
+def apply_to_solver(workflow, **kwargs):
     '''
     This is a shortcut for :py:func:`call_solver_specific_function` for 
     ``function_name='apply_to_solver'``.
     '''
-    return call_solver_specific_function(workflow, 'apply_to_solver', step=4)
+    return call_solver_specific_function(workflow, 'apply_to_solver', step=4, **kwargs)
 
 
 def apply(workflow):
@@ -120,6 +120,9 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
 
+            from mola.mpi import run_as_mpi_subprocess, _get_mpi_task_count
+            from mola.server.remote import add_mola_env
+
             # remove tree from args
             args = list(args)
             tree = args.pop(0)
@@ -130,8 +133,8 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
 
             else:
                 
-                tmp_input_filename = '.tmp_mesh_mola_before.cgns'
-                tmp_output_filename = '.tmp_mesh_mola_after.cgns'
+                tmp_input_filename = 'tmp_mesh_for_maia_before.cgns'
+                tmp_output_filename = 'tmp_mesh_for_maia_after.cgns'
                 with redirect_streams_to_null_if_not_debug(): 
                     tree.save(tmp_input_filename)
 
@@ -142,21 +145,22 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
                 def fun_exec_in_parallel(module_name, func_name, tmp_input_filename, tmp_output_filename, *args, **kwargs):
                     import os
                     import maia
-                    from mpi4py import MPI
                     from treelab import cgns
                     from mola.cfd import load_source
+                    from mola.mpi import get_mpi_elements_safely
+                    comm, rank, size, nb_digs = get_mpi_elements_safely()
 
                     expected_module = os.path.join(module_name)
                     solverModule = load_source('solverModule', expected_module)
                     func = getattr(solverModule, func_name).__wrapped__
                     
-                    tmp_tree = maia.io.file_to_dist_tree(tmp_input_filename, MPI.COMM_WORLD)
+                    tmp_tree = maia.io.file_to_dist_tree(tmp_input_filename, comm)
                     tmp_tree = cgns.castNode(tmp_tree)
                     tmp_tree = func(tmp_tree, *args, **kwargs)
-                    maia.io.part_tree_to_file(tmp_tree, tmp_output_filename, MPI.COMM_WORLD, single_file=True)
+                    maia.io.part_tree_to_file(tmp_tree, tmp_output_filename, comm, single_file=True)
 
                 if second_tree:
-                    tmp_input2_filename = '.tmp_mesh2_mola_before.cgns'
+                    tmp_input2_filename = 'tmp_mesh2_for_maia_before.cgns'
                     source_tree = args[0]
                     assert isinstance(source_tree, cgns.Tree)
                     with redirect_streams_to_null_if_not_debug(): 
@@ -166,22 +170,24 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
                     def fun_exec_in_parallel(module_name, func_name, tmp_input_filename, tmp_output_filename, tmp_input2_filename, *args, **kwargs):
                         import os
                         import maia
-                        from mpi4py import MPI
                         from treelab import cgns
                         from mola.cfd import load_source
+                        from mola.mpi import get_mpi_elements_safely
+                        comm, rank, size, nb_digs = get_mpi_elements_safely()
 
                         expected_module = os.path.join(module_name)
                         solverModule = load_source('solverModule', expected_module)
                         func = getattr(solverModule, func_name).__wrapped__
                         
-                        tmp_tree = maia.io.file_to_dist_tree(tmp_input_filename, MPI.COMM_WORLD)
+                        tmp_tree = maia.io.file_to_dist_tree(tmp_input_filename, comm)
                         tmp_tree = cgns.castNode(tmp_tree)
-                        tmp_tree2 = maia.io.file_to_dist_tree(tmp_input2_filename, MPI.COMM_WORLD)
+                        tmp_tree2 = maia.io.file_to_dist_tree(tmp_input2_filename, comm)
                         tmp_tree2 = cgns.castNode(tmp_tree2)
                         tmp_tree = func(tmp_tree, tmp_tree2, *args, **kwargs)
-                        maia.io.part_tree_to_file(tmp_tree, tmp_output_filename, MPI.COMM_WORLD, single_file=True)
+                        maia.io.part_tree_to_file(tmp_tree, tmp_output_filename, comm, single_file=True)
 
-                run_as_mpi_subprocess(fun_exec_in_parallel, None, None, 
+                size = _get_mpi_task_count() # TODO better infer from run_management to avoid oversubscribing interactive non-exclusive jobs
+                run_as_mpi_subprocess(fun_exec_in_parallel, size, None,
                                     module_name, func_name, 
                                     tmp_input_filename, tmp_output_filename,
                                     *args, **kwargs)

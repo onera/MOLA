@@ -19,6 +19,10 @@ from treelab import cgns
 from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.motion.motion import all_families_are_fixed
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 def apply_to_solver(workflow):
     '''
     Set Motion for each families for the solver SoNICS.
@@ -62,7 +66,6 @@ def apply_to_solver(workflow):
 
 def translate_motion_to_sonics(Motion, tree=None):
     import miles
-    from mpi4py import MPI
 
     if callable(Motion) or \
         any([callable(v) for k, v in Motion.items() if k != 'RotationSpeed']):
@@ -73,7 +76,7 @@ def translate_motion_to_sonics(Motion, tree=None):
             raise MolaException('tree must be provided to interpolate motion')
                           
         motion_sonics = dict(
-            RotationSpeedX = miles.FunctionInterpolator(tree, Motion['RotationSpeed'], comm=MPI.COMM_WORLD),
+            RotationSpeedX = miles.FunctionInterpolator(tree, Motion['RotationSpeed'], comm=comm),
             RotationSpeedY = 0., 
             RotationSpeedZ = 0., 
         )

@@ -18,10 +18,10 @@
 import os
 from packaging.version import Version
 import numpy as np
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank   = comm.Get_rank()
-NumberOfProcessors = comm.Get_size()
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
+
+NumberOfProcessors = size
 
 from treelab import cgns
 import mola.naming_conventions as names
@@ -75,8 +75,11 @@ def apply_to_solver(workflow):
         maia.algo.pe_to_nface(dist_tree, comm)
         coprocess_manager.output_tree = cgns.castNode(dist_tree)
 
-    maia.io.dist_tree_to_file(coprocess_manager.output_tree, \
-                              f'{names.DIRECTORY_OUTPUT}/solution.cgns', comm)
+    coprocess_manager.output_tree.findAndRemoveNodes(Name=".SoNICS#Codegen",Depth=3) # HACK due to 0 size C1 char arrays
+
+    # maia.io.dist_tree_to_file(coprocess_manager.output_tree, \
+    #                         f'{names.DIRECTORY_OUTPUT}/solution.cgns',
+    #                         comm)
 
     coprocess_manager.finalize()
     del workflow._coprocess_manager

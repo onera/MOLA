@@ -19,16 +19,14 @@
 Creation by recycling Wireframe.py of v1.18.1
 '''
 
+import sys
+import numpy as np
+from copy import deepcopy as cdeep
+from timeit import default_timer as tic
 
 from mola.pytree import InternalShortcuts as J
 from mola.math_tools import interpolate__
 from mola.cfd.postprocess.interpolation import migrateFields
-
-import sys
-import os
-import numpy as np
-from copy import deepcopy as cdeep
-from timeit import default_timer as tic
 
 import Converter.PyTree as C
 import Converter.Internal as I

@@ -18,17 +18,12 @@
 from treelab import cgns
 from mola.logging import MolaUserError
 
-def is_using_mpi():
-    try:
-        import mpi4py.MPI as MPI
-        comm = MPI.COMM_WORLD 
-        return comm.Get_size() > 1
-    except:
-        return False
-    
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 
 def get_io_tool(w, src):
-    using_mpi = is_using_mpi()
+    using_mpi = size > 1
     is_cgns = src.endswith('.cgns') or src.endswith('.hdf') or src.endswith('.hdf5')
 
     if not using_mpi:
@@ -42,9 +37,6 @@ def get_io_tool(w, src):
     return io_tool
 
 def get_full_tree_skeleton_from_partitioned_tree(tree : cgns.Tree):
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
     import maia.pytree as PT
 
     shallow = PT.shallow_copy(tree)

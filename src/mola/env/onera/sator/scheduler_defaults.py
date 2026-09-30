@@ -16,3 +16,5 @@ MOLA_TO_SCHEDULER = {
 }
 
 AER_FOR_TEST = '37753003F'  # RG MOLA 2026
+
+MOLA_PMI2_LIB = '/usr/lib64/libpmi2.so'

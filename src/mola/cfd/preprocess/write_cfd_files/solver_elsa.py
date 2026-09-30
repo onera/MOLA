@@ -21,14 +21,38 @@ import mola.cfd.preprocess.mesh.io as io
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola import server as SV
-from mola.cfd.preprocess.write_cfd_files.write_cfd_files import get_job_text, get_lines_to_submit_job_again
+from mola.cfd.preprocess.write_cfd_files.write_cfd_files import (
+    get_job_text, 
+    get_lines_to_submit_job_again,
+    write_compute)
 import mola.pytree.user.checker as check
 
 
-def apply_to_solver(workflow):
+def apply_to_solver(workflow, items : str ='all'):
 
-    write_run_scripts(workflow)
-    write_data_files(workflow)
+    adjust_run_management(workflow)
+
+    if items == 'all':
+        write_compute(workflow.RunManagement)
+        write_coprocess(workflow.RunManagement)
+        write_data_files(workflow)
+        write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
+
+    elif items == 'only_job':
+        write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
+
+    elif items == 'except_existing_job':
+        write_compute(workflow.RunManagement)
+        write_coprocess(workflow.RunManagement)
+        write_data_files(workflow)
+        path_of_job = os.path.join(workflow.RunManagement['RunDirectory'], names.FILE_JOB)
+        machine = workflow.RunManagement['Machine']
+        if not SV.files_operations.is_file(path_of_job, machine):
+            write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])    
+        
+    else:
+        raise NotImplementedError(f'items={items} not implemented, shall be one of: "all","only_job","except_existing_job"')
+
 
 def write_data_files(workflow):
 
@@ -64,25 +88,10 @@ def write_data_files(workflow):
             )
         SV.remove_path(names.FILE_INPUT_SOLVER, machine='localhost')
 
-def write_run_scripts(workflow):
-
+def adjust_run_management(workflow):
     workflow.RunManagement['NumberOfThreads']=1 # required by elsA
     workflow.RunManagement['SchedulerOptions']['cpus-per-task']=1 # required by elsA
     workflow.set_workflow_parameters_in_tree()
-
-    write_compute(workflow.RunManagement)
-    write_coprocess(workflow.RunManagement)
-    write_job_launcher(workflow.RunManagement, workflow.RunManagement['SchedulerOptions'])
-
-def write_compute(RunManagement):
-    txt = f'''
-from mola.workflow import read_workflow
-import mola.naming_conventions as names
-
-workflow = read_workflow(names.FILE_INPUT_SOLVER)
-workflow.compute()
-'''
-    SV.save_file_maybe_remote(names.FILE_COMPUTE, txt, RunManagement['RunDirectory'], machine=RunManagement['Machine'])
 
 def write_coprocess(RunManagement):
     txt = '''workflow._coprocess_manager.run_iteration()'''

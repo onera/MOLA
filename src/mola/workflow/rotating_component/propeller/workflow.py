@@ -28,9 +28,9 @@ from mola.pytree.user.checker import is_partitioned_for_use_in_maia, is_distribu
 from mola.cfd.postprocess.signals.propeller_coefficients_computer import add_aerodynamic_coefficients_to
 from mola.pytree.user import checker 
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 
 class WorkflowPropeller(WorkflowRotatingComponent):
 
@@ -161,13 +161,12 @@ class WorkflowPropeller(WorkflowRotatingComponent):
     def _get_partitioned_tree_for_use_in_maia(self):
         tree = self.tree.copy()
         if not is_partitioned_for_use_in_maia(tree):
-            from mpi4py import MPI
             import maia
             
             if not is_distributed_for_use_in_maia(tree):
-                tree = maia.factory.full_to_dist_tree(tree, MPI.COMM_WORLD)
+                tree = maia.factory.full_to_dist_tree(tree, comm)
 
-            tree = maia.factory.partition_dist_tree(tree, MPI.COMM_WORLD, preserve_orientation=True)
+            tree = maia.factory.partition_dist_tree(tree, comm, preserve_orientation=True)
             tree = cgns.castNode(tree)
         
         return tree

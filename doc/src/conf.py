@@ -11,6 +11,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 from pathlib import Path
+import os
 import sys
 from mola import __version__
 
@@ -22,7 +23,8 @@ sys.path.insert(0, str(THIS_DIR))
 project = 'MOLA'
 copyright = 'ONERA'
 authors = ["Luis Bernardos", "Thomas Bontemps"],
-version = __version__
+documentation_version = os.environ.get('MOLA_DOC_VERSION', 'Dev')
+version = documentation_version
 # available versions are to be written in _static/versions.json
 
 # -- General configuration ---------------------------------------------------
@@ -89,8 +91,8 @@ html_theme_options = {
     "header_links_before_dropdown": 5,
     'navbar_end': ['theme-switcher', 'navbar-icon-links', 'version-switcher'],
     "switcher": {
-        "json_url": "https://numerics.gitlab-pages.onera.net/mola/Dev/_static/versions.json",
-        "version_match": "Dev",
+        "json_url": f"https://numerics.gitlab-pages.onera.net/mola/{documentation_version}/_static/versions.json",
+        "version_match": documentation_version,
         },
 
     "navbar_persistent": ["search-button"],
@@ -129,6 +131,6 @@ todo_include_todos = True
 autodoc_member_order = 'bysource'
 
 rst_epilog = f"""
-.. |version| replace:: {__version__}
-.. |release| replace:: {__version__}
+.. |version| replace:: {documentation_version}
+.. |release| replace:: {documentation_version}
 """

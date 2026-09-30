@@ -23,6 +23,10 @@ from mola.logging import mola_logger, MolaException, GREEN, YELLOW, ENDC
 from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
 from mola.cfd.preprocess.mesh.families import shall_define_overlap_type_directly
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, mpi_size, _ = get_mpi_elements_safely()
+
+
 def apply(workflow):
     check_empty_bc(workflow)
     check_no_overlap_between_bcs(workflow.tree)
@@ -50,9 +54,8 @@ def check_empty_bc(workflow):
 
     t = None
 
-    from mpi4py import MPI
-    mpi_size = MPI.COMM_WORLD.Get_size()
-    rank = MPI.COMM_WORLD.Get_rank()
+
+
     if mpi_size > 1:
         # TODO check /stck/jcoulet/dev/dev-Tools/maia/Support/lbernard/find_empty_bc.py
         is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
@@ -97,7 +100,7 @@ def check_empty_bc(workflow):
     else:
         emptyBC = C.getEmptyBC(t, dim = workflow.ProblemDimension)
     
-    empty_bcs = MPI.COMM_WORLD.reduce(isEmpty(emptyBC))
+    empty_bcs = comm.reduce(isEmpty(emptyBC))
     raise_error = False
     if rank ==0:
         if empty_bcs:

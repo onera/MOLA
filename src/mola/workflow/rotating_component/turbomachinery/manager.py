@@ -215,7 +215,7 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         if show: 
             plt.show()
 
-    def write_gather_script(self):
+    def write_gather_script(self, output_path=None):
 
         stages = self.base_workflow._get_default_stages_to_postprocess()
 
@@ -236,8 +236,9 @@ for stage in stages:
 
 '''     
         
-        # write file in the current directory
-        mola_logger.info("write gather_results.py, to execute after simulations are completed.")
-        with open("gather_results.py", "w") as f:
+        # Write gather_results.py in the specified output_path
+        output_file = output_path if output_path else "gather_results.py"
+        mola_logger.info(f"write gather_results.py to {output_file}, to execute after simulations are completed.")
+        with open(output_file, "w") as f:
             f.write(text)
     

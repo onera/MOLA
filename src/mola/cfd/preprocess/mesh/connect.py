@@ -21,6 +21,10 @@ import treelab.cgns as cgns
 from mola.logging import mola_logger, MolaException, MolaAssertionError
 from mola.cfd.preprocess.mesh.tools import to_distributed
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 def apply(workflow):
     _clip_small_rotation_angles(workflow.tree)
 
@@ -62,9 +66,7 @@ def apply_with_cassiopee(workflow):
 
     mola_logger.debug('connect with cassiopee')
 
-    from mpi4py import MPI
-    mpi_size = MPI.COMM_WORLD.Get_size()
-    rank = MPI.COMM_WORLD.Get_rank()
+    mpi_size = size
     if mpi_size > 1:
         from mola.cfd.preprocess.mesh.tools import (to_partitioned_if_distributed,
                                                     to_full_tree_at_rank_0)
@@ -278,7 +280,6 @@ def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, 
     # TODO Should be replace by a function from Miles
 
     import maia
-    from mpi4py import MPI
 
     def _check_unmatched_faces(tree):
         unmatched_gc = maia.pytree.get_nodes_from_name(tree, '*_unmatched')
@@ -296,7 +297,7 @@ def connect_periodic_with_maia(tree, families, rotation_center, rotation_angle, 
         maia.algo.dist.connect_1to1_families(
             tree,
             families,
-            comm=MPI.COMM_WORLD,
+            comm=comm,
             periodic=periodic, 
         )
         _check_unmatched_faces(tree)

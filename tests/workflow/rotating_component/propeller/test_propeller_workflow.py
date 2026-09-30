@@ -255,7 +255,7 @@ def test_propeller_ultra_light(tmp_path):
 
             RunManagement=dict(
                 NumberOfProcessors=1,
-                NumberOfThreads=8,
+                NumberOfThreads=4,
                 RunDirectory=str(tmp_path),
                 Scheduler = 'local',
                 ),

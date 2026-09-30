@@ -20,6 +20,6 @@ from treelab import cgns
 from mola.logging import mola_logger
 
 def apply_to_solver(workflow):
-
-    pass
+    workflow.tree.findAndRemoveNodes(Name=".SoNICS#Codegen",Depth=3) # HACK due to 0 size C1 char arrays
+    
     

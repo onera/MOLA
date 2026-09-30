@@ -149,7 +149,7 @@ class ExternalFlowGenerator(object):
             sol = math_tools.secant(
                 residualEddyViscosityRatioFromGivenNuTilde, x0=Nut_Nu*Nu, x1=1.5*Nut_Nu*Nu, 
                 ftol=Nut_Nu*1e-5, bounds=(1e-14,1.e6), maxiter=1000)
-            return float(sol['root'])
+            return np.asarray(sol['root']).reshape(-1)[0].item()
 
         TurbulentSANuTilde = computeTurbulentSANuTilde(
                                                     Nu=self.Flow['ViscosityMolecular']/self.Flow['Density'],

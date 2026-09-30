@@ -19,14 +19,12 @@ from treelab import cgns
 from mola.logging import MolaException
 from .utils import get_io_tool
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 def is_using_mpi():
-    try:
-        import mpi4py.MPI as MPI
-        comm = MPI.COMM_WORLD 
-        return comm.Get_size() > 1
-    except:
-        return False
-    
+    return size > 1    
 
 def read(w, src, io_tool=None):
 
@@ -62,12 +60,11 @@ def read(w, src, io_tool=None):
 
     elif io_tool == 'maia':
         # Nodes DataArray with value=None are not read, see https://gitlab.onera.net/numerics/mesh/maia/-/issues/164
-        from mpi4py import MPI
         import maia
-        MPI.COMM_WORLD.barrier()
-        mesh = maia.io.file_to_dist_tree(src, MPI.COMM_WORLD)
+        comm.barrier()
+        mesh = maia.io.file_to_dist_tree(src, comm)
         mesh = cgns.castNode(mesh)
-        MPI.COMM_WORLD.barrier()
+        comm.barrier()
 
     else:
         raise MolaException(f'unknown value for io_tool: {io_tool}')

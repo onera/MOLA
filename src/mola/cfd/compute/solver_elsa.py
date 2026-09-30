@@ -17,10 +17,9 @@
 
 # ----------------------- IMPORT SYSTEM MODULES ----------------------- #
 import os
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank   = comm.Get_rank()
-NumberOfProcessors = comm.Get_size()
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
+NumberOfProcessors = size
 import numpy as np
 
 from treelab import cgns

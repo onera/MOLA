@@ -16,12 +16,13 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import shlex
 from fnmatch import fnmatch
 import subprocess
 import time
 
 from mola.dependency_injector.retriever import load_source
-from mola.logging import mola_logger, MolaException, MolaAssertionError
+from mola.logging.exceptions import MolaException, MolaAssertionError
 from mola import __MOLA_PATH__, __owner__
 
 def submit_command(command, machine, input=None, user=None, use_mola_env=False,
@@ -42,14 +43,24 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
         if use_mola_env:
             input = add_mola_env(machine, remote_solver) + input
             env = {}
+    elif use_mola_env:
+        # For local execution, also source the correct solver environment
+        # This ensures that job.sh is written with the correct MPI launcher
+        mola_env_cmd = add_mola_env(machine, remote_solver)
+        command = f'{mola_env_cmd} {command}'
 
-    if input is None:
-        mola_logger.debug(f'run command: {command}')
+    if ssh_host == '' and input is not None:
+        # A local command receiving stdin does not need a shell.  Avoiding one
+        # makes this path work on Windows, while remote commands continue to
+        # be sent through the POSIX shell on the SSH host above.
+        command = shlex.split(command, posix=(os.name != 'nt'))
+        shell = False
     else:
-        mola_logger.debug(f'run command: {command} with input:\n{input}')
+        shell = True
 
-    output = subprocess.run([command], input=input, shell=True, check=False,
-                capture_output=True, env=env, encoding='UTF-8')
+    output = subprocess.run(command, input=input,
+                shell=shell, check=False, capture_output=True, env=env,
+                encoding='UTF-8')
     errlines = [] 
     for line in output.stderr.split('\n')[:-1]:
 
@@ -66,8 +77,6 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
     if errlines:
         msg = f'got error using command: {command} with input:\n{input}, error is:\n'
         raise MolaException(msg+'\n'.join(errlines))
-
-    mola_logger.debug(output.stdout)
 
     return output.stdout
 
@@ -98,11 +107,16 @@ def get_scheduler_defaults(machine, mola_target_path=__MOLA_PATH__):
 
     return None
 
-def add_mola_env(machine, solver=os.environ.get('MOLA_SOLVER')):
-    mola_path = get_mola_installation_path(machine)
-    network = get_network()
+def add_mola_env(machine, solver=os.environ.get('MOLA_SOLVER'), target_user=None, mola_path=None):
+    if machine == 'localhost':
+        machine = guess_localhost()
+    if mola_path is None:
+        mola_path = get_mola_installation_path(machine)
+    network = os.environ.get('MOLA_NETWORK', 'onera')
+    if target_user is not None:
+        mola_path = mola_path.replace(os.environ.get('USER', ''), target_user)
     mola_env = os.path.join(mola_path, 'mola', 'env', network, 'env.sh')
-    return  f"source {mola_env} {solver} &>/dev/null || {{ echo 'Error: Cannot source this environment!' >&2; exit 1; }} && "
+    return  f"MOLA={mola_path} MOLA_MACHINE={machine} source {mola_env} {solver} || {{ echo 'ERROR: Failed to source {mola_env} with solver {solver}' >&2; exit 1; }} && "
 
 
 def guess_localhost():
@@ -165,7 +179,13 @@ def run_on_localhost(machine=None, run_directory='.'):
         return True
     
 def get_ssh_host_command(machine=None, user=None, path='.'):
+    
     if not run_on_localhost(machine, path):
+
+        if not machine:
+            machine = guess_machine(path)
+            assert machine, f"FATAL: could not guess remote machine"
+
         if user is None:
             ssh_host = f'ssh -T {machine}'
         else:

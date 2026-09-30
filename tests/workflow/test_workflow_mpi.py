@@ -28,7 +28,7 @@ from mola.logging import mola_logger, MolaException, MolaUserError, mute_stdout
 from mola import server as SV
 from mola.cfd.preprocess.run_manager import run_manager
 from mola.workflow import Workflow
-from mola.misc import run_as_mpi_subprocess
+from mola.mpi import run_as_mpi_subprocess
 
 pytestmark = pytest.mark.skip(reason="preprocess MPI not working yet") # FIXME
 
@@ -41,7 +41,6 @@ def test_prepare(tmp_path, size):
 
     def actual_test(test_dir):
         import os
-        from mpi4py.MPI import COMM_WORLD as comm
         from mola.workflow import Workflow
 
         w = Workflow(

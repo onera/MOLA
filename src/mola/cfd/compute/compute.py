@@ -18,21 +18,18 @@
 from pathlib import Path
 from mola.cfd import apply_to_solver
 import mola.naming_conventions as names
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
 
 def apply(workflow):
     try:
         remove_status_files()
         apply_to_solver(workflow)
     except BaseException as e:
-        try: 
-            from mpi4py import MPI
-            rank = MPI.COMM_WORLD.Get_rank()
-        except:
-            rank = 0
         if rank == 0:
             with open(names.FILE_JOB_FAILED, 'w') as f: 
                 f.write(names.FILE_JOB_FAILED)
-        raise BaseException(e)
+        raise BaseException(e) from e
 
 def remove_status_files():
     for filename in names.STATUS_FILES:

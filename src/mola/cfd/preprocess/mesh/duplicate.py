@@ -21,6 +21,10 @@ from treelab import cgns
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola.cfd.preprocess.mesh.tools import to_distributed, to_full_tree_at_rank_0, compute_azimuthal_extension
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 def apply(workflow):
 
     dup_tree = apply_duplication_on_tree(workflow, workflow.tree)
@@ -239,8 +243,6 @@ def __duplicate_with_cassiopee(tree, rowFamily, NumberOfDuplications, azimuthal_
 
 def _duplicate_with_maia(tree, duplication_operations, merge_zones=False):
     import maia
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
 
     tree = to_distributed(tree)
 

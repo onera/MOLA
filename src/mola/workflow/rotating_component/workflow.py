@@ -27,9 +27,10 @@ from mola.cfd.preprocess.mesh.tools import parametrize_with_height, compute_azim
 from .. import Workflow
 from .interface import WorkflowRotatingComponentInterface
 
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 class WorkflowRotatingComponent(Workflow):
 
     '''
@@ -345,7 +346,6 @@ class WorkflowRotatingComponent(Workflow):
     @staticmethod
     def _get_row_from_BC_Family(tree, FamilyBoundary):
         # Get one bc attached to this family
-        from mpi4py.MPI import COMM_WORLD as comm
         one_bc_FamilyName = tree.get(Type='FamilyName', Value=FamilyBoundary)
         nodes_on_all_ranks = comm.allgather(one_bc_FamilyName)
         try:

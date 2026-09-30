@@ -1,13 +1,10 @@
 import os
-
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
-
 from treelab import cgns
 from mola import naming_conventions as names
 from mola import visu
+
+solver = 'elsa'
+example_name = 'example_srv2_'+solver
 
 
 # set the different field elements to include in the image
@@ -20,7 +17,7 @@ Elements = [
 
 # Create a figure
 fig = visu.Figure(
-    filename='flow_srv2.png',
+    filename=f'flow_{example_name}.png',
     camera=dict( 
         posCam=(-0.24592463703457942, 0.5121130031377165, -0.0030930765364429007), 
         posEye=(0.10981445197145112, 0.14571377306643096, 0.03191791003196333), 
@@ -30,7 +27,7 @@ fig = visu.Figure(
     )
 
 # Read and duplicate the solution
-surfaces = cgns.load(os.path.join(names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D))
+surfaces = cgns.load(os.path.join(example_name,names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_2D))
 surfaces = visu.duplicate_rows(surfaces, Impeller=dict(NumberOfDuplications=12, NumberOfBlades=13))
 
 # generate the CPlot image of the field elements (will write an image)
@@ -41,13 +38,15 @@ fig.add_colorbar(
     )
 
 # Plot convergence
-ax = fig.plot_signals(left=0.75, right=0.98, bottom=0.3, top=0.7,
-            ylabel=r'$\dot{m}$ (kg/s)',
-            background_opacity=0.0,
-            curves=[
-                dict(zone_name='Impeller_INFLOW',x='Iteration',y='MassFlow', multiply_by=-1),
-                dict(zone_name='Impeller_OUTFLOW',x='Iteration',y='MassFlow'),
-                ],
-            )
+ax = fig.plot_signals(
+    signals=os.path.join(example_name,names.DIRECTORY_OUTPUT, names.FILE_OUTPUT_1D),
+    left=0.75, right=0.98, bottom=0.3, top=0.7,
+    ylabel=r'$\dot{m}$ (kg/s)',
+    background_opacity=0.0,
+    curves=[
+        dict(zone_name='Impeller_INFLOW',x='Iteration',y='MassFlow', multiply_by=-1),
+        dict(zone_name='Impeller_OUTFLOW',x='Iteration',y='MassFlow'),
+        ],
+    )
 
 fig.save()

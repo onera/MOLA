@@ -26,6 +26,10 @@ import Post.PyTree as P
 from .tools import *
 from mola.cfd.postprocess.compute import compute_radius
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, mpi_size, _ = get_mpi_elements_safely()
+
+
 def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
     '''
     This is a multi-container wrapper of Cassiopee Post.isoSurfMC function, as
@@ -64,7 +68,7 @@ def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):
 
     '''
     # HACK https://elsa.onera.fr/issues/11221
-    t = Cmpi.convert2PartialTree(t, rank=Cmpi.rank)
+    t = Cmpi.convert2PartialTree(t, rank=rank)
 
     bases_children_except_zones = []
     for base in I.getBases(t):
@@ -134,8 +138,6 @@ def _iso_surface_on_merge_containers(t, fieldname=None, value=None, container='F
                     fieldnameWithTag = fieldname + tag
                     break
             if fieldnameWithTag is None:
-                from mpi4py import MPI
-                rank = MPI.COMM_WORLD.Get_rank()
                 C.convertPyTree2File(tPrev,f'debug_tPrev_{rank}.cgns')
                 C.convertPyTree2File(zone,f'debug_zone_{rank}.cgns')
                 raise ValueError(f'could not find tag <-> container "{container}" correspondance')

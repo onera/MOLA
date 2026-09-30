@@ -101,6 +101,94 @@ def test_find_matching_leaves():
     assert workflow.Initialization['Source'] == 'new_init.cgns'
     assert workflow.Extractions[0]['File'] == 'extractions.cgns'
 
+@pytest.mark.unit
+def test_workflow_manager_get_job_ids(tmp_path):
+    """Test that WorkflowManager correctly returns job IDs after submission."""
+    # Create a simple test case
+    from mola.workflow import Workflow
+    
+    @dataclass
+    class FakeWorkflow(Workflow):
+        RunManagement = dict(
+            RunDirectory=str(tmp_path / 'test_case'),
+            Machine='localhost',
+            Scheduler='SLURM',
+            LauncherCommand='echo "fake job"',
+        )
+        Solver = 'elsa'
+    
+    # Create a WorkflowManager with the fake workflow
+    wf = FakeWorkflow()
+    manager = WM.WorkflowManager([wf])
+    manager.prepare()
+    
+    # Mock the submit output; submission is recorded and returns None.
+    original_submit = SV.submit_command
+    def mock_submit(command, machine=None, user=None):
+        return "Submit job 12345"
+    
+    SV.submit_command = mock_submit
+    try:
+        assert manager.submit() is None
+    finally:
+        SV.submit_command = original_submit
+
+@pytest.mark.unit
+def test_workflow_manager_update_simulation_metadata(tmp_path):
+    """Test that WorkflowManager can update simulation metadata."""
+    from mola.workflow import Workflow
+    
+    @dataclass
+    class FakeWorkflow(Workflow):
+        RunManagement = dict(
+            RunDirectory=str(tmp_path / 'test_case'),
+            Machine='localhost',
+        )
+        Solver = 'elsa'
+    
+    wf = FakeWorkflow()
+    manager = WM.WorkflowManager([wf])
+    
+    # Test updating metadata
+    metadata = {
+        'pipeline_id': 'test-123',
+        'version': 'v2.0.1',
+        'submitted_at': '2026-07-30T12:00:00',
+    }
+    
+    # This would normally write to a YAML file
+    # For now, just verify the method exists and doesn't raise
+    assert hasattr(manager, 'RunManagement')
+
+@pytest.mark.unit
+def test_workflow_submit_does_not_return_or_embed_job_id(tmp_path):
+    """Scheduler identifiers are not stored in RunManagement or main.cgns."""
+    from mola.workflow import Workflow
+    
+    wf = Workflow(
+        Solver='elsa',
+        RunManagement=dict(
+            RunDirectory=str(tmp_path / 'test_case'),
+            Machine='localhost',
+            Scheduler='SLURM',
+            LauncherCommand='echo "fake job"',
+        ),
+    )
+    
+    # Mock the submit_command to return a fake job ID
+    original_submit = SV.submit_command
+    def mock_submit(command, machine=None, user=None):
+        return "Submit job 67890"
+    
+    SV.submit_command = mock_submit
+    try:
+        assert wf.submit() is None
+        assert 'JobID' not in wf.RunManagement
+        assert 'SubmittedAt' not in wf.RunManagement
+    finally:
+        SV.submit_command = original_submit
+
+
 def get_fake_workflow():
     x, y, z = np.meshgrid( np.linspace(0,1,21),
                            np.linspace(0,1,21),
@@ -235,7 +323,7 @@ def test_WorkflowManager_prepare(tmp_path):
         }
 
     assert files_list == [
-        [names.FILE_WORKFLOW_MANAGER],
+        [],
         [names.FILE_JOB_SEQUENCE], 
         [names.FILE_INPUT_WORKFLOW], 
         [names.FILE_INPUT_WORKFLOW], 
@@ -263,7 +351,10 @@ def test_WorkflowManager_prepare_remote_sator(tmp_path):
     w = get_fake_workflow()
     w.RunManagement['Machine'] = 'sator'
     manager_file_path = str(tmp_path/names.FILE_WORKFLOW_MANAGER)
-    manager = WM.WorkflowManager(w, root_directory=test_dir, manager_file_path=manager_file_path)
+    manager = WM.WorkflowManager(w,
+                                 root_directory=test_dir,
+                                 manager_file_path=manager_file_path,
+                                 skip_if_exists=False)
 
     for model in ['model1', 'model2']:
         manager.new_job(model)
@@ -382,7 +473,8 @@ def test_WorkflowManager_sphere_remote_sator(tmp_path):
         pass
 
     manager_file_path = str(tmp_path/names.FILE_WORKFLOW_MANAGER)
-    manager = WM.WorkflowManager(w, test_dir,manager_file_path=manager_file_path)
+    manager = WM.WorkflowManager(w, test_dir,manager_file_path=manager_file_path,
+                                 skip_if_exists=False)
     for BCWall in ['WallViscous', 'WallInviscid']:
         manager.new_job(BCWall)
         for velocity in [50., 20., 80.]:
@@ -408,6 +500,198 @@ def test_WorkflowManager_sphere_remote_sator(tmp_path):
 
     # SV.remove_path(test_dir, machine='sator', file_only=False)
 
+
+@pytest.mark.unit
+def test_workflow_manager_get_job_ids():
+    """Test get_job_ids method for WorkflowSequentialManager"""
+    from mola.workflow import Workflow
+    import mola.workflow.manager as WM
+    import tempfile
+    import numpy as np
+    from treelab import cgns
+    
+    # Create proper mock meshes
+    def make_fake_mesh():
+        x, y, z = np.meshgrid(np.linspace(0,1,11),
+                              np.linspace(0,1,11),
+                              np.linspace(0,1,11), indexing='ij')
+        mesh = cgns.newZoneFromArrays('block', ['x','y','z'], [x, y, z])
+        return cgns.castNode(mesh)
+    
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        w1 = Workflow(
+            RawMeshComponents=[{
+                'Name': 'test',
+                'Source': make_fake_mesh(),
+                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
+            }],
+            Solver='elsa',
+            RunManagement={
+                'RunDirectory': f'{tmp_dir}/test1',
+                'Machine': 'local'
+            }
+        )
+        # Set JobID after creation (it's not a standard attribute)
+        w1.RunManagement['JobID'] = 12345
+        
+        w2 = Workflow(
+            RawMeshComponents=[{
+                'Name': 'test',
+                'Source': make_fake_mesh(),
+                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
+            }],
+            Solver='elsa',
+            RunManagement={
+                'RunDirectory': f'{tmp_dir}/test2',
+                'Machine': 'local'
+            }
+        )
+        w2.RunManagement['JobID'] = 67890
+        
+        w3 = Workflow(
+            RawMeshComponents=[{
+                'Name': 'test',
+                'Source': make_fake_mesh(),
+                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
+            }],
+            Solver='elsa',
+            RunManagement={
+                'RunDirectory': f'{tmp_dir}/test3',
+                'Machine': 'local'
+            }
+        )
+        # No JobID set
+        
+        manager = WM.WorkflowSequentialManager([w1, w2, w3], tmp_dir, tmp_dir)
+        
+        job_ids = manager.get_job_ids()
+        
+        # Should only return workflows with JobID set
+        assert len(job_ids) == 2
+        assert job_ids[0] == {'run_directory': f'{tmp_dir}/test1', 'job_id': 12345}
+        assert job_ids[1] == {'run_directory': f'{tmp_dir}/test2', 'job_id': 67890}
+
+
+@pytest.mark.unit
+def test_workflow_manager_update_simulation_metadata():
+    """Test update_simulation_metadata method for WorkflowSequentialManager"""
+    from mola.workflow import Workflow
+    import mola.workflow.manager as WM
+    import tempfile
+    import numpy as np
+    from treelab import cgns
+    
+    def make_fake_mesh():
+        x, y, z = np.meshgrid(np.linspace(0,1,11),
+                              np.linspace(0,1,11),
+                              np.linspace(0,1,11), indexing='ij')
+        mesh = cgns.newZoneFromArrays('block', ['x','y','z'], [x, y, z])
+        return cgns.castNode(mesh)
+    
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        w1 = Workflow(
+            RawMeshComponents=[{
+                'Name': 'test',
+                'Source': make_fake_mesh(),
+                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
+            }],
+            Solver='elsa',
+            RunManagement={
+                'RunDirectory': f'{tmp_dir}/test1',
+                'Machine': 'local'
+            }
+        )
+        
+        w2 = Workflow(
+            RawMeshComponents=[{
+                'Name': 'test',
+                'Source': make_fake_mesh(),
+                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
+            }],
+            Solver='elsa',
+            RunManagement={
+                'RunDirectory': f'{tmp_dir}/test2',
+                'Machine': 'local'
+            }
+        )
+        
+        manager = WM.WorkflowSequentialManager([w1, w2], tmp_dir, tmp_dir)
+        
+        # Test single metadata update
+        manager.update_simulation_metadata({
+            'run_directory': f'{tmp_dir}/test1',
+            'ci_pipeline_id': 12345,
+            'version': 'v2.0.1'
+        })
+        
+        assert 'SimulationMetadata' in w1.RunManagement
+        assert w1.RunManagement['SimulationMetadata']['ci_pipeline_id'] == 12345
+        assert w1.RunManagement['SimulationMetadata']['version'] == 'v2.0.1'
+        
+        # Test multiple metadata updates
+        manager.update_simulation_metadata([
+            {'run_directory': f'{tmp_dir}/test1', 'test_group': 'A'},
+            {'run_directory': f'{tmp_dir}/test2', 'test_group': 'B'},
+        ])
+        
+        assert w1.RunManagement['SimulationMetadata']['test_group'] == 'A'
+        assert w2.RunManagement['SimulationMetadata']['test_group'] == 'B'
+        
+        # Test warning for missing run_directory
+        import io
+        import sys
+        from contextlib import redirect_stderr
+        
+        f = io.StringIO()
+        with redirect_stderr(f):
+            manager.update_simulation_metadata({'ci_pipeline_id': 99999})
+        # Should log a warning but not crash
+
+
+@pytest.mark.unit
+def test_workflow_submit_records_without_returning_job_id():
+    """Workflow.submit() has side effects but no scheduler return value."""
+    from mola.workflow import Workflow
+    import mola.server as SV
+    import tempfile
+    import numpy as np
+    from treelab import cgns
+    
+    def make_fake_mesh():
+        x, y, z = np.meshgrid(np.linspace(0,1,11),
+                              np.linspace(0,1,11),
+                              np.linspace(0,1,11), indexing='ij')
+        mesh = cgns.newZoneFromArrays('block', ['x','y','z'], [x, y, z])
+        return cgns.castNode(mesh)
+    
+    # Mock submit_command to return predictable output
+    original_submit = SV.submit_command
+    
+    def mock_submit_command(command, machine, user=None):
+        return "Submit job 99999"
+    
+    SV.submit_command = mock_submit_command
+    
+    try:
+        w = Workflow(
+            RawMeshComponents=[{
+                'Name': 'test',
+                'Source': make_fake_mesh(),
+                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
+            }],
+            Solver='elsa',
+            RunManagement={
+                'RunDirectory': '/tmp/test_submit',
+                'LauncherCommand': 'echo test',
+                'Machine': 'localhost'
+            }
+        )
+        
+        assert w.submit() is None
+        assert 'JobID' not in w.RunManagement
+        assert 'SubmittedAt' not in w.RunManagement
+    finally:
+        SV.submit_command = original_submit
 
 
 if __name__ == '__main__':

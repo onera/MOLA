@@ -54,9 +54,11 @@ def test_submit_command(tmp_path):
         # submit_command command cannot be tested
         return
     
-    # create an empty file with a python command send with submit_command
+    # Use Python instead of the POSIX-only ``touch`` command so this local
+    # smoke test runs on Windows as well as Linux.
     filename = tmp_path / 'test_submit_command_file'
-    remote.submit_command(f'touch {filename}', localhost)
+    code = f"from pathlib import Path\nPath({str(filename)!r}).touch()"
+    remote.submit_command(sys.executable, localhost, input=code)
     os.remove(filename)
 
 @pytest.mark.network_onera
@@ -81,7 +83,7 @@ def test_submit_python_command(tmp_path):
     # python_command = f'''{sys.executable} -c "open('{filename}', 'w').close()"'''
     # remote.submit_command(python_command, localhost)
     code = f'''
-with open('{filename}', 'w') as f:
+with open({str(filename)!r}, 'w') as f:
     f.write('test')
 '''
     remote.submit_command(sys.executable, localhost, input=code)

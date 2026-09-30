@@ -1,7 +1,11 @@
 from mola.workflow.rotating_component import turbomachinery
-from mola import solver
+
+solver = 'elsa'
+example_name = 'r37_'+solver
 
 w = turbomachinery.Workflow( 
+
+    Solver=solver,
     
     Mesh = dict(
         Source = '/stck/mola/data/open/mesh/rotor37/rotor37.cgns',
@@ -34,6 +38,7 @@ w = turbomachinery.Workflow(
 
     Numerics = dict(
         NumberOfIterations = 10000,
+        MinimumNumberOfIterations = 5000, 
         CFL = dict(EndIteration=300, StartValue=1., EndValue=30.)
     ),
 
@@ -42,12 +47,13 @@ w = turbomachinery.Workflow(
         dict(Family='R37_OUTFLOW', Type='OutflowRadialEquilibrium', 
              ValveLaw=dict(Type='Quadratic', ValveCoefficient=0.1)
             # MassFlow=20.,
-             )
+             ),
+        # dict(Family='R37_INFLOW', Type='giles_inlet', NumberOfModes=29),  # NumberOfModes = Nb_cells_in_theta / 2 + 1 
+        # dict(Family='R37_OUTFLOW', Type='giles_outlet', NumberOfModes=29,
+        #      ValveLaw=dict(Type='Quadratic', ValveCoefficient=0.1)
+        #     # MassFlow=20.,
+        #      ),
     ],
-
-    Initialization = dict(
-        ParametrizeWithHeight = 'turbo'
-    ),
 
     Extractions = [
         dict(Type='IsoSurface', IsoSurfaceField='CoordinateX', IsoSurfaceValue=-0.03, Fields=['Conservatives'], OtherOptions=dict(tag='InletPlane', ReferenceRow='R37')),
@@ -63,19 +69,23 @@ w = turbomachinery.Workflow(
         ),
     ],
 
-    RunManagement=dict(
-        JobName='rotor37_isospeed',
-        NumberOfProcessors=24,
-        RunDirectory=f'/tmp_user/sator/$USER/.test_user_case/rotor37_{solver}',
-        AER='37753003F', # RGC MOLA 2026
-        ),
+    # Initialization = dict(
+    #     ParametrizeWithHeight = 'turbo'
+    # ),
 
+    RunManagement=dict(
+        NumberOfProcessors = 24,
+        JobName=example_name,
+        RunDirectory = '/tmp_user/sator/$USER/mola_examples/'+example_name,
+        TimeLimit = '15:00:00',
+        AER='37753003F',
+        ),
     )
 
+# # if commented: preprocess is done remotely
+# w.prepare()
+# w.write_cfd_files()
 
-import numpy as np
-manager = turbomachinery.WorkflowManager(w, root_directory=f'/tmp_user/sator/$USER/.test_user_case/rotor37_multi_{solver}')
-manager.add_isospeed_line(np.arange(0.2, 0.61, 0.05))
-manager.prepare()
-manager.submit()
+w.submit()
 
+# MOLA_CI_MODE: "mono"

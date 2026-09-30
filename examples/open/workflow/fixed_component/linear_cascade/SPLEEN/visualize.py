@@ -1,10 +1,7 @@
 from mola import visu
 
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
-
+solver = 'elsa'
+example_name = 'example_lin_casc_spleen_'+solver
 
 # set the different field elements to include in the image
 Elements = [
@@ -14,7 +11,7 @@ Elements = [
 
 # Create a figure
 fig = visu.Figure(
-    filename='flow_spleen.png',
+    filename=f'flow_{example_name}.png',
     camera=dict( 
         posCam=(0.033, -0.1, -0.004), 
         posEye=(0.033, 0.001, -0.004), 
@@ -25,7 +22,9 @@ fig = visu.Figure(
 
 
 # generate the CPlot image of the field elements (will write an image)
-fig.plot_surfaces() #default_vertex_container='FlowSolution#EndOfRunV')
+fig.plot_surfaces(
+    surfaces=f'{example_name}/OUTPUT/extractions.cgns',
+) #default_vertex_container='FlowSolution#EndOfRunV')
 # include matplotlib components, such as colorbar and a 2D curve plot
 fig.add_colorbar(
     field_name='MachNumberAbs', colorbar_title = r'$\bf{M}$ (-)',
@@ -33,13 +32,15 @@ fig.add_colorbar(
     )
 
 # Plot convergence
-ax = fig.plot_signals(left=0.7, right=0.98, bottom=0.5, top=0.8,
-            ylabel=r'$\dot{m}$ (kg/s)',
-            background_opacity=0.0,
-            curves=[
-                dict(zone_name='SPLEEN_INFLOW',x='Iteration',y='MassFlow', multiply_by=-1),
-                dict(zone_name='SPLEEN_OUTFLOW',x='Iteration',y='MassFlow'),
-                ]
-            )
+ax = fig.plot_signals(
+    signals=f'{example_name}/OUTPUT/signals.cgns',
+    left=0.7, right=0.98, bottom=0.5, top=0.8,
+    ylabel=r'$\dot{m}$ (kg/s)',
+    background_opacity=0.0,
+    curves=[
+        dict(zone_name='SPLEEN_INFLOW',x='Iteration',y='MassFlow', multiply_by=-1),
+        dict(zone_name='SPLEEN_OUTFLOW',x='Iteration',y='MassFlow'),
+        ]
+    )
 
 fig.save()

@@ -18,11 +18,31 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
+# Save SLURM variables before sourcing Cassiopee
+SLURM_VARS_TO_SAVE=$(env | grep '^SLURM_' | cut -d= -f1)
+for var in $SLURM_VARS_TO_SAVE; do
+    eval "SAVED_$var=\"\$$var\""
+done
+
+if [[ -v OMP_NUM_THREADS ]]; then
+    _omp_was_set=1
+    _omp_original_value=$OMP_NUM_THREADS
+else
+    _omp_was_set=0
+fi
+
 # TODO use stable release
 export MACHINE=sator_sph
 export CASSIOPEE=/tmp_user/sator/cassiope/git/releases/Cassiopee/v4.1
-source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null # CAUTION Cassiopee clears SLURM vars
 export HDF5_DISABLE_VERSION_CHECK=1 # BUG https://elsa.onera.fr/issues/12068
+
+if (( _omp_was_set )); then
+    export OMP_NUM_THREADS="$_omp_original_value"
+fi
+
+unset _omp_was_set _omp_original_value
+
 
 unset I_MPI_PMI_LIBRARY
 unset I_MPI_TCP_NETMASK 
@@ -40,6 +60,12 @@ export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 # maia
 module use --append /tmp_user/sator/sonics/usr/modules/
 module load maia/$MAIAVERSION-dsi-cfd6 &> /dev/null
+
+# Restore SLURM variables
+for var in $SLURM_VARS_TO_SAVE; do
+    eval "export $var=\"\${SAVED_$var}\""
+done
+
 
 # trick to read pdf files due to conflict https://elsa.onera.fr/issues/11052
 pdf()

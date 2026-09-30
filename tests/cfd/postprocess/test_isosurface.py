@@ -24,6 +24,10 @@ from treelab import cgns
 from mola.workflow import Workflow
 from mola.cfd.postprocess import iso_surface, extract_bc
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 def compute_workflow(run_directory):
 
     x, y, z = np.meshgrid( np.linspace(0,1,5),
@@ -113,10 +117,6 @@ def test_iso_surface_elsa(splitter):
 
     import maia.pytree as PT
 
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
     if size == 1:
         return
 
@@ -164,10 +164,6 @@ def test_extract_bc_elsa(splitter):
 
     import maia.pytree as PT
 
-    from mpi4py import MPI
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
     if size == 1:
         return
 
@@ -203,5 +199,4 @@ def test_extract_bc_elsa(splitter):
 
 if __name__ == '__main__':
     # compute_workflow('test')
-    from mpi4py import MPI
-    test_extract_bc_elsa('maia', MPI.COMM_WORLD)
+    test_extract_bc_elsa('maia', comm)

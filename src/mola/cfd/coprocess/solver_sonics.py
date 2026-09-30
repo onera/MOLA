@@ -21,7 +21,9 @@ import shutil
 import numpy as np
 
 import maia
-from mpi4py import MPI
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
+
 from treelab import cgns
 
 import mola.naming_conventions as names
@@ -99,8 +101,8 @@ def get_output_tree(coprocess_manager) -> cgns.Tree:
     else:
         elt_location = 'Cell' if    coprocess_manager.workflow.ProblemDimension == 3\
                               else 'Face'
-    part_tree = maia.factory.partition_dist_tree(output_tree, MPI.COMM_WORLD, preserve_orientation=True)
-    maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=MPI.COMM_WORLD)
+    part_tree = maia.factory.partition_dist_tree(output_tree, comm, preserve_orientation=True)
+    maia.transfer.dist_tree_to_part_tree_all(output_tree, part_tree, comm=comm)
     part_tree = cgns.castNode(part_tree)
     if elt_location == 'Vertex':
         part_tree = cgns.castNode(part_tree)
@@ -409,12 +411,17 @@ def extract_time_monitoring(extraction, coprocess_manager):
         cgns.Node(Name='TotalRealTime', Type='DataArray', Parent=fs, Value=np.array([coprocess_manager.elapsed_time()]))
         
         TimePerCellPerIteration = None
-        with open(names.FILE_STDOUT, 'r') as file:
-            for line in file:
-                if '+ end computation[' in line:
-                    times = line.split('(')[-1].split(')')[0].split(',')
-                    TimePerCellPerIteration = float(times[2].replace("'", ""))
-                    break
+
+        try:
+            with open(names.FILE_STDOUT, 'r') as file:
+                for line in file:
+                    if '+ end computation[' in line:
+                        times = line.split('(')[-1].split(')')[0].split(',')
+                        TimePerCellPerIteration = float(times[2].replace("'", ""))
+                        break
+        except FileNotFoundError:
+            pass
+
         if TimePerCellPerIteration:
             cgns.Node(Name='TimePerCellPerIteration', Type='DataArray', Parent=fs, Value=TimePerCellPerIteration)
 

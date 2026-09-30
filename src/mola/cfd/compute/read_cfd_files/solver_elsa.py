@@ -16,9 +16,9 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = MPI.COMM_WORLD.Get_rank()
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, nb_digs = get_mpi_elements_safely()
+
 
 import maia
 
@@ -242,12 +242,11 @@ def read_and_split_with_pypart(src):
     import Converter.Internal as I
     import Converter.Mpi as Cmpi
     import etc.pypart.PyPart as PPA
-    from mpi4py import MPI
 
     PyPartBase = PPA.PyPart(src,
                             lksearch=[names.DIRECTORY_OUTPUT, '.'],
                             loadoption='partial',
-                            mpicomm=MPI.COMM_WORLD,
+                            mpicomm=comm,
                             LoggingInFile=False,
                             LoggingFile=os.path.join(names.DIRECTORY_LOG, 'partTree'),
                             LoggingVerbose=40  # Filter: None=0, DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
@@ -307,7 +306,7 @@ def pypart_to_maia_for_unstructured_mesh(pypart_tree, pypart_skel_tree=None, rec
     
     Ouput is a shallow copy of the input tree (data array are shared)
     """
-    from mpi4py import MPI
+    from mpi4py.MPI import COMM_SELF
     import maia.pytree as PT
     import maia.pytree.maia as MT
 
@@ -327,7 +326,7 @@ def pypart_to_maia_for_unstructured_mesh(pypart_tree, pypart_skel_tree=None, rec
         skel_tree = PT.shallow_copy(pypart_skel_tree)
         for zone in PT.get_all_Zone_t(skel_tree):
             _gc_name_pypart_to_maia(zone)
-        add_joins_donor_name(skel_tree, MPI.COMM_SELF)
+        add_joins_donor_name(skel_tree, COMM_SELF)
 
     # Reorganise zone data
     for zone in PT.get_all_Zone_t(tree):

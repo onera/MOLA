@@ -18,43 +18,70 @@
 SCRIPT_DIR=$( \cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../network.sh
 
-
 # Treelab
 export TREELABPATH=/tmp_user/juno/mola/treelab/$TREELABVERSION/juno_sonics
 # export TREELABPATH=/stck/lbernard/treelab/dev # ONLY DURING DEV (replaces stable version)
 export PATH="$TREELABPATH/bin${PATH:+:${PATH}}"
 export PYTHONPATH=$TREELABPATH/lib/python3.8/site-packages:$PYTHONPATH
 
+# Save SLURM variables before sourcing Cassiopee
+SLURM_VARS_TO_SAVE=$(env | grep '^SLURM_' | cut -d= -f1)
+for var in $SLURM_VARS_TO_SAVE; do
+    eval "SAVED_$var=\"\$$var\""
+done
+
+if [[ -v OMP_NUM_THREADS ]]; then
+    _omp_was_set=1
+    _omp_original_value=$OMP_NUM_THREADS
+else
+    _omp_was_set=0
+fi
+
 export MACHINE=juno
 export CASSIOPEE=/tmp_user/juno/cassiope/git/releases/Cassiopee/v4.0
-source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null
+source $CASSIOPEE/Dist/sh_Cassiopee_local &> /dev/null # CAUTION Cassiopee clears SLURM vars
 
 source /tmp_user/juno/sonics/usr/sonics/$SONICSVERSION/gcc/source.sh &>/dev/null
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/tools/netcdf/4.8.0-gnu831/lib
+unset PYTEST_PLUGINS
 
+# Restore SLURM variables
+for var in $SLURM_VARS_TO_SAVE; do
+    eval "export $var=\"\${SAVED_$var}\""
+done
 
+if (( _omp_was_set )); then
+    export OMP_NUM_THREADS="$_omp_original_value"
+fi
+
+unset _omp_was_set _omp_original_value
+
+# # # # for avoiding error bootstrap
+# # # # https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
+# # # # https://slurm.schedmd.com/mpi_guide.html
 unset I_MPI_PMI_LIBRARY
-unset I_MPI_TCP_NETMASK 
-unset I_MPI_FABRICS_LIST
-
-# # for avoiding error bootstrap
-# # https://community.intel.com/t5/Intel-MPI-Library/Unable-to-run-bstrap-proxy-error-with-intel-oneapi-mpi-2021-8/td-p/1466543
-# # https://slurm.schedmd.com/mpi_guide.html
+# unset I_MPI_TCP_NETMASK 
+# unset I_MPI_FABRICS_LIST
 # export I_MPI_HYDRA_BOOTSTRAP=ssh
-export I_MPI_FABRICS=shm:tcp
-export FI_PROVIDER=tcp
-
-# TODO in future, but requires using "srun" instead of "mpirun":
-# export I_MPI_HYDRA_BOOTSTRAP=pmix
-# unset I_MPI_PMI_LIBRARY
-# export I_MPI_FABRICS=shm:ofi
+# export I_MPI_FABRICS=shm:tcp
 # export FI_PROVIDER=tcp
 
-
+# # CAUTION requires using "srun --mpi=pmi2" instead of "mpirun -np"
+# unset I_MPI_TCP_NETMASK
+# unset I_MPI_FABRICS_LIST
+# unset I_MPI_HYDRA_BOOTSTRAP
+# export I_MPI_FABRICS=shm:ofi
+# export FI_PROVIDER=tcp
+# export I_MPI_PIN=off
+# export KMP_AFFINITY=disabled
+# export OMP_PROC_BIND=FALSE
+# export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi2.so
 
 # # maia
 # module use --append /tmp_user/juno/sonics/usr/modules/
 # module load maia/$MAIAVERSION-dsi-cfd6
+
+
 
 export PYTHONPATH=$MOLA:$PYTHONPATH
 export PATH=$MOLA/mola/bin:$PATH

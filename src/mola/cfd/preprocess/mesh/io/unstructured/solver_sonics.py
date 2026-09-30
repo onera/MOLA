@@ -20,6 +20,10 @@ from mola.logging import mola_logger
 from mola.cfd.preprocess.mesh.io.unstructured import convert_elements_to_ngon, merge_all_unstructured_zones_from_families
 from mola.cfd.preprocess.mesh.tools import to_distributed, to_full_tree_at_rank_0, tree_has_not_any_ngon
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
+
 def apply_to_solver(workflow):
     if not workflow.tree.isUnstructured():
         mola_logger.user_warning('Make mesh fully unstructured for SoNICS')
@@ -40,14 +44,13 @@ def apply_to_solver(workflow):
 
 def make_mesh_unstructured(t):
     import maia 
-    from mpi4py import MPI
     from maia.io.fix_tree import fix_point_ranges
     
     t = cgns.castNode(t)
     t = to_distributed(t)
     fix_point_ranges(t)
-    maia.algo.dist.convert_s_to_ngon(t, MPI.COMM_WORLD)
-    maia.algo.pe_to_nface(t, MPI.COMM_WORLD)
+    maia.algo.dist.convert_s_to_ngon(t, comm)
+    maia.algo.pe_to_nface(t, comm)
     t = cgns.castNode(t)
     assert t.isUnstructured()
 

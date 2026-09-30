@@ -40,10 +40,6 @@ def build_zone():
     return zone
 
 @pytest.mark.unit
-def test_is_using_mpi():
-    print(io.utils.is_using_mpi())
-
-@pytest.mark.unit
 def test_file_reader():
     file_src = 'tmp_zone.cgns'
     import mpi4py.MPI as MPI

@@ -63,3 +63,5 @@ export SONICSVERSION=0.6.19
 export MAIAVERSION=1.6  # For Fast. For elsA and SoNICS, keep the version loaded with the solver
 export TURBOVERSION=v1.3.1
 export ERSTAZVERSION=v1.6.3
+
+export MOLA_MPI_USE_PMI2=0 # may be locally overriden

@@ -21,6 +21,9 @@ from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null_if_not_debug, print, GREEN, ENDC
 
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
+
 def apply(workflow):
     '''
     Distribute a PyTree **t**, with optional splitting.
@@ -39,8 +42,6 @@ def apply(workflow):
 
     is_partitioned = bool(workflow.tree.get(':CGNS#GlobalNumbering'))
     if is_partitioned:
-        from mpi4py import MPI
-        size = MPI.COMM_WORLD.Get_size()
         if size>1 and size != nproc:
             raise MolaException(f'MPI preprocess is being executed using {size} ranks, but it does not match the requested NumberOfProcessors in RunManagement ({nproc})')
         mola_logger.info('mesh already split and distributed: skip splitting', rank=0)
@@ -69,8 +70,7 @@ def split_with_imposed_mode(workflow):
 
 def _splitAndDistributeUsingNPartsAndNProcsWithCassiopee(workflow, NumberOfParts, NumberOfProcessors, raise_error=False):
 
-    from mpi4py import MPI
-    if MPI.COMM_WORLD.Get_size() > 1:
+    if size > 1:
         raise MolaException('cannot use Splitter="cassiopee" in MPI parallel mode. Use maia or relaunch in sequential mode.')
 
     # Checks on splitter and distributor
@@ -203,9 +203,6 @@ def _splitAndDistributeUsingNPartsWithMaia(workflow):
     tree_is_distributed = bool(workflow.tree.get(':CGNS#Distribution'))
     if not tree_is_distributed: raise MolaException('unexpected behavior, expected dist_tree')
     
-    from mpi4py import MPI
-    size = MPI.COMM_WORLD.Get_size()
-    rank = MPI.COMM_WORLD.Get_rank()
     nproc = workflow.RunManagement['NumberOfProcessors']
     if size != nproc:
         msg = f'Splitting with maia requires using same mpi number of ranks as requested splitting.\n'
@@ -333,7 +330,7 @@ def showStatisticsAndCheckDistribution(tNew, CoresPerNode=48):
 
     # unable to compute statistics on MPI partitioned tree
     # hint: use skeleton, see /stck/jcoulet/dev/dev-Tools/maia/Support/lbernard/skeleton.py
-    if get_mpi_size() > 1: return 
+    if size > 1: return 
 
     ProcDistributed = getProc(tNew)
     ResultingNProc = max(ProcDistributed)+1
@@ -416,10 +413,6 @@ def getProc(t):
         solverParam = zone.get(Name='.Solver#Param',Depth=1)
         procs += [ int(solverParam.get(Name='proc').value()) ]
     return np.array(procs, order='F', ndmin=1)
-
-def get_mpi_size():
-    from mpi4py import MPI
-    return MPI.COMM_WORLD.Get_size()
 
 
 def _assert_tree_has_good_distribution_assignment(workflow):

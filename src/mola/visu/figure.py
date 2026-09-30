@@ -18,10 +18,9 @@
 import os
 from typing import Union
 
-from mpi4py import MPI
-comm   = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
+from mola import __MOLA_PATH__
+from mola.mpi import get_mpi_elements_safely
+comm, rank, size, _ = get_mpi_elements_safely()
 
 if size >2:
     import os
@@ -211,8 +210,7 @@ class Figure():
 
     def _get_backgroud_file(self):
         backgroundFile = None
-        MOLAloc = os.getenv('MOLA')
-        path_background = os.path.join(MOLAloc,'mola', 'visu', 'backgrounds',f'background_{self.background}.png')
+        path_background = os.path.join(__MOLA_PATH__,'mola', 'visu', 'backgrounds',f'background_{self.background}.png')
         if os.path.exists(path_background):
             backgroundFile = path_background
         return backgroundFile
@@ -641,10 +639,9 @@ if __name__ == '__main__':
 
     from mola import visu
 
-    from mpi4py import MPI
-    comm   = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    from mola.mpi import get_mpi_elements_safely
+    comm, rank, size, _ = get_mpi_elements_safely()
+
 
     if size >2:
         import os
