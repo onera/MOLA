@@ -16,14 +16,11 @@ if any(__MOLA_PATH__.startswith(p) for p in (
         MOLA_PATH = f'/tmp_user/sator/mola/{ci_tag}/src'
     else:
         # we are in a stable release
+        version_name = os.path.basename(os.path.dirname(__MOLA_PATH__))
+        if __version__ != version_name:
+            print(f'warning: __version__={__version__} != {version_name}')
 
-        if __version__ == 'unknown':
-            raise RuntimeError(
-                f"Cannot determine MOLA_PATH: __version__ is 'unknown' and "
-                f"CI_COMMIT_TAG is not set."
-            )
-
-        MOLA_PATH = f'/tmp_user/sator/mola/{__version__}/src'
+        MOLA_PATH = f'/tmp_user/sator/mola/{version_name}/src'
 
 else:
     # we are in developer mode, we use conventional install path:
