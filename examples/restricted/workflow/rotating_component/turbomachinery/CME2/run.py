@@ -8,12 +8,7 @@ w = turbomachinery.Workflow(
 
     Solver=solver,
 
-    RawMeshComponents=[
-        dict(
-            Name='CME2',
-            Source='/stck/mola/data/restricted/mesh/CME2/CME2.cgns',
-            )
-    ],
+    Mesh='/stck/mola/data/restricted/mesh/CME2/CME2.cgns',
 
     ApplicationContext = dict(
         ShaftRotationSpeed = -6400.,

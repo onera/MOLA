@@ -80,13 +80,8 @@ SATOR_TARGET="${SATOR_USER}@${SATOR_HOST}"
 
 RSYNC_EXCLUDE_ARGS=(
     --exclude=".git/"
+    --exclude-from="${SOURCE_PATH}/.gitignore"
 )
-
-if [[ -f "${SOURCE_PATH}/.gitignore" ]]; then
-    RSYNC_EXCLUDE_ARGS+=(
-        --exclude-from="${SOURCE_PATH}/.gitignore"
-    )
-fi
 
 # ---------------------------------------------------------------------------
 # Information
@@ -149,14 +144,6 @@ then
     exit 1
 fi
 
-if ! ssh "${SATOR_SSH_OPTIONS[@]}" \
-    "$SATOR_TARGET" \
-    "ln -sfn 'src/mola/env/onera/env.sh' '${SATOR_PATH}/env_mola.sh'"
-then
-    echo "ERROR: Could not create env_mola.sh on Sator." >&2
-    exit 1
-fi
-
 echo "Sync to Sator completed."
 
 # ---------------------------------------------------------------------------
@@ -176,31 +163,7 @@ then
     exit 1
 fi
 
-if ! ln -sfn \
-    "src/mola/env/onera/env.sh" \
-    "${JUNO_PATH}/env_mola.sh"
-then
-    echo "ERROR: Could not create env_mola.sh on Juno." >&2
-    exit 1
-fi
-
 echo "Sync to Juno completed."
-
-# ---------------------------------------------------------------------------
-# Create local environment symlink
-# ---------------------------------------------------------------------------
-
-echo "Creating local env_mola.sh symlink..."
-
-if ! ln -sfn \
-    "src/mola/env/onera/env.sh" \
-    "${DEST_PATH}/env_mola.sh"
-then
-    echo "ERROR: Could not create env_mola.sh in /stck/mola." >&2
-    exit 1
-fi
-
-echo "Local env_mola.sh symlink created."
 
 # ---------------------------------------------------------------------------
 # Cleanup deployment script from deployed directories

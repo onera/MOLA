@@ -7,12 +7,7 @@ w = propeller.Workflow(
 
     Solver=solver,
 
-    RawMeshComponents=[
-        dict(
-            Name='LIGHT',
-            Source='/stck/mola/data/open/mesh/light_propeller/mesh.cgns',
-        )
-    ],
+    Mesh='/stck/mola/data/open/mesh/light_propeller/mesh.cgns',
 
     Flow = dict(
         Velocity = 10.0,

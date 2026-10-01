@@ -77,8 +77,25 @@ echo "Preparing shared source directory..."
 rm -rf -- "$SHARED_SRC"
 mkdir -p -- "$SHARED_SRC"
 
-# Copy repository contents, including hidden files.
-cp -a -- "${REPO_PATH}/." "${SHARED_SRC}/"
+# Copy repository contents, excluding .git/ and files listed in .gitignore.
+RSYNC_EXCLUDE_ARGS=(
+    --exclude=".git/"
+)
+
+if [[ -f "${REPO_PATH}/.gitignore" ]]; then
+    RSYNC_EXCLUDE_ARGS+=(
+        --exclude-from="${REPO_PATH}/.gitignore"
+    )
+fi
+
+if ! rsync -a \
+    "${RSYNC_EXCLUDE_ARGS[@]}" \
+    "${REPO_PATH}/" \
+    "${SHARED_SRC}/"
+then
+    echo "ERROR: Failed to copy repository contents to shared source." >&2
+    exit 1
+fi
 
 # Make the source readable/traversable by mola.
 chmod -R a+rX -- "$SHARED_SRC"

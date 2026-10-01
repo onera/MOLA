@@ -161,7 +161,7 @@ examples_submit:
   needs:
     - release_candidate_prepare
   script:
-    - source $MOLA_ENV_ELSA
+    - source /stck/mola/${CI_COMMIT_TAG}/env_mola.sh
     - export OMP_NUM_THREADS=1
     - echo "Submitting examples..."
     - python3 -m mola.cicd.examples_runner submit --force --version "$CI_COMMIT_TAG"
@@ -225,7 +225,7 @@ examples_postprocess:
   tags:
     - juno-shell
   script:
-    - source $MOLA_ENV_DEFAULT
+    - source /stck/mola/${CI_COMMIT_TAG}/env_mola.sh
     - python3 -m mola.cicd.examples_runner postprocess --tag "$CI_COMMIT_TAG"
   artifacts:
     paths:
@@ -261,10 +261,10 @@ final_release:
     - MOLA_DOC_VERSION="$CI_COMMIT_TAG" make -C doc install_doc_requirements
     - MOLA_DOC_VERSION="$CI_COMMIT_TAG" make -C doc doc
     - python3 scripts/cicd/update_doc_versions.py doc/html/_static/versions.json "$CI_COMMIT_TAG"
-    - mkdir -p "/stck/mola/html/$CI_COMMIT_TAG"
-    - rsync -a --delete doc/html/ "/stck/mola/html/$CI_COMMIT_TAG/"
-    - chmod +x scripts/sync_to_github.sh
-    - scripts/sync_to_github.sh "$CI_COMMIT_TAG"
+    - chmod +x scripts/cicd/deploy_doc.sh
+    - scripts/cicd/deploy_doc.sh doc/html "$CI_COMMIT_TAG"
+#    - chmod +x scripts/sync_to_github.sh
+#    - scripts/sync_to_github.sh "$CI_COMMIT_TAG"
 
 
 coverage_report:

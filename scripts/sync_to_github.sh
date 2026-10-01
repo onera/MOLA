@@ -37,6 +37,8 @@ git switch -c "$TEMP_BRANCH" "$TARGET_COMMIT"
 git rm --cached -r --ignore-unmatch \
     scripts/cicd/deploy.sh \
     scripts/cicd/deploy_as_mola.sh \
+    scripts/cicd/deploy_doc.sh \
+    scripts/cicd/deploy_doc_as_mola.sh \
     scripts/cicd/promote_release.sh \
     scripts/cicd/promote_release_as_mola.sh \
     scripts/cicd/repatriate_data.sh \

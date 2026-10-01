@@ -97,4 +97,4 @@ w = turbomachinery.Workflow(
 # w.write_cfd_files()
 w.submit()
 
-# MOLA_CI_MODE: "mono"
+# MOLA_CI_MODE: "mono" # TODO FIXME DISABLED in v2.0.1 due to channel height computation bug with sonics
