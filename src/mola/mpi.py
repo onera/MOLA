@@ -71,6 +71,7 @@ if __name__ == "__main__":
         os.remove(tmp_file_path)
 
 def get_mpi_launcher(run_management : dict = {}, imposed_size : int = None) -> str:
+    from .server import guess_machine
 
     if imposed_size:
         size = imposed_size
@@ -82,6 +83,8 @@ def get_mpi_launcher(run_management : dict = {}, imposed_size : int = None) -> s
 
     scheduler = run_management.get('Scheduler','local')
     machine = run_management.get('Machine', 'localhost')
+    if machine == 'localhost':
+        machine = guess_machine(machine)
     mola_target_path = run_management.get('mola_target_path', __MOLA_PATH__)
     scheduler_defaults = _get_scheduler_defaults(machine, mola_target_path)
 
