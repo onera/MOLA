@@ -4,8 +4,8 @@ from mola.pytree.user import checker
 from .tree_generator import dummy_tree
 
 from mola.logging.exceptions import MolaException
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 backends = ["maia","cassiopee","treelab"]

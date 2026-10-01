@@ -28,8 +28,8 @@ from mola.pytree.user.checker import is_partitioned_for_use_in_maia, is_distribu
 from mola.cfd.postprocess.signals.propeller_coefficients_computer import add_aerodynamic_coefficients_to
 from mola.pytree.user import checker 
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 class WorkflowPropeller(WorkflowRotatingComponent):

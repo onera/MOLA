@@ -23,8 +23,8 @@ from mola.dependency_injector.retriever import load_source
 from mola.logging import mola_logger, MolaException, MolaUserError, redirect_streams_to_null_if_not_debug
 from mola.cfd.postprocess.interpolation import migrateFields
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, mpi_size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, mpi_size, _ = get_mpi_elements()
 
 
 def apply(workflow, selected_boundaries_conditions=None):

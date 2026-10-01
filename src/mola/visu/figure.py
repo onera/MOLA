@@ -19,8 +19,8 @@ import os
 from typing import Union
 
 from mola import __MOLA_PATH__
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 if size >2:
     import os
@@ -639,8 +639,8 @@ if __name__ == '__main__':
 
     from mola import visu
 
-    from mola.mpi import get_mpi_elements_safely
-    comm, rank, size, _ = get_mpi_elements_safely()
+    from mola.mpi import get_mpi_elements
+    comm, rank, size, _ = get_mpi_elements()
 
 
     if size >2:

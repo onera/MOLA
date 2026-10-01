@@ -212,24 +212,7 @@ def get_mpi_identity_from_environment():
     # Safe fallback: this process is treated as sequential.
     return 0, 1
 
-def get_mpi_elements_safely():
-    rank, size = get_mpi_identity_from_environment()
-
-    # if size > 1:
-
-    #     from mpi4py import MPI
-
-    #     comm = MPI.COMM_WORLD
-    #     rank = comm.Get_rank()
-    #     size = comm.Get_size()
-    #     nb_digs = int(np.ceil(np.log10(size+1)))
-
-    # else:
-    #     comm = None
-    #     rank = 0
-    #     size = 1
-    #     nb_digs = 1
-
+def get_mpi_elements():
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD

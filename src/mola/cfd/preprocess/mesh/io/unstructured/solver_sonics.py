@@ -20,8 +20,8 @@ from mola.logging import mola_logger
 from mola.cfd.preprocess.mesh.io.unstructured import convert_elements_to_ngon, merge_all_unstructured_zones_from_families
 from mola.cfd.preprocess.mesh.tools import to_distributed, to_full_tree_at_rank_0, tree_has_not_any_ngon
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 def apply_to_solver(workflow):

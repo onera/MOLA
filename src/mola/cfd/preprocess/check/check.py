@@ -23,8 +23,8 @@ from mola.logging import mola_logger, MolaException, GREEN, YELLOW, ENDC
 from mola.cfd.preprocess.mesh.tools import to_full_tree_at_rank_0
 from mola.cfd.preprocess.mesh.families import shall_define_overlap_type_directly
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, mpi_size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, mpi_size, _ = get_mpi_elements()
 
 
 def apply(workflow):

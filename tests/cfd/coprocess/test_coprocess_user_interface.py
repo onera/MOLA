@@ -21,8 +21,8 @@ import os
 from mola.cfd.coprocess.manager import CoprocessManager, names
 from mola.cfd.coprocess import user_interface
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 

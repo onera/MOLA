@@ -19,8 +19,8 @@ import copy
 import treelab.cgns as cgns
 from mola.logging import mola_logger, MolaException, MolaUserError
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 structured_locations = ('imin','imax','jmin','jmax','kmin','kmax')
 

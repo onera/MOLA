@@ -25,7 +25,7 @@ import os
 import logging
 import warnings
 import numpy as np
-from ..mpi import get_mpi_elements_safely
+from ..mpi import get_mpi_elements
 
 from .formatters import CustomFormatter, YELLOW, ENDC
 
@@ -55,7 +55,7 @@ class MolaLogger(logging.Logger):
             self.add_file_handler(formatter, filename)
         
     def _init_MPI(self):
-        comm, rank, size, nb_digs = get_mpi_elements_safely()
+        comm, rank, size, nb_digs = get_mpi_elements()
         self.comm = comm
         self.rank = rank
         self.NumberOfProcessors = size

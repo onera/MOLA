@@ -9,8 +9,8 @@ from mola.cfd.preprocess.mesh.io.unstructured import convert_elements_to_ngon, m
 from treelab import cgns
 
 import maia 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, nb_digs = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, nb_digs = get_mpi_elements()
 
 from maia.io.fix_tree import fix_point_ranges
 

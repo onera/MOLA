@@ -147,8 +147,8 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
                     import maia
                     from treelab import cgns
                     from mola.cfd import load_source
-                    from mola.mpi import get_mpi_elements_safely
-                    comm, rank, size, nb_digs = get_mpi_elements_safely()
+                    from mola.mpi import get_mpi_elements
+                    comm, rank, size, nb_digs = get_mpi_elements()
 
                     expected_module = os.path.join(module_name)
                     solverModule = load_source('solverModule', expected_module)
@@ -172,8 +172,8 @@ def parallel_execution_with_maia(number_of_cells_limit=1e5, second_tree=False):
                         import maia
                         from treelab import cgns
                         from mola.cfd import load_source
-                        from mola.mpi import get_mpi_elements_safely
-                        comm, rank, size, nb_digs = get_mpi_elements_safely()
+                        from mola.mpi import get_mpi_elements
+                        comm, rank, size, nb_digs = get_mpi_elements()
 
                         expected_module = os.path.join(module_name)
                         solverModule = load_source('solverModule', expected_module)

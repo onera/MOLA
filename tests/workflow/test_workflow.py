@@ -30,8 +30,8 @@ from mola import server as SV
 from mola.cfd.preprocess.run_manager import run_manager
 from mola.workflow import Workflow, WorkflowInterface
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 def get_workflow_dist():

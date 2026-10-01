@@ -21,8 +21,8 @@ from treelab import cgns
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaException, MolaAssertionError, redirect_streams_to_null_if_not_debug, print, GREEN, ENDC
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 def apply(workflow):
     '''

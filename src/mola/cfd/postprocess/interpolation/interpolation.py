@@ -22,9 +22,9 @@ from mola.cfd.preprocess.mesh.tools import to_partitioned, to_distributed
 import mola.pytree.InternalShortcuts as J
 from treelab import cgns
 
-from ....mpi import get_mpi_elements_safely
+from ....mpi import get_mpi_elements
 
-comm, rank, size, nb_digs = get_mpi_elements_safely()
+comm, rank, size, nb_digs = get_mpi_elements()
 
 
 import Converter.Internal as I

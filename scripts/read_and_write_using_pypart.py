@@ -1,5 +1,5 @@
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, nb_digs = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, nb_digs = get_mpi_elements()
 
 from pprint import pformat
 import etc.pypart.PyPart as PPA

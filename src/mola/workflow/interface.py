@@ -35,8 +35,8 @@ from mola.logging import (mola_logger,
 from mola.logging.formatters import BOLD, RED, CYAN, PINK, YELLOW, ENDC
 import mola.naming_conventions as names
 from mola import solver
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 

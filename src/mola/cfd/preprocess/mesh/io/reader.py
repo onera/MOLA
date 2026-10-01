@@ -19,8 +19,8 @@ from treelab import cgns
 from mola.logging import MolaException
 from .utils import get_io_tool
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 def is_using_mpi():

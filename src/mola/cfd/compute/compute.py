@@ -18,8 +18,8 @@
 from pathlib import Path
 from mola.cfd import apply_to_solver
 import mola.naming_conventions as names
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, nb_digs = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, nb_digs = get_mpi_elements()
 
 def apply(workflow):
     try:

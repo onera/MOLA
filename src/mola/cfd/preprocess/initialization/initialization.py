@@ -21,8 +21,8 @@ from mola.logging import mola_logger, MolaException, MolaUserError
 from mola.cfd.preprocess.mesh.tools import to_partitioned
 from mola.cfd.preprocess.initialization.initialization_with_turbo import initialize_flow_with_turbo
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 def apply(workflow):
@@ -152,7 +152,7 @@ def _get_source_of_interpolation_for_maia(workflow, FlowSolution_name : str) -> 
 def _interpolate_using_maia(source_tree, destination_tree, GridLocation : str,
                             FlowSolution_name : str):
     import maia
-    comm, rank, size, nb_digs = get_mpi_elements_safely()
+    comm, rank, size, nb_digs = get_mpi_elements()
 
     source_tree = to_partitioned(source_tree)
     destination_tree = to_partitioned(destination_tree)

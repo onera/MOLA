@@ -16,11 +16,11 @@
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-from ..mpi import get_mpi_elements_safely
+from ..mpi import get_mpi_elements
 
 sys_excepthook = sys.excepthook
 
-comm, rank, size, _ = get_mpi_elements_safely()
+comm, rank, size, _ = get_mpi_elements()
 is_sequential = size == 1
 
 def mpi_excepthook(type, value, traceback):

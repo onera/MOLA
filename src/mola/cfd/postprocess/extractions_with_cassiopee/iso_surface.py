@@ -26,8 +26,8 @@ import Post.PyTree as P
 from .tools import *
 from mola.cfd.postprocess.compute import compute_radius
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, mpi_size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, mpi_size, _ = get_mpi_elements()
 
 
 def iso_surface(t, fieldname=None, value=None, container='FlowSolution#Init'):

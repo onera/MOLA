@@ -24,8 +24,8 @@ from mola.pytree.user.checker import (is_partitioned_for_use_in_maia,
 from mola.cfd import parallel_execution_with_maia
 from treelab import cgns
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 @parallel_execution_with_maia()
 def parametrize_with_height(tree, hub_families, shroud_families, GridLocation='Vertex'):

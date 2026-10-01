@@ -21,8 +21,8 @@ import shutil
 import numpy as np
 
 import maia
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, nb_digs = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, nb_digs = get_mpi_elements()
 
 from treelab import cgns
 

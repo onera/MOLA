@@ -32,8 +32,8 @@ from timeit import default_timer as tic
 from fnmatch import fnmatch
 from contextlib import contextmanager
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 import Converter.PyTree as C

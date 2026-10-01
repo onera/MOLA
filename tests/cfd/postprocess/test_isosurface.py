@@ -24,8 +24,8 @@ from treelab import cgns
 from mola.workflow import Workflow
 from mola.cfd.postprocess import iso_surface, extract_bc
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 def compute_workflow(run_directory):

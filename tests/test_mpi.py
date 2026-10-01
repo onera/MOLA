@@ -1,7 +1,7 @@
 import pytest
-from mola.mpi import run_as_mpi_subprocess, get_mpi_elements_safely
+from mola.mpi import run_as_mpi_subprocess, get_mpi_elements
 
-comm, rank, size, _ = get_mpi_elements_safely()
+comm, rank, size, _ = get_mpi_elements()
 
 _extra_env = {"I_MPI_DEBUG": "5"} # for better MPI debugging diagnostics
 
@@ -12,8 +12,8 @@ def test_mpi(size):
 
     def actual_test():
         from mola import solver
-        from mola.mpi import get_mpi_elements_safely
-        _, rank, size, _ = get_mpi_elements_safely()
+        from mola.mpi import get_mpi_elements
+        _, rank, size, _ = get_mpi_elements()
 
         print(f"Rank={rank} Size={size} solver={solver}")
 

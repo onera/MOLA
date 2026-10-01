@@ -21,8 +21,8 @@ from treelab import cgns
 from mola.logging import mola_logger, MolaException, redirect_streams_to_logger
 from mola.cfd.preprocess.mesh.tools import to_distributed, to_full_tree_at_rank_0, compute_azimuthal_extension
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 def apply(workflow):

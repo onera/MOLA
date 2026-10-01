@@ -19,8 +19,8 @@ from treelab import cgns
 from mola.logging import mola_logger, MolaException
 from mola.cfd.preprocess.motion.motion import all_families_are_fixed
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 def apply_to_solver(workflow):

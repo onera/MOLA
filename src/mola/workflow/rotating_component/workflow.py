@@ -27,8 +27,8 @@ from mola.cfd.preprocess.mesh.tools import parametrize_with_height, compute_azim
 from .. import Workflow
 from .interface import WorkflowRotatingComponentInterface
 
-from mola.mpi import get_mpi_elements_safely
-comm, rank, size, _ = get_mpi_elements_safely()
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
 
 
 class WorkflowRotatingComponent(Workflow):

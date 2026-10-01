@@ -22,8 +22,8 @@ from .utils import get_io_tool
 from ..tools import to_full_tree_at_rank_0, EmptyNodesManager
 from treelab import cgns
 import mola.naming_conventions as names
-from .....mpi import get_mpi_elements_safely
-comm, rank, size, nb_digs = get_mpi_elements_safely()
+from .....mpi import get_mpi_elements
+comm, rank, size, nb_digs = get_mpi_elements()
 
 def write(w, tree, dst, io_tool=None):
 
