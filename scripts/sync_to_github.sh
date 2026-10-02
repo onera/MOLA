@@ -41,6 +41,8 @@ git rm --cached -r --ignore-unmatch \
     scripts/cicd/deploy_doc_as_mola.sh \
     scripts/cicd/promote_release.sh \
     scripts/cicd/promote_release_as_mola.sh \
+    scripts/cicd/repatriate.sh \
+    scripts/cicd/repatriate_as_mola.sh \
     scripts/cicd/repatriate_data.sh \
     scripts/cicd/submit_examples.sh \
     scripts/cicd/validate_examples.sh \

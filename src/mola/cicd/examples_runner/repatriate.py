@@ -103,20 +103,6 @@ def _target_user_from_path(path):
     return None
 
 
-def _relocate_ssh_command(machine, target_user):
-    if not target_user:
-        raise ValueError(
-            f"Cannot determine target user from destination path for machine {machine}"
-        )
-    ssh_key = f"/stck/{target_user}/.ssh/{machine}_ci_deploy_ed25519"
-    return (
-        f"ssh -4 -o BatchMode=yes -o IdentitiesOnly=yes "
-        f"-o StrictHostKeyChecking=no "
-        f"-i {shlex.quote(ssh_key)} "
-        f"{target_user}@{machine}"
-    )
-
-
 def release_examples_root(machine, tag, root=None):
     if root:
         return f"/tmp_user/{machine}/{root}/examples"
@@ -195,19 +181,30 @@ def _relocate_ssh_command(machine, target_user):
             "Cannot determine local user (USER environment variable not set)"
         )
 
-    if target_user != local_user:
-        ssh_key = f"/stck/{local_user}/.ssh/{machine}_ci_deploy_ed25519"
-        return (
-            f"ssh -4 -o BatchMode=yes -o IdentitiesOnly=yes "
-            f"-o StrictHostKeyChecking=no "
-            f"-i {shlex.quote(ssh_key)} "
-            f"{target_user}@{machine}"
-        )
+    # Machine-specific key (e.g. /stck/mola/.ssh/sator_ci_deploy_ed25519)
+    # exists for remote machines and is required to reach them.
+    # For local/localhost connections, fall back to the generic
+    # mola_ci_deploy_ed25519 key which authorizes mola@localhost.
+    machine_key = f"/stck/{local_user}/.ssh/{machine}_ci_deploy_ed25519"
+    default_key = f"/stck/{local_user}/.ssh/mola_ci_deploy_ed25519"
+
+    if os.path.isfile(machine_key) and os.access(machine_key, os.R_OK):
+        ssh_key = machine_key
+    elif os.path.isfile(default_key) and os.access(default_key, os.R_OK):
+        ssh_key = default_key
     else:
+        # No suitable key found: use default SSH behavior
         return (
             f"ssh -4 -o BatchMode=yes "
             f"{target_user}@{machine}"
-                )
+        )
+
+    return (
+        f"ssh -4 -o BatchMode=yes -o IdentitiesOnly=yes "
+        f"-o StrictHostKeyChecking=no "
+        f"-i {shlex.quote(ssh_key)} "
+        f"{target_user}@{machine}"
+    )
 
 def relocate_examples(state_dir=None, tag=None, root=None, dry_run=False):
     """Move completed remote cases into their machine-specific release tree."""

@@ -16,6 +16,8 @@ The following scripts are ONERA-specific and are **not** published to GitHub:
 
 - `deploy.sh` - SSH-based deployment to ONERA infrastructure
 - `deploy_as_mola.sh` - Execution script with cleanup
+- `repatriate.sh` - CI-side wrapper that SSHs to `mola@localhost` and triggers repatriation with the correct SSH key (runs as CI user, e.g. `lbernard`)
+- `repatriate_as_mola.sh` - Privileged repatriation implementation (runs as `mola` user on Juno, sets up SSH config and `RSYNC_RSH` for remote machine access)
 - `deploy_doc.sh` - Stage and deploy documentation to /stck/mola/html via SSH
 - `deploy_doc_as_mola.sh` - Privileged documentation deployment implementation
 - `promote_release.sh` - Promote a validated release candidate

@@ -164,7 +164,7 @@ examples_submit:
     - source /stck/mola/${CI_COMMIT_TAG}/env_mola.sh
     - export OMP_NUM_THREADS=1
     - echo "Submitting examples..."
-    - python3 -m mola.cicd.examples_runner submit --force --version "$CI_COMMIT_TAG"
+    - python3 -m mola.cicd.examples_runner submit --version "$CI_COMMIT_TAG"
     - echo ""
     - echo "Examples submission complete!"
   artifacts:
@@ -173,42 +173,65 @@ examples_submit:
     expire_in: 1 week
 
 
-examples_validate:
+examples_monitor:
   stage: examples-validate
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/
   needs:
     - job: examples_submit
       artifacts: true
-  variables:
-    SCHEDULER_PARAMETERS: "--ntasks=4 --time=00:30:00"
   script:
     - source $MOLA_ENV_ELSA
-    - export OMP_NUM_THREADS=4
-    - echo "Validating example results..."
+    - export OMP_NUM_THREADS=1
+    - echo "Monitoring example results..."
     - echo ""
     - python3 -m mola.cicd.examples_runner validate
+    - code=$?
+    - echo "VALIDATION_STATUS=$code" > validate.env
   artifacts:
     paths:
       - .release/example_states/
     expire_in: 1 week
     when: always
-  when: manual
-  allow_failure: false
+    reports:
+      dotenv: validate.env
+  allow_failure: true
+
+
+examples_validate:
+  stage: examples-validate
+  needs:
+    - job: examples_monitor
+      artifacts: true
+  script:
+    - |
+      if [ "$VALIDATION_STATUS" = "1" ]; then
+        echo "Examples failed. Failing pipeline."
+        exit 1
+      fi
+      echo "Validation status: $VALIDATION_STATUS (not failing)."
+      exit 0
+  artifacts:
+    reports:
+      dotenv: validate.env
 
 
 examples_repatriate:
   stage: examples-repatriate
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
+    - if: '$VALIDATION_STATUS == "0"'
   needs:
     - job: examples_validate
+      artifacts: true
+    - job: examples_monitor
       artifacts: true
   tags:
     - juno-shell
   script:
     - source $MOLA_ENV_DEFAULT
-    - python3 -m mola.cicd.examples_runner repatriate --full --tag "$CI_COMMIT_TAG"
+    - export OMP_NUM_THREADS=1
+    - chmod +x scripts/cicd/repatriate.sh
+    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" full
   artifacts:
     paths:
       - .release/example_states/
@@ -226,7 +249,9 @@ examples_postprocess:
     - juno-shell
   script:
     - source /stck/mola/${CI_COMMIT_TAG}/env_mola.sh
-    - python3 -m mola.cicd.examples_runner postprocess --tag "$CI_COMMIT_TAG"
+    - export OMP_NUM_THREADS=2
+    - chmod +x scripts/cicd/repatriate.sh
+    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" postprocess
   artifacts:
     paths:
       - .release/example_states/
@@ -244,7 +269,9 @@ examples_publish:
     - juno-shell
   script:
     - source $MOLA_ENV_DEFAULT
-    - python3 -m mola.cicd.examples_runner repatriate --light --tag "$CI_COMMIT_TAG"
+    - export OMP_NUM_THREADS=1
+    - chmod +x scripts/cicd/repatriate.sh
+    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" light
 
 
 final_release:
