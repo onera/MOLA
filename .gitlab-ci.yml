@@ -201,10 +201,11 @@ examples_monitor:
 
 examples_validate:
   stage: examples-validate
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/
   needs:
     - job: examples_monitor
       artifacts: true
-      optional: true
   script:
     - |
       if [ "$VALIDATION_STATUS" = "1" ]; then
@@ -221,13 +222,12 @@ examples_validate:
 examples_repatriate:
   stage: examples-repatriate
   rules:
-    - if: '$VALIDATION_STATUS == "0"'
+    - if: '$VALIDATION_STATUS == "0" && $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
   needs:
     - job: examples_validate
       artifacts: true
     - job: examples_monitor
       artifacts: true
-      optional: true
   tags:
     - juno-shell
   script:
