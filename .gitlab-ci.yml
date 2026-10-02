@@ -204,6 +204,7 @@ examples_validate:
   needs:
     - job: examples_monitor
       artifacts: true
+      optional: true
   script:
     - |
       if [ "$VALIDATION_STATUS" = "1" ]; then
@@ -226,6 +227,7 @@ examples_repatriate:
       artifacts: true
     - job: examples_monitor
       artifacts: true
+      optional: true
   tags:
     - juno-shell
   script:
