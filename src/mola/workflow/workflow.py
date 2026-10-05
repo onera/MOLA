@@ -60,7 +60,6 @@ from  mola.cfd.preprocess import (
 from mola.cfd.postprocess import remove_cfd_files
 from mola.cfd.compute import compute
 from mola.server.remote import guess_machine
-from mola.server.submission import Submission, emit_submission, parse_job_ids
 
 from mola.workflow.interface import WorkflowInterface
 
@@ -239,7 +238,7 @@ class Workflow(object):
 
 
     def submit(self, command=None):
-        """Submit the workflow and record the resulting scheduler jobs."""
+        """Submit the workflow and return the scheduler command output."""
         
         run_directory = self.RunManagement['RunDirectory']
         machine = self.RunManagement.get('Machine',guess_machine(run_directory))
@@ -259,22 +258,7 @@ class Workflow(object):
             command = self.RunManagement['LauncherCommand']
         user = self.RunManagement.get('User')
         out = SV.submit_command(command, machine, user=user)
-        job_ids = parse_job_ids(out)
-        scheduler = self.RunManagement.get('Scheduler', 'SLURM')
-        recorded_job_ids = job_ids or [None]
-        for job_id in recorded_job_ids:
-            emit_submission(Submission.create(
-                job_id=job_id,
-                scheduler=scheduler,
-                machine=machine,
-                user=user,
-                run_directories=[run_directory],
-                solver=self.Solver,
-            ))
-        if not job_ids and scheduler == 'SLURM':
-            mola_logger.warning(
-                f"Unable to identify a scheduler job from submission output: {out!r}")
-        
+        return out
     
     def write_tree_remote(self, data_directory=None, copy_options=None):
         from . import manager as WM
@@ -426,7 +410,8 @@ class Workflow(object):
     @classmethod
     def simulation_status_from_run_directory(
             cls, run_directory, machine='localhost', user=None,
-            job_id=None, scheduler=None, max_lines_of_catched_error=1000):
+            job_id=None, scheduler=None, slurm_status=None,
+            max_lines_of_catched_error=1000):
         """Determine a case status, including pre-workflow phases.
 
         This method is intended to run on the machine that owns
@@ -449,6 +434,10 @@ class Workflow(object):
             # The input is still waiting in the sequence, or is about to be
             # consumed by prepare_from_workflow_file(). The latter writes
             # FILE_PREPROCESSING while it is active.
+            if slurm_status == names.STATUS_PENDING:
+                return names.STATUS_PENDING
+            if slurm_status == names.STATUS_RUNNING:
+                return names.STATUS_RUNNING
             return names.STATUS_READY
 
         main_path = os.path.join(run_directory, names.FILE_INPUT_SOLVER)
@@ -467,11 +456,13 @@ class Workflow(object):
             max_lines_of_catched_error=max_lines_of_catched_error,
             job_id=job_id,
             scheduler=scheduler,
+            slurm_status=slurm_status,
         )
         return status[0] if isinstance(status, tuple) else status
 
     def simulation_status(
-            self, max_lines_of_catched_error=1000, job_id=None, scheduler=None):
+            self, max_lines_of_catched_error=1000, job_id=None, scheduler=None,
+            slurm_status=None):
         run_dir = self.RunManagement['RunDirectory']
         machine = self.RunManagement['Machine']
         user = self.RunManagement.get('User')
@@ -520,6 +511,19 @@ class Workflow(object):
         elif is_preprocessing:
             return names.STATUS_PREPROCESS, ''
 
+        elif slurm_status in {names.STATUS_RUNNING, names.STATUS_PENDING}:
+            return slurm_status, ''
+
+        elif slurm_status == '':
+            coprocess_log = os.path.join(run_dir, names.FILE_COLOG)
+            if SV.is_existing_path(
+                    coprocess_log, machine=machine, user=user, file_only=True):
+                return names.FILE_JOB_FAILED, (
+                    'The scheduler job is no longer present after '
+                    f'{names.FILE_COLOG} was created.'
+                )
+            return names.STATUS_READY, ''
+
         elif self.is_running(job_id=job_id, scheduler=scheduler):
             return names.STATUS_RUNNING, ''
 
@@ -530,7 +534,8 @@ class Workflow(object):
             return names.STATUS_READY, ''
 
     def get_simulation_status_remote(
-            self, max_lines_of_catched_error=1000, job_id=None, scheduler=None):
+            self, max_lines_of_catched_error=1000, job_id=None, scheduler=None,
+            slurm_status=None):
         """
         Get simulation status by executing simulation_status() remotely via SSH.
         
@@ -570,6 +575,7 @@ try:
         machine="localhost",
         job_id=json.loads({json.dumps(job_id)!r}),
         scheduler=json.loads({json.dumps(scheduler)!r}),
+        slurm_status=json.loads({json.dumps(slurm_status)!r}),
         max_lines_of_catched_error={max_lines_of_catched_error},
     )
     result = {{"status": status, "error": ""}}

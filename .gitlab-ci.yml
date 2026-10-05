@@ -165,22 +165,15 @@ examples_submit:
     - source /stck/mola/${CI_COMMIT_TAG}/env_mola.sh
     - export OMP_NUM_THREADS=1
     - echo "Submitting examples..."
-    - python3 -m mola.cicd.examples_runner submit --version "$CI_COMMIT_TAG"
+    - python3 -m mola.cicd.examples_runner submit
     - echo ""
     - echo "Examples submission complete!"
-  artifacts:
-    paths:
-      - .release/example_states/
-    expire_in: 1 week
-
-
 examples_monitor:
   stage: examples-monitor
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/
   needs:
     - job: examples_submit
-      artifacts: true
   script:
     - source $MOLA_ENV_ELSA
     - export OMP_NUM_THREADS=1
@@ -190,9 +183,6 @@ examples_monitor:
     - code=$?
     - echo "VALIDATION_STATUS=$code" > validate.env
   artifacts:
-    paths:
-      - .release/example_states/
-    expire_in: 1 week
     when: always
     reports:
       dotenv: validate.env
@@ -225,56 +215,40 @@ examples_repatriate:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
   needs:
     - job: examples_validate
-      artifacts: true
     - job: examples_monitor
-      artifacts: true
   tags:
     - juno-shell
   script:
     - source $MOLA_ENV_DEFAULT
     - export OMP_NUM_THREADS=1
     - chmod +x scripts/cicd/repatriate.sh
-    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" full
-  artifacts:
-    paths:
-      - .release/example_states/
-    expire_in: 1 week
-
-
+    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" full "$USER"
 examples_postprocess:
   stage: examples-postprocess
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
   needs:
     - job: examples_repatriate
-      artifacts: true
   tags:
     - juno-shell
   script:
     - source /stck/mola/${CI_COMMIT_TAG}/env_mola.sh
     - export OMP_NUM_THREADS=2
     - chmod +x scripts/cicd/repatriate.sh
-    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" postprocess
-  artifacts:
-    paths:
-      - .release/example_states/
-    expire_in: 1 week
-
-
+    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" postprocess "$USER"
 examples_publish:
   stage: examples-publish
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
   needs:
     - job: examples_postprocess
-      artifacts: true
   tags:
     - juno-shell
   script:
     - source $MOLA_ENV_DEFAULT
     - export OMP_NUM_THREADS=1
     - chmod +x scripts/cicd/repatriate.sh
-    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" light
+    - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" light "$USER"
 
 
 final_release:

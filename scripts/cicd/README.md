@@ -37,31 +37,31 @@ The main CI/CD tool is now a Python module: `mola.cicd.examples_runner`
 source /path/to/mola/env/onera/env.sh elsa
 
 # Submit all marked examples
-python -m mola.cicd.examples_runner submit --pipeline-id 123 --version v2.0.1
+python -m mola.cicd.examples_runner submit
 
 # Check status
 python -m mola.cicd.examples_runner status
 
-# Remove local state and legacy generated example files
-python -m mola.cicd.examples_runner clear --states-only
+# Remove local release and legacy generated example files
+python -m mola.cicd.examples_runner clear --local-only
 
-# Remove remote directories for failed cases, preserving state files
+# Remove remote directories for failed cases
 python -m mola.cicd.examples_runner clear --failed-only
 
-# Remove all local state/legacy files and all remote example directories
+# Remove all local release/legacy files and all remote example directories
 python -m mola.cicd.examples_runner clear --all
 
 # Move completed examples into the versioned Juno/Sator result spaces
-python -m mola.cicd.examples_runner repatriate --full --tag v2.0.1-rc1
+python -m mola.cicd.examples_runner repatriate --full --tag v2.0.1-rc1 --source-user lbernard
 
 # Run comparison and visualization scripts on each machine
-python -m mola.cicd.examples_runner postprocess --tag v2.0.1-rc1
+python -m mola.cicd.examples_runner postprocess --tag v2.0.1-rc1 --source-user lbernard
 
 # Publish signals, numbered coprocess logs, and generated images to /stck
-python -m mola.cicd.examples_runner repatriate --light --tag v2.0.1-rc1
+python -m mola.cicd.examples_runner repatriate --light --tag v2.0.1-rc1 --source-user lbernard
 
 # Validate results
-python -m mola.cicd.examples_runner validate
+python -m mola.cicd.examples_runner validate --source-user lbernard
 ```
 
 ### Available Commands
@@ -70,7 +70,7 @@ python -m mola.cicd.examples_runner validate
 |---------|-------------|
 | `submit` | Submit all examples marked with `# MOLA_CI_MODE` |
 | `status` | Check status of submitted examples |
-| `clear` | Clean local CI state and/or remote example directories |
+| `clear` | Clean local release/legacy artifacts and/or remote example directories |
 | `repatriate` | Move full results or publish light results (`--light` or `--full`) |
 | `postprocess` | Run `compare.py` and `visualize.py` on each HPC machine |
 | `validate` | Validate results from completed examples (exits with code 0/1/2) |
@@ -81,28 +81,28 @@ python -m mola.cicd.examples_runner validate
 python -m mola.cicd.examples_runner submit --help
 
 Options:
-  --pipeline-id ID   CI/CD pipeline ID
-  --version VER      MOLA version being tested
   --failed-only      Submit only examples marked as FAILED
+  --source-user USER User owning the remote example paths
 ```
 
 The `clear` command requires exactly one cleanup scope:
 
 ```bash
-python -m mola.cicd.examples_runner clear --states-only
+python -m mola.cicd.examples_runner clear --local-only
 python -m mola.cicd.examples_runner clear --failed-only
 python -m mola.cicd.examples_runner clear --all
 ```
 
-`clear --failed-only` preserves the local state files so they can be used by
-`submit --failed-only`. The `--all` mode removes the local `.release`
-directory, any legacy generated `.mola_run_directory`,
-`workflow_manager.yaml`/`gather_results.py` files, and all remote run
-directories recorded in the state files.
+The runner does not persist scheduler job IDs or CI state files. It discovers
+marked `run*.py` scripts, generated `job_sequence.sh` files, case markers, and
+live SLURM status on each invocation. The `--all` mode removes the local
+`.release` directory, legacy generated `workflow_manager.yaml`/
+`gather_results.py` files, and the remote roots
+described by the example scripts.
 
-Submission state files are the source of truth for job IDs, run directories,
-status checks, cleanup, and repatriation. The runner does not require
-`.mola_run_directory` or `workflow_manager.yaml` files.
+Remote case directories and generated `job_sequence.sh` files are the source
+of truth for run directories and status checks. The runner does not require
+`workflow_manager.yaml`, or local CI state files.
 
 ### Validate Command Exit Codes
 
@@ -152,11 +152,11 @@ the versioned documentation, and synchronizes the public GitHub tree.
 
 2. **`test_examples_submit`** (manual, 30 min timeout)
    - Submits all marked examples
-   - Creates state files in `.release/example_states/`
+   - Discovers configured remote roots and skips roots that already exist
    - Uses 4 SLURM tasks for OpenMP parallelism
 
 3. **`test_examples_monitor`** (manual)
-   - Refreshes and validates all examples
+   - Re-scans scripts and remote case directories, then queries SLURM in batches
    - If still running: Job fails, click "Retry" button
    - If all success: Pipeline continues
    - If some failed: Pipeline fails (red cross)

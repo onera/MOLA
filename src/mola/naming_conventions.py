@@ -34,11 +34,6 @@ FILE_STDERR = 'stderr.log'
 FILE_STDOUT_PRE = 'stdout_pre.log'
 FILE_STDERR_PRE = 'stderr_pre.log'
 CGNS_NODE_EXTRACTION_LOG = 'MOLA:Extraction-Log'
-FILE_LOG_REMOTE_DIRECTORY = '.mola_run_directory'
-
-# CI/CD state files.
-DIRECTORY_CI_STATE = '.release/example_states'
-FILE_CI_STATE_SUFFIX = '.ci_state.yaml'
 
 # JOB
 FILE_JOB = 'job.sh'
@@ -73,9 +68,6 @@ STATUS_PREPROCESS = 'PREPROCESS'
 STATUS_READY = 'READY'
 STATUS_RUNNING = 'RUNNING'
 STATUS_PENDING = 'PENDING'
-
-# Submission events emitted by workflow processes and consumed by CI tooling.
-SUBMISSION_EVENT_PREFIX = 'MOLA_SUBMISSION: '
 
 # Repatriation patterns shared by the command-line and Python APIs.
 REPATRIATION_IMAGE_PATTERNS = ('**.png', '**.pdf', '**.svg')

@@ -7,7 +7,7 @@ set -Eeuo pipefail
 # ---------------------------------------------------------------------------
 
 if [[ $# -lt 3 ]]; then
-    echo "Usage: $0 <repo_path> <tag> <mode>" >&2
+    echo "Usage: $0 <repo_path> <tag> <mode> [source_user]" >&2
     echo "Modes: full | light | postprocess" >&2
     exit 1
 fi
@@ -15,6 +15,7 @@ fi
 REPO_PATH="$1"
 TAG="$2"
 MODE="$3"
+SOURCE_USER="${4:-${USER:-}}"
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -47,6 +48,11 @@ if [[ "$MODE" != "full" && "$MODE" != "light" && "$MODE" != "postprocess" ]]; th
     exit 1
 fi
 
+if [[ -z "$SOURCE_USER" ]]; then
+    echo "ERROR: Could not determine the source user. Pass it as the fourth argument." >&2
+    exit 1
+fi
+
 echo "=========================================="
 echo "MOLA Repatriate Script"
 echo "=========================================="
@@ -68,7 +74,7 @@ if ! ssh \
     -o StrictHostKeyChecking=no \
     -i "$LOCAL_MOLA_SSH_KEY" \
     mola@localhost \
-    "cd '$REPO_PATH' && '$REMOTE_SCRIPT' '$TAG' '$MODE'"
+    "cd '$REPO_PATH' && '$REMOTE_SCRIPT' '$TAG' '$MODE' '$SOURCE_USER'"
 then
     echo "ERROR: Repatriation via SSH failed." >&2
     exit 1

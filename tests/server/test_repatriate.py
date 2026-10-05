@@ -1,11 +1,18 @@
-"""Tests for state-based repatriation helpers."""
+"""Tests for server-side repatriation helpers."""
 
-import os
+import ast
+from unittest.mock import patch
 
 import pytest
-import yaml
 
-from mola.server import get_cases_from_submission_state, get_repatriation_filters
+from mola.server import (
+    RepatriationCase,
+    get_repatriation_filters,
+    get_script_repatriation_info,
+    repatriate_cases,
+    resolve_remote_cases,
+)
+from mola.server.repatriate import _remote_sequence_probe_code
 
 
 @pytest.mark.unit
@@ -24,34 +31,74 @@ def test_repatriation_filters_are_shared_by_mode():
 
 
 @pytest.mark.unit
-def test_submission_state_preserves_submission_machine_and_flattens_single_case(
-        tmp_path, monkeypatch):
-    state_path = tmp_path / "state.yaml"
-    state_path.write_text(yaml.safe_dump({
-        "submissions": [{
-            "machine": "juno",
-            "user": "mola",
-            "run_directories": ["/remote/case"],
-        }],
-    }))
-    calls = []
-    monkeypatch.setattr(
-        "mola.server.repatriate.rsync",
-        lambda **kwargs: calls.append(kwargs),
+def test_sequence_probe_is_valid_python_and_uses_job_sequence_sentinel():
+    code = _remote_sequence_probe_code("/tmp_user/sator/user/study")
+    ast.parse(code)
+    assert "job_sequence.sh" in code
+    assert "SEQUENCE_OF_PATHS" in code
+
+
+@pytest.mark.unit
+def test_resolve_remote_cases_prefers_discovered_sequence_cases():
+    probe = {
+        "root_exists": True,
+        "root_is_case": False,
+        "cases": ["/remote/root/a", "/remote/root/b"],
+    }
+    with patch(
+            "mola.server.repatriate.discover_job_sequence_cases",
+            return_value=probe):
+        cases = resolve_remote_cases(
+            "/remote/root",
+            "sator",
+            user="lbernard",
+            fallback_run_directories=["/remote/root/legacy"],
+        )
+
+    assert cases == [
+        RepatriationCase("/remote/root/a", "/remote/root", "sator", "lbernard"),
+        RepatriationCase("/remote/root/b", "/remote/root", "sator", "lbernard"),
+    ]
+
+
+@pytest.mark.unit
+def test_repatriate_cases_preserves_root_relative_layout(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    case = RepatriationCase(
+        "/remote/root/sequence/case", "/remote/root", "sator", "lbernard"
+    )
+    with patch("mola.server.repatriate.rsync") as rsync:
+        repatriate_cases([case], included_files={"COMPLETED"}, excluded_files={"*"})
+
+    assert (tmp_path / "sequence" / "case").is_dir()
+    rsync.assert_called_once_with(
+        source_path="/remote/root/sequence/case/",
+        source_machine="sator",
+        source_user="lbernard",
+        destination_path="sequence/case",
+        destination_machine="localhost",
+        included_files={"COMPLETED"},
+        excluded_files={"*"},
     )
 
-    get_cases_from_submission_state(
-        state_path,
-        destination_path=str(tmp_path / "example"),
-        flatten_single_case=True,
-    )
 
-    assert calls == [{
-        "source_path": "/remote/case/",
-        "source_machine": "juno",
-        "source_user": "mola",
-        "destination_path": f"{tmp_path / 'example'}{os.path.sep}",
-        "destination_machine": "localhost",
-        "included_files": None,
-        "excluded_files": None,
-    }]
+@pytest.mark.unit
+def test_script_repatriation_info_infers_root_and_expands_user(tmp_path):
+    script = tmp_path / "run_example.py"
+    script.write_text(
+        """
+from mola.workflow import Workflow, WorkflowManager
+w = Workflow(RunDirectory='/tmp_user/sator/$USER/study/base')
+manager = WorkflowManager(w, root_directory='/tmp_user/sator/$USER/study')
+""",
+        encoding="utf-8",
+    )
+    with patch("mola.server.repatriate.guess_machine", return_value="sator"):
+        root, run, machine, user = get_script_repatriation_info(
+            script, source_user="lbernard"
+        )
+
+    assert root == "/tmp_user/sator/lbernard/study"
+    assert run == "/tmp_user/sator/lbernard/study/base"
+    assert machine == "sator"
+    assert user == "lbernard"

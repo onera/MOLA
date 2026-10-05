@@ -29,7 +29,6 @@ from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, G
 from mola.cfd.preprocess.run_manager import run_manager
 from mola.cfd.preprocess.write_cfd_files import write_cfd_files
 from mola import server as SV
-from mola.server.submission import Submission, emit_submission, parse_job_ids
 from . import Workflow
 
 class WorkflowManager():
@@ -132,7 +131,6 @@ class WorkflowManager():
             self.dispatcher = WorkflowDispatcher(self.base_workflow)
             self.machine = None
             self.sequential_managers = None
-            self.submissions = []
             
             # Determine script_directory: location where the example script is run
             if script_directory is None:
@@ -197,10 +195,8 @@ class WorkflowManager():
             sequence_of_workflows.prepare()
 
     def submit(self):
-        self.submissions = []
         for sequence_of_workflows in self.sequential_managers:
             sequence_of_workflows.submit()
-            self.submissions.extend(sequence_of_workflows.submissions)
 
     def write_gather_script(self, output_path=None):
         """
@@ -236,7 +232,8 @@ class WorkflowManager():
                 for workflow in sequential_manager.workflows]
 
     @staticmethod
-    def get_simulation_status_remote(sequence_jobs, machine=None, user=None):
+    def get_simulation_status_remote(
+            sequence_jobs, machine=None, user=None, solver=None):
         """Query statuses for all cases in one or more remote sequences.
 
         The query is executed once on the target machine. Each case is then
@@ -244,92 +241,121 @@ class WorkflowManager():
         which handles pre-workflow files locally on that target and delegates
         solver-state checks to ``Workflow.simulation_status``.
 
-        ``sequence_jobs`` is a list of dictionaries with ``job_id`` and
-        ``run_directories`` keys. The optional machine/user values are used
-        for the SSH connection; case-level status checks run with
-        ``Machine='localhost'`` because the Python query is already remote.
+        ``sequence_jobs`` accepts the legacy ``job_id``/``run_directories``
+        shape and the live-discovery shape, where each item describes one
+        case and may contain ``scheduler_status`` and ``sequence_root``.
+        The latter lets a multi-case sequence apply its scheduler status only
+        to cases that have actually started (identified by ``coprocess.log``).
         """
         import base64
         import json
 
-        normalized_sequences = []
+        normalized_cases = []
         for sequence in sequence_jobs or []:
             if not isinstance(sequence, dict):
                 continue
-            run_directories = sequence.get('run_directories') or []
-            if not run_directories:
-                continue
-            normalized_sequences.append({
-                'job_id': sequence.get('job_id'),
-                'scheduler': sequence.get('scheduler', 'SLURM'),
-                'run_directories': [str(directory) for directory in run_directories],
-            })
 
-        if not normalized_sequences:
+            if sequence.get('cases'):
+                for case in sequence['cases']:
+                    if not isinstance(case, dict) or not case.get('run_directory'):
+                        continue
+                    normalized_cases.append({
+                        **case,
+                        'run_directory': str(case['run_directory']),
+                        'scheduler': case.get('scheduler', 'SLURM'),
+                    })
+                continue
+
+            run_directories = sequence.get('run_directories') or []
+            for run_directory in run_directories:
+                normalized_cases.append({
+                    'run_directory': str(run_directory),
+                    'job_id': sequence.get('job_id'),
+                    'scheduler': sequence.get('scheduler', 'SLURM'),
+                    'machine': sequence.get('machine'),
+                    'user': sequence.get('user'),
+                })
+
+        if not normalized_cases:
             return {'details': []}
 
         target_machine = machine
         if target_machine is None:
             target_machine = next(
-                (sequence.get('machine') for sequence in sequence_jobs
-                 if isinstance(sequence, dict) and sequence.get('machine')),
+                (case.get('machine') for case in normalized_cases
+                 if case.get('machine')),
                 'localhost')
 
         target_user = user
         if target_user is None:
             target_user = next(
-                (sequence.get('user') for sequence in sequence_jobs
-                 if isinstance(sequence, dict) and sequence.get('user')),
+                (case.get('user') for case in normalized_cases
+                 if case.get('user')),
                 None)
 
         if target_machine == 'localhost':
-            details = []
-            for sequence in normalized_sequences:
-                for run_directory in sequence['run_directories']:
-                    detail = {'run_directory': run_directory}
-                    try:
-                        detail['status'] = Workflow.simulation_status_from_run_directory(
-                            run_directory=run_directory,
-                            machine='localhost',
-                            job_id=sequence.get('job_id'),
-                            scheduler=sequence.get('scheduler'),
-                        )
-                    except Exception as error:
-                        detail['status'] = 'ERROR'
-                        detail['error'] = str(error)
-                    details.append(detail)
-            return {'details': details}
+            return {'details': [
+                _resolve_discovered_case(case, machine='localhost')
+                for case in normalized_cases
+            ]}
 
-        payload = json.dumps(normalized_sequences)
+        payload = json.dumps(normalized_cases)
         python_code = f'''import json
+import os
+import mola.naming_conventions as names
 from mola.workflow.workflow import Workflow
 
-sequences = json.loads({payload!r})
+cases = json.loads({payload!r})
 result = {{"details": []}}
-for sequence in sequences:
-    for run_directory in sequence["run_directories"]:
-        detail = {{"run_directory": run_directory}}
-        try:
-            detail["status"] = Workflow.simulation_status_from_run_directory(
-                run_directory=run_directory,
-                machine="localhost",
-                job_id=sequence.get("job_id"),
-                scheduler=sequence.get("scheduler"),
-            )
-        except Exception as error:
-            detail["status"] = "ERROR"
-            detail["error"] = str(error)
-        result["details"].append(detail)
+for case in cases:
+    run_directory = case["run_directory"]
+    detail = {{
+        "run_directory": run_directory,
+        "example_id": case.get("example_id"),
+        "sequence_root": case.get("sequence_root"),
+        "scheduler_status": case.get("scheduler_status"),
+    }}
+    if case.get("scheduler_error"):
+        detail["scheduler_error"] = case["scheduler_error"]
+    try:
+        scheduler_status = case.get("scheduler_status")
+        effective_scheduler_status = scheduler_status
+        if case.get("sequence_root"):
+            coprocess_log = os.path.join(run_directory, names.FILE_COLOG)
+            preprocessing = os.path.join(run_directory, names.FILE_PREPROCESSING)
+            is_started = os.path.isfile(coprocess_log)
+            is_preprocessing = os.path.isfile(preprocessing)
+            if scheduler_status in {{"RUNNING", "PENDING"}} and not (is_started or is_preprocessing):
+                # A sequence job can be active while later cases are still
+                # unborn.  Those cases stay READY.
+                effective_scheduler_status = ""
+            elif scheduler_status not in {{"RUNNING", "PENDING"}} and not is_started:
+                effective_scheduler_status = ""
+
+        detail["status"] = Workflow.simulation_status_from_run_directory(
+            run_directory=run_directory,
+            machine="localhost",
+            job_id=case.get("job_id"),
+            scheduler=case.get("scheduler"),
+            slurm_status=effective_scheduler_status,
+        )
+    except Exception as error:
+        detail["status"] = "ERROR"
+        detail["error"] = str(error)
+    result["details"].append(detail)
 print(json.dumps(result))
 '''
         encoded_code = base64.b64encode(python_code.encode()).decode()
         wrapped_command = f'echo "{encoded_code}" | base64 -d | python3 2>/dev/null'
-        output = SV.submit_command(
-            command=wrapped_command,
-            machine=target_machine,
-            user=target_user,
-            use_mola_env=True,
-        )
+        command_kwargs = {
+            "command": wrapped_command,
+            "machine": target_machine,
+            "user": target_user,
+            "use_mola_env": True,
+        }
+        if solver is not None:
+            command_kwargs["remote_solver"] = solver
+        output = SV.submit_command(**command_kwargs)
 
         for line in reversed(output.strip().splitlines()):
             line = line.strip()
@@ -340,6 +366,45 @@ print(json.dumps(result))
                     continue
         raise MolaException(
             f'Failed to parse remote workflow status result: {output}')
+
+
+def _resolve_discovered_case(case, machine):
+    """Resolve a live-discovery case when the target is the local machine."""
+
+    import os
+    import mola.naming_conventions as names
+
+    run_directory = case['run_directory']
+    detail = {
+        'run_directory': run_directory,
+        'example_id': case.get('example_id'),
+        'sequence_root': case.get('sequence_root'),
+        'scheduler_status': case.get('scheduler_status'),
+    }
+    if case.get('scheduler_error'):
+        detail['scheduler_error'] = case['scheduler_error']
+    try:
+        effective_scheduler_status = case.get('scheduler_status')
+        if case.get('sequence_root'):
+            coprocess_log = os.path.join(run_directory, names.FILE_COLOG)
+            preprocessing = os.path.join(run_directory, names.FILE_PREPROCESSING)
+            is_started = os.path.isfile(coprocess_log)
+            is_preprocessing = os.path.isfile(preprocessing)
+            if effective_scheduler_status in {'RUNNING', 'PENDING'} and not (is_started or is_preprocessing):
+                effective_scheduler_status = ''
+            elif effective_scheduler_status not in {'RUNNING', 'PENDING'} and not is_started:
+                effective_scheduler_status = ''
+        detail['status'] = Workflow.simulation_status_from_run_directory(
+            run_directory=run_directory,
+            machine=machine,
+            job_id=case.get('job_id'),
+            scheduler=case.get('scheduler'),
+            slurm_status=effective_scheduler_status,
+        )
+    except Exception as error:
+        detail['status'] = 'ERROR'
+        detail['error'] = str(error)
+    return detail
     
     def write(self):
         """Write the workflow manager file to both local and remote locations."""
@@ -823,7 +888,6 @@ class WorkflowSequentialManager():
         # The only case when it will keep value False is if all cases have already been 
         # created by a previous WorkflowManager.
         self.at_least_one_new_case = False  
-        self.submissions = []
 
 
         self._check_structure_of_workflows()
@@ -924,8 +988,7 @@ class WorkflowSequentialManager():
                                   self.root_directory, machine=self.machine, force_copy=True)
 
     def submit(self):
-        """Submit the sequence and record each resulting scheduler job."""
-        self.submissions = []
+        """Submit the sequence and return the scheduler command output."""
         if self.at_least_one_new_case:
             mola_logger.info(f'  > submission of job sequence in {self.root_directory}')
             if self.manager == 'SLURM':
@@ -934,59 +997,11 @@ class WorkflowSequentialManager():
                 command = f"cd {self.root_directory}; ./{self._sequential_job_filename}"
 
             out = SV.submit_command(command, self.machine)
-            
-            job_ids = parse_job_ids(out)
-            run_directories = [
-                workflow.RunManagement['RunDirectory']
-                for workflow in self.workflows
-            ]
-            first_workflow = self.workflows[0]
-            recorded_job_ids = job_ids or [None]
-            for job_id in recorded_job_ids:
-                submission = Submission.create(
-                    job_id=job_id,
-                    scheduler=self.manager,
-                    machine=self.machine,
-                    user=first_workflow.RunManagement.get('User'),
-                    run_directories=run_directories,
-                    solver=first_workflow.Solver,
-                    sequence_id=str(self.root_directory),
-                )
-                self.submissions.append(submission)
-                emit_submission(submission)
-                mola_logger.info(
-                    f"🚀 Submit job sequence {job_id} for {len(run_directories)} cases")
+            mola_logger.info(
+                f"🚀 Submitted job sequence in {self.root_directory}")
+            return out
         else:
             mola_logger.user_warning(f'  > job sequence in {self.root_directory} was not submitted, because all cases were already existing.')
-
-    def get_job_ids(self):
-        """
-        Get job IDs from all workflows in the sequence.
-        
-        Returns
-        -------
-        list of dict
-            List of dictionaries with keys 'run_directory' and 'job_id' for each workflow
-        """
-        job_ids = []
-        for submission in self.submissions:
-            if submission.job_id is None:
-                continue
-            for run_directory in submission.run_directories:
-                job_ids.append({
-                    'run_directory': run_directory,
-                    'job_id': submission.job_id,
-                })
-        if job_ids:
-            return job_ids
-        for workflow in self.workflows:
-            job_id = workflow.RunManagement.get('JobID')
-            if job_id is not None:
-                job_ids.append({
-                    'run_directory': workflow.RunManagement['RunDirectory'],
-                    'job_id': job_id
-                })
-        return job_ids
 
     def update_simulation_metadata(self, metadata_dict):
         """
@@ -996,7 +1011,6 @@ class WorkflowSequentialManager():
         - CI/CD pipeline information
         - Test case identifiers
         - Version information
-        - Submission context
         
         Parameters
         ----------

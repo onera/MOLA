@@ -29,8 +29,6 @@ doc/theme
 .continue
 ext
 DOCUMENTATION
-.mola_run_directory
 
 # Generated version file by hatch-vcs
 src/mola/_version.py
-

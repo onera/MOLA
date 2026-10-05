@@ -8,123 +8,149 @@ import shlex
 import subprocess
 import sys
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 
 from mola import server as SV
 
-from .repatriate import (
-    _completed_entries,
-    _example_parent,
-    _resolve_tag,
-    _state_paths,
-    _target_user_from_path,
-    _relocate_ssh_command,
-    release_directory,
-)
-from .state import ExampleCIState
+from .discovery import ExampleDefinition, scan_example_definitions
+from .repatriate import _relocate_ssh_command, _target_user_from_path
+from .status import resolve_live_statuses
 
 POSTPROCESS_SCRIPTS = ["compare.py", "visualize.py"]
-
-
-def _remote_examples_root(machine, tag, root=None):
-    if root:
-        return f"/tmp_user/{machine}/{root}/examples"
-    return f"/tmp_user/{machine}/mola/{tag}/examples"
 
 
 def _script_command(script_path):
     return f"python3 {shlex.quote(str(script_path))}"
 
 
-def _result_directories(entry, tag, root=None):
-    state = entry["state"]
-    machine = entry["machine"]
-    release_root = state.get("release_directory") or release_directory(
-        state, tag, machine, root=root
-    )
-    if state.get("execution_mode") != "multi":
-        return [release_root]
+def _definition_parent(definition: ExampleDefinition) -> Path:
+    parts = definition.script_path.parts
+    if "examples" in parts:
+        index = parts.index("examples")
+        return Path(*parts[index + 1:-1])
+    return definition.script_path.parent
 
-    root_directory = state.get("root_directory")
-    if not root_directory:
-        return [release_root]
-    root_directory = os.path.expandvars(str(root_directory))
+
+def _definition_release_root(definition, tag, root=None):
+    if root:
+        return f"/tmp_user/{definition.machine}/{root}/examples/{_definition_parent(definition)}"
+    return f"/tmp_user/{definition.machine}/mola/{tag}/examples/{_definition_parent(definition)}"
+
+
+def _live_result_directories(definition, result, tag, root=None):
+    release_root = _definition_release_root(definition, tag, root=root)
+    if definition.mode != "multi":
+        return [f"{release_root}/example_{definition.example_name}"]
+
     result_directories = []
-    for run_directory in ExampleCIState.get_all_run_directories(state):
-        relative_directory = posixpath.relpath(
-            os.path.expandvars(str(run_directory)), root_directory
-        )
-        if relative_directory == ".":
+    for detail in result.get("details", []):
+        run_directory = detail.get("run_directory")
+        sequence_root = detail.get("sequence_root")
+        if not run_directory or not sequence_root:
             continue
-        if relative_directory.startswith("../") or relative_directory == "..":
+        relative = posixpath.relpath(
+            os.path.expandvars(str(run_directory)),
+            os.path.expandvars(str(definition.root_directory)),
+        )
+        if relative in {".", ".."} or relative.startswith("../"):
             continue
         result_directories.append(
-            posixpath.normpath(posixpath.join(release_root, relative_directory))
+            posixpath.join(
+                release_root,
+                f"example_{definition.example_name}",
+                relative,
+            )
         )
-    return result_directories or [release_root]
+    return result_directories or [f"{release_root}/example_{definition.example_name}"]
 
 
-def postprocess_examples(state_dir=None, tag=None, root=None, examples_root="examples",
-                         dry_run=False):
-    """Run postprocessors once per relevant machine and result directory."""
-    manager, state_paths = _state_paths(state_dir)
-    states = [manager.read(path) for path in state_paths]
+def postprocess_live_examples(
+        tag=None, root=None, source_user=None, examples_root="examples",
+        dry_run=False):
     if tag is None:
-        tag = _resolve_tag(states, tag)
-    entries = _completed_entries(manager, state_paths)
+        tag = os.environ.get("CI_COMMIT_TAG")
+    if not tag:
+        raise ValueError("A release tag is required for postprocessing")
 
-    grouped = defaultdict(lambda: {"commands": [], "entries": []})
+    definitions = scan_example_definitions(
+        examples_root=examples_root,
+        source_user=source_user,
+    )
+    statuses = resolve_live_statuses(
+        examples_root=examples_root,
+        source_user=source_user,
+    )
+    grouped = defaultdict(lambda: {"commands": []})
     seen = set()
-    for entry in entries:
-        state = entry["state"]
-        machine = entry["machine"]
-        local_parent = Path(examples_root) / _example_parent(state)
-        remote_root = _remote_examples_root(machine, tag, root=root)
-        target_user = _target_user_from_path(remote_root, machine)
-        key = (machine, target_user)
-        group = grouped[key]
-        group["entries"].append(entry)
+    for definition in definitions:
+        result = statuses.get(definition.identifier)
+        if not result or str(result.get("overall", "")).upper() != "COMPLETED":
+            continue
+
+        local_parent = Path(examples_root) / _definition_parent(definition)
+        remote_root = _definition_release_root(definition, tag, root=root)
+        target_user = _target_user_from_path(remote_root, definition.machine)
+        group = grouped[(definition.machine, target_user)]
 
         for script_name in POSTPROCESS_SCRIPTS:
             for script_path in local_parent.rglob(script_name):
                 relative_script = script_path.relative_to(Path(examples_root))
-                remote_script = Path(remote_root) / relative_script
-
+                remote_script = Path(
+                    f"/tmp_user/{definition.machine}/mola/{tag}/examples"
+                    if not root else f"/tmp_user/{definition.machine}/{root}/examples"
+                ) / relative_script
                 if script_name == "visualize.py":
-                    for result_directory in _result_directories(entry, tag, root=root):
-                        script_key = (machine, str(result_directory), str(remote_script))
-                        if script_key not in seen:
-                            group["commands"].append(
-                                f"cd {shlex.quote(result_directory)}; "
-                                f"{_script_command(remote_script)}"
-                            )
-                            seen.add(script_key)
-                else:
-                    script_key = (machine, str(remote_script), script_name)
-                    if script_key not in seen:
+                    result_directories = _live_result_directories(
+                        definition, result, tag, root=root
+                    )
+                    for result_directory in result_directories:
+                        script_key = (
+                            definition.machine,
+                            str(result_directory),
+                            str(remote_script),
+                        )
+                        if script_key in seen:
+                            continue
                         group["commands"].append(
-                            f"cd {shlex.quote(posixpath.dirname(str(remote_script)))}; "
+                            f"cd {shlex.quote(str(result_directory))}; "
                             f"{_script_command(remote_script)}"
                         )
                         seen.add(script_key)
+                else:
+                    script_key = (definition.machine, str(remote_script), script_name)
+                    if script_key in seen:
+                        continue
+                    group["commands"].append(
+                        f"cd {shlex.quote(posixpath.dirname(str(remote_script)))}; "
+                        f"{_script_command(remote_script)}"
+                    )
+                    seen.add(script_key)
 
     for (machine, target_user), group in sorted(grouped.items()):
         if not group["commands"]:
             continue
         print(f"postprocessing {len(group['commands'])} command(s) on {machine}")
-        if not dry_run:
-            ssh_cmd = _relocate_ssh_command(machine, target_user)
-            mola_env_cmd = SV.add_mola_env(machine, 'elsa', target_user=target_user)
-            bash_cmds = f"{mola_env_cmd}export MOLA_HEADLESS=1; {'; '.join(group['commands'])}"
-            embedded = shlex.quote(f"bash -lc {shlex.quote(bash_cmds)}")
-            full_cmd = f"{ssh_cmd} {embedded}"
-            result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
-            if result.returncode != 0:
-                print(f"ERROR: postprocess failed on {machine}: {result.stderr}",
-                      file=sys.stderr)
-                continue
-            for entry in group["entries"]:
-                manager.update_state(entry["state_path"], {
-                    "postprocessed_at": datetime.now().isoformat(),
-                })
+        if dry_run:
+            continue
+        ssh_cmd = _relocate_ssh_command(machine, target_user)
+        mola_env_cmd = SV.add_mola_env(machine, "elsa", target_user=target_user)
+        bash_cmds = f"{mola_env_cmd}export MOLA_HEADLESS=1; {'; '.join(group['commands'])}"
+        embedded = shlex.quote(f"bash -lc {shlex.quote(bash_cmds)}")
+        full_cmd = f"{ssh_cmd} {embedded}"
+        result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"ERROR: postprocess failed on {machine}: {result.stderr}", file=sys.stderr)
+
+
+def postprocess_examples(
+        tag=None, root=None, examples_root="examples", dry_run=False,
+        source_user=None):
+    """Run postprocessors once per relevant machine and result directory."""
+
+    return postprocess_live_examples(
+        tag=tag,
+        root=root,
+        source_user=source_user,
+        examples_root=examples_root,
+        dry_run=dry_run,
+    )

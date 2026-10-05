@@ -6,14 +6,15 @@ set -Eeuo pipefail
 # Usage
 # ---------------------------------------------------------------------------
 
-if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <tag> <mode>" >&2
+if [[ $# -lt 3 ]]; then
+    echo "Usage: $0 <tag> <mode> <source_user>" >&2
     echo "Modes: full | light | postprocess" >&2
     exit 1
 fi
 
 TAG="$1"
 MODE="$2"
+SOURCE_USER="$3"
 
 # ---------------------------------------------------------------------------
 # SSH configuration for mola -> remote machines
@@ -87,6 +88,11 @@ if [[ "$MODE" != "full" && "$MODE" != "light" && "$MODE" != "postprocess" ]]; th
     exit 1
 fi
 
+if [[ -z "$SOURCE_USER" ]]; then
+    echo "ERROR: Source user cannot be empty" >&2
+    exit 1
+fi
+
 # Source environment
 if [[ -f "$ENV_FILE" ]]; then
     source "$ENV_FILE"
@@ -108,15 +114,15 @@ echo "=========================================="
 case "$MODE" in
     full)
         echo "Running full repatriation..."
-        python3 -m mola.cicd.examples_runner repatriate --full --tag "$TAG"
+        python3 -m mola.cicd.examples_runner repatriate --full --tag "$TAG" --source-user "$SOURCE_USER"
         ;;
     light)
         echo "Running light repatriation..."
-        python3 -m mola.cicd.examples_runner repatriate --light --tag "$TAG"
+        python3 -m mola.cicd.examples_runner repatriate --light --tag "$TAG" --source-user "$SOURCE_USER"
         ;;
     postprocess)
         echo "Running postprocess..."
-        python3 -m mola.cicd.examples_runner postprocess --tag "$TAG"
+        python3 -m mola.cicd.examples_runner postprocess --tag "$TAG" --source-user "$SOURCE_USER"
         ;;
 esac
 

@@ -1,111 +1,170 @@
 #!/usr/bin/env python3
-#
-# Repatriate directories after submitting several simulations on sator at once
+"""Repatriate one MOLA case or a discovered workflow-manager study."""
 
-from pathlib import Path
-import os
+from __future__ import annotations
+
 import argparse
+from pathlib import Path
 
 import mola.naming_conventions as names
+from mola import server as SV
 from mola.logging import MolaException
-from mola.server import (
-    get_repatriation_filters,
-    get_cases_from_submission_state,
-    get_one_case,
-    get_all_cases_from_workflow_manager,
-)
+
 
 __DOC__ = (
-    "repatriate data from a remote machine after submitting one simulation with a Workflow "
-    "or several simulations with a WorkflowManager. "
-    "Use --state or explicit run-directory options. Legacy files "
-    f"{names.FILE_LOG_REMOTE_DIRECTORY} and {names.FILE_WORKFLOW_MANAGER} "
-    "remain supported. "
-    "This command must be used with at least one option."
+    "Repatriate data from a remote MOLA case or workflow-manager study. "
+    "The target can be explicit or inferred from a run*.py script or "
+    f"{names.FILE_WORKFLOW_MANAGER}. Multi-case roots are expanded through "
+    f"{names.FILE_JOB_SEQUENCE}."
 )
 
-def parse_args():
-    parser = argparse.ArgumentParser(usage=__DOC__)
-    args_group = parser.add_mutually_exclusive_group()
-    args_group.add_argument('-f', '--full', action='store_true', help='Copy all files')
-    args_group.add_argument(
-        '-l', '--light', action='store_true',
-        help=(
-            f'Copy main files for data analysis ({names.FILE_OUTPUT_1D}, '
-            f'{names.FILE_OUTPUT_2D}, plots, figures, etc.)'
-        ),
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__DOC__)
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument("-f", "--full", action="store_true", help="Copy all files")
+    mode_group.add_argument(
+        "-l", "--light", action="store_true", help="Copy files used for analysis"
     )
-    
-    parser.add_argument('--log', help='Copy log files', 
-                      dest='patterns', action='append_const', const=names.REPATRIATION_LOG_PATTERNS
-                      )
-    parser.add_argument('-s', '--signals', help=f'Copy {names.FILE_OUTPUT_1D}', 
-                        dest='patterns', action='append_const', const=names.REPATRIATION_SIGNALS_PATTERNS
-                        )
-    parser.add_argument('-e', '--extractions', help=f'Copy {names.FILE_OUTPUT_2D}', 
-                        dest='patterns', action='append_const', const=names.REPATRIATION_EXTRACTIONS_PATTERNS
-                        )
-    parser.add_argument('-o', '--output', help=f'Copy directory {names.DIRECTORY_OUTPUT}', 
-                        dest='patterns', action='append_const', const=names.REPATRIATION_OUTPUT_PATTERNS
-                        )
-    parser.add_argument('--state', help='Submission state YAML file')
-    parser.add_argument('--run-directory', help='Remote run directory for one case')
-    parser.add_argument('--machine', help='Remote machine for --run-directory')
-    parser.add_argument('--user', help='Remote user for --run-directory')
 
-    args = parser.parse_args()
-    if not args.patterns and not args.full and not args.light:
-        raise MolaException('mola_repatriate must be used with at least one option. See help with mola_repatriate --help')
+    parser.add_argument(
+        "--log", help="Copy log files", dest="patterns", action="append_const",
+        const=names.REPATRIATION_LOG_PATTERNS,
+    )
+    parser.add_argument(
+        "-s", "--signals", help=f"Copy {names.FILE_OUTPUT_1D}",
+        dest="patterns", action="append_const",
+        const=names.REPATRIATION_SIGNALS_PATTERNS,
+    )
+    parser.add_argument(
+        "-e", "--extractions", help=f"Copy {names.FILE_OUTPUT_2D}",
+        dest="patterns", action="append_const",
+        const=names.REPATRIATION_EXTRACTIONS_PATTERNS,
+    )
+    parser.add_argument(
+        "-o", "--output", help=f"Copy directory {names.DIRECTORY_OUTPUT}",
+        dest="patterns", action="append_const",
+        const=names.REPATRIATION_OUTPUT_PATTERNS,
+    )
 
-    patterns = [pattern for pattern_list in (args.patterns or [])
-                for pattern in pattern_list]
-    mode = 'full' if args.full else 'light' if args.light else 'custom'
-    included_files, excluded_files = get_repatriation_filters(mode, patterns)
+    target_group = parser.add_mutually_exclusive_group()
+    target_group.add_argument("--run-directory", help="Remote run directory for one case")
+    target_group.add_argument("--root-directory", help="Remote root containing cases")
+    target_group.add_argument(
+        "--script", type=Path,
+        help="run*.py script from which RunDirectory/root_directory are inferred",
+    )
+    target_group.add_argument(
+        "--workflow-manager", type=Path, metavar="FILE",
+        help=f"Workflow manager file (default: {names.FILE_WORKFLOW_MANAGER})",
+    )
+    parser.add_argument("--machine", help="Remote machine; infer when omitted")
+    parser.add_argument("--user", help="Remote SSH/user account; infer when omitted")
+    parser.add_argument(
+        "--source-user",
+        help="User used when expanding $USER in script paths",
+    )
+    return parser.parse_args(argv)
 
-    return included_files, excluded_files, args
 
-def main():
+def _manager_path(args):
+    if args.workflow_manager:
+        return args.workflow_manager
+    if args.script:
+        return None
+    default = Path(names.FILE_WORKFLOW_MANAGER)
+    return default if default.is_file() else None
 
-    included_files, excluded_files, args = parse_args()
 
-    if args.state:
-        get_cases_from_submission_state(
-            args.state,
-            included_files=included_files,
-            excluded_files=excluded_files,
+def _script_path(args):
+    if args.script:
+        return args.script
+    scripts = sorted(Path.cwd().glob("run*.py"))
+    if len(scripts) == 1:
+        return scripts[0]
+    if len(scripts) > 1:
+        raise MolaException(
+            "Several run*.py scripts were found. Use --script to select one."
         )
-        return
+    return None
 
+
+def _manager_cases(args, manager_path):
+    from mola.workflow import WorkflowManager
+
+    manager = WorkflowManager(str(manager_path))
+    root, run_directories, machine, user = SV.get_workflow_manager_info(manager)
+    machine = args.machine or machine
+    user = args.user or user or args.source_user
+    return SV.resolve_remote_cases(
+        root,
+        machine,
+        user=user,
+        fallback_run_directories=run_directories,
+    )
+
+
+def _target_cases(args):
     if args.run_directory:
-        from mola.server.files_operations import rsync
-        rsync(
-            source_path=f'{args.run_directory}{os.path.sep}',
-            source_machine=args.machine or 'localhost',
-            source_user=args.user,
-            destination_path=f'.{os.path.sep}',
-            destination_machine='localhost',
-            included_files=included_files,
-            excluded_files=excluded_files,
+        run_directory = SV.expand_remote_path(
+            args.run_directory, source_user=args.source_user
         )
-        return
+        machine = args.machine or SV.guess_machine(run_directory)
+        return [SV.RepatriationCase(
+            run_directory, run_directory, machine, args.user or args.source_user
+        )]
 
-    is_remote_case_file = Path(names.FILE_LOG_REMOTE_DIRECTORY).is_file()
-    is_workflow_manager_file = Path(names.FILE_WORKFLOW_MANAGER).is_file()
+    if args.root_directory:
+        root_directory = SV.expand_remote_path(
+            args.root_directory, source_user=args.source_user
+        )
+        machine = args.machine or SV.guess_machine(root_directory)
+        return SV.resolve_remote_cases(
+            root_directory, machine, user=args.user or args.source_user
+        )
 
-    if is_remote_case_file and is_workflow_manager_file:
-        raise MolaException((
-            f'Found both files {names.FILE_LOG_REMOTE_DIRECTORY} and {names.FILE_WORKFLOW_MANAGER}. '
-            'Remove the outdated one and try again.'
-        ))
-    
-    elif is_remote_case_file and not is_workflow_manager_file:
-        get_one_case(included_files, excluded_files)
+    manager_path = _manager_path(args)
+    if manager_path is not None:
+        return _manager_cases(args, manager_path)
 
-    elif not is_remote_case_file and is_workflow_manager_file:
-        get_all_cases_from_workflow_manager(included_files, excluded_files)
+    script_path = _script_path(args)
+    if script_path is not None:
+        root, run, machine, user = SV.get_script_repatriation_info(
+            script_path,
+            machine=args.machine,
+            user=args.user,
+            source_user=args.source_user,
+        )
+        if root == run:
+            return [SV.RepatriationCase(run, run, machine, user)]
+        return SV.resolve_remote_cases(root, machine, user=user)
 
-    else:
-        raise MolaException(f'Neither {names.FILE_LOG_REMOTE_DIRECTORY} nor {names.FILE_WORKFLOW_MANAGER} exists.')
+    raise MolaException(
+        "Cannot infer a repatriation target. Provide --run-directory, "
+        "--root-directory, --script, or --workflow-manager."
+    )
 
-if __name__ == '__main__':
+
+def main(argv=None):
+    args = parse_args(argv)
+    if not args.patterns and not args.full and not args.light:
+        raise MolaException(
+            "mola_repatriate requires --full, --light, or a file-selection option"
+        )
+
+    patterns = [
+        pattern
+        for pattern_list in (args.patterns or [])
+        for pattern in pattern_list
+    ]
+    mode = "full" if args.full else "light" if args.light else "custom"
+    included_files, excluded_files = SV.get_repatriation_filters(mode, patterns)
+    SV.repatriate_cases(
+        _target_cases(args),
+        included_files=included_files,
+        excluded_files=excluded_files,
+    )
+
+
+if __name__ == "__main__":
     main()

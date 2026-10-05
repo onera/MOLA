@@ -102,8 +102,8 @@ def test_find_matching_leaves():
     assert workflow.Extractions[0]['File'] == 'extractions.cgns'
 
 @pytest.mark.unit
-def test_workflow_manager_get_job_ids(tmp_path):
-    """Test that WorkflowManager correctly returns job IDs after submission."""
+def test_workflow_manager_submits_sequence(tmp_path):
+    """Test that WorkflowManager submits a prepared sequence."""
     # Create a simple test case
     from mola.workflow import Workflow
     
@@ -122,7 +122,7 @@ def test_workflow_manager_get_job_ids(tmp_path):
     manager = WM.WorkflowManager([wf])
     manager.prepare()
     
-    # Mock the submit output; submission is recorded and returns None.
+    # Mock the submit output; the manager does not retain scheduler IDs.
     original_submit = SV.submit_command
     def mock_submit(command, machine=None, user=None):
         return "Submit job 12345"
@@ -499,77 +499,6 @@ def test_WorkflowManager_sphere_remote_sator(tmp_path):
     #         SV.wait_until(SV.is_existing_path, path=COMPLETED_PATH, machine='sator', timeout=180)
 
     # SV.remove_path(test_dir, machine='sator', file_only=False)
-
-
-@pytest.mark.unit
-def test_workflow_manager_get_job_ids():
-    """Test get_job_ids method for WorkflowSequentialManager"""
-    from mola.workflow import Workflow
-    import mola.workflow.manager as WM
-    import tempfile
-    import numpy as np
-    from treelab import cgns
-    
-    # Create proper mock meshes
-    def make_fake_mesh():
-        x, y, z = np.meshgrid(np.linspace(0,1,11),
-                              np.linspace(0,1,11),
-                              np.linspace(0,1,11), indexing='ij')
-        mesh = cgns.newZoneFromArrays('block', ['x','y','z'], [x, y, z])
-        return cgns.castNode(mesh)
-    
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        w1 = Workflow(
-            RawMeshComponents=[{
-                'Name': 'test',
-                'Source': make_fake_mesh(),
-                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
-            }],
-            Solver='elsa',
-            RunManagement={
-                'RunDirectory': f'{tmp_dir}/test1',
-                'Machine': 'local'
-            }
-        )
-        # Set JobID after creation (it's not a standard attribute)
-        w1.RunManagement['JobID'] = 12345
-        
-        w2 = Workflow(
-            RawMeshComponents=[{
-                'Name': 'test',
-                'Source': make_fake_mesh(),
-                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
-            }],
-            Solver='elsa',
-            RunManagement={
-                'RunDirectory': f'{tmp_dir}/test2',
-                'Machine': 'local'
-            }
-        )
-        w2.RunManagement['JobID'] = 67890
-        
-        w3 = Workflow(
-            RawMeshComponents=[{
-                'Name': 'test',
-                'Source': make_fake_mesh(),
-                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
-            }],
-            Solver='elsa',
-            RunManagement={
-                'RunDirectory': f'{tmp_dir}/test3',
-                'Machine': 'local'
-            }
-        )
-        # No JobID set
-        
-        manager = WM.WorkflowSequentialManager([w1, w2, w3], tmp_dir, tmp_dir)
-        
-        job_ids = manager.get_job_ids()
-        
-        # Should only return workflows with JobID set
-        assert len(job_ids) == 2
-        assert job_ids[0] == {'run_directory': f'{tmp_dir}/test1', 'job_id': 12345}
-        assert job_ids[1] == {'run_directory': f'{tmp_dir}/test2', 'job_id': 67890}
 
 
 @pytest.mark.unit

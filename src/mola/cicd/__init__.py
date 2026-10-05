@@ -5,6 +5,6 @@ This module provides generic CI/CD utilities that can be used by any MOLA user
 for automated testing and validation of examples.
 """
 
-from .examples_runner import ExampleCIState, detect_execution_mode, main
+from .examples_runner import detect_execution_mode, main
 
-__all__ = ['ExampleCIState', 'detect_execution_mode', 'main']
+__all__ = ['detect_execution_mode', 'main']

@@ -8,99 +8,13 @@ import shlex
 import subprocess
 import sys
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 
 import mola.naming_conventions as names
 from mola import server as SV
 
-from .state import ExampleCIState
-
-
-def _state_paths(state_dir=None):
-    manager = ExampleCIState(state_dir)
-    return manager, sorted(
-        manager.state_dir.glob(f"**/*{names.FILE_CI_STATE_SUFFIX}")
-    )
-
-
-def _version_from_state(state):
-    return (state.get("ci_metadata", {}) or {}).get("version")
-
-
-def _resolve_tag(states, tag=None):
-    if tag:
-        return str(tag)
-
-    candidates = {
-        str(version)
-        for version in (_version_from_state(state) for state in states)
-        if version
-    }
-    if not candidates and os.environ.get("CI_COMMIT_TAG"):
-        return os.environ["CI_COMMIT_TAG"]
-    if len(candidates) == 1:
-        return candidates.pop()
-    if not candidates:
-        raise ValueError("A release tag is required for example repatriation")
-    raise ValueError(f"Several release tags are present in CI state: {sorted(candidates)}")
-
-
-def _example_parent(state):
-    example_path = Path(str(state.get("example_path", "")))
-    parts = example_path.parts
-    if "examples" in parts:
-        index = parts.index("examples")
-        return Path(*parts[index + 1:-1])
-    return example_path.parent
-
-
-def _example_name(state):
-    name = state.get("example_name")
-    if name:
-        return str(name)
-    return Path(str(state.get("example_path", "example"))).stem
-
-
-def _case_source_directory(state):
-    if state.get("execution_mode") == "multi" and state.get("root_directory"):
-        return str(state["root_directory"])
-    if state.get("run_directory"):
-        return str(state["run_directory"])
-    directories = ExampleCIState.get_all_run_directories(state)
-    if directories:
-        return str(directories[0])
-    raise ValueError(f"No remote case directory recorded for {_example_name(state)}")
-
-
-def _machine(state, source):
-    return str(state.get("machine") or SV.guess_machine(source))
-
-
-def _release_user(state):
-    return str(
-        state.get("repatriation_user")
-        or os.environ.get("MOLA_RELEASE_USER")
-        or state.get("source_user")
-        or state.get("user")
-        or os.environ.get("USER")
-        or "mola"
-    )
-
-
-def _target_user_from_path(path):
-    """Extract the target SSH user from a destination path.
-
-    For paths like /tmp_user/{machine}/{user}/..., user is {user}.
-    For paths like /stck/{user}/..., user is {user}.
-    Returns None if the user cannot be determined.
-    """
-    parts = path.strip("/").split("/")
-    if parts[0] == "tmp_user" and len(parts) >= 4:
-        return parts[3]
-    if parts[0] == "stck" and len(parts) >= 2:
-        return parts[1]
-    return None
+from .discovery import ExampleDefinition, scan_example_definitions
+from .status import resolve_live_statuses
 
 
 def release_examples_root(machine, tag, root=None):
@@ -115,34 +29,55 @@ def public_examples_root(tag, root=None):
     return f"/stck/mola/{tag}/examples"
 
 
-def release_directory(state, tag, machine=None, root=None):
-    machine = machine or _machine(state, _case_source_directory(state))
-    relative_parent = _example_parent(state)
-    if root:
-        target = Path(f"/tmp_user/{machine}/{root}/examples") / relative_parent
-    else:
-        target = Path(release_examples_root(machine, tag)) / relative_parent
-    return str(target / f"example_{_example_name(state)}")
+def _definition_parent(definition: ExampleDefinition) -> Path:
+    parts = definition.script_path.parts
+    if "examples" in parts:
+        index = parts.index("examples")
+        return Path(*parts[index + 1:-1])
+    return definition.script_path.parent
 
 
-def _completed_entries(manager, state_paths):
+def _definition_release_directory(definition, tag, root=None):
+    return str(
+        Path(release_examples_root(definition.machine, tag, root=root))
+        / _definition_parent(definition)
+        / f"example_{definition.example_name}"
+    )
+
+
+def _definition_source_directory(definition):
+    return (
+        definition.root_directory
+        if definition.mode == "multi"
+        else definition.run_directory
+    )
+
+
+def _live_completed_entries(
+        examples_root="examples", source_user=None, tag=None, root=None):
+    if tag is None:
+        tag = os.environ.get("CI_COMMIT_TAG")
+    if not tag:
+        raise ValueError("A release tag is required for example repatriation")
+
+    statuses = resolve_live_statuses(
+        examples_root=examples_root,
+        source_user=source_user,
+    )
     entries = []
-    for state_path in state_paths:
-        state = manager.read(state_path)
-        status = str(state.get("status", "")).upper()
+    for result in statuses.values():
+        definition = result["definition"]
+        status = str(result.get("overall", "")).upper()
         if status != names.FILE_JOB_COMPLETED:
-            print(f"Skipping {state_path.stem} (status: {status or 'UNKNOWN'})")
+            print(f"Skipping {definition.script_path} (status: {status or 'UNKNOWN'})")
             continue
-        source = _case_source_directory(state)
-        machine = _machine(state, source)
         entries.append({
-            "state_path": state_path,
-            "state": state,
-            "source": source,
-            "machine": machine,
-            "remote_user": _release_user(state),
+            "definition": definition,
+            "source": _definition_source_directory(definition),
+            "machine": definition.machine,
+            "destination": _definition_release_directory(definition, tag, root=root),
         })
-    return entries
+    return tag, entries
 
 
 def _copy_command(source, destination):
@@ -155,12 +90,8 @@ def _copy_command(source, destination):
 
 
 def _target_user_from_path(destination, machine):
-    """Extract target SSH user from destination path.
+    """Extract the target SSH user from a result path."""
 
-    /tmp_user/{machine}/{user}/... → {user}
-    /stck/{user}/... → {user}
-    Returns None if cannot determine.
-    """
     parts = destination.split("/")
     if len(parts) >= 4 and parts[1] == "tmp_user" and parts[2] == machine:
         return parts[3]
@@ -170,83 +101,77 @@ def _target_user_from_path(destination, machine):
 
 
 def _relocate_ssh_command(machine, target_user):
-
     if not target_user:
-        raise ValueError(
-            f"Cannot determine target user for machine {machine}"
-        )
+        raise ValueError(f"Cannot determine target user for machine {machine}")
     local_user = os.environ.get("USER")
     if not local_user:
-        raise ValueError(
-            "Cannot determine local user (USER environment variable not set)"
-        )
+        raise ValueError("Cannot determine local user (USER environment variable not set)")
 
-    # Machine-specific key (e.g. /stck/mola/.ssh/sator_ci_deploy_ed25519)
-    # exists for remote machines and is required to reach them.
-    # For local/localhost connections, fall back to the generic
-    # mola_ci_deploy_ed25519 key which authorizes mola@localhost.
     machine_key = f"/stck/{local_user}/.ssh/{machine}_ci_deploy_ed25519"
     default_key = f"/stck/{local_user}/.ssh/mola_ci_deploy_ed25519"
-
     if os.path.isfile(machine_key) and os.access(machine_key, os.R_OK):
         ssh_key = machine_key
     elif os.path.isfile(default_key) and os.access(default_key, os.R_OK):
         ssh_key = default_key
     else:
-        # No suitable key found: use default SSH behavior
-        return (
-            f"ssh -4 -o BatchMode=yes "
-            f"{target_user}@{machine}"
-        )
+        return f"ssh -4 -o BatchMode=yes {target_user}@{machine}"
 
     return (
         f"ssh -4 -o BatchMode=yes -o IdentitiesOnly=yes "
-        f"-o StrictHostKeyChecking=no "
-        f"-i {shlex.quote(ssh_key)} "
+        f"-o StrictHostKeyChecking=no -i {shlex.quote(ssh_key)} "
         f"{target_user}@{machine}"
     )
 
-def relocate_examples(state_dir=None, tag=None, root=None, dry_run=False):
-    """Move completed remote cases into their machine-specific release tree."""
-    manager, state_paths = _state_paths(state_dir)
-    states = [manager.read(path) for path in state_paths]
-    tag = _resolve_tag(states, tag)
-    entries = _completed_entries(manager, state_paths)
+
+def relocate_live_examples(
+        tag=None, root=None, source_user=None, examples_root="examples",
+        dry_run=False):
+    tag, entries = _live_completed_entries(
+        examples_root=examples_root,
+        source_user=source_user,
+        tag=tag,
+        root=root,
+    )
     grouped = defaultdict(list)
     for entry in entries:
-        destination = release_directory(entry["state"], tag, machine=entry["machine"], root=root)
-        target_user = _target_user_from_path(destination, entry["machine"])
+        target_user = _target_user_from_path(entry["destination"], entry["machine"])
         if not target_user:
             raise ValueError(
-                f"Cannot determine target user for destination: {destination}"
+                f"Cannot determine target user for destination: {entry['destination']}"
             )
-        entry["destination"] = destination
         entry["target_user"] = target_user
         grouped[(entry["machine"], target_user)].append(entry)
 
     for (machine, target_user), machine_entries in sorted(grouped.items()):
-        commands = []
-        destinations = {}
-        for entry in machine_entries:
-            destination = entry["destination"]
-            destinations[entry["state_path"]] = destination
-            commands.append(_copy_command(entry["source"], destination))
-
+        commands = [
+            _copy_command(entry["source"], entry["destination"])
+            for entry in machine_entries
+        ]
         print(f"relocating {len(commands)} example(s) on {machine}")
-        if not dry_run:
-            ssh_cmd = _relocate_ssh_command(machine, target_user)
-            bash_cmd = "; ".join(commands)
-            full_cmd = f"{ssh_cmd} {shlex.quote(bash_cmd)}"
-            result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
-            if result.returncode != 0:
-                print(f"ERROR: relocation failed on {machine}: {result.stderr}", file=sys.stderr)
-                continue
-            for state_path, destination in destinations.items():
-                manager.update_state(state_path, {
-                    "release_directory": destination,
-                    "repatriated_at": datetime.now().isoformat(),
-                    "repatriation_machine": machine,
-                })
+        if dry_run:
+            continue
+        ssh_cmd = _relocate_ssh_command(machine, target_user)
+        full_cmd = f"{ssh_cmd} {shlex.quote('; '.join(commands))}"
+        result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(
+                f"ERROR: relocation failed on {machine}: {result.stderr}",
+                file=sys.stderr,
+            )
+
+
+def relocate_examples(
+        tag=None, root=None, dry_run=False, source_user=None,
+        examples_root="examples"):
+    """Move completed remote cases into the release tree."""
+
+    return relocate_live_examples(
+        tag=tag,
+        root=root,
+        source_user=source_user,
+        examples_root=examples_root,
+        dry_run=dry_run,
+    )
 
 
 def _light_filters():
@@ -255,47 +180,61 @@ def _light_filters():
     return included, {"*"}
 
 
-def publish_light_results(state_dir=None, tag=None, dry_run=False):
-    """Publish signals, coprocess logs, and generated images to /stck."""
-    manager, state_paths = _state_paths(state_dir)
-    states = [manager.read(path) for path in state_paths]
-    tag = _resolve_tag(states, tag)
-    entries = _completed_entries(manager, state_paths)
+def publish_live_results(
+        tag=None, root=None, source_user=None, examples_root="examples",
+        dry_run=False):
+    if tag is None:
+        tag = os.environ.get("CI_COMMIT_TAG")
+    if not tag:
+        raise ValueError("A release tag is required for example repatriation")
+
+    definitions = scan_example_definitions(
+        examples_root=examples_root,
+        source_user=source_user,
+    )
     included, excluded = _light_filters()
     published_parents = set()
+    for definition in definitions:
+        machine = definition.machine
+        source = _definition_release_directory(definition, tag, root=root)
+        if not SV.is_existing_path(source, machine=machine, user=None, file_only=False):
+            print(f"Skipping {definition.example_name}: release directory is absent")
+            continue
 
-    for entry in entries:
-        state = entry["state"]
-        machine = entry["machine"]
-        source = state.get("release_directory") or release_directory(state, tag, machine)
         destination = str(
-            Path(public_examples_root(tag))
-            / _example_parent(state)
-            / f"example_{_example_name(state)}"
+            Path(public_examples_root(tag, root=root))
+            / _definition_parent(definition)
+            / f"example_{definition.example_name}"
         )
-        print(f"Publishing {_example_name(state)} from {machine}")
+        release_user = _target_user_from_path(source, machine)
+        if not release_user:
+            raise ValueError(f"Cannot determine release user for {source}")
+
+        print(f"Publishing {definition.example_name} from {machine}")
         if not dry_run:
             SV.rsync(
                 source_path=f"{source}/",
                 source_machine=machine,
-                source_user=entry["remote_user"],
+                source_user=release_user,
                 destination_path=f"{destination}/",
                 destination_machine="localhost",
                 included_files=included,
                 excluded_files=excluded,
             )
 
-        parent_key = (machine, posixpath.dirname(source), str(_example_parent(state)))
+        parent_key = (machine, posixpath.dirname(source), str(_definition_parent(definition)))
         if parent_key in published_parents:
             continue
         published_parents.add(parent_key)
         source_parent = posixpath.dirname(source)
-        destination_parent = str(Path(public_examples_root(tag)) / _example_parent(state))
+        destination_parent = str(
+            Path(public_examples_root(tag, root=root)) / _definition_parent(definition)
+        )
         if not dry_run:
             SV.rsync(
                 source_path=f"{source_parent}/",
                 source_machine=machine,
-                source_user=entry["remote_user"],
+                source_user=release_user,
                 destination_path=f"{destination_parent}/",
                 destination_machine="localhost",
                 included_files=set(names.REPATRIATION_IMAGE_PATTERNS),
@@ -303,34 +242,37 @@ def publish_light_results(state_dir=None, tag=None, dry_run=False):
             )
 
 
-def repatriate_state(state_path, mode="full", destination=None, tag=None, root=None):
-    """Compatibility wrapper for callers that operate on one state file."""
-    state_path = Path(state_path)
-    if destination is not None:
-        included, excluded = SV.get_repatriation_filters(mode)
-        SV.get_cases_from_submission_state(
-            state_path,
-            included_files=included,
-            excluded_files=excluded,
-            destination_path=str(destination),
-            flatten_single_case=True,
+def publish_light_results(
+        tag=None, dry_run=False, root=None, source_user=None,
+        examples_root="examples"):
+    """Publish signals, coprocess logs, and generated images to ``/stck``."""
+
+    return publish_live_results(
+        tag=tag,
+        root=root,
+        source_user=source_user,
+        examples_root=examples_root,
+        dry_run=dry_run,
+    )
+
+
+def repatriate_examples(
+        mode="full", tag=None, root=None, source_user=None,
+        examples_root="examples", dry_run=False):
+    if mode == "full":
+        return relocate_examples(
+            tag=tag,
+            root=root,
+            source_user=source_user,
+            examples_root=examples_root,
+            dry_run=dry_run,
         )
-        return
-    if mode == "full":
-        relocate_examples(state_path.parent, tag=tag, root=root)
-    elif mode == "light":
-        publish_light_results(state_path.parent, tag=tag)
-    else:
-        raise ValueError(f"Unknown repatriation mode: {mode}")
-
-
-def repatriate_examples(state_dir=None, mode="full", destination=None, tag=None, root=None):
-    if destination is not None:
-        for state_path in _state_paths(state_dir)[1]:
-            repatriate_state(state_path, mode=mode, destination=destination, tag=tag)
-        return
-    if mode == "full":
-        return relocate_examples(state_dir=state_dir, tag=tag, root=root)
     if mode == "light":
-        return publish_light_results(state_dir=state_dir, tag=tag)
+        return publish_light_results(
+            tag=tag,
+            root=root,
+            source_user=source_user,
+            examples_root=examples_root,
+            dry_run=dry_run,
+        )
     raise ValueError(f"Unknown repatriation mode: {mode}")
