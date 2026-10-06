@@ -58,10 +58,21 @@ def submit_command(command, machine, input=None, user=None, use_mola_env=False,
     else:
         shell = True
 
-    output = subprocess.run(command, input=input,
-                shell=shell, check=False, capture_output=True, env=env,
-                encoding='UTF-8')
-    errlines = [] 
+    timeout = os.environ.get('MOLA_SSH_TIMEOUT')
+    if timeout is not None:
+        timeout = int(timeout)
+    try:
+        output = subprocess.run(command, input=input,
+                    shell=shell, check=False, capture_output=True, env=env,
+                    encoding='UTF-8', timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise MolaException(
+            f"SSH command timed out after {timeout}s on machine={machine}.\n"
+            f"This may indicate a network issue or that the remote command is stuck.\n"
+            f"Check SSH connectivity to {machine}.\n"
+            f"To increase the timeout, set the MOLA_SSH_TIMEOUT environment variable (in seconds).")
+
+    errlines = []
     for line in output.stderr.split('\n')[:-1]:
 
         if line.startswith(true_errors_start_with) or \

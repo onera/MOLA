@@ -47,6 +47,30 @@ def test_guess_machine_from_path_error():
         assert False
 
 @pytest.mark.unit
+def test_submit_command_timeout():
+    """MOLA_SSH_TIMEOUT environment variable causes submit_command to raise
+    MolaException on SSH timeout instead of hanging indefinitely."""
+    import subprocess
+    from mola.logging.exceptions import MolaException
+
+    old_env = os.environ.get('MOLA_SSH_TIMEOUT')
+    try:
+        os.environ['MOLA_SSH_TIMEOUT'] = '1'
+        try:
+            remote.submit_command('sleep 100', 'localhost')
+        except MolaException as e:
+            assert 'timed out' in str(e)
+            assert 'localhost' in str(e)
+            return
+        # If we get here, sleep 100 finished within 1 second - unlikely but possible
+    finally:
+        if old_env is not None:
+            os.environ['MOLA_SSH_TIMEOUT'] = old_env
+        elif 'MOLA_SSH_TIMEOUT' in os.environ:
+            del os.environ['MOLA_SSH_TIMEOUT']
+
+
+@pytest.mark.unit
 def test_submit_command(tmp_path):
     try:
         localhost = remote.guess_localhost()

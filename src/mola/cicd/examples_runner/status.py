@@ -66,12 +66,20 @@ def resolve_live_statuses(
         grouped[(definition.machine, request.get("user"), definition.solver)].append(request)
 
     for (machine, user, solver), machine_requests in grouped.items():
-        response = query_multi_status_remote(
-            machine_requests,
-            machine=machine,
-            user=user,
-            solver=solver,
-        )
+        n_cases = len(machine_requests)
+        print(f"Querying live status on machine={machine} ({n_cases} cases)...", flush=True)
+        try:
+            response = query_multi_status_remote(
+                machine_requests,
+                machine=machine,
+                user=user,
+                solver=solver,
+            )
+            n_results = len(response.get("details", []))
+            print(f"Got status for {n_results}/{n_cases} cases from machine={machine}", flush=True)
+        except Exception as e:
+            print(f"ERROR: Failed to query live status on machine={machine}: {e}", flush=True)
+            raise
         for detail in response.get("details", []):
             details_by_example[detail.get("example_id")].append(detail)
 

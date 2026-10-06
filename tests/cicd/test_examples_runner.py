@@ -30,6 +30,63 @@ def _definition(identifier, root, mode="mono"):
 
 
 @pytest.mark.unit
+def test_workflow_manager_status_remote_handles_individual_case_dicts():
+    """Individual case dicts from make_case_requests (live-discovery shape)
+    must be normalized by WorkflowManager.get_simulation_status_remote.
+
+    Regression test: the method only handled 'cases' and 'run_directories'
+    shapes, silently skipping individual case dicts that carry 'run_directory'
+    (singular), causing all cases to resolve as TO_PREPARE.
+    """
+    from mola.workflow.manager import WorkflowManager
+
+    machine_requests = [{
+        "example_id": "mono",
+        "run_directory": "/remote/mono",
+        "sequence_root": None,
+        "scheduler_workdir": "/remote/mono",
+        "machine": "juno",
+        "user": None,
+        "scheduler_status": "",
+        "scheduler_error": None,
+        "scheduler_job_id": None,
+        "solver": "elsa",
+        "mode": "mono",
+        "source_user": "lbernard",
+        "missing_layout": False,
+    }]
+
+    with patch("mola.workflow.manager.SV.submit_command", return_value='{"details": [{"run_directory": "/remote/mono", "status": "COMPLETED", "example_id": "mono", "scheduler_status": ""}]}'):
+        result = WorkflowManager.get_simulation_status_remote(
+            sequence_jobs=machine_requests,
+            machine="juno",
+            user=None,
+            solver="elsa",
+        )
+
+    assert len(result["details"]) == 1
+    assert result["details"][0]["status"] == "COMPLETED"
+    assert result["details"][0]["example_id"] == "mono"
+
+
+@pytest.mark.unit
+def test_workflow_manager_status_remote_returns_empty_for_no_cases():
+    """When no cases can be normalized, returns empty details (no SSH executed)."""
+    from mola.workflow.manager import WorkflowManager
+
+    with patch("mola.workflow.manager.SV.submit_command") as mock_submit:
+        result = WorkflowManager.get_simulation_status_remote(
+            sequence_jobs=[],
+            machine="juno",
+            user=None,
+            solver="elsa",
+        )
+
+    assert result == {"details": []}
+    mock_submit.assert_not_called()
+
+
+@pytest.mark.unit
 def test_detect_execution_mode(tmp_path):
     example = tmp_path / "run_example.py"
     example.write_text("# MOLA_CI_MODE: \"multi\"\n", encoding="utf-8")

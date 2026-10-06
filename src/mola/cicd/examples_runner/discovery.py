@@ -235,7 +235,6 @@ def _run_remote_probe(
 
     code = _remote_probe_code(items, scheduler_user)
     encoded = base64.b64encode(code.encode()).decode()
-    print(f"discovering submitted examples on machine={machine}")
 
     remote_script = f"""
     source /etc/bashrc
@@ -313,7 +312,6 @@ def discover_remote_layout(
     scheduler_errors = {}
 
     for machine, machine_definitions in grouped.items():
-        if machine == 'juno': continue # FIXME juno temporarily unavailable
         items = [
             {
                 "identifier": definition.identifier,

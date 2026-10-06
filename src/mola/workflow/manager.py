@@ -23,6 +23,7 @@ from pathlib import Path
 import numpy as np
 
 from treelab import cgns
+import mola
 from mola import __MOLA_PATH__
 import mola.naming_conventions as names
 from mola.logging import mola_logger, MolaAssertionError, MolaException, CYAN, GREEN, RED, YELLOW, ENDC
@@ -267,6 +268,14 @@ class WorkflowManager():
                     })
                 continue
 
+            if sequence.get('run_directory'):
+                normalized_cases.append({
+                    **sequence,
+                    'run_directory': str(sequence['run_directory']),
+                    'scheduler': sequence.get('scheduler', 'SLURM'),
+                })
+                continue
+
             run_directories = sequence.get('run_directories') or []
             for run_directory in run_directories:
                 normalized_cases.append({
@@ -347,7 +356,7 @@ for case in cases:
 print(json.dumps(result))
 '''
         encoded_code = base64.b64encode(python_code.encode()).decode()
-        wrapped_command = f'echo "{encoded_code}" | base64 -d | python3 2>/dev/null'
+        wrapped_command = f'echo "{encoded_code}" | base64 -d | python3'
         command_kwargs = {
             "command": wrapped_command,
             "machine": target_machine,
@@ -366,7 +375,16 @@ print(json.dumps(result))
                 except json.JSONDecodeError:
                     continue
         raise MolaException(
-            f'Failed to parse remote workflow status result: {output}')
+            f'Failed to parse remote workflow status result from machine={target_machine}: '
+            f'{output!r}\n'
+            f'Possible causes:\n'
+            f'  - MOLA is not installed or not accessible on {target_machine}\n'
+            f'  - The MOLA environment on {target_machine} is misconfigured\n'
+            f'  - SSH connectivity issue\n'
+            f'  - The remote Python code crashed (stderr is suppressed)\n'
+            f'To debug, try running the remote command manually on {target_machine}.\n'
+            f'Check SSH connectivity: ssh {target_machine}\n'
+            f'To increase SSH timeout, set MOLA_SSH_TIMEOUT (in seconds).')
     
     def write(self):
         """Write the workflow manager file to both local and remote locations."""
@@ -926,7 +944,18 @@ class WorkflowSequentialManager():
     def _set_machine(self):
         first_workflow = self.workflows[0] 
         RunManagement = copy.deepcopy(first_workflow.RunManagement)
-        scheduler_options = run_manager.set_default(RunManagement)
+
+        # Temporarily align the global solver with the workflow's solver so that
+        # scheduler_defaults.py evaluates solver-specific options (e.g. constraint='spr' for sonics)
+        # correctly. Restore the original value after.
+        original_solver = mola.solver
+        mola.solver = first_workflow.Solver
+        try:
+            scheduler_options = run_manager.set_default(RunManagement)
+        finally:
+            mola.solver = original_solver
+
+
         self.machine = RunManagement['Machine']
         self.manager = RunManagement['Scheduler']
         self.job_text = write_cfd_files.get_job_text(first_workflow.Solver, RunManagement, scheduler_options)
