@@ -257,8 +257,8 @@ class Workflow(object):
         if command is None:
             command = self.RunManagement['LauncherCommand']
         user = self.RunManagement.get('User')
-        out = SV.submit_command(command, machine, user=user)
-        return out
+        SV.submit_command(command, machine, user=user)
+
     
     def write_tree_remote(self, data_directory=None, copy_options=None):
         from . import manager as WM

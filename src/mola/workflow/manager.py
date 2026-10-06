@@ -224,6 +224,7 @@ class WorkflowManager():
                 )
             self.sequential_managers.append(sequential_manager)
 
+        assert self.sequential_managers
         self.machine = sequential_manager.machine
     
     def get_run_directories(self):
@@ -366,45 +367,6 @@ print(json.dumps(result))
                     continue
         raise MolaException(
             f'Failed to parse remote workflow status result: {output}')
-
-
-def _resolve_discovered_case(case, machine):
-    """Resolve a live-discovery case when the target is the local machine."""
-
-    import os
-    import mola.naming_conventions as names
-
-    run_directory = case['run_directory']
-    detail = {
-        'run_directory': run_directory,
-        'example_id': case.get('example_id'),
-        'sequence_root': case.get('sequence_root'),
-        'scheduler_status': case.get('scheduler_status'),
-    }
-    if case.get('scheduler_error'):
-        detail['scheduler_error'] = case['scheduler_error']
-    try:
-        effective_scheduler_status = case.get('scheduler_status')
-        if case.get('sequence_root'):
-            coprocess_log = os.path.join(run_directory, names.FILE_COLOG)
-            preprocessing = os.path.join(run_directory, names.FILE_PREPROCESSING)
-            is_started = os.path.isfile(coprocess_log)
-            is_preprocessing = os.path.isfile(preprocessing)
-            if effective_scheduler_status in {'RUNNING', 'PENDING'} and not (is_started or is_preprocessing):
-                effective_scheduler_status = ''
-            elif effective_scheduler_status not in {'RUNNING', 'PENDING'} and not is_started:
-                effective_scheduler_status = ''
-        detail['status'] = Workflow.simulation_status_from_run_directory(
-            run_directory=run_directory,
-            machine=machine,
-            job_id=case.get('job_id'),
-            scheduler=case.get('scheduler'),
-            slurm_status=effective_scheduler_status,
-        )
-    except Exception as error:
-        detail['status'] = 'ERROR'
-        detail['error'] = str(error)
-    return detail
     
     def write(self):
         """Write the workflow manager file to both local and remote locations."""
@@ -661,6 +623,44 @@ def _resolve_discovered_case(case, machine):
 
         return ordered_signals
 
+
+def _resolve_discovered_case(case, machine):
+    """Resolve a live-discovery case when the target is the local machine."""
+
+    import os
+    import mola.naming_conventions as names
+
+    run_directory = case['run_directory']
+    detail = {
+        'run_directory': run_directory,
+        'example_id': case.get('example_id'),
+        'sequence_root': case.get('sequence_root'),
+        'scheduler_status': case.get('scheduler_status'),
+    }
+    if case.get('scheduler_error'):
+        detail['scheduler_error'] = case['scheduler_error']
+    try:
+        effective_scheduler_status = case.get('scheduler_status')
+        if case.get('sequence_root'):
+            coprocess_log = os.path.join(run_directory, names.FILE_COLOG)
+            preprocessing = os.path.join(run_directory, names.FILE_PREPROCESSING)
+            is_started = os.path.isfile(coprocess_log)
+            is_preprocessing = os.path.isfile(preprocessing)
+            if effective_scheduler_status in {'RUNNING', 'PENDING'} and not (is_started or is_preprocessing):
+                effective_scheduler_status = ''
+            elif effective_scheduler_status not in {'RUNNING', 'PENDING'} and not is_started:
+                effective_scheduler_status = ''
+        detail['status'] = Workflow.simulation_status_from_run_directory(
+            run_directory=run_directory,
+            machine=machine,
+            job_id=case.get('job_id'),
+            scheduler=case.get('scheduler'),
+            slurm_status=effective_scheduler_status,
+        )
+    except Exception as error:
+        detail['status'] = 'ERROR'
+        detail['error'] = str(error)
+    return detail
 
 class WorkflowDispatcher():
     '''

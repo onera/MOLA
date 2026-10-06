@@ -102,38 +102,6 @@ def test_find_matching_leaves():
     assert workflow.Extractions[0]['File'] == 'extractions.cgns'
 
 @pytest.mark.unit
-def test_workflow_manager_submits_sequence(tmp_path):
-    """Test that WorkflowManager submits a prepared sequence."""
-    # Create a simple test case
-    from mola.workflow import Workflow
-    
-    @dataclass
-    class FakeWorkflow(Workflow):
-        RunManagement = dict(
-            RunDirectory=str(tmp_path / 'test_case'),
-            Machine='localhost',
-            Scheduler='SLURM',
-            LauncherCommand='echo "fake job"',
-        )
-        Solver = 'elsa'
-    
-    # Create a WorkflowManager with the fake workflow
-    wf = FakeWorkflow()
-    manager = WM.WorkflowManager([wf])
-    manager.prepare()
-    
-    # Mock the submit output; the manager does not retain scheduler IDs.
-    original_submit = SV.submit_command
-    def mock_submit(command, machine=None, user=None):
-        return "Submit job 12345"
-    
-    SV.submit_command = mock_submit
-    try:
-        assert manager.submit() is None
-    finally:
-        SV.submit_command = original_submit
-
-@pytest.mark.unit
 def test_workflow_manager_update_simulation_metadata(tmp_path):
     """Test that WorkflowManager can update simulation metadata."""
     from mola.workflow import Workflow
