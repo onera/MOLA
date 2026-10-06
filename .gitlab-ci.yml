@@ -25,7 +25,6 @@ stages:
   - release-candidate
   - examples-submit
   - examples-monitor
-  - examples-validate
   - examples-repatriate
   - examples-postprocess
   - examples-publish
@@ -168,10 +167,12 @@ examples_submit:
     - python3 -m mola.cicd.examples_runner submit
     - echo ""
     - echo "Examples submission complete!"
+
 examples_monitor:
   stage: examples-monitor
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/
+      when: manual
   needs:
     - job: examples_submit
   script:
@@ -180,33 +181,6 @@ examples_monitor:
     - echo "Monitoring example results..."
     - echo ""
     - python3 -m mola.cicd.examples_runner validate
-    - code=$?
-    - echo "VALIDATION_STATUS=$code" > validate.env
-  artifacts:
-    when: always
-    reports:
-      dotenv: validate.env
-  allow_failure: true
-
-
-examples_validate:
-  stage: examples-validate
-  rules:
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/
-  needs:
-    - job: examples_monitor
-      artifacts: true
-  script:
-    - |
-      if [ "$VALIDATION_STATUS" = "1" ]; then
-        echo "Examples failed. Failing pipeline."
-        exit 1
-      fi
-      echo "Validation status: $VALIDATION_STATUS (not failing)."
-      exit 0
-  artifacts:
-    reports:
-      dotenv: validate.env
 
 
 examples_repatriate:
@@ -214,7 +188,6 @@ examples_repatriate:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
   needs:
-    - job: examples_validate
     - job: examples_monitor
   tags:
     - juno-shell

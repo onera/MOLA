@@ -74,7 +74,7 @@ if ! ssh \
     -o StrictHostKeyChecking=no \
     -i "$LOCAL_MOLA_SSH_KEY" \
     mola@localhost \
-    "cd '$REPO_PATH' && '$REMOTE_SCRIPT' '$TAG' '$MODE' '$SOURCE_USER'"
+    "'$REMOTE_SCRIPT' '$TAG' '$MODE' '$SOURCE_USER'"
 then
     echo "ERROR: Repatriation via SSH failed." >&2
     exit 1
