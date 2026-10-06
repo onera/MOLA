@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shlex
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
@@ -234,13 +235,39 @@ def _run_remote_probe(
 
     code = _remote_probe_code(items, scheduler_user)
     encoded = base64.b64encode(code.encode()).decode()
-    command = f'echo "{encoded}" | base64 -d | python3 2>/dev/null'
-    output = SV.submit_command(
-        command=command,
-        machine=machine,
-        user=connection_user,
-        use_mola_env=False,
-    )
+    print(f"discovering submitted examples on machine={machine}")
+
+    remote_script = f"""
+    source /etc/bashrc
+    set -eo pipefail
+    module load python >&2
+    command -v python3 >&2
+    python3 --version >&2
+    printf '%s' {shlex.quote(encoded)} | base64 -d | python3
+    """
+
+    remote_command = f"bash -lc {shlex.quote(remote_script)}"
+
+    try:
+        result = subprocess.run(
+            [
+                "ssh", 
+                "-T",
+                "-o", "BatchMode=yes",
+                f"{connection_user}@{machine}" if connection_user else machine,
+                remote_command,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"return code: {exc.returncode}")
+        print(f"stdout: {exc.stdout}")
+        print(f"stderr: {exc.stderr}")
+        raise
+
+    output = result.stdout
     for line in reversed(output.strip().splitlines()):
         line = line.strip()
         if line.startswith("{") and line.endswith("}"):
@@ -286,6 +313,7 @@ def discover_remote_layout(
     scheduler_errors = {}
 
     for machine, machine_definitions in grouped.items():
+        if machine == 'juno': continue # FIXME juno temporarily unavailable
         items = [
             {
                 "identifier": definition.identifier,

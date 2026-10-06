@@ -187,9 +187,9 @@ def get_ssh_host_command(machine=None, user=None, path='.'):
             assert machine, f"FATAL: could not guess remote machine"
 
         if user is None:
-            ssh_host = f'ssh -T {machine}'
+            ssh_host = f'ssh -q -T -o BatchMode=yes {machine}'
         else:
-            ssh_host = f'ssh -T {user}@{machine}'
+            ssh_host = f'ssh -q -T -o BatchMode=yes {user}@{machine}'
     else:
         ssh_host = ''
     return ssh_host
