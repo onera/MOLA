@@ -291,7 +291,7 @@ def test_WorkflowManager_prepare(tmp_path):
         }
 
     assert files_list == [
-        [],
+        [names.FILE_WORKFLOW_MANAGER],
         [names.FILE_JOB_SEQUENCE], 
         [names.FILE_INPUT_WORKFLOW], 
         [names.FILE_INPUT_WORKFLOW], 

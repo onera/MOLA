@@ -17,8 +17,6 @@
 
 from typing import Union
 import numpy as np
-from mola.logging import mola_logger, MolaAssertionError
-from mola.cfd.preprocess.mesh import tools as mesh_tools
 from mola.workflow import WorkflowManager
 
 class WorkflowPropellerManager(WorkflowManager):
@@ -121,7 +119,7 @@ class WorkflowPropellerManager(WorkflowManager):
             # Thrust = data[:, 1]
             # Power  = data[:, 2]
 
-    def write_gather_script(self, output_path=None):
+    def get_gather_script_lines(self):
         text = f'''
 from mola.workflow.rotating_component import propeller
 from mola import naming_conventions as names
@@ -132,9 +130,5 @@ manager.plot_performance_on_rpm(perfo, ['Thrust', 'Power', 'PropulsiveEfficiency
 manager.export_perfo_to_dat(perfo)
 
 '''     
-        # Write gather_results.py in the specified output_path
-        output_file = output_path if output_path else "gather_results.py"
-        mola_logger.info(f"write gather_results.py to {output_file}, to execute after simulations are completed.")
-        with open(output_file, "w") as f:
-            f.write(text)
+        return text
 
