@@ -215,7 +215,7 @@ class WorkflowTurbomachineryManager(WorkflowManager):
         if show: 
             plt.show()
 
-    def write_gather_script(self, output_path=None):
+    def get_gather_script_lines(self):
 
         stages = self.base_workflow._get_default_stages_to_postprocess()
 
@@ -235,10 +235,4 @@ for stage in stages:
     manager.plot_isospeed_lines(perfo, filename=f'isospeedline_{{rows_names}}.png')
 
 '''     
-        
-        # Write gather_results.py in the specified output_path
-        output_file = output_path if output_path else "gather_results.py"
-        mola_logger.info(f"write gather_results.py to {output_file}, to execute after simulations are completed.")
-        with open(output_file, "w") as f:
-            f.write(text)
-    
+        return text

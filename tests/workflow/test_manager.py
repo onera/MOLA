@@ -291,7 +291,7 @@ def test_WorkflowManager_prepare(tmp_path):
         }
 
     assert files_list == [
-        [],
+        [names.FILE_WORKFLOW_MANAGER],
         [names.FILE_JOB_SEQUENCE], 
         [names.FILE_INPUT_WORKFLOW], 
         [names.FILE_INPUT_WORKFLOW], 
@@ -570,23 +570,24 @@ def test_workflow_submit_records_without_returning_job_id():
     SV.submit_command = mock_submit_command
     
     try:
-        w = Workflow(
-            RawMeshComponents=[{
-                'Name': 'test',
-                'Source': make_fake_mesh(),
-                'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
-            }],
-            Solver='elsa',
-            RunManagement={
-                'RunDirectory': '/tmp/test_submit',
-                'LauncherCommand': 'echo test',
-                'Machine': 'localhost'
-            }
-        )
-        
-        assert w.submit() is None
-        assert 'JobID' not in w.RunManagement
-        assert 'SubmittedAt' not in w.RunManagement
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            w = Workflow(
+                RawMeshComponents=[{
+                    'Name': 'test',
+                    'Source': make_fake_mesh(),
+                    'Families': [{'Name': 'Ground', 'Location': 'kmin'}]
+                }],
+                Solver='elsa',
+                RunManagement={
+                    'RunDirectory': f'{tmp_dir}/test_submit',
+                    'LauncherCommand': 'echo test',
+                    'Machine': 'localhost'
+                }
+            )
+            
+            assert w.submit() is None
+            assert 'JobID' not in w.RunManagement
+            assert 'SubmittedAt' not in w.RunManagement
     finally:
         SV.submit_command = original_submit
 
