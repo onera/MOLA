@@ -104,8 +104,12 @@ def get_lines_to_submit_job_again(RunManagement):
     text = f"""
 if [ -f "{signal}" ]; then
     rm -f {signal}
-    echo "LAUNCHING JOB AGAIN"
-    {command}
+    if [ -f ../"{names.FILE_JOB_SEQUENCE}" ]; then
+        echo "LAUNCHING JOB SEQUENCE AGAIN"
+        {command.replace(names.FILE_JOB,'../'+names.FILE_JOB_SEQUENCE)}
+    else
+        echo "LAUNCHING JOB AGAIN"
+        {command}
     exit 0
 fi
 """

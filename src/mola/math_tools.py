@@ -452,7 +452,7 @@ def interpolate__(AbscissaRequest, AbscissaData, ValuesData,
             Controls the algorithm of interpolation
             to be employed. Current implementation includes:
 
-            ``'linear'`` : linear interpolation :math:`\mathcal{O}(1)` mode
+            ``'linear'`` : linear interpolation O(1) mode
                 Makes use of the function `numpy.interp() <https://numpy.org/doc/stable/reference/generated/numpy.interp.html>`_
 
             ``'interp1d_<kind>'`` : one-dimensional interpolation (multiple orders)

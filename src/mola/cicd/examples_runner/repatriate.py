@@ -126,12 +126,16 @@ def _relocate_ssh_command(machine, target_user):
 def relocate_live_examples(
         tag=None, root=None, source_user=None, examples_root="examples",
         dry_run=False):
+    
     tag, entries = _live_completed_entries(
         examples_root=examples_root,
         source_user=source_user,
         tag=tag,
         root=root,
     )
+    
+    assert entries, f"No entries where found for examples_root={examples_root}, source_user={source_user}, tag={tag}, root={root}"
+    
     grouped = defaultdict(list)
     for entry in entries:
         target_user = _target_user_from_path(entry["destination"], entry["machine"])

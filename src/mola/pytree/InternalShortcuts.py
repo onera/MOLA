@@ -1636,7 +1636,7 @@ def extractBCFromFamily(t, Family, squeeze=False):
                         zsize[1,1] = np.maximum(nj-1,1)
                         zsize[2,1] = np.maximum(nk-1,1)
 
-                    newZoneForBC = I.newZone(f'{I.getName(zone)}\{I.getName(BC)}', zsize=zsize, ztype='Structured', family=Family)
+                    newZoneForBC = I.newZone(f'{I.getName(zone)}\\{I.getName(BC)}', zsize=zsize, ztype='Structured', family=Family)
                     set(newZoneForBC, 'GridCoordinates', childType='GridCoordinates_t', 
                         CoordinateX=x[SliceOnVertex], CoordinateY=y[SliceOnVertex], CoordinateZ=z[SliceOnVertex])
 
