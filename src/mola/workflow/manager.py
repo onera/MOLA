@@ -165,7 +165,7 @@ class WorkflowManager():
             # Determine manager_file_path: default to script_directory, but also write to root_directory
             if manager_file_path is None:
                 # Primary location: script_directory (local)
-                self.manager_file_path = os.path.join(script_directory, names.FILE_WORKFLOW_MANAGER)
+                self.manager_file_path = str(Path(script_directory) / names.FILE_WORKFLOW_MANAGER)
             else:
                 self.manager_file_path = manager_file_path
     
@@ -194,6 +194,8 @@ class WorkflowManager():
         SV.makedirs_remote(self.root_directory, machine=self.machine)
         for sequence_of_workflows in self.sequential_managers:
             sequence_of_workflows.prepare()
+        self.write()
+        self.write_gather_script()
 
     def submit(self):
         for sequence_of_workflows in self.sequential_managers:
@@ -206,16 +208,29 @@ class WorkflowManager():
         Args:
             output_path: Path where to write the script. If None, uses script_directory.
         """
+        text = self.get_gather_script_lines()
+        if text is None or len(text) == 0:
+            return
+
+        # Write FILE_GATHER_RESULTS in the specified output_path
+        output_file = names.FILE_GATHER_RESULTS
+        if output_path:
+            output_file = str(Path(output_path) / output_file)
+        mola_logger.info(f"write {output_file}, to execute after simulations are completed.")
+        with open(output_file, "w") as f:
+            f.write(text)
+
+    def get_gather_script_lines(self):
         # to be defined in the WorkflowManager specific to the application if applicable
-        pass
+        return
 
     def _init_sequential_managers(self):
         if self.sequential_managers is not None:
             raise MolaAssertionError('Attribute sequential_managers was already initialized !')
         self.sequential_managers = []
         for i, sequence in enumerate(self.dispatcher.table_of_workflows):
-            root_absolute_directory = os.path.join(self.root_directory, self.dispatcher.root_directories[i])
-            data_absolute_directory = os.path.join(self.root_directory, self.data_directory)
+            root_absolute_directory = str(Path(self.root_directory) / self.dispatcher.root_directories[i])
+            data_absolute_directory = str(Path(self.root_directory) / self.data_directory)
 
             sequential_manager = WorkflowSequentialManager(
                 sequence, 
@@ -397,10 +412,10 @@ print(json.dumps(result))
         
         # ALSO write to root_directory for remote access
         if self.root_directory and self.root_directory != '.':
-            remote_manager_path = os.path.join(self.root_directory, names.FILE_WORKFLOW_MANAGER)
+            remote_manager_path = Path(self.root_directory) / names.FILE_WORKFLOW_MANAGER
             
             # Only write remotely if different from local path
-            if remote_manager_path != self.manager_file_path:
+            if str(remote_manager_path) != str(self.manager_file_path):
                 # Copy the local file to remote
                 from mola import server as SV
                 machine = self.machine or "localhost"
