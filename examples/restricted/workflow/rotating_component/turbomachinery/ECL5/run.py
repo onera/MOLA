@@ -83,7 +83,6 @@ w = turbomachinery.Workflow(
         NumberOfProcessors = 48,
         JobName=example_name,
         RunDirectory = '/tmp_user/sator/$USER/mola_examples/'+example_name,
-        TimeLimit='06:00:00', # "short" job on purpose to force restart using new job
         AER='37752011F',  # RGC ECL5 2026
         ),
 
@@ -94,7 +93,7 @@ w = turbomachinery.Workflow(
 # w.submit()
 
 manager = turbomachinery.WorkflowManager(w, root_directory='/tmp_user/sator/$USER/mola_examples/'+example_name)
-valve_coeffs = [0.1,0.2,0.3,0.4,0.5,0.6]
+valve_coeffs = [0.1,0.3,0.5]
 
 for solver in ['elsa',
                'sonics']:
