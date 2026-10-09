@@ -132,7 +132,7 @@ def test_get_periodic_direction():
 #         mola_logger.warning('turbo module cannot be found!')
 #         pass
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_parametrize_with_height(tmp_path):
     w = get_workflow_spleen(tmp_path)
     w.assemble()
