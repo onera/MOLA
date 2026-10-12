@@ -187,6 +187,8 @@ examples_repatriate:
   stage: examples-repatriate
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
+  tags:
+    - juno-shell  # requires login node for SSH-based deployment to mola space
   needs:
     - job: examples_monitor
   script:
@@ -199,6 +201,8 @@ examples_postprocess:
   stage: examples-postprocess
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
+  tags:
+    - juno-shell  # requires login node for SSH-based deployment to mola space
   needs:
     - job: examples_repatriate
   script:
@@ -232,7 +236,7 @@ final_release:
     - MOLA_DOC_VERSION="$CI_COMMIT_TAG" make -C doc install_doc_requirements
     - MOLA_DOC_VERSION="$CI_COMMIT_TAG" make -C doc doc
     - python3 scripts/cicd/update_doc_versions.py doc/html/_static/versions.json "$CI_COMMIT_TAG"
-    - chmod +x scripts/cicd/deploy_doc.sh
+    - chmod +x scripts/cicd/deploy_doc.sh scripts/cicd/deploy_doc_as_mola.sh
     - scripts/cicd/deploy_doc.sh doc/html "$CI_COMMIT_TAG"
 #    - chmod +x scripts/sync_to_github.sh
 #    - scripts/sync_to_github.sh "$CI_COMMIT_TAG"
