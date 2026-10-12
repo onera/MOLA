@@ -82,6 +82,7 @@ def scan_example_definitions(
     source_user = resolve_source_user(source_user)
     definitions = []
     for script_path in sorted(Path(examples_root).rglob("run*.py")):
+        print(f'found {script_path}')
         mode = _detect_execution_mode(script_path)
         if mode is None:
             continue
@@ -123,6 +124,7 @@ def scan_example_definitions(
             machine=machine,
             source_user=source_user,
         ))
+    assert definitions, f"No examples were found in {Path(examples_root).resolve()}"
     return definitions
 
 
@@ -246,7 +248,7 @@ def _run_remote_probe(
     """
 
     remote_command = f"bash -lc {shlex.quote(remote_script)}"
-
+        
     try:
         result = subprocess.run(
             [

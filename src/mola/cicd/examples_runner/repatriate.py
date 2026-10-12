@@ -69,7 +69,7 @@ def _live_completed_entries(
         definition = result["definition"]
         status = str(result.get("overall", "")).upper()
         if status != names.FILE_JOB_COMPLETED:
-            print(f"Skipping {definition.script_path} (status: {status or 'UNKNOWN'})")
+            print(f"\033[93mSkipping {definition.script_path} (status: {status or 'UNKNOWN'})\033[0m")
             continue
         entries.append({
             "definition": definition,
@@ -126,12 +126,14 @@ def _relocate_ssh_command(machine, target_user):
 def relocate_live_examples(
         tag=None, root=None, source_user=None, examples_root="examples",
         dry_run=False):
+    
     tag, entries = _live_completed_entries(
         examples_root=examples_root,
         source_user=source_user,
         tag=tag,
         root=root,
     )
+    
     grouped = defaultdict(list)
     for entry in entries:
         target_user = _target_user_from_path(entry["destination"], entry["machine"])

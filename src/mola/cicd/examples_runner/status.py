@@ -42,11 +42,11 @@ def resolve_live_statuses(
         connection_user=None,
 ):
     """Discover and resolve all marked examples without local state."""
-
     definitions = scan_example_definitions(
         examples_root=examples_root,
         source_user=source_user,
     )
+    print(f'Found {len(definitions)} examples')
     layout = discover_remote_layout(
         definitions,
         connection_user=connection_user,
@@ -55,6 +55,7 @@ def resolve_live_statuses(
         print(f"Warning: squeue query failed on {machine}: {error}")
 
     requests = make_case_requests(definitions, layout)
+    print(f'Will make {len(requests)} requests')
     for request in requests:
         request["user"] = connection_user
 
@@ -86,6 +87,7 @@ def resolve_live_statuses(
     results = {}
     for definition in definitions:
         details = details_by_example.get(definition.identifier, [])
+        print(f"definition.root_directory={definition.root_directory}")
         if not details:
             details = [{
                 "example_id": definition.identifier,

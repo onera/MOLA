@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Repatriate one MOLA case or a discovered workflow-manager study."""
 
-from __future__ import annotations
+
 
 import argparse
 from pathlib import Path

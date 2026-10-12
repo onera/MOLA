@@ -239,8 +239,8 @@ def wing(Span, ChordRelRef=0.25, NPtsTrailingEdge=5,
             For detailed information on possible inputs of Span, please refer to
             :py:func:`MOLA.InternalShortcuts.getDistributionFromHeterogeneousInput__` doc.
 
-            For example, a wing starting at :math:`\mathrm{root} =1 \,\mathrm{m}` and ending at
-            :math:`\mathrm{tip} =10 \,\mathrm{m}`, with uniform discretization using 101 points would
+            For example, a wing starting at :math:`\\mathrm{root} =1 \\,\\mathrm{m}` and ending at
+            :math:`\\mathrm{tip} =10 \\,\\mathrm{m}`, with uniform discretization using 101 points would
             be obtained using:
 
             >>> Span = np.linspace(1, 10, 101)
@@ -2164,7 +2164,7 @@ def extrudeAirfoil2D(airfoilCurve,References={},Sizes={},
                 *Frank M. White's Fluid Mechanics 5th Ed., page 467*
 
             * DeltaYPlus : :py:class:`float`
-                Reference :math:`\Delta y^+` number used for computation of
+                Reference :math:`\\Delta y^+` number used for computation of
                 wall-adjacent cell size following:
 
                 *Frank M. White's Fluid Mechanics 5th Ed., page 467*

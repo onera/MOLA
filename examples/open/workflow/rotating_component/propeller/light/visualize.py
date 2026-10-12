@@ -5,7 +5,7 @@ for solver in [
     'fast',
     # 'sonics' # known BUG : Cassiopee is having trouble loading NFACE surface from sonics
     ]:
-    example_name = 'example_had1_'+solver
+    example_name = 'example_prop_light_'+solver
 
     # set the different field elements to include in the image
     Elements = [

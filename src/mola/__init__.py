@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
 import os
 import getpass
 from pathlib import Path
@@ -24,11 +25,7 @@ try:
 except ImportError:  # pragma: no cover - exercised on Windows
     pwd = None
 
-# Try to import version from hatch-vcs generated file
-try:
-    from ._version import version as __version__
-except ImportError:
-    __version__ = "unknown"
+__version__ = "v2.0.1"
 
 __MOLA_PATH__ = os.path.sep.join(__file__.split(os.path.sep)[:-2])
 __ONLY_DOC__ = 0 # set to True for sphinx compilation

@@ -22,7 +22,7 @@ SOURCE_USER="${4:-${USER:-}}"
 # ---------------------------------------------------------------------------
 
 LOCAL_MOLA_SSH_KEY="/stck/$USER/.ssh/mola_ci_deploy_ed25519"
-REMOTE_SCRIPT="/stck/mola/scripts/cicd/repatriate_as_mola.sh"
+REMOTE_SCRIPT="$REPO_PATH/scripts/cicd/repatriate_as_mola.sh"
 
 # ---------------------------------------------------------------------------
 # Checks
@@ -32,6 +32,13 @@ if [[ ! -d "$REPO_PATH" ]]; then
     echo "ERROR: Repository path does not exist: $REPO_PATH" >&2
     exit 1
 fi
+
+if [[ ! -f "$REMOTE_SCRIPT" ]]; then
+    echo "ERROR: repatriate_as_mola.sh script not found: $REMOTE_SCRIPT" >&2
+    exit 1
+fi
+
+chmod +x $REMOTE_SCRIPT
 
 if [[ ! -f "$LOCAL_MOLA_SSH_KEY" || ! -r "$LOCAL_MOLA_SSH_KEY" ]]; then
     echo "ERROR: SSH key is not readable: $LOCAL_MOLA_SSH_KEY" >&2
@@ -67,16 +74,23 @@ echo "=========================================="
 
 echo "Repatriating via SSH to mola@localhost..."
 
-if ! ssh \
+if ssh \
     -4 \
     -o BatchMode=yes \
     -o IdentitiesOnly=yes \
     -o StrictHostKeyChecking=no \
     -i "$LOCAL_MOLA_SSH_KEY" \
     mola@localhost \
-    "'$REMOTE_SCRIPT' '$TAG' '$MODE' '$SOURCE_USER'"
+    "cd '$REPO_PATH' && '$REMOTE_SCRIPT' '$TAG' '$MODE' '$SOURCE_USER'"
 then
-    echo "ERROR: Repatriation via SSH failed." >&2
+    echo "=========================================="
+    echo "Repatriation completed successfully!"
+    echo "=========================================="
+else
+    SSH_EXIT=$?
+    echo "" >&2
+    echo "ERROR: Repatriation via SSH failed (exit code: $SSH_EXIT)." >&2
+    echo "Check the output above for details on the failure." >&2
     exit 1
 fi
 

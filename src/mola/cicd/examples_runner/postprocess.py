@@ -10,6 +10,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+import mola
 from mola import server as SV
 
 from .discovery import ExampleDefinition, scan_example_definitions
@@ -99,32 +100,17 @@ def postprocess_live_examples(
                     f"/tmp_user/{definition.machine}/mola/{tag}/examples"
                     if not root else f"/tmp_user/{definition.machine}/{root}/examples"
                 ) / relative_script
-                if script_name == "visualize.py":
-                    result_directories = _live_result_directories(
-                        definition, result, tag, root=root
-                    )
-                    for result_directory in result_directories:
-                        script_key = (
-                            definition.machine,
-                            str(result_directory),
-                            str(remote_script),
-                        )
-                        if script_key in seen:
-                            continue
-                        group["commands"].append(
-                            f"cd {shlex.quote(str(result_directory))}; "
-                            f"{_script_command(remote_script)}"
-                        )
-                        seen.add(script_key)
-                else:
-                    script_key = (definition.machine, str(remote_script), script_name)
-                    if script_key in seen:
-                        continue
-                    group["commands"].append(
-                        f"cd {shlex.quote(posixpath.dirname(str(remote_script)))}; "
-                        f"{_script_command(remote_script)}"
-                    )
-                    seen.add(script_key)
+
+                script_key = (definition.machine, str(remote_script), script_name)
+                if script_key in seen:
+                    continue
+                work_dir = shlex.quote(posixpath.dirname(str(remote_script)))
+                group["commands"].append(
+                    f"echo going to {work_dir};"
+                    f"cd {work_dir}; "
+                    f"{_script_command(remote_script)}"
+                )
+                seen.add(script_key)
 
     for (machine, target_user), group in sorted(grouped.items()):
         if not group["commands"]:
@@ -137,7 +123,7 @@ def postprocess_live_examples(
         bash_cmds = f"{mola_env_cmd}export MOLA_HEADLESS=1; {'; '.join(group['commands'])}"
         embedded = shlex.quote(f"bash -lc {shlex.quote(bash_cmds)}")
         full_cmd = f"{ssh_cmd} {embedded}"
-        result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
+        result = subprocess.run(full_cmd, shell=True, capture_output=False, text=True)
         if result.returncode != 0:
             print(f"ERROR: postprocess failed on {machine}: {result.stderr}", file=sys.stderr)
 

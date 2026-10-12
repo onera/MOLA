@@ -195,7 +195,7 @@ def test_read_text_file_from_errors_local(tmp_path):
 
 
 @pytest.mark.network_onera
-@pytest.mark.unit
+@pytest.mark.integration
 def test_read_text_file_from_errors_sator():
     MOLA_SOLVER = os.getenv('MOLA_SOLVER', 'no_solver')
     directory = f'/tmp_user/sator/$USER/.test_read_text_file_from_errors_sator_{MOLA_SOLVER}/'

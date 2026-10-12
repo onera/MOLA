@@ -2,7 +2,7 @@ from mola import visu
 
 for solver in [
     'elsa',
-    'fast',
+    # 'fast', # case crashes
     # 'sonics' # known BUG : Cassiopee is having trouble loading NFACE surface from sonics
     ]:
     example_name = 'example_had1_'+solver

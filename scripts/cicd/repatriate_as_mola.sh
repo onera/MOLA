@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-set -Eeuo pipefail
-
+# set -Eeuo pipefail
+source /etc/bashrc
 # ---------------------------------------------------------------------------
 # Usage
 # ---------------------------------------------------------------------------
@@ -15,6 +15,9 @@ fi
 TAG="$1"
 MODE="$2"
 SOURCE_USER="$3"
+set --
+
+
 
 # ---------------------------------------------------------------------------
 # SSH configuration for mola -> remote machines
@@ -34,9 +37,9 @@ fi
 
 # Machine-specific SSH keys: maps machine name to its deploy key path.
 # These keys authenticate mola@juno to remote machines (sator, etc.).
-MACHINE_SSH_KEYS=(
-    [sator]="/stck/mola/.ssh/sator_ci_deploy_ed25519"
-)
+declare -A MACHINE_SSH_KEYS
+MACHINE_SSH_KEYS[sator]="/stck/mola/.ssh/sator_ci_deploy_ed25519"
+
 
 SSH_CONFIG_ENTRIES=""
 for machine in "${!MACHINE_SSH_KEYS[@]}"; do
@@ -74,6 +77,7 @@ export RSYNC_RSH="ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChe
 
 ENV_FILE="/stck/mola/${TAG}/env_mola.sh"
 
+
 # ---------------------------------------------------------------------------
 # Checks
 # ---------------------------------------------------------------------------
@@ -93,12 +97,17 @@ if [[ -z "$SOURCE_USER" ]]; then
     exit 1
 fi
 
+
 # Source environment
 if [[ -f "$ENV_FILE" ]]; then
-    source "$ENV_FILE"
+    echo will source $ENV_FILE
+    source "$ENV_FILE" # prod
+    # source /stck/lbernard/MOLA/Dev/env_mola.sh # dev (debug)
+    python3 --version
 else
     echo "WARNING: Environment file not found: $ENV_FILE, using defaults" >&2
 fi
+
 
 echo "=========================================="
 echo "MOLA Repatriate (as mola user)"

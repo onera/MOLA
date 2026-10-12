@@ -189,34 +189,30 @@ examples_repatriate:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
   needs:
     - job: examples_monitor
-  tags:
-    - juno-shell
   script:
     - source $MOLA_ENV_DEFAULT
     - export OMP_NUM_THREADS=1
     - chmod +x scripts/cicd/repatriate.sh
     - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" full "$USER"
+
 examples_postprocess:
   stage: examples-postprocess
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
   needs:
     - job: examples_repatriate
-  tags:
-    - juno-shell
   script:
     - source /stck/mola/${CI_COMMIT_TAG}/env_mola.sh
-    - export OMP_NUM_THREADS=2
+    - export OMP_NUM_THREADS=1
     - chmod +x scripts/cicd/repatriate.sh
     - scripts/cicd/repatriate.sh ${CI_PROJECT_DIR} "$CI_COMMIT_TAG" postprocess "$USER"
+
 examples_publish:
   stage: examples-publish
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+-rc\d+$/'
   needs:
     - job: examples_postprocess
-  tags:
-    - juno-shell
   script:
     - source $MOLA_ENV_DEFAULT
     - export OMP_NUM_THREADS=1
@@ -228,8 +224,6 @@ final_release:
   stage: final_release
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
-  tags:
-    - juno-shell
   script:
     - echo "Promoting the validated release candidate."
     - chmod +x scripts/cicd/promote_release.sh scripts/cicd/promote_release_as_mola.sh
