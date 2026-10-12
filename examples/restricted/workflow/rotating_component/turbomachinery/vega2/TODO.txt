@@ -1,9 +1,0 @@
-- Preparer carto 2D à imposer en entrée/sortie
-- Test conditions de Giles ?
-- Cas RNA 360°: quid de la duplication et de l'initialisation ? 
-- grandeurs à monitorer pendant le calcul comme MOLA v1 ? extractions avec Maia pour ne créer les iso-surfaces qu'une seule fois ? 
-- test avec SoNICS
-- Fluid à refactoriser ?
-- montrer le Manager : étude paramétrique
-- iso-vitesse a priori pas nécessaire pour EDF (turbines)
-- Tutoriel
