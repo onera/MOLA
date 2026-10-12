@@ -87,6 +87,7 @@ def resolve_live_statuses(
     results = {}
     for definition in definitions:
         details = details_by_example.get(definition.identifier, [])
+        print(f"definition.root_directory={definition.root_directory}")
         if not details:
             details = [{
                 "example_id": definition.identifier,

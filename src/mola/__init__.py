@@ -25,7 +25,7 @@ try:
 except ImportError:  # pragma: no cover - exercised on Windows
     pwd = None
 
-__version__ = "v2.0.1-rcX"
+__version__ = "v2.0.1"
 
 __MOLA_PATH__ = os.path.sep.join(__file__.split(os.path.sep)[:-2])
 __ONLY_DOC__ = 0 # set to True for sphinx compilation
