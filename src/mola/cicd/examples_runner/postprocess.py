@@ -125,7 +125,9 @@ def postprocess_live_examples(
         full_cmd = f"{ssh_cmd} {embedded}"
         result = subprocess.run(full_cmd, shell=True, capture_output=False, text=True)
         if result.returncode != 0:
-            print(f"ERROR: postprocess failed on {machine}: {result.stderr}", file=sys.stderr)
+            msg = f"ERROR: relocation failed on {machine}: {result.stderr}"
+            print(msg,file=sys.stderr)
+            raise RuntimeError(msg)
 
 
 def postprocess_examples(

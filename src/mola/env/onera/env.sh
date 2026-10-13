@@ -25,8 +25,27 @@ else
     export MOLA_SOLVER=$1
 fi
 
-source $SCRIPT_DIR/network.sh
+source "$SCRIPT_DIR/network.sh" || {
+    rc=$?
+    echo "Failed to source: $SCRIPT_DIR/network.sh (status $rc)" >&2
+    return "$rc"
+}
 
-# source the environment associated to the current machine and MOLA_SOLVER
-echo "source $MOLA/mola/env/onera/$MOLA_MACHINE/$MOLA_SOLVER.sh"
-source $MOLA/mola/env/onera/$MOLA_MACHINE/$MOLA_SOLVER.sh &>/dev/null || { echo 'Error: Cannot source this environment!' >&2; return 1; }
+if [ -z "${MOLA:-}" ]; then
+    echo "MOLA is unset after sourcing network.sh" >&2
+    return 1
+fi
+
+ENV_FILE="$MOLA/mola/env/onera/$MOLA_MACHINE/$MOLA_SOLVER.sh"
+printf 'Sourcing environment file: %s\n' "$ENV_FILE"
+
+if [ ! -r "$ENV_FILE" ]; then
+    echo "Environment file is missing or unreadable: $ENV_FILE" >&2
+    return 1
+fi
+
+source "$ENV_FILE" || {
+    rc=$?
+    echo "Failed to source: $ENV_FILE (status $rc)" >&2
+    return "$rc"
+}

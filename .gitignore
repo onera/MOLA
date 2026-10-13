@@ -29,6 +29,3 @@ doc/theme
 .continue
 ext
 DOCUMENTATION
-
-# Generated version file by hatch-vcs
-src/mola/_version.py

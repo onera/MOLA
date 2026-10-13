@@ -156,10 +156,10 @@ def relocate_live_examples(
         full_cmd = f"{ssh_cmd} {shlex.quote('; '.join(commands))}"
         result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
-            print(
-                f"ERROR: relocation failed on {machine}: {result.stderr}",
-                file=sys.stderr,
-            )
+            msg = f"ERROR: relocation failed on {machine}: {result.stderr}"
+            print(msg,file=sys.stderr)
+            raise RuntimeError(msg)
+
 
 
 def relocate_examples(

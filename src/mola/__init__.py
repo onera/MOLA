@@ -25,7 +25,16 @@ try:
 except ImportError:  # pragma: no cover - exercised on Windows
     pwd = None
 
-__version__ = "v2.0.1"
+
+# own dynamic versioning
+try:
+    from ._version import __version__
+except ModuleNotFoundError as exc:
+    if exc.name != f"{__package__}._version":
+        raise
+    __version__ = "dev"
+
+
 
 __MOLA_PATH__ = os.path.sep.join(__file__.split(os.path.sep)[:-2])
 __ONLY_DOC__ = 0 # set to True for sphinx compilation
