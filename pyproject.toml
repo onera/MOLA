@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mola-workflow"
+dynamic = ["version"]
+authors = [
+  { name="Luis Bernardos", email="luisfco.bernardos@gmail.com" },
+  { name="Thomas Bontemps", email="thomas.bontemps@hotmail.fr" }
+]
+description = "MOLA is an ONERA Python code that implements user-level workflows and tools for aerodynamic analysis"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "mola-treelab",
+  "numpy",
+  "scipy",
+  "psutil",
+  "mpi4py",
+  "packaging",
+  "pyyaml",
+]
+
+[project.optional-dependencies]
+visualization = [
+    "matplotlib",
+]
+dev = [
+    "pytest",
+    "docutils",
+    "sphinx",
+    "sphinx_copybutton",
+    "sphinx_design",
+    "pydata_sphinx_theme>=0.14.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/onera/MOLA"
+Issues = "https://github.com/onera/MOLA/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mola"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/mola/_version.py"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["src/mola"]
+omit = [
+    "*/test/*",
+    ]

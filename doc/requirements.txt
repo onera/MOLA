@@ -1,0 +1,4 @@
+sphinx==6.2
+sphinx_copybutton
+sphinx_design
+pydata_sphinx_theme>=0.14.4

@@ -1,0 +1,335 @@
+#    Copyright 2023 ONERA - contact luis.bernardos@onera.fr
+#
+#    This file is part of MOLA.
+#
+#    MOLA is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Lesser General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    MOLA is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Lesser General Public License for more details.
+#
+#    You should have received a copy of the GNU Lesser General Public License
+#    along with MOLA.  If not, see <http://www.gnu.org/licenses/>.
+
+from treelab import cgns
+from mola.cfd import apply_to_solver, call_solver_specific_function, parallel_execution_with_maia
+from mola.logging import mola_logger, MolaException, MolaUserError
+from mola.cfd.preprocess.mesh.tools import to_partitioned
+from mola.cfd.preprocess.initialization.initialization_with_turbo import initialize_flow_with_turbo
+
+from mola.mpi import get_mpi_elements
+comm, rank, size, _ = get_mpi_elements()
+
+
+def apply(workflow):
+    '''
+    Initialize the flow solution.
+
+    #. Compute initial field in all zones
+
+    #. Adapt this node to the solver
+    '''
+    FlowSolution_name = get_init_solution_container_name(workflow)
+
+    add_reference_state(workflow) 
+
+    initialization_functions = dict(
+        uniform = initialize_flow_with_reference_state,
+        copy = initialize_flow_from_file_by_copy,
+        interpolate = initialize_flow_from_file_by_interpolation,
+        from_previous = initialize_flow_from_previous,
+        turbo = initialize_flow_with_turbo,
+    )
+    
+    is_dist = bool(workflow.tree.get(':CGNS#Distribution'))
+    is_part = bool(workflow.tree.get(':CGNS#GlobalNumbering'))
+    is_maia_tree = is_dist or is_part
+    if is_maia_tree and workflow.Initialization['Method'] == 'copy':
+        # 'copy' method is not available because splitting will be different
+        mola_logger.user_warning("Method='copy' for initialization is not compatible with maia -> Method='interpolate' will be used instead.")
+        workflow.Initialization['Method'] = 'interpolate'
+
+    initialization_functions[workflow.Initialization['Method']](workflow, FlowSolution_name)
+
+    check_initial_flow_is_in_all_zones(workflow, FlowSolution_name)
+    compute_wall_distance_if_needed(workflow, FlowSolution_name)
+    
+    apply_to_solver(workflow)
+
+def get_init_solution_container_name(workflow):
+    return call_solver_specific_function(workflow, 'get_init_solution_container_name')
+
+def add_reference_state(workflow):
+    for base in workflow.tree.bases():
+        base.setParameters('ReferenceState', ContainerType='ReferenceState', **workflow.Flow['ReferenceState'])
+
+def initialize_flow_with_reference_state(workflow, FlowSolution_name):
+    mola_logger.info(' - initialize flow with uniform reference values',rank=0)
+    workflow.tree.findAndRemoveNodes(Name=FlowSolution_name)
+    workflow.tree.newFields(workflow.Flow['ReferenceState'], Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
+
+def set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source_tree_repr):
+    if not 'SourceContainer' in workflow.Initialization \
+        and not source_tree.get(Name=FlowSolution_name, Type='FlowSolution') \
+        and source_tree.get(Name='FlowSolution#Init', Type='FlowSolution'):
+        mola_logger.warning((
+            f"There is no container named {FlowSolution_name} in {source_tree_repr}, "
+            "but at least one FlowSolution#Init is present. Set SourceContainer='FlowSolution#Init'."
+        ))
+        workflow.Initialization['SourceContainer'] = 'FlowSolution#Init'
+    else:  
+        workflow.Initialization.setdefault('SourceContainer', FlowSolution_name)
+
+
+def initialize_flow_from_file_by_interpolation(workflow, FlowSolution_name):
+    '''
+    Initialize the flow solution of **t** from the flow solution in the file **sourceFilename**.
+
+    Parameters
+    ----------
+
+        workflow : :py:obj:`mola.workflow.worflow.Workflow`
+    '''
+    source_tree = _get_source_of_interpolation_for_maia(workflow, FlowSolution_name)
+    workflow.tree = _interpolate_using_maia(source_tree, workflow.tree,
+                        workflow.Numerics['GridLocation'], FlowSolution_name)
+
+def _get_source_of_interpolation_for_maia(workflow, FlowSolution_name : str) -> cgns.Tree:
+    source_tree_repr = workflow.Initialization['Source'] if isinstance(workflow.Initialization['Source'], str) else 'given tree'
+    mola_logger.info(f" - initialize flow by interpolation of {source_tree_repr}", rank=0)
+
+    source_tree = cgns.load(workflow.Initialization['Source'], backend='maia')
+
+    set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source_tree_repr)
+
+    # Rename FlowSolution nodes in the source tree if needed
+    if workflow.Initialization['SourceContainer'] != FlowSolution_name:
+        for FS in source_tree.group(Name=workflow.Initialization['SourceContainer'], Type='FlowSolution'):
+            FS.setName(FlowSolution_name)
+
+    # Remove other containers
+    for FS in source_tree.group(Type='FlowSolution'):
+        if FS.name() != FlowSolution_name:
+            FS.remove()
+
+    if not source_tree.get(Name=FlowSolution_name, Type='FlowSolution'):
+        raise MolaException(f'There is no container named {FlowSolution_name} in {source_tree_repr}')
+
+    # Check that all needed quantities are indeed in the container
+    varNames = list(workflow.Flow['ReferenceState'])
+    warning_msg_already_printed_for_var = dict((var, False) for var in varNames)
+    for FS in source_tree.group(Name=FlowSolution_name, Type='FlowSolution'):
+        for var in varNames:
+            turb_var_already_added = False
+            if FS.get(Name=var, Depth=1) is None:
+                if var in workflow.Turbulence['Conservatives']:
+                    # For turbulent values, allow using the reference state if not provided
+                    if not turb_var_already_added:
+                        # check that once per FlowSolution
+                        uniform_field = {var: workflow.Flow['ReferenceState'][var]}
+                        source_tree.newFields(uniform_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
+                        turb_var_already_added = True
+                        if not warning_msg_already_printed_for_var[var]:
+                            # print that once for all
+                            mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({uniform_field[var]})")
+                            warning_msg_already_printed_for_var[var] = True
+                else:
+                    raise MolaException(f'{var} cannot be found in {FS.path()}')
+    
+    source_tree.findAndRemoveNodes(Type='ZoneBC')  # BC are useless here, and may cause incompatibility between frameworks
+
+    # HACK due to possible presence of 0 size C1 char arrays: may cause future read error for maia
+    source_tree.findAndRemoveNodes(Name=".SoNICS#Codegen",Depth=3) 
+    workflow.tree.findAndRemoveNodes(Name=".SoNICS#Codegen",Depth=3)
+
+    return source_tree
+
+# @parallel_execution_with_maia(second_tree=True)
+def _interpolate_using_maia(source_tree, destination_tree, GridLocation : str,
+                            FlowSolution_name : str):
+    import maia
+    comm, rank, size, nb_digs = get_mpi_elements()
+
+    source_tree = to_partitioned(source_tree)
+    destination_tree = to_partitioned(destination_tree)
+
+    maia.algo.part.interpolate(
+        source_tree, 
+        destination_tree, 
+        comm, 
+        containers_name=[FlowSolution_name], 
+        location=GridLocation,
+        strategy='Closest',
+        n_closest_pt=4,
+        )
+    
+    if maia.pytree.get_node_from_name(source_tree, 'FlowSolution#Height'):
+        maia.algo.part.interpolate(
+            source_tree, 
+            destination_tree, 
+            comm, 
+            containers_name=['FlowSolution#Height'], 
+            location='Vertex',
+            strategy='Closest',
+            n_closest_pt=4,
+            )
+
+    return cgns.castNode(destination_tree)
+
+def initialize_flow_from_file_by_copy(workflow, FlowSolution_name):
+    '''
+    Initialize the flow solution of **workflow.tree** by copying the flow solution in the file or tree
+    **workflow.Initialization['Source']**.
+    Modify the tree in-place.
+
+    Parameters
+    ----------
+
+        workflow : :py:obj:`mola.workflow.worflow.Workflow`
+    '''
+    source_tree_repr = workflow.Initialization['Source'] if isinstance(workflow.Initialization['Source'], str) else 'given tree'
+    mola_logger.info(f" - initialize flow by copy of {source_tree_repr}", rank=0)
+
+    # FIXME Won't work if workflow.tree is a dist_tree or a part_tree (because zone names are modified)
+    source_tree = cgns.load(workflow.Initialization['Source'])
+
+    set_default_SourceContainer(workflow, source_tree, FlowSolution_name, source_tree_repr)
+
+    warning_msg_already_printed_for_var = dict((var, False) for var in workflow.Flow['ReferenceState'])
+    for zone in workflow.tree.zones():
+        FSpath = zone.path() + '/' + workflow.Initialization['SourceContainer']
+        try:
+            FlowSolutionInSourceTree = source_tree.getAtPath(FSpath)
+            assert FlowSolutionInSourceTree is not None
+            zone_in_source_tree = source_tree.getAtPath(zone.path())
+        except:
+            raise MolaException(f"The node {FSpath} is not found in {source_tree_repr}")
+
+        #Rename the container if needed
+        if workflow.Initialization['SourceContainer'] != FlowSolution_name:
+            FlowSolutionInSourceTree.setName(FlowSolution_name)
+
+        # Check that all needed quantities are indeed in the container
+        for var in list(workflow.Flow['ReferenceState']):  
+            turb_var_already_added = False
+            if FlowSolutionInSourceTree.get(Name=var, Depth=1) is None:
+                if var in workflow.Turbulence['Conservatives']:
+                    # For turbulent values, allow using the reference state if not provided
+                    if not turb_var_already_added:
+                        # check that once per FlowSolution
+                        uniform_field = {var: workflow.Flow['ReferenceState'][var]}
+                        zone_in_source_tree.newFields(uniform_field, Container=FlowSolution_name, GridLocation=workflow.Numerics['GridLocation'])
+
+                        turb_var_already_added = True
+                        if not warning_msg_already_printed_for_var[var]:
+                            # print that once for all
+                            mola_logger.user_warning(f"{var} cannot be found in source tree --> use a uniform value ({uniform_field[var]})")
+                            warning_msg_already_printed_for_var[var] = True
+                else:
+                    raise MolaException(f'{var} cannot be found in {FSpath}')
+
+        zone.addChild(FlowSolutionInSourceTree, override_sibling_by_name=True)
+
+        # Copy ChannelHeight if possible
+        try:
+            FSpath = zone.path() + '/FlowSolution#Height'
+            FlowSolutionHeightInSourceTree = source_tree.getAtPath(FSpath)
+            assert FlowSolutionInSourceTree is not None
+            zone.addChild(FlowSolutionHeightInSourceTree, override_sibling_by_name=True)
+        except:
+            pass
+            
+
+def initialize_flow_from_previous(**kwargs):
+    raise MolaException(
+        'Initialization Method="from_previous" is a special method that should '
+        'have been replaced during the "prepare" of a WorkflowManager. '
+        'If you was using a Workflow directly (without WorkflowManager), '
+        'then this Method should not be used.'
+        )
+
+def check_initial_flow_is_in_all_zones(workflow, FlowSolution_name):
+    for zone in workflow.tree.zones():
+        if not zone.get(Name=FlowSolution_name, Type='FlowSolution', Depth=1):
+            raise MolaException(f'{FlowSolution_name} is missing in zone {zone.name()}')
+
+def compute_wall_distance_if_needed(workflow, FlowSolution_name='FlowSolution#Init'):
+    init_opts = workflow.Initialization
+    if workflow.Turbulence['Model'] == 'Euler':
+        init_opts['ComputeWallDistanceAtPreprocess'] = False
+    elif workflow.Solver.lower() == 'fast':
+        init_opts['ComputeWallDistanceAtPreprocess'] = True
+        init_opts['WallDistanceComputingTool'] = 'cassiopee'
+
+    if init_opts['ComputeWallDistanceAtPreprocess']:
+        mola_logger.info(" - computing wall distance", rank=0)
+        tool = init_opts['WallDistanceComputingTool']
+        if tool == 'maia':
+            workflow.tree = compute_wall_distance_with_maia(workflow.tree, FlowSolution_name)
+        elif tool == 'cassiopee':
+            workflow.tree = compute_wall_distance_with_cassiopee(workflow.tree, FlowSolution_name)
+        else:
+            raise MolaUserError(f"unsupported Initialization/WallDistanceComputingTool={tool}")
+        
+        force_grid_location_as_first_sibling(workflow.tree) # HACK
+
+@parallel_execution_with_maia()
+def compute_wall_distance_with_maia(tree: cgns.Tree, FlowSolution_name: str = 'FlowSolution#Init'):
+    import maia
+    import maia.pytree as PT
+
+    # TODO compute row by row for turbomachinery application
+    # TODO get out this function if no BC Wall*
+    # This function needs to be after the definition of boundary conditions
+
+    tree = to_partitioned(tree)
+    maia.algo.part.compute_wall_distance(tree, comm)  # create a FlowSolution container named WallDistance
+    tree = cgns.castNode(tree)
+    for zone in tree.zones():
+        FlowSolution = zone.get(Name=FlowSolution_name)
+        WallDistance = zone.get(Name='WallDistance')
+        if not WallDistance: 
+            continue
+        TurbulentDistance = WallDistance.get(Name='TurbulentDistance')
+        TurbulentDistance.dettach()
+        TurbulentDistance.attachTo(FlowSolution)
+        WallDistance.remove()
+
+    return tree
+
+def compute_wall_distance_with_cassiopee(tree: cgns.Tree, FlowSolution_name: str = 'FlowSolution#Init'):
+
+    import Converter.PyTree as C
+    import Converter.Mpi as Cmpi
+    import Converter.Internal as I
+    import Dist2Walls.PyTree as DTW
+
+    old_container = I.__FlowSolutionCenters__
+    I.__FlowSolutionCenters__ = FlowSolution_name
+    walls = C.extractBCOfType(tree, 'BCWall')
+    walls = C.newPyTree(['Base', walls])
+    walls = Cmpi.allgatherTree(walls)
+    walls = I.getZones(walls)
+    if walls != []:
+        DTW._distance2Walls(tree, walls, loc='centers', type='ortho')
+    else: C._initVars(tree, 'centers:TurbulentDistance', 1000000.0)
+    I.__FlowSolutionCenters__ = old_container
+    tree = cgns.castNode(tree)
+
+    return tree
+
+
+def force_grid_location_as_first_sibling( tree : cgns.Tree ):
+    
+    for fs in tree.group(Type='FlowSolution_t', Depth=4):
+
+        gl = fs.get(Type='GridLocation_t', Depth=1)
+
+        if not gl: continue
+
+        gl.dettach()
+        gl.attachTo(fs, position=0)

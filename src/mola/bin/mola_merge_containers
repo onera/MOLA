@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+#
+# Merge fields containers to facilitate visualization
+import sys
+
+err1 = 'must specify an input file name, e.g.: "mola_merge_containers surfaces.cgns"'
+if len(sys.argv) != 2: raise AttributeError(err1)
+filename = str(sys.argv[1])
+
+import pprint
+from treelab import cgns
+from mola.cfd.postprocess.extractions_with_cassiopee.tools import mergeContainers
+
+t = cgns.load(filename)
+t = mergeContainers(t)
+t = cgns.castNode(t)
+for base in t.bases():
+    zone = base.get(Type='Zone')
+    tags = zone.getParameters('tags_containers')
+    print(f'Tags of Base {base.name()}:')
+    print(pprint.pformat(tags)+'\n')
+
+fsplit = filename.split('.')
+fmt = fsplit[-1]
+new_filename = '.'.join(fsplit[:-1])+'_merged.'+fmt
+t.save(new_filename)

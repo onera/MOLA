@@ -1,0 +1,33 @@
+#!/usr/bin/bash
+#
+# Display all available MOLA commands
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+# Get maximum length of filenames in bin/
+# It will be used later for pretty display
+maxLength=0
+for f in $SCRIPT_DIR/*
+do
+    name=$(basename $f)
+    length=${#name}
+    if [ $length -gt $maxLength ] ; then
+        maxLength=$length
+    fi
+done
+
+for f in $SCRIPT_DIR/*
+do
+    # For each file, get the third line, which is supposed to be a comment and to content a one-line description
+    third_line=$(sed '3!d' $f)
+    # Check the line starts with '#'
+    if [[ $third_line == \#* ]]; then 
+        # If yes, get what comes next to the #
+        description=$(echo $third_line | cut -d '#' -f 2); 
+    else 
+        # If not, get a standard message
+        description=' No description yet: write it in the third line of the file, starting with character #'; 
+    fi
+    # Print command name and its short description
+    printf "%-${maxLength}s :$description\n" $(basename $f)
+done

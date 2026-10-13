@@ -1,0 +1,351 @@
+User interface of Workflow:
+name (allowed types) : default value
+
+Attribute Solver is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      solver_name (str)
+    
+    
+Attribute RawMeshComponents is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      user_list (list)
+    
+    
+where each item is a dict with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Name (str)
+      Source (str, Tree, Base, Zone)
+    Optional:
+      Mesher (str) : None
+      Unit (str) : m
+      CleaningMacro (str) : None
+      Families (list) : None
+      Positioning (list) : None
+      Connection (list) : None
+      OversetOptions (dict) : None
+    
+    
+Attribute Fluid is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      Gamma (float) : 1.4
+      IdealGasConstant (float) : 287.053
+      Prandtl (float) : 0.72
+      PrandtlTurbulent (float) : 0.9
+      SutherlandConstant (float) : 110.4
+      SutherlandViscosity (float) : 1.78938e-05
+      SutherlandTemperature (float) : 288.15
+    
+    
+Attribute Flow is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      Generator (str) : External_rho_T_V
+    
+    
+Attribute Turbulence is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      Viscosity_EddyMolecularRatio (float) : 0.1
+      Level (float) : 0.001
+      Model (str) : Wilcox2006-klim
+      TurbulenceCutOffRatio (float) : 1e-08
+      TransitionMode (str) : None
+    
+    
+Attribute BoundaryConditions is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      user_list (list)
+    
+    
+where each item is a dict with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Family (str)
+      Type (str)
+    
+    
+Attribute SplittingAndDistribution is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      Strategy (str) : AtPreprocess
+      Splitter (str) : Cassiopee
+      Distributor (str) : Cassiopee
+      ComponentsToSplit (str, NoneType, list) : all
+      NumberOfParts (int) : None
+      CoresPerNode (int) : 48
+    
+    
+Attribute Numerics is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      Scheme (str) : Jameson
+      TimeMarching (str) : Steady
+      NumberOfIterations (int) : 10000
+      MinimumNumberOfIterations (int) : 1000
+      IterationAtInitialState (int) : 1
+      TimeAtInitialState (float) : 0.0
+      TimeMarchingOrder (int) : 2
+      TimeStep (float) : None
+      CFL (float, dict) : 10.0
+    
+    
+Attribute BodyForceModeling is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      user_list (list)
+    
+    
+where each item is a dict with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      ToBeImplmented (str) : NotYetImplemented
+    
+    
+Attribute Motion is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      motion_per_family_dict (dict) : None
+    
+    
+Attribute Initialization is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      Method (str) : uniform
+      Source (str, Tree, Base, Zone) : None
+      SourceContainer (str) : None
+      ComputeWallDistanceAtPreprocess (bool) : False
+    
+    
+Attribute ExtractionsDefaults is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      user_list (list) : None
+    
+    
+where each item is a dict with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      ReferenceParameter (str)
+    Optional:
+      Type (str) : None
+      File (str) : None
+      ExtractionsPeriod (int) : None
+      SavePeriod (int) : None
+      Frame (str) : None
+      Override (bool) : None
+      Container (str) : None
+      GridLocation (str) : None
+      GhostCells (bool) : None
+      TimeAveragingFirstIteration (int) : None
+      TimeAveraging (bool) : None
+    
+    
+Attribute Extractions is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      user_list (list)
+    
+    
+where each item is a dict with these authorized keys:
+if Type (str) == "3D"
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Type (str)
+    Optional:
+      Fields (list) : None
+      File (str) : fields.cgns
+      Name (str) : None
+      ExtractionPeriod (int) : 5000
+      SavePeriod (int) : 5000
+      Frame (str) : relative
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      Container (str) : FlowSolution#Output
+      GridLocation (str) : Vertex
+      GhostCells (bool) : False
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveraging (bool) : False
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
+    
+    
+where each item is a dict with these authorized keys:
+if Type (str) == "BC"
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Type (str)
+      Source (str)
+    Optional:
+      Fields (list) : []
+      File (str) : extractions.cgns
+      Name (str) : ByFamily
+      ExtractionPeriod (int) : 100
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      GridLocation (str) : CellCenter
+      Frame (str) : relative
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveragingIterations (int) : 1000
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
+    
+    
+where each item is a dict with these authorized keys:
+if Type (str) == "Integral"
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Type (str)
+      Source (str)
+      Fields (list)
+    Optional:
+      File (str) : signals.cgns
+      Name (str) : ByFamily
+      ExtractionPeriod (int) : 1
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      Frame (str) : absolute
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveragingIterations (int) : 1000
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
+    
+    
+where each item is a dict with these authorized keys:
+if Type (str) == "Interpolation"
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Type (str)
+      Source (str, Tree, Base, Zone)
+    Optional:
+      Fields (list) : None
+      File (str) : extractions.cgns
+      Name (str) : None
+      ExtractionPeriod (int) : 100
+      SavePeriod (int) : 100
+      InterpolationOrder (int) : 0
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : False
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
+    
+    
+where each item is a dict with these authorized keys:
+if Type (str) == "IsoSurface"
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Type (str)
+      IsoSurfaceField (str)
+      IsoSurfaceValue (float)
+      IsoSurfaceContainer (str)
+    Optional:
+      Fields (list) : None
+      File (str) : extractions.cgns
+      Name (str) : None
+      ExtractionPeriod (int) : 100
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      GridLocation (str) : Vertex
+      Frame (str) : relative
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveragingIterations (int) : 1000
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
+    
+    
+where each item is a dict with these authorized keys:
+if Type (str) == "Probe"
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Type (str)
+      Position (list, tuple, ndarray)
+    Optional:
+      Fields (list) : None
+      File (str) : signals.cgns
+      Name (str) : None
+      ExtractionPeriod (int) : 1
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+      Frame (str) : relative
+      TimeAveragingFirstIteration (int) : 1000
+      TimeAveragingIterations (int) : 1000
+      PostprocessOperations (list) : None
+      OtherOptions (dict) : None
+    
+    
+where each item is a dict with these authorized keys:
+if Type (str) == "Residuals"
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Type (str)
+    Optional:
+      File (str) : signals.cgns
+      ExtractionPeriod (int) : 1
+      SavePeriod (int) : 100
+      Override (bool) : True
+      ExtractAtEndOfRun (bool) : True
+    
+    
+where each item is a dict with these authorized keys:
+if Type (str) == "Restart"
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      Type (str)
+    Optional:
+      Fields (list) : None
+      File (str) : main.cgns
+      ExtractionPeriod (int) : 1000000000
+      SavePeriod (int) : 1000000000
+      ExtractAtEndOfRun (bool) : True
+      Frame (str) : relative
+      Container (str) : None
+      GridLocation (str) : CellCenter
+      GhostCells (bool) : False
+    
+    
+Attribute ConvergenceCriteria is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory:
+      user_list (list)
+    
+    
+where each item is a dict with these authorized keys:
+    parameters provided by WorkflowInterface (highest priority):
+    Mandatory keyword-only:
+      ExtractionName (str)
+      Variable (str)
+      Threshold (float)
+    Optional:
+      Necessary (bool) : False
+      Sufficient (bool) : True
+    
+    
+Attribute RunManagement is set using:
+    parameters provided by WorkflowInterface (highest priority):
+    Optional:
+      JobName (str) : None
+      RunDirectory (str, PosixPath) : .
+      NumberOfProcessors (int) : 1
+      NumberOfThreads (int) : None
+      Machine (str) : None
+      User (str) : None
+      TimeLimit (str, float) : None
+      QuitMarginBeforeTimeOutInSeconds (int) : 300
+      LauncherCommand (str) : auto
+      FilesAndDirectories (list) : []
+      mola_target_path (str) : None
+      Scheduler (str) : None
+      AER (str) : None
+    
+    
+Attribute ApplicationContext is set using:
+Attribute SolverParameters is set using:
+

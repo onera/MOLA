@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+#
+# Update workflow parameters
+
+import argparse
+
+from treelab import cgns
+import mola.naming_conventions as names
+from mola.logging import MolaException
+from mola import solver
+
+parser = argparse.ArgumentParser('Update parser')
+parser.add_argument('-f', '--filename',  type=str, default=names.FILE_INPUT_SOLVER, 
+                    help=f'Input filename (default is {names.FILE_INPUT_SOLVER})')
+parser.add_argument('-niter', '--NumberOfIterations', type=int, help='Number of iterations')
+parser.add_argument('-p', '--param', type=str, help=f'Name of a parameters that is written only once in {names.CONTAINER_WORKFLOW_PARAMETERS}')
+parser.add_argument('-v', '--value', help=f'New value for the given parameter (with option -p or --param)')
+parser.add_argument('-c', '--criterion', action='store_true', help=f'Change value of a convergence criterion')
+args = parser.parse_args()
+
+try:
+    WorkflowParameters = cgns.load_from_path(args.filename, names.CONTAINER_WORKFLOW_PARAMETERS)
+except:
+    raise MolaException(f'Unable to read {args.filename}')
+
+def _modify_parameter():
+    # Search param only in SolverParameters to prevent issues
+    SolverParameters = WorkflowParameters.get(Name='SolverParameters')
+    if args.param in ['NumberOfIterations', 'niter']:
+        raise MolaException(f'You cannot modify this parameter with option --param. Please use the dedicated option (see doc with --help)')
+    if args.value is None:
+        raise MolaException(f'You must prescribe a new value for {args.param} with option -v or --value')
+    if not isinstance(args.value, (int, float)):
+        # For type str, writting a string with a different length that the previous one raises an error in saveThisNodeOnly method
+        raise MolaException(f'Only int or float values can be modified with this function ({args.value} is of type {type(args.value)})')
+    node = SolverParameters.get(Name=args.param)
+    if node is None:
+        raise MolaException(f'Unable to find parameter "{args.param}" in {args.filename}')
+    node.setValue(args.value)
+    node.saveThisNodeOnly(args.filename)  
+    print(f'{args.param} has been updated to {args.value}')
+
+def _modify_criterion():
+    ConvergenceCriteria = WorkflowParameters.getParameters('ConvergenceCriteria', transform_numpy_scalars=True)
+    if len(ConvergenceCriteria) == 0:
+        raise MolaException(f"There is no convergence criterion defined in {names.FILE_INPUT_SOLVER}")
+    print("Select a criterion to update:")
+    i = 1
+    for criterion in ConvergenceCriteria:
+        print(f"  {i}) {criterion['Variable']} < {criterion['Threshold']} on {criterion['ExtractionName']}")
+        i += 1
+    choice = int(input("Which criterion would you want to change? (write the number) : "))
+    assert 0 < choice < i, f"Wrong choice, you could choose between 1 and {i-1}"
+    criterion = ConvergenceCriteria[choice-1]
+
+    new_threshold = float(input((
+        "What is the new threshold value you want to use "
+        f"for {criterion['Variable']} on {criterion['ExtractionName']}? : "
+    )))
+    ConvergenceCriteriaNode = WorkflowParameters.get(Name='ConvergenceCriteria')
+    threshold_node = None
+    for criterion_node in ConvergenceCriteriaNode.children():
+        if criterion_node.get(Name='ExtractionName', Value=criterion['ExtractionName']) \
+            and criterion_node.get(Name='Variable', Value=criterion['Variable']):
+            threshold_node = criterion_node.get(Name='Threshold')
+            break
+    assert threshold_node, "Could not find the corresponding node in tree"
+    threshold_node.setValue(new_threshold)
+    threshold_node.saveThisNodeOnly(args.filename)  
+    print(f"> Threshold has been modified to {new_threshold}")
+
+
+if args.param is not None:
+    _modify_parameter()
+
+if args.criterion:
+    _modify_criterion()
+
+if args.NumberOfIterations is not None:
+    node = WorkflowParameters.get(Name='NumberOfIterations')
+    node.setValue(args.NumberOfIterations)
+    node.saveThisNodeOnly(args.filename) 
+    if solver == 'elsa':
+        # nothing to do for Fast or SoNICS
+        node = WorkflowParameters.get(Name='niter')
+        node.setValue(args.NumberOfIterations)
+        node.saveThisNodeOnly(args.filename)
+    print(f'NumberOfIterations has been updated to {args.NumberOfIterations}')

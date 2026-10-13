@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+#
+# watch the current directory files
+
+watch -n 0.5 --color ls --color -F -lt -h

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# Convert a mesh to unstructured monoblock (NGON)
+set -euo pipefail
+
+# Decide how many MPI processes to use:
+# 1) If running under SLURM, use SLURM_NTASKS (resource manager handles slots)
+# 2) Else, allow override with MOLA_MESH_NP
+# 3) Else, default to all hardware threads with nproc --all
+if [[ -n "${SLURM_NTASKS-}" ]]; then
+    NP="$SLURM_NTASKS"
+    # Under SLURM, slot counting is handled by the RM; no special flags needed
+    EXTRA_MPI_FLAGS=()
+else
+    NP="${MOLA_MESH_NP:-$(nproc --all)}"
+    # Outside a resource manager, nproc --all counts hw threads; tell OpenMPI to use them
+    EXTRA_MPI_FLAGS=(--use-hwthread-cpus)
+fi
+
+# Optional: allow user to add extra MPI flags (e.g. --oversubscribe) via env var
+if [[ -n "${MOLA_MESH_MPI_EXTRA-}" ]]; then
+    # shellcheck disable=SC2206
+    EXTRA_MPI_FLAGS+=(${MOLA_MESH_MPI_EXTRA})
+fi
+
+# Resolve the directory where this script lives
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Call the Python script under mpirun
+exec mpirun "${EXTRA_MPI_FLAGS[@]}" -np "${NP}" python3 "${SCRIPT_DIR}/../../../scripts/mola_mesh_to_ngon.py" "$@"
