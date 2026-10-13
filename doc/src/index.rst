@@ -2,7 +2,7 @@
 MOLA documentation
 ##################
 
-Welcome to **MOLA** (Modular Orchestration Library for Aerodynamics)
+Welcome to **MOLA** v2 (Modular Orchestration Library for Aerodynamics)
 documentation website.
 
 MOLA is an `ONERA <https://www.onera.fr>`_ code [#f1]_
