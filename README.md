@@ -5,20 +5,29 @@ MOLA (Modular Orchestration Library for Aerodynamics) is an ONERA Python code th
 [![Python 3](https://img.shields.io/static/v1?label=Python&logo=Python&color=3776AB&message=3)](https://www.python.org/)
 ![License-LGPL3](https://img.shields.io/badge/license-LGPLv3-blue.svg)
 
+## Documentation
+
+For documentation, examples, major changes, please consult the [documentation site](http://numerics.gitlab-pages.onera.net/mola/)
+
+
 ## Source MOLA for ONERA users
 
 Please use one of the latest **stable versions** of MOLA: 
 
-`source /stck/mola/vX.Y.Z/src/mola/env/onera/env.sh <SOLVER>`
+```bash
+source /stck/mola/vX.Y.Z/env_mola.sh "solver"
+```
 
-The argument `<SOLVER>` is the name (lowercase) of the solver you want to use. 
+The argument `"solver"` is the name (lowercase) of the solver you want to use. 
 For instance, to use MOLA for elsA, use the command: 
 
-`source /stck/mola/vX.Y.Z/src/mola/env/onera/env.sh elsa`
+```bash
+source /stck/mola/vX.Y.Z/env_mola.sh elsa
+```
 
 ## Installation
 
-Refer to the [documentation site](https://numerics.gitlab-pages.onera.net/mola/latest/developer_manual/deployment.html).
+Refer to the [dedicated section of the documentation](https://numerics.gitlab-pages.onera.net/mola/latest/developer_manual/deployment.html).
 
 ## Usage
 
@@ -26,14 +35,8 @@ Refer to the [documentation site](https://numerics.gitlab-pages.onera.net/mola/l
 from mola.workflow import Workflow  # choose a suitable Workflow for your application
 
 workflow = Workflow(...)  # user parameters don't change with the solver
-workflow.prepare()
-workflow.write_cfd_files()
-workflow.submit()
+workflow.submit() # handles remote cluster job submission including preprocess
 ```
-
-## Documentation
-
-For documentation, examples, major changes, please consult the [documentation site](http://numerics.gitlab-pages.onera.net/mola/)
 
 ## Contributing
 
